@@ -1948,8 +1948,8 @@ function _findBestPositionForCihaz(c, obstacleRects, sceneCenter, pipeSegments) 
 // Engeller listesi sıralı doldurulur: önce yerleşen etiket sonrakine engel
 // olur (üstüste binmeyi önler).
 function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors) {
-    // Nesneyle etiket arasında bırakılan minimum boşluk
-    const GAP = 35;
+    // Nesneyle etiket arasında bırakılan minimum boşluk (Yakınlığı teşvik eder)
+    const GAP = 25; 
 
     const objHalf = _getObjectHalfSize(c.obj);
     const lblHW = c.bw / 2;
@@ -1958,32 +1958,32 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors)
     const baseOffY = objHalf.hh + GAP + lblHH;
     const baseOffX = objHalf.hw + GAP + lblHW;
 
-    // Yön kümesi:
-    //   - 4 ana yön (penalty 0)
-    //   - Sağa kaydırılmış varyantlar (üst-sağ-shift / alt-sağ-shift) — orta ceza
-    //   - Çaprazlar (yüksek ceza, son çare)
+    // YÖNLER: Düz yönler öncelikli (ceza 0). 
+    // Çaprazlara makul cezalar verildi (Uzağa fırlamaktansa tercih edilecekler).
     const directions = [
         // Düz eksenler
         { id: 'bottom', nx: 0, ny: 1, align: 'vertical', pref: ['cihaz', 'sayac', 'servis_kutusu'], dirPenalty: 0 },
         { id: 'right', nx: 1, ny: 0, align: 'horizontal', pref: ['vana', 'regulator', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre'], dirPenalty: 0 },
-        { id: 'top', nx: 0, ny: -1, align: 'vertical', pref: [], dirPenalty: 0 }, // 'boru' silindi
+        { id: 'top', nx: 0, ny: -1, align: 'vertical', pref: [], dirPenalty: 0 },
         { id: 'left', nx: -1, ny: 0, align: 'horizontal', pref: [], dirPenalty: 0 },
 
-        // "Sağa kaydır" varyantları — bağlantı çizgisi nesneden etikete sağa eğik gider
-        { id: 'top-rs', nx: 0.45, ny: -0.89, align: 'free', pref: [], dirPenalty: 80 },
-        { id: 'bottom-rs', nx: 0.45, ny: 0.89, align: 'free', pref: [], dirPenalty: 80 },
-        { id: 'right-us', nx: 0.89, ny: -0.45, align: 'free', pref: [], dirPenalty: 90 },
-        { id: 'right-ds', nx: 0.89, ny: 0.45, align: 'free', pref: [], dirPenalty: 90 },
+        // Hafif eğik yönler (Kaydırılmış)
+        { id: 'top-rs', nx: 0.45, ny: -0.89, align: 'free', pref: [], dirPenalty: 100 },
+        { id: 'bottom-rs', nx: 0.45, ny: 0.89, align: 'free', pref: [], dirPenalty: 100 },
+        { id: 'right-us', nx: 0.89, ny: -0.45, align: 'free', pref: [], dirPenalty: 100 },
+        { id: 'right-ds', nx: 0.89, ny: 0.45, align: 'free', pref: [], dirPenalty: 100 },
 
-        // Çaprazlar (son çare — düz veya sağa-eğik bulunmazsa)
-        { id: 'br', nx: 0.7071, ny: 0.7071, align: 'free', pref: [], dirPenalty: 200 },
-        { id: 'tr', nx: 0.7071, ny: -0.7071, align: 'free', pref: [], dirPenalty: 220 },
-        { id: 'bl', nx: -0.7071, ny: 0.7071, align: 'free', pref: [], dirPenalty: 260 },
-        { id: 'tl', nx: -0.7071, ny: -0.7071, align: 'free', pref: [], dirPenalty: 280 },
+        // Tam çaprazlar
+        { id: 'br', nx: 0.7071, ny: 0.7071, align: 'free', pref: [], dirPenalty: 140 },
+        { id: 'tr', nx: 0.7071, ny: -0.7071, align: 'free', pref: [], dirPenalty: 140 },
+        { id: 'bl', nx: -0.7071, ny: 0.7071, align: 'free', pref: [], dirPenalty: 140 },
+        { id: 'tl', nx: -0.7071, ny: -0.7071, align: 'free', pref: [], dirPenalty: 140 },
     ];
 
     const ignorePipeId = c.obj.type === 'boru' ? c.obj.id : null;
-    const distances = [1.0, 1.35, 1.8, 2.4, 3.2, 4.2];
+    
+    // Mesafeler: Yeterli boşluk yoksa kademeli olarak açılır.
+    const distances = [1.0, 1.3, 1.7, 2.3, 3.2, 4.5];
 
     let bestScore = Infinity;
     let bestSpot = { cx: c.anchor.x + baseOffX, cy: c.anchor.y + baseOffY, align: 'vertical' };
@@ -1997,77 +1997,92 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors)
             const candBy = candCY - lblHH;
 
             let penalty = dir.dirPenalty;
-            // Mesafe cezası: yakın ideal
-            penalty += (d - 1.0) * 110;
+            
+            // MESAFE CEZASI: Uzağa gitmek çapraz gitmekten daha pahalıdır.
+            // d=2.3 (uzak) seçeneği 195 ceza alırken, yakındaki çapraz (140) daha cazip olur.
+            penalty += (d - 1.0) * 150;
 
-            // Doğal yön tercihi
             let isPref = dir.pref.includes(c.obj.type);
 
-            // EKLENEN KISIM: Borular için yöneltiye göre dinamik eksen tercihi
-            if (c.obj.type === 'boru' && c.obj.p1 && c.obj.p2) {
-                const dx = Math.abs(c.obj.p2.x - c.obj.p1.x);
-                const dy = Math.abs(c.obj.p2.y - c.obj.p1.y);
-                const isVertical = dy > dx;
-
-                if (isVertical) {
-                    // Dikey boruysa sol veya sağ boşluk tercih edilir
-                    isPref = (dir.id === 'left' || dir.id === 'right');
-                } else {
-                    // Yatay boruysa üst veya alt boşluk tercih edilir
-                    isPref = (dir.id === 'top' || dir.id === 'bottom');
-                }
-            }
-
-            // Etiket bağlantı çizgisi nesnenin oturduğu boruya dik olsun:
-            // aday yönü boru ekseniyle ne kadar paralelse o kadar ağır ceza.
+            // --- KURAL 1: KESİNLİKLE BORU ÜZERİNDEN VE PARALEL GİTME YASAĞI ---
             if (c.hostPipeDir) {
+                // dot product: 1 ise tamamen paralel, 0 ise tam dik.
                 const par = Math.abs(dir.nx * c.hostPipeDir.ux + dir.ny * c.hostPipeDir.uy);
-                penalty += par * par * 220;
-                // En diklik veren cardinal yönü pref say (boru için zaten yukarıda set ediliyor;
-                // bileşenler için de ekleyelim ki ağırlıkça çekici olsun)
-                if (c.obj.type !== 'boru') {
-                    const isAxisDir = (dir.id === 'top' || dir.id === 'bottom'
-                        || dir.id === 'left' || dir.id === 'right');
-                    if (isAxisDir && par < 0.2) isPref = true;
+                
+                if (par > 0.85) {
+                    // Bağlantı çizgisi borunun tam üstünden gidiyorsa -> REDDET!
+                    penalty += 5000;
+                } else if (par < 0.2) {
+                    // Boruya tam dikse -> ÖDÜLLENDİR
+                    penalty -= 60; 
+                    if (c.obj.type !== 'boru') isPref = true;
+                } else {
+                    // Çaprazsa paralellik oranına göre hafif ceza
+                    penalty += par * 150;
                 }
             }
 
-            if (!isPref) penalty += 60;
+            if (!isPref) penalty += 80;
 
-            // Yakın komşulardan uzaklaşma: iki nesne birbirine yakınsa
-            // etiketleri ters yönlere çıkar (örn. yatayda yan yana iki vana →
-            // soldaki sola, sağdaki sağa). Yön komşuya BAKIYORSA ceza,
-            // KAÇIYORSA küçük bonus.
+            // --- KURAL 2: SIKIŞIK ALANLARDA KARŞILIKLI YERLEŞİM ---
+            // Yakınlardaki nesnelerin etiketleri aynı yöne bakıp üst üste binmesin.
             if (neighborAnchors && neighborAnchors.length) {
-                const NEAR = 90; // cm — bu mesafe altı "yakın komşu"
+                const NEAR = 100; // Komşuluk algılama mesafesi
                 for (const na of neighborAnchors) {
                     const ndx = na.x - c.anchor.x;
                     const ndy = na.y - c.anchor.y;
                     const dist = Math.hypot(ndx, ndy);
                     if (dist < 1 || dist > NEAR) continue;
+                    
                     const ux = ndx / dist;
                     const uy = ndy / dist;
-                    const toward = dir.nx * ux + dir.ny * uy; // +1 = komşuya doğru
-                    const w = (NEAR - dist) / NEAR;
-                    penalty += toward * w * 70;
+                    const toward = dir.nx * ux + dir.ny * uy; 
+                    const w = (NEAR - dist) / NEAR; // Ne kadar yakınsa o kadar etkili
+                    
+                    // toward > 0 ise aynı yöne bakıyorlar, toward < 0 ise zıt yöne kaçıyorlar
+                    // Aynı yöne bakmak cezalandırılır, bu da etiketlerin hattın iki yanına saçılmasını sağlar.
+                    penalty += toward * w * 250; 
                 }
             }
 
-            // Engellerle çakışma — KIRMIZI ÇİZGİ: üst üste binme yasak
+            // --- KURAL 3: NESNE ÜSTÜNE KUTU BİNMESİ YASAĞI ---
             for (const obs of obstacleRects) {
                 if (!(candBx + c.bw <= obs.bx || candBx >= obs.bx + obs.bw ||
                     candBy + c.bh <= obs.by || candBy >= obs.by + obs.bh)) {
                     const ox = Math.min(candBx + c.bw, obs.bx + obs.bw) - Math.max(candBx, obs.bx);
                     const oy = Math.min(candBy + c.bh, obs.by + obs.bh) - Math.max(candBy, obs.by);
-                    // Çok ağır ceza → çakışmasız varyant her zaman kazanır
-                    penalty += (ox * oy) * 50 + 5000;
+                    penalty += (ox * oy) * 50 + 4000;
                 }
             }
-            // Boru üstüne düşme
+
+            // --- KURAL 4: BAĞLANTI ÇİZGİSİNİN NESNELERİ KESMESİ ---
+            const lineStartX = c.anchor.x + dir.nx * (objHalf.hw + 5);
+            const lineStartY = c.anchor.y + dir.ny * (objHalf.hh + 5);
+            
+            let lineCrossesObstacle = false;
+            for (const obs of obstacleRects) {
+                if (obs.bx === candBx && obs.by === candBy) continue; 
+                if (_segIntersectsRect(lineStartX, lineStartY, candCX, candCY, obs.bx, obs.by, obs.bw, obs.bh)) {
+                    lineCrossesObstacle = true;
+                    break;
+                }
+            }
+            if (lineCrossesObstacle) {
+                penalty += 600; // Kesin yasak değil ama olabildiğince kaçın (Çapraza gitmeye değer)
+            }
+
+            // Boru kontrolleri
             if (pipeSegments && pipeSegments.length) {
                 for (const seg of pipeSegments) {
+                    // Kutu boruyla kesişiyor mu?
                     if (_segmentIntersectsRect(seg, candBx, candBy, c.bw, c.bh, ignorePipeId)) {
-                        penalty += 400;
+                        penalty += 400; 
+                    }
+                    // Çizgi başka boruyu kesiyor mu?
+                    if (ignorePipeId !== seg.pipeId) {
+                        if (_segOverlapsSeg(lineStartX, lineStartY, candCX, candCY, seg.x1, seg.y1, seg.x2, seg.y2)) {
+                            penalty += 500;
+                        }
                     }
                 }
             }
@@ -2078,15 +2093,14 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors)
             }
             if (penalty < layerBest) layerBest = penalty;
         }
-        // Bu mesafede çakışmasız ve düz-yön çözüm bulunduysa daha uzağa açılma
-        if (layerBest < 200) break;
+        
+        // Bu mesafede yeterince iyi (çarpışmasız, paralelsiz) bir konum bulunduysa daha uzağa gitme
+        if (layerBest < 250) break;
     }
 
-    // Skor değerini de sonuca ekleyerek döndür
     bestSpot.score = bestScore;
     return bestSpot;
 }
-
 function _sign(val) { return val >= 0 ? 1 : -1; }
 
 function _getPushVector(r1, r2, pad) {
