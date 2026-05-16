@@ -333,8 +333,11 @@ export function updateGhostPosition(ghost, point, snap) {
         }
     }
 
-    // Sayaç/Vana - boru açısına hizala
-    if ((ghost.type === 'sayac' || ghost.type === 'vana') && snap && snap.target) {
+    // Sayaç/Vana/Tesisat aksesuarı - boru açısına hizala
+    if ((ghost.type === 'sayac' || ghost.type === 'vana'
+        || ghost.type === 'regulator' || ghost.type === 'filtre'
+        || ghost.type === 'izolasyon_flansi' || ghost.type === 'kompansator'
+        || ghost.type === 'manometre') && snap && snap.target) {
         if (snap.target.isPipe) {
             ghost.rotation = snap.target.aciDerece || 0;
         }

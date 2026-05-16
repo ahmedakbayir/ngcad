@@ -943,6 +943,116 @@ export const PROPERTY_DEFS = {
     },
 
     // ════════════════════════════════════════════════════════
+    // TESİSAT AKSESUARLARI (Filtre / İzolasyon Flanşı / Kompansatör / Manometre)
+    // ════════════════════════════════════════════════════════
+
+    // FİLTRE
+    filtre_sec_tanim: { type: 'section', label: 'Tanım' },
+    filtreKonik: {
+        label: 'Konik',
+        type: 'toggle',
+        key: 'konik',
+        default: false,
+    },
+    filtreMuhafaza: {
+        label: 'Muhafaza',
+        type: 'toggle',
+        key: 'muhafaza',
+        default: false,
+        groupBtn: 'muhafazaGrupla',
+    },
+    filtre_sec_urun: { type: 'section', label: 'Ürün' },
+    filtreMarka: {
+        label: 'Marka',
+        type: 'text',
+        key: 'marka',
+        default: '',
+        placeholder: 'Marka...',
+    },
+    filtreModel: {
+        label: 'Model',
+        type: 'text',
+        key: 'model',
+        default: '',
+        placeholder: 'Model...',
+    },
+
+    // İZOLASYON FLANŞI
+    izolasyon_sec_tanim: { type: 'section', label: 'Tanım' },
+    izolasyonMuhafaza: {
+        label: 'Muhafaza',
+        type: 'toggle',
+        key: 'muhafaza',
+        default: false,
+        groupBtn: 'muhafazaGrupla',
+    },
+    izolasyon_sec_urun: { type: 'section', label: 'Ürün' },
+    izolasyonMarka: {
+        label: 'Marka',
+        type: 'text',
+        key: 'marka',
+        default: '',
+        placeholder: 'Marka...',
+    },
+    izolasyonModel: {
+        label: 'Model',
+        type: 'text',
+        key: 'model',
+        default: '',
+        placeholder: 'Model...',
+    },
+
+    // KOMPANSATÖR
+    kompansator_sec_tanim: { type: 'section', label: 'Tanım' },
+    kompansatorMuhafaza: {
+        label: 'Muhafaza',
+        type: 'toggle',
+        key: 'muhafaza',
+        default: false,
+        groupBtn: 'muhafazaGrupla',
+    },
+    kompansator_sec_urun: { type: 'section', label: 'Ürün' },
+    kompansatorMarka: {
+        label: 'Marka',
+        type: 'text',
+        key: 'marka',
+        default: '',
+        placeholder: 'Marka...',
+    },
+    kompansatorModel: {
+        label: 'Model',
+        type: 'text',
+        key: 'model',
+        default: '',
+        placeholder: 'Model...',
+    },
+
+    // MANOMETRE
+    manometre_sec_tanim: { type: 'section', label: 'Tanım' },
+    manometreMuhafaza: {
+        label: 'Muhafaza',
+        type: 'toggle',
+        key: 'muhafaza',
+        default: false,
+        groupBtn: 'muhafazaGrupla',
+    },
+    manometre_sec_urun: { type: 'section', label: 'Ürün' },
+    manometreMarka: {
+        label: 'Marka',
+        type: 'text',
+        key: 'marka',
+        default: '',
+        placeholder: 'Marka...',
+    },
+    manometreModel: {
+        label: 'Model',
+        type: 'text',
+        key: 'model',
+        default: '',
+        placeholder: 'Model...',
+    },
+
+    // ════════════════════════════════════════════════════════
     // SERVİS KUTUSU
     // ════════════════════════════════════════════════════════
 
@@ -1755,6 +1865,35 @@ export const OBJECT_PROPERTIES = {
         'regulatorMarka',
         'regulatorModel',
     ],
+    filtre: [
+        'filtre_sec_tanim',
+        'filtreKonik',
+        'filtreMuhafaza',
+        'filtre_sec_urun',
+        'filtreMarka',
+        'filtreModel',
+    ],
+    izolasyon_flansi: [
+        'izolasyon_sec_tanim',
+        'izolasyonMuhafaza',
+        'izolasyon_sec_urun',
+        'izolasyonMarka',
+        'izolasyonModel',
+    ],
+    kompansator: [
+        'kompansator_sec_tanim',
+        'kompansatorMuhafaza',
+        'kompansator_sec_urun',
+        'kompansatorMarka',
+        'kompansatorModel',
+    ],
+    manometre: [
+        'manometre_sec_tanim',
+        'manometreMuhafaza',
+        'manometre_sec_urun',
+        'manometreMarka',
+        'manometreModel',
+    ],
     servis_kutusu: [
         // 'kutu_sec_tanim',
         'kutuTipi',
@@ -1872,6 +2011,10 @@ export function getObjectTypeLabel(type) {
         sayac: 'Sayaç',
         vana: 'Vana',
         regulator: 'Regülatör',
+        filtre: 'Filtre',
+        izolasyon_flansi: 'İzolasyon Flanşı',
+        kompansator: 'Kompansatör',
+        manometre: 'Manometre',
         servis_kutusu: 'Servis Kutusu',
         cihaz: 'Cihaz',
         room: 'Oda',

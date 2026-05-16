@@ -23,6 +23,7 @@ import {
     restorePreviousMode,
     handleVanaPlacement,
     handleRegulatorPlacement,
+    handleFittingPlacement,
     handleComponentOnPipePlacement,
     handleSayacEndPlacement,
     handleCihazEkleme,
@@ -158,6 +159,10 @@ export const TESISAT_MODLARI = {
     SAYAC: 'sayac',
     VANA: 'vana',
     REGULATOR: 'regulator',
+    FILTRE: 'filtre',
+    IZOLASYON_FLANSI: 'izolasyon_flansi',
+    KOMPANSATOR: 'kompansator',
+    MANOMETRE: 'manometre',
     CIHAZ: 'cihaz',
     BACA: 'baca'
 };
@@ -216,6 +221,9 @@ export class InteractionManager {
 
         // Regülatör preview (regulator tool aktif)
         this.regulatorPreview = null; // { pipe, point, t }
+
+        // Tesisat aksesuarı preview (filtre/izolasyon flanşı/kompansatör/manometre tool aktif)
+        this.fittingPreview = null; // { pipe, point, t, snapToEnd, fittingType }
 
         // Sayaç/Cihaz boru üzerine ekleme preview (sayac/cihaz tool aktif)
         this.componentOnPipePreview = null; // { pipe, point, componentType }
@@ -436,6 +444,10 @@ export class InteractionManager {
 
     handleRegulatorPlacement(regulatorPreview) {
         return handleRegulatorPlacement.call(this, regulatorPreview);
+    }
+
+    handleFittingPlacement(fittingPreview) {
+        return handleFittingPlacement.call(this, fittingPreview);
     }
 
     handleComponentOnPipePlacement(pipe, splitPoint, componentType) {

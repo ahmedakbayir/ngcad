@@ -199,7 +199,7 @@ export const InteractionMixin = {
                 y: (obj.p1.y + obj.p2.y) / 2,
                 z: ((obj.p1.z || 0) + (obj.p2.z || 0)) / 2
             };
-        } else if (obj.type === 'vana' || obj.type === 'sayac' || obj.type === 'cihaz' || obj.type === 'servis_kutusu') {
+        } else if (obj.type === 'vana' || obj.type === 'regulator' || obj.type === 'sayac' || obj.type === 'cihaz' || obj.type === 'servis_kutusu' || obj.type === 'filtre' || obj.type === 'izolasyon_flansi' || obj.type === 'kompansator' || obj.type === 'manometre') {
             // Obje taşıması - Tüm eksenler
             point = { x: obj.x, y: obj.y, z: obj.z || 0 };
         }
@@ -270,7 +270,7 @@ export const InteractionMixin = {
                     this.drawTranslateGizmo(ctx, centerPoint, hoverAx, bodyAllowedAxes);
                 }
             }
-        } else if (obj.type === 'vana' || obj.type === 'sayac' || obj.type === 'cihaz' || obj.type === 'servis_kutusu') {
+        } else if (obj.type === 'vana' || obj.type === 'regulator' || obj.type === 'sayac' || obj.type === 'cihaz' || obj.type === 'servis_kutusu' || obj.type === 'filtre' || obj.type === 'izolasyon_flansi' || obj.type === 'kompansator' || obj.type === 'manometre') {
             // Diğer nesneler için kendi pozisyonunu kullan - Hover edilen eksen belirgin olsun
             const point = { x: obj.x, y: obj.y, z: obj.z || 0 };
             const allowedAxes = ['X', 'Y', 'Z'];

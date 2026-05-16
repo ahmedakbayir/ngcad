@@ -29,7 +29,9 @@ function _aabb(comp, t) {
         const cfg = comp.config || SAYAC_CONFIG;
         hw = cfg.width  / 2;
         hh = cfg.height / 2;
-    } else if (comp.type === 'vana') {
+    } else if (comp.type === 'vana' || comp.type === 'regulator'
+        || comp.type === 'filtre' || comp.type === 'izolasyon_flansi'
+        || comp.type === 'kompansator' || comp.type === 'manometre') {
         hw = (comp.config?.width  || 8) / 1.5;
         hh = (comp.config?.height || 8) / 1.5;
     } else if (comp.type === 'cihaz') {
@@ -115,7 +117,7 @@ export const EnclosureMixin = {
 
         manager.components.forEach(comp => {
             if (!comp.muhafaza) return;
-            if (!['vana', 'sayac', 'cihaz', 'regulator'].includes(comp.type)) return;
+            if (!['vana', 'sayac', 'cihaz', 'regulator', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre'].includes(comp.type)) return;
 
             const bb = _aabb(comp, t);
             const box = {

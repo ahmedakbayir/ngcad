@@ -11,6 +11,7 @@ import { Boru, createBoru, BAGLANTI_TIPLERI } from './objects/pipe.js';
 import { Sayac, createSayac } from './objects/meter.js';
 import { Vana, createVana } from './objects/valve.js';
 import { Regulator, createRegulator } from './objects/regulator.js';
+import { PipeFitting, createPipeFitting, FITTING_DEFS } from './objects/pipe-fitting.js';
 import { Cihaz, createCihaz } from './objects/device.js';
 import { recomputeAllPressures } from './utils/pressure-recompute.js';
 import { Baca, createBaca } from './objects/chimney.js';
@@ -140,6 +141,17 @@ export class PlumbingManager {
                 this.tempComponent = createRegulator(0, 0, {
                     floorId: state.currentFloor?.id
                 });
+                break;
+
+            case TESISAT_MODLARI.FILTRE:
+            case TESISAT_MODLARI.IZOLASYON_FLANSI:
+            case TESISAT_MODLARI.KOMPANSATOR:
+            case TESISAT_MODLARI.MANOMETRE:
+                if (FITTING_DEFS[type]) {
+                    this.tempComponent = createPipeFitting(type, 0, 0, {
+                        floorId: state.currentFloor?.id
+                    });
+                }
                 break;
 
             case TESISAT_MODLARI.CIHAZ:
@@ -375,6 +387,11 @@ export class PlumbingManager {
                         return Cihaz.fromJSON(data);
                     case 'baca':
                         return Baca.fromJSON(data);
+                    case 'filtre':
+                    case 'izolasyon_flansi':
+                    case 'kompansator':
+                    case 'manometre':
+                        return PipeFitting.fromJSON(data);
                     default:
                         return null;
                 }
@@ -412,9 +429,9 @@ export class PlumbingManager {
         const pipe = this.findPipeById(pipeId);
         if (!pipe) return;
 
-        // Boruda bağlı vana ve regülatörleri bul
+        // Boruda bağlı vana, regülatör ve tesisat aksesuarlarını bul
         const valves = this.components.filter(
-            c => (c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === pipeId
+            c => _isOnPipeComponent(c.type) && c.bagliBoruId === pipeId
         );
 
         // Her vananın pozisyonunu güncelle
@@ -427,7 +444,7 @@ export class PlumbingManager {
      * Tüm vanaların pozisyonlarını güncelle
      */
     updateAllValvePositions() {
-        const valves = this.components.filter(c => c.type === 'vana' || c.type === 'regulator');
+        const valves = this.components.filter(c => _isOnPipeComponent(c.type));
 
         valves.forEach(vana => {
             if (vana.bagliBoruId) {
@@ -695,7 +712,7 @@ export class PlumbingManager {
 
             const compScreen = getScreenPoint({ x: cx, y: cy, z: comp.z || 0 });
             const dist = Math.hypot(pos.x - compScreen.x, pos.y - compScreen.y);
-            const selectTolerance = (comp.type === 'vana' || comp.type === 'regulator') ? 6 : tolerance * 2;
+            const selectTolerance = _isOnPipeComponent(comp.type) ? 6 : tolerance * 2;
             if (dist < selectTolerance && dist < bestDist) {
                 bestDist = dist;
                 bestHit = { type: 'component', object: comp, handle: 'body' };
@@ -793,6 +810,11 @@ export class PlumbingManager {
                         return Cihaz.fromJSON(c);
                     case 'baca':
                         return Baca.fromJSON(c);
+                    case 'filtre':
+                    case 'izolasyon_flansi':
+                    case 'kompansator':
+                    case 'manometre':
+                        return PipeFitting.fromJSON(c);
                     default:
                         return null;
                 }
@@ -876,6 +898,17 @@ export class PlumbingManager {
     updatePipeColorsAfterMeter(_sayacId) {
         this.recomputePipeParents();
     }
+}
+
+/**
+ * Boruya bağlı (boru üstünde kayan) bileşen mi?
+ * Vana, regülatör ve tesisat aksesuarları (filtre, izolasyon flanşı,
+ * kompansatör, manometre) bu kategoridedir.
+ */
+function _isOnPipeComponent(type) {
+    return type === 'vana' || type === 'regulator'
+        || type === 'filtre' || type === 'izolasyon_flansi'
+        || type === 'kompansator' || type === 'manometre';
 }
 
 /**

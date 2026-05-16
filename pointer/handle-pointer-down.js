@@ -209,6 +209,14 @@ export function handlePointerDown(e) {
         return true;
     }
 
+    // 0.4c Tesisat aksesuarı ekleme - Filtre / İzolasyon Flanşı / Kompansatör / Manometre
+    if (!this.boruCizimAktif && this.fittingPreview &&
+        (this.manager.activeTool === 'filtre' || this.manager.activeTool === 'izolasyon_flansi' ||
+         this.manager.activeTool === 'kompansator' || this.manager.activeTool === 'manometre')) {
+        this.handleFittingPlacement(this.fittingPreview);
+        return true;
+    }
+
     // 0.5 Pipe splitting - Boru tool aktif ama çizim modu değil
     if (this.manager.activeTool === 'boru' && !this.boruCizimAktif && this.pipeSplitPreview) {
         this.handlePipeSplit(this.pipeSplitPreview.pipe, this.pipeSplitPreview.point);
@@ -330,8 +338,11 @@ export function handlePointerDown(e) {
                         }
                     }
                 }
-            } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||
-                       this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'servis_kutusu') {
+            } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'regulator' ||
+                       this.selectedObject.type === 'sayac' || this.selectedObject.type === 'cihaz' ||
+                       this.selectedObject.type === 'servis_kutusu' ||
+                       this.selectedObject.type === 'filtre' || this.selectedObject.type === 'izolasyon_flansi' ||
+                       this.selectedObject.type === 'kompansator' || this.selectedObject.type === 'manometre') {
                 const gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
                 const clickedAxis = findTranslateGizmoAxisAt(gizmoCenter, point, ['X', 'Y', 'Z']);
 
@@ -359,7 +370,10 @@ export function handlePointerDown(e) {
                 // eşik aşılırsa etiket sürüklemesine geç.
                 const labelObj =
                     this.manager.components.find(c => c.id === labelId &&
-                        (c.type === 'cihaz' || c.type === 'sayac' || c.type === 'servis_kutusu' || c.type === 'vana' || c.type === 'regulator')) ||
+                        (c.type === 'cihaz' || c.type === 'sayac' || c.type === 'servis_kutusu'
+                            || c.type === 'vana' || c.type === 'regulator'
+                            || c.type === 'filtre' || c.type === 'izolasyon_flansi'
+                            || c.type === 'kompansator' || c.type === 'manometre')) ||
                     this.manager.pipes.find(p => p.id === labelId);
                 if (labelObj) {
                     this._pendingLabelClick = { id: labelId, sx: point.x, sy: point.y, obj: labelObj };

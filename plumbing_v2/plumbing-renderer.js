@@ -308,6 +308,11 @@ export class PlumbingRenderer {
             this.drawRegulatorPreview(ctx, manager.interactionManager.regulatorPreview);
         }
 
+        // Tesisat aksesuarı preview (filtre / izolasyon flanşı / kompansatör / manometre)
+        if (manager.interactionManager?.fittingPreview) {
+            this.drawFittingPreview(ctx, manager.interactionManager.fittingPreview);
+        }
+
         // Sayaç/Cihaz boru üzerine ekleme preview (sayac/cihaz tool aktif, hover)
         if (manager.interactionManager?.componentOnPipePreview) {
             this.drawComponentOnPipePreview(ctx, manager.interactionManager.componentOnPipePreview);

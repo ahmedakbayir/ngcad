@@ -194,7 +194,11 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
 
     // --- SNAPSHOT ALMA (Vana, Fleks vs.) ---
     const itemsToReattach = [];
-    const valves = interactionManager.manager.components.filter(c => (c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === pipe.id);
+    const valves = interactionManager.manager.components.filter(c =>
+        (c.type === 'vana' || c.type === 'regulator'
+            || c.type === 'filtre' || c.type === 'izolasyon_flansi'
+            || c.type === 'kompansator' || c.type === 'manometre')
+        && c.bagliBoruId === pipe.id);
     valves.forEach(v => {
         const pos = (pipe.getVanaPozisyon && pipe.getVanaPozisyon()) || pipe.getPointAt(v.boruPozisyonu !== undefined ? v.boruPozisyonu : 0.5);
         itemsToReattach.push({ comp: v, type: 'vana', worldPos: { x: pos.x, y: pos.y } });

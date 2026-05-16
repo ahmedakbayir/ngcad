@@ -9,6 +9,7 @@ import { BAGLANTI_TIPLERI, createBoru } from '../objects/pipe.js';
 import { createSayac } from '../objects/meter.js';
 import { createVana } from '../objects/valve.js';
 import { createRegulator } from '../objects/regulator.js';
+import { createPipeFitting, FITTING_DEFS } from '../objects/pipe-fitting.js';
 import { createBaca } from '../objects/chimney.js';
 import { canPlaceValveOnPipe, getObjectsOnPipe } from './placement-utils.js';
 import { TESISAT_MODLARI } from './interaction-manager.js';
@@ -91,6 +92,17 @@ export function placeComponent(point) {
                 return;
             }
             console.warn("Regülatör sadece boru üzerine eklenebilir.");
+            break;
+
+        case 'filtre':
+        case 'izolasyon_flansi':
+        case 'kompansator':
+        case 'manometre':
+            if (this.fittingPreview) {
+                this.handleFittingPlacement(this.fittingPreview);
+                return;
+            }
+            console.warn("Bu tesisat aksesuarı sadece boru üzerine eklenebilir.");
             break;
 
         case 'cihaz':
@@ -695,6 +707,87 @@ export function handleRegulatorPlacement(regulatorPreview) {
 }
 
 /**
+ * Tesisat aksesuarı (Filtre / İzolasyon Flanşı / Kompansatör / Manometre)
+ * yerleştirme — vana stili: boruyu bölmez, sadece üzerine kayar.
+ */
+export function handleFittingPlacement(fittingPreview) {
+    const { pipe, point, fittingType } = fittingPreview;
+    const type = fittingType || this.manager.tempComponent?.type;
+    if (!type || !FITTING_DEFS[type]) {
+        this.fittingPreview = null;
+        return;
+    }
+
+    saveState();
+
+    const existingObjects = getObjectsOnPipe(this.manager.components, pipe.id);
+
+    const dx = pipe.p2.x - pipe.p1.x;
+    const dy = pipe.p2.y - pipe.p1.y;
+    const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+    const len2d = Math.hypot(dx, dy);
+    const len3d = Math.hypot(dx, dy, dz);
+    const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
+
+    let placementResult;
+    if (isVertical) {
+        let t = 0.5;
+        if (Math.abs(dz) > 0.01) t = ((point.z || 0) - (pipe.p1.z || 0)) / dz;
+        t = Math.max(0, Math.min(1, t));
+        placementResult = {
+            success: true, t,
+            x: pipe.p1.x, y: pipe.p1.y,
+            z: (pipe.p1.z || 0) + t * dz,
+        };
+    } else {
+        placementResult = canPlaceValveOnPipe(pipe, point, existingObjects);
+    }
+
+    if (!placementResult || (placementResult.error && !placementResult.success)) {
+        this.fittingPreview = null;
+        return;
+    }
+
+    const { t, x, y } = placementResult;
+    const z = placementResult.z !== undefined ? placementResult.z : ((pipe.p1.z || 0) + t * dz);
+
+    // Boru ucuna yakınsa fixedDistance ayarla (vana mantığı)
+    const FITTING_GENISLIGI = 6;
+    const fixedDistanceFromEnd = FITTING_GENISLIGI / 2;
+    const END_THRESHOLD_CM = 10;
+    const distToP1 = t * len3d;
+    const distToP2 = (1 - t) * len3d;
+
+    const options = {
+        floorId: state.currentFloor?.id,
+        bagliBoruId: pipe.id,
+        boruPozisyonu: t,
+    };
+    if (distToP2 < END_THRESHOLD_CM) {
+        options.fromEnd = 'p2';
+        options.fixedDistance = fixedDistanceFromEnd;
+    } else if (distToP1 < END_THRESHOLD_CM) {
+        options.fromEnd = 'p1';
+        options.fixedDistance = fixedDistanceFromEnd;
+    }
+
+    const fitting = createPipeFitting(type, x, y, options);
+    fitting.z = z;
+    ensureFloorForElevation(z);
+    fitting.floorId = getFloorIdForZ(z);
+    fitting.rotation = isVertical ? -45 : pipe.aciDerece;
+
+    initObjectDefaults(fitting, this.manager);
+    this.manager.components.push(fitting);
+    this.manager.saveToState();
+
+    this.fittingPreview = null;
+    this.manager.activeTool = null;
+    this.cancelCurrentAction();
+    setMode("select");
+}
+
+/**
  * Sayaç ekleme işlemleri
  * KURALLAR:
  * - Sayaç SADECE boru uç noktasına eklenebilir
@@ -1126,7 +1219,11 @@ function redistributePipeComponentsInline(oldPipe, boru1, boru2, splitPoint) {
     const itemsToReattach = [];
 
     // Vanalar ve regülatörler (boru üzerinde sabit duranlar)
-    const valves = this.manager.components.filter(c => (c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === oldPipe.id);
+    const valves = this.manager.components.filter(c =>
+        (c.type === 'vana' || c.type === 'regulator'
+            || c.type === 'filtre' || c.type === 'izolasyon_flansi'
+            || c.type === 'kompansator' || c.type === 'manometre')
+        && c.bagliBoruId === oldPipe.id);
     valves.forEach(v => {
         const pos = oldPipe.getPointAt(v.boruPozisyonu !== undefined ? v.boruPozisyonu : 0.5);
         itemsToReattach.push({ comp: v, type: 'vana', worldPos: { x: pos.x, y: pos.y } });

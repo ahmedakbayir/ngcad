@@ -160,7 +160,7 @@ function collectDownstreamFromP2(startPipe, manager) {
 
         // Bu boruya bağlı bileşenler
         for (const c of manager.components) {
-            if ((c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === curr.id) { addComp(c); }
+            if ((c.type === 'vana' || c.type === 'regulator' || c.type === 'filtre' || c.type === 'izolasyon_flansi' || c.type === 'kompansator' || c.type === 'manometre') && c.bagliBoruId === curr.id) { addComp(c); }
             else if ((c.type === 'sayac' || c.type === 'cihaz') && c.fleksBaglanti?.boruId === curr.id) {
                 addComp(c);
                 if (c.type === 'sayac' && c.cikisBagliBoruId) {
@@ -246,7 +246,7 @@ function deleteKolonTesisati(manager) {
             const curr = queue.shift();
 
             for (const c of manager.components) {
-                if ((c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === curr.id) { innerCompIds.add(c.id); }
+                if ((c.type === 'vana' || c.type === 'regulator' || c.type === 'filtre' || c.type === 'izolasyon_flansi' || c.type === 'kompansator' || c.type === 'manometre') && c.bagliBoruId === curr.id) { innerCompIds.add(c.id); }
                 else if ((c.type === 'sayac' || c.type === 'cihaz') && c.fleksBaglanti?.boruId === curr.id) {
                     innerCompIds.add(c.id);
                     if (c.type === 'sayac' && c.cikisBagliBoruId) {
@@ -329,7 +329,7 @@ function deleteIcTesisatForSayaclar(sayaclar, manager) {
         while (queue.length > 0) {
             const curr = queue.shift();
             for (const c of manager.components) {
-                if ((c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === curr.id) { toDeleteCompIds.add(c.id); }
+                if ((c.type === 'vana' || c.type === 'regulator' || c.type === 'filtre' || c.type === 'izolasyon_flansi' || c.type === 'kompansator' || c.type === 'manometre') && c.bagliBoruId === curr.id) { toDeleteCompIds.add(c.id); }
                 else if (c.type === 'cihaz' && c.fleksBaglanti?.boruId === curr.id) {
                     toDeleteCompIds.add(c.id);
                 }
@@ -365,7 +365,9 @@ function deleteIcTesisatForSayaclar(sayaclar, manager) {
 // ─── Yardımcı: bileşenin bağlı olduğu boruyu bul ──────────────────────────
 function componentPipeId(comp) {
     if (!comp) return null;
-    if (comp.type === 'vana' || comp.type === 'regulator') return comp.bagliBoruId || null;
+    if (comp.type === 'vana' || comp.type === 'regulator'
+        || comp.type === 'filtre' || comp.type === 'izolasyon_flansi'
+        || comp.type === 'kompansator' || comp.type === 'manometre') return comp.bagliBoruId || null;
     if (comp.type === 'cihaz' || comp.type === 'sayac')   return comp.fleksBaglanti?.boruId || null;
     return null;
 }
@@ -483,7 +485,7 @@ function deleteIcTesisatlar(manager) {
             while (queue.length > 0) {
                 const curr = queue.shift();
                 for (const c of manager.components) {
-                    if ((c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === curr.id) { toDeleteCompIds.add(c.id); }
+                    if ((c.type === 'vana' || c.type === 'regulator' || c.type === 'filtre' || c.type === 'izolasyon_flansi' || c.type === 'kompansator' || c.type === 'manometre') && c.bagliBoruId === curr.id) { toDeleteCompIds.add(c.id); }
                     else if ((c.type === 'cihaz') && c.fleksBaglanti?.boruId === curr.id) {
                         toDeleteCompIds.add(c.id);
                     }

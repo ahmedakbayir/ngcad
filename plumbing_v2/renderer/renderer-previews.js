@@ -257,6 +257,38 @@ export const PreviewMixin = {
         ctx.restore();
     },
 
+    drawFittingPreview(ctx, fittingPreview) {
+        if (!fittingPreview || !fittingPreview.pipe || !fittingPreview.point) return;
+
+        const { pipe, point, fittingType } = fittingPreview;
+
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+        const len2d = Math.hypot(dx, dy);
+        const isVertical = len2d < 2.0 || Math.abs(dz) > len2d;
+
+        let angle = pipe.aci;
+        const t = state.viewBlendFactor || 0;
+        if (isVertical && t < 0.1) return;
+        if (isVertical && t > 0.1) angle = -45 * Math.PI / 180;
+
+        const z = point.z || 0;
+        const adjustedX = point.x + (z * t);
+        const adjustedY = point.y - (z * t);
+
+        ctx.save();
+        ctx.translate(adjustedX, adjustedY);
+        ctx.rotate(angle);
+        ctx.globalAlpha = 0.7;
+
+        if (this.drawFittingSymbol) {
+            this.drawFittingSymbol(ctx, fittingType, { isPreview: true });
+        }
+
+        ctx.restore();
+    },
+
     drawComponentOnPipePreview(ctx, preview) {
         if (!preview || !preview.point) return;
 

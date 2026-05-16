@@ -14,6 +14,14 @@ import { state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
 import { syncAllFloorAssignments } from '../floor-sync.js';
 
+// Boruya bağlı (boru üstünde kayan) bileşenler — vana, regülatör ve tesisat
+// aksesuarları (filtre, izolasyon flanşı, kompansatör, manometre).
+function _isOnPipeComp(type) {
+    return type === 'vana' || type === 'regulator'
+        || type === 'filtre' || type === 'izolasyon_flansi'
+        || type === 'kompansator' || type === 'manometre';
+}
+
 export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeComponentId = null, skipBostaUcCheck = false) {
     const TOLERANCE = 10;
     const Z_TOLERANCE = 8;
@@ -188,7 +196,7 @@ export function startDrag(interactionManager, obj, point) {
         z: obj.z || 0
     };
 
-    if ((obj.type === 'vana' || obj.type === 'regulator') && obj.bagliBoruId) {
+    if (_isOnPipeComp(obj.type) && obj.bagliBoruId) {
         interactionManager.dragObjectPipe = interactionManager.manager.pipes.find(p => p.id === obj.bagliBoruId);
         interactionManager.dragObjectsOnPipe = getObjectsOnPipe(interactionManager.manager.components, obj.bagliBoruId);
         interactionManager.dragStartZ = obj.z || 0;
@@ -396,7 +404,7 @@ export function handleDrag(interactionManager, point, event = null) {
                 isVerticalDrag = true;
                 verticalPipeBase = { x: pipe.p1.x, y: pipe.p1.y, z: pipe.p1.z || 0, p2z: pipe.p2.z || 0 };
             } else {
-                if (obj.type === 'vana' || obj.type === 'regulator') {
+                if (_isOnPipeComp(obj.type)) {
                     const proj = pipe.projectPoint(point);
                     const currentT = (proj && proj.onSegment) ? proj.t : (obj.vanaT || 0);
                     const z1 = pipe.p1.z || 0;
@@ -764,7 +772,7 @@ export function handleDrag(interactionManager, point, event = null) {
         }
 
         const valvesOnPipe = interactionManager.manager.components.filter(comp =>
-            (comp.type === 'vana' || comp.type === 'regulator') && comp.bagliBoruId === pipe.id
+            _isOnPipeComp(comp.type) && comp.bagliBoruId === pipe.id
         );
         const MIN_EDGE_DISTANCE = 4;
         const OBJECT_MARGIN = 2;
@@ -904,8 +912,8 @@ export function handleDrag(interactionManager, point, event = null) {
         return;
     }
 
-    // 3. Vana / Regülatör Taşıma (boru üzerinde sürükleme)
-    if (interactionManager.dragObject.type === 'vana' || interactionManager.dragObject.type === 'regulator') {
+    // 3. Vana / Regülatör / Tesisat aksesuarı taşıma (boru üzerinde sürükleme)
+    if (_isOnPipeComp(interactionManager.dragObject.type)) {
         const vana = interactionManager.dragObject;
         let targetPipe = interactionManager.dragObjectPipe;
         let objectsOnPipe = interactionManager.dragObjectsOnPipe;
@@ -1206,7 +1214,7 @@ export function handleDrag(interactionManager, point, event = null) {
             pipe.p2.x = newP2.x; pipe.p2.y = newP2.y; pipe.p2.z = newP2.z;
 
             // Boru üzerindeki vana ve regülatörleri per-frame delta ile taşı
-            interactionManager.manager.components.filter(c => (c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === pipe.id)
+            interactionManager.manager.components.filter(c => _isOnPipeComp(c.type) && c.bagliBoruId === pipe.id)
                 .forEach(v => { v.x += frameDx; v.y += frameDy; v.z = (v.z || 0) + frameDz; });
 
             // Downstream düğümleri per-frame delta ile taşı
@@ -1235,7 +1243,7 @@ export function handleDrag(interactionManager, point, event = null) {
             [pipe, ...allDownstreamPipes].forEach(p => {
                 translateLabel(p.id, frameDx, frameDy);
                 interactionManager.manager.components.forEach(c => {
-                    if ((c.type === 'vana' || c.type === 'regulator') && p === pipe) return; // Sürüklenen borudaki vana/regülatörler zaten yukarıda taşındı
+                    if (_isOnPipeComp(c.type) && p === pipe) return; // Sürüklenen borudaki vana/regülatörler zaten yukarıda taşındı
                     if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
                     if (movedComponents.has(c.id)) return;
                     movedComponents.add(c.id);

@@ -94,8 +94,11 @@ export function handlePointerMove(e) {
                     this.hoveredGizmoId = centerAxis ? 'center' : null;
                 }
             }
-        } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'sayac' ||
-            this.selectedObject.type === 'cihaz' || this.selectedObject.type === 'servis_kutusu') {
+        } else if (this.selectedObject.type === 'vana' || this.selectedObject.type === 'regulator' ||
+            this.selectedObject.type === 'sayac' || this.selectedObject.type === 'cihaz' ||
+            this.selectedObject.type === 'servis_kutusu' ||
+            this.selectedObject.type === 'filtre' || this.selectedObject.type === 'izolasyon_flansi' ||
+            this.selectedObject.type === 'kompansator' || this.selectedObject.type === 'manometre') {
             const gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
             this.hoveredGizmoAxis = findTranslateGizmoAxisAt(gizmoCenter, point, ['X', 'Y', 'Z']);
         } else {
@@ -353,10 +356,14 @@ export function handlePointerMove(e) {
         this.pipeSplitPreview = null;
     }
 
-    // 1.6 Vana / Regülatör preview (her ikisi de boru üzerinde serbest kayan, aynı placement mantığı)
+    // 1.6 Vana / Regülatör / Tesisat aksesuarı preview (hepsi boru üzerinde serbest kayan, aynı placement mantığı)
     const _isVanaTool = this.manager.activeTool === 'vana';
     const _isRegulatorTool = this.manager.activeTool === 'regulator';
-    if ((_isVanaTool || _isRegulatorTool) && !this.boruCizimAktif) {
+    const _isFittingTool = this.manager.activeTool === 'filtre'
+        || this.manager.activeTool === 'izolasyon_flansi'
+        || this.manager.activeTool === 'kompansator'
+        || this.manager.activeTool === 'manometre';
+    if ((_isVanaTool || _isRegulatorTool || _isFittingTool) && !this.boruCizimAktif) {
         // Varsayılan olarak mouse pozisyonuna getir (eğer boru yoksa)
         if (this.manager.tempComponent) {
             this.manager.tempComponent.x = point.x;
@@ -412,14 +419,20 @@ export function handlePointerMove(e) {
                     snapToEnd = true;
                 }
 
-                // Preview nesnesini güncelle (vana veya regulator)
+                // Preview nesnesini güncelle (vana / regulator / tesisat aksesuarı)
                 const _previewObj = { pipe: hoveredPipe, point: vanaPoint, t: vanaT, snapToEnd: snapToEnd };
                 if (_isRegulatorTool) {
                     this.regulatorPreview = _previewObj;
                     this.vanaPreview = null;
+                    this.fittingPreview = null;
+                } else if (_isFittingTool) {
+                    this.fittingPreview = { ..._previewObj, fittingType: this.manager.activeTool };
+                    this.vanaPreview = null;
+                    this.regulatorPreview = null;
                 } else {
                     this.vanaPreview = _previewObj;
                     this.regulatorPreview = null;
+                    this.fittingPreview = null;
                 }
 
                 // --- GHOST NESNE GÜNCELLEMESİ ---
@@ -449,15 +462,18 @@ export function handlePointerMove(e) {
             } else {
                 this.vanaPreview = null;
                 this.regulatorPreview = null;
+                this.fittingPreview = null;
             }
         } else {
             this.vanaPreview = null;
             this.regulatorPreview = null;
+            this.fittingPreview = null;
         }
         return true;
     } else {
         this.vanaPreview = null;
         this.regulatorPreview = null;
+        this.fittingPreview = null;
     }
 
 

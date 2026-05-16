@@ -613,9 +613,11 @@ export function removeObject(manager, obj) {
             }
         }
 
-        // Bu boru üzerindeki bileşenleri sil (vana + regülatör + fleks)
+        // Bu boru üzerindeki bileşenleri sil (vana + regülatör + tesisat aksesuarları + fleks)
         const componentsToDelete = manager.components.filter(c =>
-            ((c.type === 'vana' || c.type === 'regulator') && c.bagliBoruId === pipeId) ||
+            ((c.type === 'vana' || c.type === 'regulator' ||
+              c.type === 'filtre' || c.type === 'izolasyon_flansi' ||
+              c.type === 'kompansator' || c.type === 'manometre') && c.bagliBoruId === pipeId) ||
             (c.fleksBaglanti && c.fleksBaglanti.boruId === pipeId)
         );
         componentsToDelete.forEach(c => {
@@ -685,7 +687,9 @@ export function removeObject(manager, obj) {
                 sayacIds.has(c.id) ||                                                // sayaç
                 cihazIds.has(c.id) ||                                                // cihaz
                 (c.type === 'baca' && cihazIds.has(c.parentCihazId)) ||            // baca
-                ((c.type === 'vana' || c.type === 'regulator') && pipeIds.has(c.bagliBoruId)) || // boru vanası / regülatör
+                ((c.type === 'vana' || c.type === 'regulator' ||
+                  c.type === 'filtre' || c.type === 'izolasyon_flansi' ||
+                  c.type === 'kompansator' || c.type === 'manometre') && pipeIds.has(c.bagliBoruId)) || // boru üstü aksesuarlar
                 (c.fleksBaglanti?.boruId && pipeIds.has(c.fleksBaglanti.boruId));   // fleks bağlı
             if (remove) manager.components.splice(i, 1);
         }
@@ -767,6 +771,10 @@ export function removeObject(manager, obj) {
         const idx = manager.components.findIndex(c => c.id === obj.id);
         if (idx !== -1) manager.components.splice(idx, 1);
     } else if (obj.type === 'regulator') {
+        const idx = manager.components.findIndex(c => c.id === obj.id);
+        if (idx !== -1) manager.components.splice(idx, 1);
+    } else if (obj.type === 'filtre' || obj.type === 'izolasyon_flansi'
+        || obj.type === 'kompansator' || obj.type === 'manometre') {
         const idx = manager.components.findIndex(c => c.id === obj.id);
         if (idx !== -1) manager.components.splice(idx, 1);
     } else {

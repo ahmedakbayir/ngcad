@@ -330,6 +330,12 @@ export const LabelMixin = {
                     case 'regulator':
                         this._drawRegulatorObjLabel(ctx, comp, manager, opts);
                         break;
+                    case 'filtre':
+                    case 'izolasyon_flansi':
+                    case 'kompansator':
+                    case 'manometre':
+                        this._drawFittingObjLabel(ctx, comp, manager, opts);
+                        break;
                 }
             });
         }
@@ -1082,6 +1088,61 @@ export const LabelMixin = {
         this._drawObjLabelBox(ctx, comp.id, ax, ay, cx, cy, lines, opts, 10);
     },
 
+    // ─── TESİSAT AKSESUARLARI (Filtre / İzolasyon Flanşı / Kompansatör / Manometre)
+    _drawFittingObjLabel(ctx, comp, manager, opts) {
+        const { zoom } = opts;
+        const t = opts.t;
+        const sc = this._scrPos(comp, t);
+        const off = _getOffset(comp.id);
+
+        const lines = [];
+        let baslik;
+        switch (comp.type) {
+            case 'filtre':
+                baslik = comp.konik ? 'Konik Filtre' : 'Filtre';
+                break;
+            case 'izolasyon_flansi': baslik = 'İzolasyon Flanşı'; break;
+            case 'kompansator': baslik = 'Kompansatör'; break;
+            case 'manometre': baslik = 'Manometre'; break;
+            default: baslik = '';
+        }
+        if (baslik) lines.push({ text: baslik });
+
+        const marka = (comp.marka ?? '').toString().trim();
+        const model = (comp.model ?? '').toString().trim();
+        if (marka || model) {
+            const txt = [marka, model].filter(Boolean).join(' - ');
+            lines.push({ text: txt, sub: true });
+        }
+
+        if (comp.description) {
+            comp.description.trimEnd().split('\n').forEach(line => {
+                lines.push({ text: line.trimEnd() || ' ', sub: true });
+            });
+        }
+
+        // Boru açısına dik yönde konumlandır (vana/regülatör ile aynı mantık)
+        const angle = (comp.rotation || 0) * Math.PI / 180;
+        let nX = -Math.sin(angle);
+        let nY = Math.cos(angle);
+        if (nY > 0) { nX = -nX; nY = -nY; }
+
+        const hw = 10;
+        const cx = sc.x;
+        const cy = sc.y;
+
+        let ax, ay;
+        if (off.ax != null) {
+            ax = off.ax;
+            ay = off.ay;
+        } else {
+            ax = sc.x + nX * (hw + 12 / zoom);
+            ay = sc.y + nY * (hw + 12 / zoom);
+        }
+
+        this._drawObjLabelBox(ctx, comp.id, ax, ay, cx, cy, lines, opts, 8);
+    },
+
     // ─── SERVİS KUTUSU ──────────────────────────────────────────────────────
     _drawKutuObjLabel(ctx, comp, opts) {
         const { t } = opts;
@@ -1411,6 +1472,10 @@ function _collectAllCandidates(manager) {
             else if (c.type === 'sayac') cands.push({ obj: c, type: 'sayac' });
             else if (c.type === 'servis_kutusu') cands.push({ obj: c, type: 'servis_kutusu' });
             else if (c.type === 'regulator') cands.push({ obj: c, type: 'regulator' }); // Eklendi
+            else if (c.type === 'filtre' || c.type === 'izolasyon_flansi'
+                || c.type === 'kompansator' || c.type === 'manometre') {
+                cands.push({ obj: c, type: c.type });
+            }
         });
     }
     return cands;
@@ -1449,7 +1514,9 @@ function _buildObstacleRects(manager, t) {
                 const cfg = CIHAZ_TIPLERI[c.cihazTipi] || { width: 40, height: 40 };
                 bw = cfg.width; bh = cfg.height;
             }
-            else if (c.type === 'vana' || c.type === 'regulator') { bw = 18; bh = 18; } // Regülatör eklendi
+            else if (c.type === 'vana' || c.type === 'regulator'
+                || c.type === 'filtre' || c.type === 'izolasyon_flansi'
+                || c.type === 'kompansator' || c.type === 'manometre') { bw = 18; bh = 18; }
             if (bw > 0) rects.push({ bx: sx - bw / 2, by: sy - bh / 2, bw, bh });
         }
     }
@@ -1523,7 +1590,9 @@ function _getObjectHalfSize(obj) {
         const cfg = CIHAZ_TIPLERI[obj.cihazTipi] || { width: 40, height: 40 };
         return { hw: cfg.width / 2, hh: cfg.height / 2 };
     }
-    if (obj.type === 'vana' || obj.type === 'regulator') return { hw: 9, hh: 9 }; // Regülatör eklendi
+    if (obj.type === 'vana' || obj.type === 'regulator'
+        || obj.type === 'filtre' || obj.type === 'izolasyon_flansi'
+        || obj.type === 'kompansator' || obj.type === 'manometre') return { hw: 9, hh: 9 };
     return { hw: 4, hh: 4 }; // Borular veya bilinmeyenler
 }
 
@@ -1828,7 +1897,7 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments) {
     const directions = [
         // Düz eksenler
         { id: 'bottom', nx: 0, ny: 1, align: 'vertical', pref: ['cihaz', 'sayac', 'servis_kutusu'], dirPenalty: 0 },
-        { id: 'right', nx: 1, ny: 0, align: 'horizontal', pref: ['vana', 'regulator'], dirPenalty: 0 }, // Regülatör eklendi
+        { id: 'right', nx: 1, ny: 0, align: 'horizontal', pref: ['vana', 'regulator', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre'], dirPenalty: 0 },
         { id: 'top', nx: 0, ny: -1, align: 'vertical', pref: [], dirPenalty: 0 }, // 'boru' silindi
         { id: 'left', nx: -1, ny: 0, align: 'horizontal', pref: [], dirPenalty: 0 },
 
@@ -2109,7 +2178,7 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
     // Sıralama: önce sayaç/kutu/vana (sabit-pozisyonlu nesneler), sonra borular.
     // Borular daha esnek (uzun segment boyunca yerleşebilir) — son sıraya alıp
     // önceki etiketleri engel sayarak çakışmadan yerleştirilirler.
-    const _typeOrder = { sayac: 0, servis_kutusu: 0, vana: 1, regulator: 1, boru: 2 }; // Regülatör eklendi
+    const _typeOrder = { sayac: 0, servis_kutusu: 0, vana: 1, regulator: 1, filtre: 1, izolasyon_flansi: 1, kompansator: 1, manometre: 1, boru: 2 };
     nonCihaz.sort((a, b) => (_typeOrder[a.obj.type] ?? 3) - (_typeOrder[b.obj.type] ?? 3));
 
     // Sıralı yerleştirme: her etiket sonrakine engel olur (üstüste binme yasak)

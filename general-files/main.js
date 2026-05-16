@@ -574,6 +574,12 @@ export const dom = {
     bSayac: document.getElementById("bSayac"),
     bVana: document.getElementById("bVana"),
     bRegulator: document.getElementById("bRegulator"),
+    bTesisatToolbox: document.getElementById("bTesisatToolbox"),
+    tesisatToolboxFlyout: document.getElementById("tesisat-toolbox-flyout"),
+    bFiltre: document.getElementById("bFiltre"),
+    bIzolasyonFlansi: document.getElementById("bIzolasyonFlansi"),
+    bKompansator: document.getElementById("bKompansator"),
+    bManometre: document.getElementById("bManometre"),
     bKombi: document.getElementById("bKombi"),
     bOcak: document.getElementById("bOcak"),
     bBaca: document.getElementById("bBaca"),
@@ -925,6 +931,18 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bSayac.classList.toggle("active", isPlumbingV2 && activeTool === 'sayac');
     dom.bVana.classList.toggle("active", isPlumbingV2 && activeTool === 'vana');
     if (dom.bRegulator) dom.bRegulator.classList.toggle("active", isPlumbingV2 && activeTool === 'regulator');
+    if (dom.bFiltre) dom.bFiltre.classList.toggle("active", isPlumbingV2 && activeTool === 'filtre');
+    if (dom.bIzolasyonFlansi) dom.bIzolasyonFlansi.classList.toggle("active", isPlumbingV2 && activeTool === 'izolasyon_flansi');
+    if (dom.bKompansator) dom.bKompansator.classList.toggle("active", isPlumbingV2 && activeTool === 'kompansator');
+    if (dom.bManometre) dom.bManometre.classList.toggle("active", isPlumbingV2 && activeTool === 'manometre');
+    if (dom.bTesisatToolbox) {
+        const anyFittingActive = isPlumbingV2 && (
+            activeTool === 'regulator' || activeTool === 'filtre' ||
+            activeTool === 'izolasyon_flansi' || activeTool === 'kompansator' ||
+            activeTool === 'manometre'
+        );
+        dom.bTesisatToolbox.classList.toggle("active", anyFittingActive);
+    }
     dom.bKombi.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'KOMBI');
     dom.bOcak.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'OCAK');
     dom.bBaca.classList.toggle("active", isPlumbingV2 && activeTool === 'baca');
@@ -1314,7 +1332,51 @@ function initialize() {
             }
             plumbingManager.startPlacement(TESISAT_MODLARI.REGULATOR);
             setMode("plumbingV2", true);
+            closeTesisatToolboxFlyout();
         });
+    }
+
+    const _startFittingPlacement = (mode) => {
+        plumbingManager.interactionManager?.cancelCurrentAction();
+        if (state.currentDrawingMode !== "KARMA") {
+            setDrawingMode("TESİSAT");
+        }
+        plumbingManager.startPlacement(mode);
+        setMode("plumbingV2", true);
+        closeTesisatToolboxFlyout();
+    };
+
+    function closeTesisatToolboxFlyout() {
+        if (dom.tesisatToolboxFlyout) dom.tesisatToolboxFlyout.classList.remove('open');
+        if (dom.bTesisatToolbox) dom.bTesisatToolbox.classList.remove('flyout-open');
+    }
+
+    if (dom.bTesisatToolbox && dom.tesisatToolboxFlyout) {
+        dom.bTesisatToolbox.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = dom.tesisatToolboxFlyout.classList.toggle('open');
+            dom.bTesisatToolbox.classList.toggle('flyout-open', isOpen);
+        });
+        // Dışına tıklayınca kapat
+        document.addEventListener("click", (e) => {
+            if (!dom.tesisatToolboxFlyout.classList.contains('open')) return;
+            if (dom.tesisatToolboxFlyout.contains(e.target)) return;
+            if (dom.bTesisatToolbox.contains(e.target)) return;
+            closeTesisatToolboxFlyout();
+        });
+    }
+
+    if (dom.bFiltre) {
+        dom.bFiltre.addEventListener("click", () => _startFittingPlacement(TESISAT_MODLARI.FILTRE));
+    }
+    if (dom.bIzolasyonFlansi) {
+        dom.bIzolasyonFlansi.addEventListener("click", () => _startFittingPlacement(TESISAT_MODLARI.IZOLASYON_FLANSI));
+    }
+    if (dom.bKompansator) {
+        dom.bKompansator.addEventListener("click", () => _startFittingPlacement(TESISAT_MODLARI.KOMPANSATOR));
+    }
+    if (dom.bManometre) {
+        dom.bManometre.addEventListener("click", () => _startFittingPlacement(TESISAT_MODLARI.MANOMETRE));
     }
     if (dom.bKombi) {
         dom.bKombi.addEventListener("click", () => {

@@ -154,6 +154,12 @@ export const ComponentMixin = {
             case 'baca':
                 this.drawBaca(ctx, comp, manager);
                 break;
+            case 'filtre':
+            case 'izolasyon_flansi':
+            case 'kompansator':
+            case 'manometre':
+                this.drawFitting(ctx, comp, manager);
+                break;
         }
 
         // Seçim göstergesi
@@ -878,6 +884,186 @@ export const ComponentMixin = {
         ctx.fillText(tipText, 0, 2);
 
         ctx.restore(); // Her şeyi temizle
+    },
+
+    /**
+     * Tesisat aksesuarı (Filtre / İzolasyon Flanşı / Kompansatör / Manometre)
+     * Boru üzerinde vana/regülatör gibi konumlanır. Sadece görseldir.
+     */
+    drawFitting(ctx, comp, manager = null) {
+        const t = state.viewBlendFactor || 0;
+        if (t < 0.1 && manager && comp.bagliBoruId) {
+            const pipe = manager.findPipeById(comp.bagliBoruId);
+            if (pipe) {
+                const dx = pipe.p2.x - pipe.p1.x;
+                const dy = pipe.p2.y - pipe.p1.y;
+                const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+                const len2d = Math.hypot(dx, dy);
+                if (len2d < 2.0 || Math.abs(dz) > len2d) return;
+            }
+        }
+
+        // Renk grubu — boru renkine adapte ol
+        let colorGroup = 'YELLOW';
+        if (comp.bagliBoruId && manager) {
+            const bagliBoru = manager.findPipeById(comp.bagliBoruId);
+            if (bagliBoru) colorGroup = bagliBoru.colorGroup || 'YELLOW';
+        }
+        if (colorGroup === 'SARI') colorGroup = 'YELLOW';
+        if (colorGroup === 'TURKUAZ') colorGroup = 'TURQUAZ';
+
+        this.drawFittingSymbol(ctx, comp.type, {
+            isSelected: comp.isSelected,
+            colorGroup,
+        });
+    },
+
+    /**
+     * Aksesuar sembolünü çiz (preview ve gerçek nesne için ortak).
+     * Local koordinat: boru +X yönünde akıyor; -X giriş, +X çıkış.
+     */
+    drawFittingSymbol(ctx, type, opts = {}) {
+        const { isSelected = false, colorGroup = 'YELLOW', isPreview = false } = opts;
+
+        const mode = isLightMode() ? 'light' : 'dark';
+        const theme = VALVE_THEMES[colorGroup] || VALVE_THEMES.DEFAULT;
+        const palette = theme[mode];
+        const mainColorStop = palette.find(s => s.pos === 0.25) || palette[1];
+        const accent = mainColorStop ? mainColorStop.color : '#A0A0A0';
+        const baseStroke = isPreview ? '#00bffa'
+            : (isSelected ? CUSTOM_COLORS.SELECTED : (mode === 'dark' ? '#FFFFFF' : '#1a1a1a'));
+        const baseFill = isPreview ? '#00bffa'
+            : (isSelected ? CUSTOM_COLORS.SELECTED : accent);
+
+        getShadow(ctx);
+
+        // Boru hizasında bir gövde çizmiyoruz — boru zaten arkadaki renkte görünür.
+        // Sembol sadece üst katman.
+        switch (type) {
+            case 'filtre': {
+                // Kare içinde nokta deseni (resimdeki gibi)
+                const w = 9.5, h = 9.5;
+                ctx.fillStyle = baseFill;
+                ctx.strokeStyle = baseStroke;
+                ctx.lineWidth = 0.6;
+                ctx.beginPath();
+                ctx.rect(-w / 2, -h / 2, w, h);
+                ctx.fill();
+                ctx.stroke();
+
+                // Nokta deseni — beyaz/dark karşıt
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                const dotColor = mode === 'dark' ? '#1a1a1a' : '#FFFFFF';
+                ctx.fillStyle = dotColor;
+                const cols = 3, rows = 3;
+                const dx = w / (cols + 1);
+                const dy = h / (rows + 1);
+                const r = 0.6;
+                for (let i = 1; i <= cols; i++) {
+                    for (let j = 1; j <= rows; j++) {
+                        ctx.beginPath();
+                        ctx.arc(-w / 2 + i * dx, -h / 2 + j * dy, r, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                break;
+            }
+            case 'izolasyon_flansi': {
+                // İki paralel kısa çizgi: = (boruya dik)
+                const len = 10;
+                const gap = 2;
+                ctx.strokeStyle = baseFill;
+                ctx.lineCap = 'round';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(-gap / 2, -len / 2);
+                ctx.lineTo(-gap / 2, len / 2);
+                ctx.moveTo(gap / 2, -len / 2);
+                ctx.lineTo(gap / 2, len / 2);
+                ctx.stroke();
+                break;
+            }
+            case 'kompansator': {
+                // İki uçta dik flanş çizgileri + aralarında borunun yönünde uzanan
+                // sinüzoidal dalga. Dalga hat yönünde (lokal X), genlik hatta dik (Y).
+                ctx.strokeStyle = baseFill;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.lineWidth = 1.4;
+
+                const halfLen = 5.5;     // hat boyunca yarı-uzunluk (X)
+                const flansHalf = 4.5;   // uç flanş çizgilerinin yarı yüksekliği (Y)
+                const amp = 2.2;         // dalga genliği (Y)
+                const cycles = 1;        // tek tam dalga (görseldeki gibi: tepe + çukur)
+                const steps = 32;
+
+                // Sol uç flanş
+                ctx.beginPath();
+                ctx.moveTo(-halfLen, -flansHalf);
+                ctx.lineTo(-halfLen, flansHalf);
+                // Sağ uç flanş
+                ctx.moveTo(halfLen, -flansHalf);
+                ctx.lineTo(halfLen, flansHalf);
+                ctx.stroke();
+
+                // Dalga
+                ctx.beginPath();
+                for (let i = 0; i <= steps; i++) {
+                    const tt = i / steps;
+                    const x = -halfLen + tt * 2 * halfLen;
+                    const y = -amp * Math.sin(tt * cycles * Math.PI * 2);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                break;
+            }
+            case 'manometre': {
+                // Boruya bağlı küçük daire (saat). Boruya dik kısa bir bağlantı
+                // sapı + daire içinde ibre.
+                const sapUz = 5;
+                const r = 4.2;
+
+                ctx.strokeStyle = baseFill;
+                ctx.lineCap = 'round';
+                ctx.lineWidth = 1.2;
+
+                // Bağlantı sapı (yukarı)
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -sapUz);
+                ctx.stroke();
+
+                // Daire
+                ctx.fillStyle = isPreview ? '#00bffa'
+                    : (isSelected ? CUSTOM_COLORS.SELECTED : (mode === 'dark' ? '#2a2a2a' : '#FFFFFF'));
+                ctx.beginPath();
+                ctx.arc(0, -sapUz - r, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // İbre (sağ-yukarı)
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = mode === 'dark' ? '#FFFFFF' : '#1a1a1a';
+                ctx.lineWidth = 0.6;
+                ctx.beginPath();
+                ctx.moveTo(0, -sapUz - r);
+                ctx.lineTo(r * 0.6, -sapUz - r - r * 0.5);
+                ctx.stroke();
+                break;
+            }
+        }
+
+        // Seçim çerçevesi
+        if (isSelected && !isPreview) {
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = CUSTOM_COLORS.SELECTED;
+            ctx.lineWidth = 0.8;
+            ctx.strokeRect(-8, -10, 16, 20);
+        }
     },
 
     drawSelectionBox(ctx, comp) {

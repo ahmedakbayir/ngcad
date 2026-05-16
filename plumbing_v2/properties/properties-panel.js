@@ -768,7 +768,8 @@ function _deleteCurrentPanelObject() {
 
 function _selectConnectedTarget(target) {
     if (!target) return;
-    const PLUMBING_TYPES = ['boru', 'vana', 'regulator', 'sayac', 'servis_kutusu', 'cihaz', 'baca'];
+    const PLUMBING_TYPES = ['boru', 'vana', 'regulator', 'sayac', 'servis_kutusu', 'cihaz', 'baca',
+        'filtre', 'izolasyon_flansi', 'kompansator', 'manometre'];
     const im = window.plumbingManager?.interactionManager;
 
     if (PLUMBING_TYPES.includes(target.type) && im) {
