@@ -662,6 +662,11 @@ export const LabelMixin = {
                     (a.ux * pNX + a.uy * pNY) - (b.ux * pNX + b.uy * pNY)
                 );
 
+                // Boru ekseni birim vektörü — bağlantı çizgisi boru üzerinde uzanmasın
+                const _pLen = Math.hypot(sx2 - sx1, sy2 - sy1) || 1;
+                const _pdx = (sx2 - sx1) / _pLen;
+                const _pdy = (sy2 - sy1) / _pLen;
+
                 let bestScore = Infinity, bestAx = 0, bestAy = 0;
 
                 for (const cand of candidates) {
@@ -675,6 +680,13 @@ export const LabelMixin = {
                     const cby = cay - estH / 2;
 
                     let score = 0;
+
+                    // Boru eksenine paralellik cezası: yatay boruda left/right,
+                    // dikey boruda top/bottom seçilirse bağlantı çizgisi
+                    // boru boyunca uzanır → ağır ceza.
+                    const _par = Math.abs(cand.ux * _pdx + cand.uy * _pdy);
+                    score += _par * _par * 80;
+
                     for (const bb of _labelBBoxes) {
                         const ox = Math.max(0, Math.min(cbx + estW, bb.bx + bb.bw) - Math.max(cbx, bb.bx));
                         const oy = Math.max(0, Math.min(cby + estH, bb.by + bb.bh) - Math.max(cby, bb.by));
@@ -697,7 +709,7 @@ export const LabelMixin = {
                         bestScore = score;
                         bestAx = cax;
                         bestAy = cay;
-                        if (score === 0) break;
+                        if (score < 0.5) break;
                     }
                 }
 
@@ -1582,6 +1594,56 @@ function _segmentIntersectsRect(seg, bx, by, bw, bh, ignoreId) {
     );
 }
 
+// Bileşenin oturduğu borunun ekran-uzayı birim yön vektörü.
+// Etiket bağlantı çizgisinin bu yöne paralel oturmaması için kullanılır.
+// Dönüş: { ux, uy } veya null (host boru bulunamadı).
+function _getHostPipeDir(obj, manager, t) {
+    if (!obj) return null;
+
+    // 1) Doğrudan boru: kendi yönünü kullan
+    if (obj.type === 'boru' && obj.p1 && obj.p2) {
+        const z1 = (obj.p1.z || 0) * t, z2 = (obj.p2.z || 0) * t;
+        const dx = (obj.p2.x + z2) - (obj.p1.x + z1);
+        const dy = (obj.p2.y - z2) - (obj.p1.y - z1);
+        const L = Math.hypot(dx, dy);
+        if (L < 0.01) return null;
+        return { ux: dx / L, uy: dy / L };
+    }
+
+    // 2) bagliBoruId taşıyan bileşenler
+    if (obj.bagliBoruId && manager?.findPipeById) {
+        const p = manager.findPipeById(obj.bagliBoruId);
+        if (p && p.p1 && p.p2) {
+            const z1 = (p.p1.z || 0) * t, z2 = (p.p2.z || 0) * t;
+            const dx = (p.p2.x + z2) - (p.p1.x + z1);
+            const dy = (p.p2.y - z2) - (p.p1.y - z1);
+            const L = Math.hypot(dx, dy);
+            if (L > 0.01) return { ux: dx / L, uy: dy / L };
+        }
+    }
+
+    // 3) Cihaz: fleks bağlantısı boru'ya gidiyor
+    if (obj.type === 'cihaz' && obj.fleksBaglanti?.boruId && manager?.findPipeById) {
+        const p = manager.findPipeById(obj.fleksBaglanti.boruId);
+        if (p && p.p1 && p.p2) {
+            const z1 = (p.p1.z || 0) * t, z2 = (p.p2.z || 0) * t;
+            const dx = (p.p2.x + z2) - (p.p1.x + z1);
+            const dy = (p.p2.y - z2) - (p.p1.y - z1);
+            const L = Math.hypot(dx, dy);
+            if (L > 0.01) return { ux: dx / L, uy: dy / L };
+        }
+    }
+
+    // 4) Sayaç: yerel +Y rakor yönü → boru ekseni rotation'a göre döner
+    if (obj.type === 'sayac') {
+        const rad = ((obj.rotation || 0) * Math.PI) / 180;
+        // Sayaç gövdesi yerel Y boyunca uzanır; boru aynı yönde geçer.
+        return { ux: -Math.sin(rad), uy: Math.cos(rad) };
+    }
+
+    return null;
+}
+
 // Nesnelerin boyutlarının yarısını döndüren yardımcı fonksiyon (Kenar hesabı için)
 function _getObjectHalfSize(obj) {
     if (obj.type === 'sayac') return { hw: (SAYAC_CONFIG?.width || 40) / 2, hh: (SAYAC_CONFIG?.height || 40) / 2 };
@@ -1855,6 +1917,12 @@ function _findBestPositionForCihaz(c, obstacleRects, sceneCenter, pipeSegments) 
             // Cihaz için "alt" hafif tercih (eşit boşluklarda alta gitsin)
             if (dir.id === 'bottom') penalty -= 8;
 
+            // Etiket bağlantı çizgisi, cihazın bağlandığı boruya dik kalsın
+            if (c.hostPipeDir) {
+                const par = Math.abs(dir.nx * c.hostPipeDir.ux + dir.ny * c.hostPipeDir.uy);
+                penalty += par * par * 180;
+            }
+
             if (penalty < bestScore) {
                 bestScore = penalty;
                 bestSpot = { cx: candCX, cy: candCY, align: dir.align };
@@ -1879,7 +1947,7 @@ function _findBestPositionForCihaz(c, obstacleRects, sceneCenter, pipeSegments) 
 //
 // Engeller listesi sıralı doldurulur: önce yerleşen etiket sonrakine engel
 // olur (üstüste binmeyi önler).
-function _findBestLocalPosition(c, obstacleRects, pipeSegments) {
+function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors) {
     // Nesneyle etiket arasında bırakılan minimum boşluk
     const GAP = 35;
 
@@ -1950,7 +2018,40 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments) {
                 }
             }
 
+            // Etiket bağlantı çizgisi nesnenin oturduğu boruya dik olsun:
+            // aday yönü boru ekseniyle ne kadar paralelse o kadar ağır ceza.
+            if (c.hostPipeDir) {
+                const par = Math.abs(dir.nx * c.hostPipeDir.ux + dir.ny * c.hostPipeDir.uy);
+                penalty += par * par * 220;
+                // En diklik veren cardinal yönü pref say (boru için zaten yukarıda set ediliyor;
+                // bileşenler için de ekleyelim ki ağırlıkça çekici olsun)
+                if (c.obj.type !== 'boru') {
+                    const isAxisDir = (dir.id === 'top' || dir.id === 'bottom'
+                        || dir.id === 'left' || dir.id === 'right');
+                    if (isAxisDir && par < 0.2) isPref = true;
+                }
+            }
+
             if (!isPref) penalty += 60;
+
+            // Yakın komşulardan uzaklaşma: iki nesne birbirine yakınsa
+            // etiketleri ters yönlere çıkar (örn. yatayda yan yana iki vana →
+            // soldaki sola, sağdaki sağa). Yön komşuya BAKIYORSA ceza,
+            // KAÇIYORSA küçük bonus.
+            if (neighborAnchors && neighborAnchors.length) {
+                const NEAR = 90; // cm — bu mesafe altı "yakın komşu"
+                for (const na of neighborAnchors) {
+                    const ndx = na.x - c.anchor.x;
+                    const ndy = na.y - c.anchor.y;
+                    const dist = Math.hypot(ndx, ndy);
+                    if (dist < 1 || dist > NEAR) continue;
+                    const ux = ndx / dist;
+                    const uy = ndy / dist;
+                    const toward = dir.nx * ux + dir.ny * uy; // +1 = komşuya doğru
+                    const w = (NEAR - dist) / NEAR;
+                    penalty += toward * w * 70;
+                }
+            }
 
             // Engellerle çakışma — KIRMIZI ÇİZGİ: üst üste binme yasak
             for (const obs of obstacleRects) {
@@ -2168,6 +2269,8 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
         c.anchor = _getLabelAnchor(c.obj, t);
         const sz = _estimateBoxSize(c.obj.id, 80, 40);
         c.bw = sz.bw; c.bh = sz.bh; c.style = sz.style;
+        // Etiket bağlantı çizgisi nesnenin oturduğu boruya dik olsun.
+        c.hostPipeDir = _getHostPipeDir(c.obj, manager, t);
     });
 
     // AŞAMA 1A: Cihaz olmayanlar (boru/sayaç/kutu/vana) önce yerleşir.
@@ -2182,9 +2285,16 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
     nonCihaz.sort((a, b) => (_typeOrder[a.obj.type] ?? 3) - (_typeOrder[b.obj.type] ?? 3));
 
     // Sıralı yerleştirme: her etiket sonrakine engel olur (üstüste binme yasak)
-    // Sıralı yerleştirme: her etiket sonrakine engel olur (üstüste binme yasak)
     const runningObstacles = obstacleRects.slice();
+    // Yakın-komşu flip için: bileşen tipindeki adayların anchor'ları (boru hariç)
+    const _neighborAnchorsAll = nonCihaz
+        .filter(n => n.obj.type !== 'boru' && n.anchor)
+        .map(n => ({ x: n.anchor.x, y: n.anchor.y, _src: n }));
     nonCihaz.forEach(c => {
+        const neighborAnchors = c.obj.type === 'boru'
+            ? null
+            : _neighborAnchorsAll.filter(na => na._src !== c);
+
         if (c.obj.type === 'boru' && c.pipeGroup && c.pipeGroup.length > 0) {
             // Eğer bu bir boruysa, hattaki tüm alternatif boruları dene
             let bestPipe = c.pipeGroup[0];
@@ -2195,7 +2305,8 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
                 const p = c.pipeGroup[i];
                 c.obj = p;
                 c.anchor = _getLabelAnchor(p, t);
-                const spot = _findBestLocalPosition(c, runningObstacles, pipeSegments);
+                c.hostPipeDir = _getHostPipeDir(p, manager, t);
+                const spot = _findBestLocalPosition(c, runningObstacles, pipeSegments, neighborAnchors);
 
                 // İlk sıradakinden (en uzun yataydan) vazgeçmenin küçük bir cezası olsun
                 spot.score += i * 60;
@@ -2213,12 +2324,13 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
             // En iyi skoru veren boruyu kalıcı olarak seç
             c.obj = bestPipe;
             c.anchor = _getLabelAnchor(bestPipe, t);
+            c.hostPipeDir = _getHostPipeDir(bestPipe, manager, t);
             c.align = bestSpot.align;
             c.idealCX = bestSpot.cx;
             c.idealCY = bestSpot.cy;
         } else {
             // Boru dışındaki nesneler için normal yerleşim
-            const bestSpot = _findBestLocalPosition(c, runningObstacles, pipeSegments);
+            const bestSpot = _findBestLocalPosition(c, runningObstacles, pipeSegments, neighborAnchors);
             c.align = bestSpot.align;
             c.idealCX = bestSpot.cx;
             c.idealCY = bestSpot.cy;
@@ -2260,6 +2372,24 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
     await _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated, pipeSegments);
 
     // Verileri kaydet
+    // Bir boru section'ında etiket başka bir boruya geçtiyse eski boruların
+    // _labelOffsets girişlerini temizle. Aksi halde render section-pick adımında
+    // (drawObjectLabels) eski borunun offset'ini bulup labelı eski yerinde çizer
+    // ve relayout etkisiz görünür.
+    const _chosenPipeIds = new Set();
+    cands.forEach(c => {
+        if (c.obj?.type === 'boru') _chosenPipeIds.add(c.obj.id);
+    });
+    cands.forEach(c => {
+        if (c.obj?.type !== 'boru' || !c.pipeGroup) return;
+        for (const p of c.pipeGroup) {
+            if (p.id === c.obj.id) continue;
+            if (_chosenPipeIds.has(p.id)) continue;
+            _labelOffsets.delete(p.id);
+            _labelAutoPos.delete(p.id);
+        }
+    });
+
     cands.forEach(c => {
         const off = _bboxToStoredOffset(c.bx, c.by, c.bw, c.bh, c.style);
         const prev = _labelOffsets.get(c.obj.id) || {};

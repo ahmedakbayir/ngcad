@@ -1221,15 +1221,15 @@ function syncVanaCapOnPipe(pipe, manager, newCap) {
 }
 
 /**
- * Borunun çapını "ilk ayrıma kadar" (TE, sayaç veya regülatör sınırı) yayar.
+ * Borunun çapını yalnızca AŞAĞI (akış yönünde) yayar — bir sonraki ayrıma kadar.
+ * Yukarı (parent) yöne dokunulmaz: önceki parçanın çapı korunur.
  *
- * Sınır kuralları:
- *  - TE / T-bağlantısı: bir borunun çocuk borusu (baslangicBaglanti.tip='boru')
- *    sayısı 1'den farklıysa o uçta yayılım durur (0 = uç, ≥2 = T).
- *  - Sayaç: pipe-to-pipe zinciri sayaca girince doğal olarak durur, çünkü
- *    sayaç çıkış borusunun baslangicBaglanti.tip='sayac'tır ve 'boru' filtremize uymaz.
- *  - Regülatör: parent'ın p2 ucunda veya çocuğun p1 ucunda regülatör varsa
- *    o sınır geçilmez.
+ * Sınır kuralları (aşağı yönde):
+ *  - TE / T-bağlantısı: borunun çocuk borusu sayısı 1'den farklıysa yayılım durur
+ *    (0 = uç, ≥2 = T → kendinden sonraki ayrım burasıdır).
+ *  - Sayaç: pipe-to-pipe zinciri sayaca girince doğal olarak durur (çıkış borusunun
+ *    baslangicBaglanti.tip='sayac' olduğundan 'boru' filtremize uymaz).
+ *  - Regülatör: parent p2 ucunda veya çocuğun p1 ucunda regülatör varsa sınır geçilmez.
  */
 function propagateBoruCapAlongRun(startPipe, newCap, manager) {
     if (!manager || !startPipe || startPipe.type !== 'boru') return;
@@ -1265,19 +1265,8 @@ function propagateBoruCapAlongRun(startPipe, newCap, manager) {
         p.boruCap = newCap;
         syncVanaCapOnPipe(p, manager, newCap);
 
-        // Yukarı (parent): parent'ın TEK çocuğu biz olmalıyız ve aradaki uçta regülatör olmamalı
-        const bag = p.baslangicBaglanti;
-        if (bag?.tip === 'boru' && bag.hedefId) {
-            const parent = pipeMap.get(bag.hedefId);
-            if (parent) {
-                const parentChildren = childrenOf.get(parent.id) || [];
-                if (parentChildren.length === 1 && !hasRegAtP2(parent.id) && !hasRegAtP1(p.id)) {
-                    if (!visited.has(parent.id)) queue.push(parent.id);
-                }
-            }
-        }
-
-        // Aşağı (child): tek çocuk olmalı ve sınırda regülatör olmamalı
+        // Yalnız aşağı (child): tek çocuk olmalı ve sınırda regülatör olmamalı.
+        // Yukarı yöne (parent) dokunulmaz — öncesindeki parça korunur.
         const myChildren = childrenOf.get(pid) || [];
         if (myChildren.length === 1 && !hasRegAtP2(pid)) {
             const childId = myChildren[0];

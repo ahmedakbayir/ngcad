@@ -42,6 +42,11 @@
     --clip-hover-border: #8ab4f8;
 
     --clip-disabled-opacity: 0.35;
+
+    /* İKON HOVER — tüm butonlardaki SVG ikonların hover renkleniyor.
+       Tek noktadan yönetmek için bu değişkeni değiştir. */
+    --icon-hover-color: #00bffa;
+    --icon-hover-glow: 0 0 3px var(--icon-hover-color);
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
@@ -84,6 +89,10 @@ body.light-mode {
     --clip-hover-border: #1a73e8;
 
     --clip-disabled-opacity: 0.4;
+
+    /* Açık mod için ikon hover rengi (gerekirse tek noktadan değiştirilebilir) */
+    --icon-hover-color: #1a73e8;
+    --icon-hover-glow: 0 0 3px var(--icon-hover-color);
 }
 
 body {
@@ -418,6 +427,51 @@ body.light-mode .group-label {
 .tesisat-flyout .flyout-btn svg {
     width: 22px;
     height: 22px;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* GENEL İKON HOVER — tüm buton (.btn/.mode-btn/.menu-btn) ikonları
+   ve sıradan dropdown ikonları (a > svg) için. Renk tek yerden
+   yönetilir: :root --icon-hover-color
+   • Varsayılan: SVG'nin tüm parçaları hover'da renklenir + parlama.
+   • .icon-pipe taşıyan parçalar dokunulmaz (örn. boru temsili çizgiler).
+   • Bir parçayı opt-out etmek için class="icon-pipe", özelleştirilmiş
+     opt-in için class="icon-glow" kullanılabilir (kural her ikisini de
+     kapsar; .icon-glow sınıfı sadece belge amaçlı). */
+/* ═══════════════════════════════════════════════════════════════ */
+.btn:hover svg,
+.mode-btn:hover svg,
+.menu-btn:hover svg,
+.dropdown-content a:hover > svg,
+.dropdown-submenu-content a:hover > svg {
+    filter: drop-shadow(var(--icon-hover-glow));
+}
+
+.btn:hover svg *:not(.icon-pipe),
+.mode-btn:hover svg *:not(.icon-pipe),
+.menu-btn:hover svg *:not(.icon-pipe),
+.dropdown-content a:hover > svg *:not(.icon-pipe),
+.dropdown-submenu-content a:hover > svg *:not(.icon-pipe) {
+    stroke: var(--icon-hover-color);
+}
+
+/* fill="currentColor" olan dolgu kısımlar da renge uyum sağlasın */
+.btn:hover svg [fill="currentColor"]:not(.icon-pipe),
+.mode-btn:hover svg [fill="currentColor"]:not(.icon-pipe),
+.menu-btn:hover svg [fill="currentColor"]:not(.icon-pipe),
+.dropdown-content a:hover > svg [fill="currentColor"]:not(.icon-pipe),
+.dropdown-submenu-content a:hover > svg [fill="currentColor"]:not(.icon-pipe) {
+    fill: var(--icon-hover-color);
+}
+
+/* Sabit stroke="..." ile renk gömülü çizilen SVG'ler için (örn. bRoom #e6e6e6)
+   stroke kuralı yine üzerine yazar; transition ile pürüzsüz geçiş. */
+.btn svg *,
+.mode-btn svg *,
+.menu-btn svg *,
+.dropdown-content a > svg *,
+.dropdown-submenu-content a > svg * {
+    transition: stroke 120ms ease, fill 120ms ease;
 }
 
 #bTesisatToolbox.flyout-open {
