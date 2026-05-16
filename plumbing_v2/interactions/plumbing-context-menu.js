@@ -5,7 +5,7 @@
 
 import { saveState } from '../../general-files/history.js';
 import { handlePipeCopy, handlePipeCut } from './keyboard-handler.js';
-import { findBoruGovdeAt } from './finders.js';
+import { findBoruGovdeAt, findObjectAt } from './finders.js';
 import { Boru } from '../objects/pipe.js';
 import { setMode, setDrawingMode, state } from '../../general-files/main.js';
 import { draw2D } from '../../draw/draw2d.js';
@@ -422,7 +422,10 @@ function collectDownstreamSayaclar(startPipe, manager) {
 function resolveTargetSayaclarForIcTesisat(menuState) {
     const manager = menuState.interactionManager?.manager;
     if (!manager) return [];
-    const sel = menuState.interactionManager?.selectedObject;
+    // ÖNCELİK: sağ tıklanan komponent (menuState.clickedComponent).
+    // Aksi takdirde stale selectedObject hedef olur ve "A'ya sağ tık → B'nin
+    // iç tesisatı silinir" bug'ı ortaya çıkar.
+    const sel = menuState.clickedComponent || menuState.interactionManager?.selectedObject;
 
     // 1) Doğrudan sayaç seçili
     if (sel && sel.type === 'sayac') return [sel];
@@ -692,7 +695,14 @@ export function showPlumbingContextMenu(screenX, screenY, worldPos, interactionM
     const nokta = hitResult ? hitResult.nokta : null;
     const t = (pipe && nokta) ? calcT(pipe, nokta) : 0;
 
-    menuState = { worldPos, pipe, nokta, t, interactionManager };
+    // Sağ tıklanan KOMPONENT — boru olmayan herhangi bir nesne (sayaç, vana,
+    // regülatör, cihaz, baca, servis_kutusu). resolveTargetSayaclarForIcTesisat
+    // bunu öncelikle kullanır; aksi takdirde stale selectedObject hedef olur ve
+    // "A'ya sağ tık → B'nin iç tesisatı silinir" bug'ı oluşur.
+    const hitObject = findObjectAt(manager, worldPos);
+    const clickedComponent = (hitObject && hitObject.type && hitObject.type !== 'boru') ? hitObject : null;
+
+    menuState = { worldPos, pipe, nokta, t, interactionManager, clickedComponent };
 
     const hasPipe = !!getPipeTarget(menuState);
 
