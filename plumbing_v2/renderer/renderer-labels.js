@@ -1424,6 +1424,22 @@ function _buildObstacleRects(manager, t) {
     if (manager?.components) {
         for (const c of manager.components) {
             if (!sameFloor(c)) continue;
+            // Baca: tek nokta değil, çok segmentli polyline. Gerçek bounding box'u kullan.
+            if (c.type === 'baca') {
+                if (typeof c.getBoundingBox === 'function') {
+                    const bb = c.getBoundingBox();
+                    if (isFinite(bb.minX) && isFinite(bb.maxX)) {
+                        const zOff = (c.z || 0) * t;
+                        rects.push({
+                            bx: bb.minX + zOff,
+                            by: bb.minY - zOff,
+                            bw: bb.maxX - bb.minX,
+                            bh: bb.maxY - bb.minY,
+                        });
+                    }
+                }
+                continue;
+            }
             const zOff = (c.z || 0) * t;
             const sx = (c.x || 0) + zOff, sy = (c.y || 0) - zOff;
             let bw = 0, bh = 0;
@@ -1434,7 +1450,6 @@ function _buildObstacleRects(manager, t) {
                 bw = cfg.width; bh = cfg.height;
             }
             else if (c.type === 'vana' || c.type === 'regulator') { bw = 18; bh = 18; } // Regülatör eklendi
-            else if (c.type === 'baca') { bw = 18; bh = 18; }
             if (bw > 0) rects.push({ bx: sx - bw / 2, by: sy - bh / 2, bw, bh });
         }
     }
