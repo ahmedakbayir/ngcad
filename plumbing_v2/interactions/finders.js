@@ -636,6 +636,12 @@ export function removeObject(manager, obj) {
                 }
             }
 
+            // Sayaç bu boruya fleks bağlı olduğu için siliniyorsa, sayacın
+            // iç tesisatı (çıkışa bağlı downstream her şey) de silinsin.
+            if (c.type === 'sayac') {
+                _cascadeDeleteMeterDownstream(manager, c);
+            }
+
             const idx = manager.components.indexOf(c);
             if (idx !== -1) manager.components.splice(idx, 1);
         });
@@ -705,53 +711,10 @@ export function removeObject(manager, obj) {
 
     } else if (obj.type === 'sayac') {
         const sayac = obj;
-        const girisPipe = sayac.fleksBaglanti?.boruId ? manager.findPipeById(sayac.fleksBaglanti.boruId) : null;
-        const cikisPipe = sayac.cikisBagliBoruId ? manager.findPipeById(sayac.cikisBagliBoruId) : null;
-        const girisEndpoint = sayac.fleksBaglanti?.endpoint; // 'p1' veya 'p2' — kolonun sayaca bakan ucu
 
-        // Sayaç silindiğinde iç tesisat KOLONUN DEVAMI olur:
-        //  • TOPOLOJİK: baslangicBaglanti / bitisBaglanti ile boru zincirini kapa.
-        //  • GEOMETRİK: kolonun sayaca bakan ucu ile çıkış borusunun ilk ucu aynı NODE
-        //    olsun (aksi takdirde sayacın boşluğu (~20cm) "Buradan Sonrasını Sil",
-        //    servis kutusu BFS'i ve renderer komşuluk taramalarını keser).
-        //  • RENK: çıkış borusu ve downstream YELLOW (pre-meter) olur.
-        if (cikisPipe) {
-            if (girisPipe) {
-                // Kolonun "sayaç tarafı" ucu (default: p2). Burada paylaşılacak node.
-                const girisUcu = (girisEndpoint === 'p1') ? 'p1' : 'p2';
-                const girisNode = girisUcu === 'p1' ? girisPipe.p1 : girisPipe.p2;
-                const girisNodeId = girisUcu === 'p1' ? girisPipe.p1NodeId : girisPipe.p2NodeId;
-
-                // Çıkış borusunun p1'ini kolon ucuyla aynı NODE'a bağla.
-                const oldNode = cikisPipe.p1;
-                const oldNodeId = cikisPipe.p1NodeId;
-                cikisPipe.p1 = girisNode;
-                cikisPipe.p1NodeId = girisNodeId;
-                // Artık kullanılmayan eski node'u temizle (başka boru paylaşmıyorsa).
-                if (oldNodeId && oldNodeId !== girisNodeId) {
-                    const stillUsed = manager.pipes.some(p =>
-                        p.id !== cikisPipe.id &&
-                        (p.p1NodeId === oldNodeId || p.p2NodeId === oldNodeId)
-                    );
-                    if (!stillUsed) manager.nodes?.delete(oldNodeId);
-                }
-
-                cikisPipe.baslangicBaglanti = {
-                    tip: BAGLANTI_TIPLERI.BORU,
-                    hedefId: girisPipe.id,
-                    noktaIndex: null,
-                };
-                if (!girisPipe.bitisBaglanti?.tip) {
-                    girisPipe.bitisBaglanti = {
-                        tip: BAGLANTI_TIPLERI.BORU,
-                        hedefId: cikisPipe.id,
-                        noktaIndex: null,
-                    };
-                }
-            } else {
-                cikisPipe.baslangicBaglanti = { tip: null, hedefId: null, noktaIndex: null };
-            }
-        }
+        // Sayaç silindiğinde iç tesisat (çıkışa bağlı tüm downstream borular ve
+        // bunlara bağlı cihaz/baca/vana/aksesuarlar) da silinir.
+        _cascadeDeleteMeterDownstream(manager, sayac);
 
         // Sayaç vanasını BRANSMAN'a çevir (sayaç yok, normal kolon vanası gibi davransın)
         if (sayac.iliskiliVanaId) {
@@ -803,6 +766,75 @@ export function removeObject(manager, obj) {
     }
 
     return pipeToSelect;
+}
+
+/**
+ * Sayacın çıkışına bağlı tüm downstream boruları ve bunlara bağlı
+ * bileşenleri (cihaz, baca, cihaz vanası, boru üstü vana/regülatör/aksesuar,
+ * fleks bağlı her şey) topolojik olarak siler. Sayacın kendisini SİLMEZ —
+ * çağıran bu işi üstlenir.
+ */
+function _cascadeDeleteMeterDownstream(manager, sayac) {
+    if (!sayac || !sayac.cikisBagliBoruId) return;
+    const rootPipe = manager.findPipeById(sayac.cikisBagliBoruId);
+    if (!rootPipe) return;
+
+    // BFS: çıkış borusundan başlayıp baslangicBaglanti.tip === 'boru' zincirini
+    // takip ederek tüm iç tesisat borularını topla (T-dalları dahil).
+    const pipeIdsToDelete = new Set([rootPipe.id]);
+    const queue = [rootPipe.id];
+    while (queue.length > 0) {
+        const pid = queue.shift();
+        for (const p of manager.pipes) {
+            if (pipeIdsToDelete.has(p.id)) continue;
+            const bag = p.baslangicBaglanti;
+            if (bag?.tip === BAGLANTI_TIPLERI.BORU && bag.hedefId === pid) {
+                pipeIdsToDelete.add(p.id);
+                queue.push(p.id);
+            }
+        }
+    }
+
+    // İç tesisattaki borulara fleks bağlı cihazları topla
+    const cihazIds = new Set();
+    for (const c of manager.components) {
+        if (c.type === 'cihaz' && c.fleksBaglanti?.boruId && pipeIdsToDelete.has(c.fleksBaglanti.boruId)) {
+            cihazIds.add(c.id);
+        }
+    }
+    // Cihazların ilişkili vana ID'lerini de topla
+    const iliskiliVanaIds = new Set();
+    for (const c of manager.components) {
+        if (cihazIds.has(c.id) && c.iliskiliVanaId) iliskiliVanaIds.add(c.iliskiliVanaId);
+    }
+
+    // Bileşenleri geriden sil
+    for (let i = manager.components.length - 1; i >= 0; i--) {
+        const c = manager.components[i];
+        const remove =
+            cihazIds.has(c.id) ||
+            iliskiliVanaIds.has(c.id) ||
+            (c.type === 'baca' && cihazIds.has(c.parentCihazId)) ||
+            ((c.type === 'vana' || c.type === 'regulator' ||
+              c.type === 'filtre' || c.type === 'izolasyon_flansi' ||
+              c.type === 'kompansator' || c.type === 'manometre') && pipeIdsToDelete.has(c.bagliBoruId)) ||
+            (c.fleksBaglanti?.boruId && pipeIdsToDelete.has(c.fleksBaglanti.boruId));
+        if (remove) manager.components.splice(i, 1);
+    }
+
+    // Boruları geriden sil — başka boru paylaşmıyorsa node'larını da temizle
+    for (let i = manager.pipes.length - 1; i >= 0; i--) {
+        const pipe = manager.pipes[i];
+        if (!pipeIdsToDelete.has(pipe.id)) continue;
+        const p1NodeId = pipe.p1NodeId;
+        const p2NodeId = pipe.p2NodeId;
+        manager.pipes.splice(i, 1);
+        for (const nodeId of [p1NodeId, p2NodeId]) {
+            if (!nodeId) continue;
+            const stillUsed = manager.pipes.some(p => p.p1NodeId === nodeId || p.p2NodeId === nodeId);
+            if (!stillUsed) manager.nodes?.delete(nodeId);
+        }
+    }
 }
 
 export function findConnectedPipesChain(manager, startPipe) {
