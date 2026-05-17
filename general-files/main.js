@@ -12,6 +12,12 @@ import { initPanelDisplayMenu } from '../menu/panel-display-menu.js';
 import { initFittingsMenu } from '../menu/fittings-menu.js';
 import { initBoruCapMenu } from '../menu/boru-cap-menu.js';
 import { initAutoCapMenu } from '../menu/auto-cap-menu.js';
+import { initHataKontrolMenu } from '../menu/hata-kontrol-menu.js';
+import '../plumbing_v2/error-check/checkers/basinc-kayip/index.js';
+import '../plumbing_v2/error-check/checkers/tesisat-hiz/index.js';
+import '../plumbing_v2/error-check/checkers/tasarim/index.js';
+import '../plumbing_v2/error-check/checkers/vana-eksik/index.js';
+import '../plumbing_v2/error-check/checkers/mahal-tanim/index.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
 // --- DEĞİŞİKLİK BURADA ---
 import { updateFirstPersonCamera, setupFirstPersonMouseControls, isFPSMode } from '../scene3d/scene3d-camera.js';
@@ -1115,20 +1121,23 @@ function animate() {
 
 /**
  * Mahal isimlerini sağlanan kurallara göre otomatik olarak atar.
+ * Eski rastgele atama kaldırıldı — Hata Kontrol modülündeki kurallı
+ * auto-name algoritması çağrılır. Kullanıcının vermiş olduğu (MAHAL/boş
+ * dışındaki) isimler korunur; sadece eksikler doldurulur.
  */
 function assignRoomNames() {
-    // Tüm odaları MAHAL_LISTESI'nden rastgele isimlerle yeniden tanımla
     if (!state.rooms || state.rooms.length === 0) return;
 
-    state.rooms.forEach(room => {
-        const randomName = MAHAL_LISTESI[Math.floor(Math.random() * MAHAL_LISTESI.length)];
-        room.name = randomName;
-    });
-
-    saveState();
-    if (dom.mainContainer.classList.contains('show-3d')) {
-        setTimeout(update3DScene, 0);
-    }
+    import('../plumbing_v2/error-check/checkers/mahal-tanim/auto-name.js').then(({ autoNameAllFloors }) => {
+        saveState();
+        const n = autoNameAllFloors();
+        if (n > 0) {
+            draw2D();
+            if (dom.mainContainer.classList.contains('show-3d')) {
+                setTimeout(update3DScene, 0);
+            }
+        }
+    }).catch(e => console.error('autoNameAllFloors failed:', e));
 }
 
 
@@ -1154,6 +1163,7 @@ function initialize() {
     initFittingsMenu();
     initBoruCapMenu();
     initAutoCapMenu();
+    initHataKontrolMenu();
 
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 

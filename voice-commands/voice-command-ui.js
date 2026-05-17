@@ -225,7 +225,7 @@ export function createVoiceCommandUI() {
     // Araç çubuğuna ekle - TESİSAT grubu içine
     const tesisatGroup = document.getElementById('group-plumbing');
     if (tesisatGroup) {
-        tesisatGroup.appendChild(toolbarMicBtn);
+        // tesisatGroup.appendChild(toolbarMicBtn);
     }
 
     // Olay dinleyicilerini bağla

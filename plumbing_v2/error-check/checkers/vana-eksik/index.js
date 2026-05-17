@@ -1,0 +1,294 @@
+// vana-eksik / index.js
+// TS 7363 vana mevcudiyet denetimleri.
+//
+// Kurallar (PDF "Vana Eksik" grubu):
+//   1. Md:5.1.9  — Kolonda AKV gerekli (servis kutusu sonrası ilk ayrımdan önce)
+//   2. Md:6      — Tüm cihazlar için cihaz girişinde 50 cm içinde Cihaz vanası
+//   3. Md:5.2.6  — Sayaç öncesi 1 m yakınlıkta Emniyet vanası
+//   4. Md:5.1.31 — Ticari birim sayacından sonra (birim dışı) Selenoid vana
+//
+// Henüz uygulanmayan (proje ayarı / kapı geometrisi gerektirir):
+//   • Deprem amaçlı selenoid vana (deprem bölgesi ayarı yok)
+//   • Kolonda emniyet vanası (AKV ↔ bina giriş kapısı mesafesi gerek)
+//
+// Çözüm uygulamaları (otomatik vana yerleştirme) henüz fix=null — kullanıcı
+// kontekst menüsünden manuel ekler. İleride otomatik ekleyici eklenebilir.
+
+import { errorCheckManager } from '../../error-check-manager.js';
+import { ERROR_GROUP_IDS } from '../../error-types.js';
+
+const CIHAZ_VANA_MAX_CM = 50;
+const SAYAC_EMNIYET_MAX_CM = 100;
+const TICARI_SELENOID_MIN_CM = 20;
+
+// ─── Yardımcılar ──────────────────────────────────────────────────────────
+
+function buildChildrenMap(pipes) {
+    const ch = new Map();
+    pipes.forEach(p => {
+        const bag = p.baslangicBaglanti;
+        if (bag?.tip === 'boru' && bag.hedefId) {
+            if (!ch.has(bag.hedefId)) ch.set(bag.hedefId, []);
+            ch.get(bag.hedefId).push(p.id);
+        }
+    });
+    return ch;
+}
+
+function pipeLengthCm(p) {
+    if (!p?.p1 || !p?.p2) return 0;
+    return Math.hypot(
+        p.p2.x - p.p1.x,
+        p.p2.y - p.p1.y,
+        (p.p2.z || 0) - (p.p1.z || 0),
+    );
+}
+
+// Bir boruya bağlı (bagliBoruId === pipeId) belirli tipte vana var mı?
+function hasVanaOnPipe(manager, pipeId, tip) {
+    return (manager.components || []).some(c =>
+        c.type === 'vana' && c.bagliBoruId === pipeId && c.vanaTipi === tip
+    );
+}
+
+// Boruya bağlı, p2 ucuna ≤ maxCm mesafede aranan tipte vana var mı?
+function hasVanaNearEnd(manager, pipe, tip, maxCm) {
+    const len = pipeLengthCm(pipe);
+    if (len <= 0) return false;
+    return (manager.components || []).some(c => {
+        if (c.type !== 'vana' || c.vanaTipi !== tip) return false;
+        if (c.bagliBoruId !== pipe.id) return false;
+        const t = c.boruPozisyonu;
+        if (t == null) return true; // konum bilinmiyor → güvenli tarafta say
+        const distFromP2 = (1 - t) * len;
+        return distFromP2 <= maxCm;
+    });
+}
+
+// Boruya bağlı, p1 ucuna ≤ maxCm mesafede aranan tipte vana var mı?
+function hasVanaNearStart(manager, pipe, tip, maxCm) {
+    const len = pipeLengthCm(pipe);
+    if (len <= 0) return false;
+    return (manager.components || []).some(c => {
+        if (c.type !== 'vana' || c.vanaTipi !== tip) return false;
+        if (c.bagliBoruId !== pipe.id) return false;
+        const t = c.boruPozisyonu;
+        if (t == null) return true;
+        const distFromP1 = t * len;
+        return distFromP1 <= maxCm;
+    });
+}
+
+// Bir borudan UPSTREAM (parent zinciri) belirli tipte vana var mı?
+// Toplam tarama mesafesi maxCm cm ile sınırlıdır.
+function hasVanaUpstreamWithin(manager, startPipeId, tip, maxCm) {
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    const startPipe = pipeMap.get(startPipeId);
+    if (!startPipe) return false;
+
+    // Önce start pipe'ın kendisinde p2-yakın vana var mı?
+    if (hasVanaNearEnd(manager, startPipe, tip, maxCm)) return true;
+
+    let remaining = maxCm - pipeLengthCm(startPipe);
+    let cursor = startPipe;
+    const seen = new Set([cursor.id]);
+
+    while (remaining > 0) {
+        const par = cursor.baslangicBaglanti;
+        if (par?.tip !== 'boru' || !par.hedefId) break;
+        const parent = pipeMap.get(par.hedefId);
+        if (!parent || seen.has(parent.id)) break;
+        seen.add(parent.id);
+
+        if (hasVanaOnPipe(manager, parent.id, tip)) return true;
+
+        remaining -= pipeLengthCm(parent);
+        cursor = parent;
+    }
+    return false;
+}
+
+// Bir borudan DOWNSTREAM (çocuk zinciri) tipinde vana var mı?
+// Toplam tarama mesafesi maxCm — bir birim içine giriş kontrolü için.
+function hasVanaDownstreamWithin(manager, startPipeId, tip, maxCm) {
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    const childrenOf = buildChildrenMap(manager.pipes);
+
+    const queue = [{ id: startPipeId, dist: 0 }];
+    const seen = new Set();
+    while (queue.length) {
+        const { id, dist } = queue.shift();
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const p = pipeMap.get(id);
+        if (!p) continue;
+        if (hasVanaOnPipe(manager, id, tip)) return true;
+        const len = pipeLengthCm(p);
+        if (dist + len > maxCm) continue;
+        (childrenOf.get(id) || []).forEach(cid => queue.push({ id: cid, dist: dist + len }));
+    }
+    return false;
+}
+
+// Sayacın çıkış borusu birimin DIŞINDA en az minCm uzunluğa sahip mi?
+// Boru-birim ilişkisi karmaşık olduğundan basit yaklaşık: çıkış borusunun
+// uzunluğunun ≥ minCm olmasını ararız.
+function meterCikisHasMinLength(manager, meter, minCm) {
+    const exitId = meter.cikisBagliBoruId;
+    if (!exitId) return false;
+    const pipe = manager.pipes.find(p => p.id === exitId);
+    return pipe ? pipeLengthCm(pipe) >= minCm : false;
+}
+
+// Etiket yardımcıları
+function dairePrefix(comp) {
+    if (!comp) return '';
+    const no = comp.birimNo;
+    if (no == null || String(no).trim() === '') return '';
+    const tipi = comp.birimTipi || 'KONUT';
+    switch (tipi) {
+        case 'KONUT': return `D${no}`;
+        case 'OFİS': return `(Ofis) Dük${no}`;
+        case 'TİCARİ': return `(Ticari) Dük${no}`;
+        case 'KAZAN DAİRESİ': return `KD${no}`;
+        default: return `D${no}`;
+    }
+}
+
+const CIHAZ_AD = {
+    KOMBI:  'Kombi',
+    OCAK:   'Ocak',
+    SOFBEN: 'Şofben',
+    SOBA:   'Soba',
+    KAZAN:  'Kazan',
+    TICARI: 'Ticari cihaz',
+};
+
+// ─── Kurallar ─────────────────────────────────────────────────────────────
+
+// 1. Kolonda AKV gerekli — her servis kutusu için.
+function kolonAkvKuralı(manager, out) {
+    const boxes = (manager.components || []).filter(c => c.type === 'servis_kutusu');
+    if (!boxes.length) return;
+
+    const childrenOf = buildChildrenMap(manager.pipes);
+
+    boxes.forEach(box => {
+        // Bu servis kutusundan başlayan kök borular
+        const roots = manager.pipes.filter(p =>
+            p.baslangicBaglanti?.tip === 'servis_kutusu' &&
+            p.baslangicBaglanti.hedefId === box.id
+        );
+        if (!roots.length) return;
+
+        // Servis kutusundan downstream tüm boruları topla (AKV her yerde olabilir)
+        const chainIds = new Set();
+        const queue = roots.map(r => r.id);
+        while (queue.length) {
+            const id = queue.shift();
+            if (chainIds.has(id)) continue;
+            chainIds.add(id);
+            (childrenOf.get(id) || []).forEach(cid => queue.push(cid));
+        }
+        if (!chainIds.size) return;
+
+        // Chain'de herhangi bir AKV vanası var mı?
+        const hasAkv = (manager.components || []).some(c =>
+            c.type === 'vana' && c.vanaTipi === 'AKV' && chainIds.has(c.bagliBoruId)
+        );
+        if (hasAkv) return;
+
+        out.push({
+            group:   ERROR_GROUP_IDS.VANA_EKSIK,
+            errorId: `vana-akv-${box.id}`,
+            message: 'Kolonda AKV gerekli',
+            source:  'TS7363 Md:5.1.9',
+            detail:  'Doğalgaz bina bağlantı hattı üzerinde, rahatça ulaşılabilecek 1,90 – 2,10 m yükseklikte, tüm tesisatın gaz akışını gerektiğinde kesip açma işlevini yerine getirecek ana kapatma vanası (AKV) konulmalıdır.',
+            targets: [{ type: 'comp', id: box.id }],
+            fix: null,
+        });
+    });
+}
+
+// 2. Cihaz vanası — her cihaz için 50 cm içinde CIHAZ vanası
+function cihazVanaKuralı(manager, out) {
+    (manager.components || []).forEach(cihaz => {
+        if (cihaz.type !== 'cihaz') return;
+        const inletPipeId = cihaz.fleksBaglanti?.boruId;
+        if (!inletPipeId) return;
+
+        if (hasVanaUpstreamWithin(manager, inletPipeId, 'CIHAZ', CIHAZ_VANA_MAX_CM)) return;
+
+        const ad = CIHAZ_AD[cihaz.cihazTipi] || 'Cihaz';
+        out.push({
+            group:   ERROR_GROUP_IDS.VANA_EKSIK,
+            errorId: `vana-cihaz-${cihaz.id}`,
+            message: `${ad} için cihaz vanası gerekli`,
+            source:  'TS7363 Md:6',
+            detail:  'Her cihazın girişine bir adet kesme vanası mutlaka konulmalıdır.',
+            targets: [{ type: 'comp', id: cihaz.id }],
+            fix: null,
+        });
+    });
+}
+
+// 3. Sayaç öncesi emniyet vanası — her sayaç için 1 m içinde EMNIYET vanası
+function sayacEmniyetKuralı(manager, out) {
+    (manager.components || []).forEach(sayac => {
+        if (sayac.type !== 'sayac') return;
+        const inletPipeId = sayac.fleksBaglanti?.boruId;
+        if (!inletPipeId) return;
+
+        if (hasVanaUpstreamWithin(manager, inletPipeId, 'EMNIYET', SAYAC_EMNIYET_MAX_CM)) return;
+
+        const pre = dairePrefix(sayac);
+        out.push({
+            group:   ERROR_GROUP_IDS.VANA_EKSIK,
+            errorId: `vana-sayac-emniyet-${sayac.id}`,
+            message: `${pre ? pre + ' s' : 'S'}ayaç öncesi emniyet vanası gerekli`,
+            source:  'TS7363 Md:5.2.6',
+            detail:  'Her sayaçtan önce bir kapama vanası bulunmalıdır.',
+            targets: [{ type: 'comp', id: sayac.id }],
+            fix: null,
+        });
+    });
+}
+
+// 4. Sayaç sonrası selenoid (ticari) — birimTipi='TİCARİ' sayaçlar için.
+// Sayaç çıkışında ≥20 cm parça varsa, oraya selenoid eklenmiş olmalı.
+function ticariSelenoidKuralı(manager, out) {
+    (manager.components || []).forEach(sayac => {
+        if (sayac.type !== 'sayac') return;
+        if (sayac.birimTipi !== 'TİCARİ' && sayac.birimTipi !== 'TICARI') return;
+        if (!sayac.cikisBagliBoruId) return;
+        if (!meterCikisHasMinLength(manager, sayac, TICARI_SELENOID_MIN_CM)) return;
+
+        // Sayaç çıkışından itibaren makul mesafede (örn 200 cm) selenoid ara
+        if (hasVanaDownstreamWithin(manager, sayac.cikisBagliBoruId, 'SELENOID', 200)) return;
+
+        const pre = dairePrefix(sayac);
+        out.push({
+            group:   ERROR_GROUP_IDS.VANA_EKSIK,
+            errorId: `vana-ticari-selenoid-${sayac.id}`,
+            message: `${pre ? pre + ' s' : 'S'}ayaç sonrası selenoid vana gerekli`,
+            source:  'TS7363 Md:5.1.31',
+            detail:  'Ticari yerler için yapılan tesisatlarda, solenoid vana ve gaz alarm cihazı bulundurulmak zorundadır. Daire dışında daireye ait ana hat üzerine monte edilecek solenoid vana ile irtibatlandırılmalıdır.',
+            targets: [{ type: 'comp', id: sayac.id }],
+            fix: null,
+        });
+    });
+}
+
+// ─── Toplu checker ────────────────────────────────────────────────────────
+
+function vanaEksikChecker({ manager }) {
+    if (!manager) return [];
+    const out = [];
+    kolonAkvKuralı(manager, out);
+    cihazVanaKuralı(manager, out);
+    sayacEmniyetKuralı(manager, out);
+    ticariSelenoidKuralı(manager, out);
+    return out;
+}
+
+errorCheckManager.register('vana-eksik', vanaEksikChecker);
