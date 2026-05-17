@@ -302,10 +302,15 @@ export function buildHatData(manager) {
         if (bran) {
             const pre = dairePrefix(bran);
             if (bran.ilerdeKullanim) {
-                return {
-                    type: 'BRANSMAN_ILERDE',
-                    label: 'Birden fazla birim',
-                };
+                const n = parseInt(bran.birimSayisi, 10) || 0;
+                // 2+ birim → ilerde kullanım limitleri (0.7 / 15 mbar)
+                // 1 birim  → tek tüketim noktası gibi → normal sayaç/branşman limitleri
+                if (n >= 2) {
+                    return {
+                        type: 'BRANSMAN_ILERDE',
+                        label: 'Birden fazla birim',
+                    };
+                }
             }
             return { type: 'BRANSMAN', label: pre ? `${pre} Branşmanı` : 'Branşman' };
         }

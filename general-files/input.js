@@ -1151,6 +1151,13 @@ export function setupInputListeners() {
         } else if (object && object.type === 'baca' && object.handle === 'body') {
             // Baca gövdesine çift tıklanırsa bölme işlemi yap
             splitChimneyAtClickPosition(object.object, clickPos);
+        } else if (object && object.type === 'plumbingBlock'
+                   && object.object?.type === 'topraklama') {
+            // Topraklama nesnesine çift tıklanırsa yön değiştir (yukarı/aşağı)
+            saveState();
+            const t = object.object;
+            t.direction = t.direction === -1 ? 1 : -1;
+            plumbingManager.saveToState?.();
         }
     });
     c2d.addEventListener("wheel", (e) => {

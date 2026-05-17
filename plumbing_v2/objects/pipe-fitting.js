@@ -37,7 +37,19 @@ export const FITTING_DEFS = {
         defaultMarka: '',
         defaultModel: '',
     },
+    topraklama: {
+        type: 'topraklama',
+        label: 'Topraklama',
+        defaultMarka: '',
+        defaultModel: '',
+    },
 };
+
+export const TOPRAKLAMA_YONTEMLERI = [
+    'Bakır Çubuk: ø16-L:1.5m',
+    'Bakır Çubuk: ø20-L:1.25m',
+    'Bakır Levha: 0.5m²-Kalınlık:2mm',
+];
 
 /**
  * Vana stili — boru üzerinde serbest kayar, basınç değiştirmez.
@@ -75,6 +87,14 @@ export class PipeFitting {
         // Filtreye özel: konik
         if (type === 'filtre') {
             this.konik = options.konik !== undefined ? !!options.konik : false;
+        }
+
+        // Topraklamaya özel: yöntem + yön (1 = pipe'ın bir yanı, -1 = öbür yanı)
+        if (type === 'topraklama') {
+            this.topraklamaYontemi = options.topraklamaYontemi !== undefined
+                ? options.topraklamaYontemi
+                : TOPRAKLAMA_YONTEMLERI[0];
+            this.direction = options.direction === -1 ? -1 : 1;
         }
 
         this.isSelected = false;
@@ -268,6 +288,10 @@ export class PipeFitting {
             description: this.description ?? '',
         };
         if (this.type === 'filtre') out.konik = !!this.konik;
+        if (this.type === 'topraklama') {
+            out.topraklamaYontemi = this.topraklamaYontemi;
+            out.direction = this.direction;
+        }
         return out;
     }
 
@@ -284,6 +308,8 @@ export class PipeFitting {
             muhafazaGrupla: data.muhafazaGrupla,
             description: data.description,
             konik: data.konik,
+            topraklamaYontemi: data.topraklamaYontemi,
+            direction: data.direction,
         });
         f.z = data.z || 0;
         f.id = data.id;

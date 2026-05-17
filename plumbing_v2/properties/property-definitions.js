@@ -5,6 +5,7 @@ import { recalculateStepCount } from '../../architectural-objects/stairs.js';
 import { getUnitRoomsForRoom, getUnitBoundaryPerimeter, invalidateBirimCache, resolveBirimNoForRoom, syncBirimState, findSayacEnteringRoomUnit } from '../../draw/draw-birim-labels.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 import { getHatRowForPipe, getCumulativeLossForHat } from '../utils/pipe-calculations.js';
+import { TOPRAKLAMA_YONTEMLERI } from '../objects/pipe-fitting.js';
 
 /**
  * Sayacın çıkış (iç tesisat) zincirinde bir regülatör var mı?
@@ -355,12 +356,6 @@ export const PROPERTY_DEFS = {
 
     boru_sec_ozellik: { type: 'section', label: 'Özellikler' },
 
-    boruTopraklama: {
-        label: 'Topraklama',
-        type: 'toggle',
-        key: 'topraklama',
-        default: false,
-    },
     boruGomulu: {
         label: 'Gömülü Hat',
         type: 'toggle',
@@ -978,14 +973,6 @@ export const PROPERTY_DEFS = {
     },
 
     // İZOLASYON FLANŞI
-    izolasyon_sec_tanim: { type: 'section', label: 'Tanım' },
-    izolasyonMuhafaza: {
-        label: 'Muhafaza',
-        type: 'toggle',
-        key: 'muhafaza',
-        default: false,
-        groupBtn: 'muhafazaGrupla',
-    },
     izolasyon_sec_urun: { type: 'section', label: 'Ürün' },
     izolasyonMarka: {
         label: 'Marka',
@@ -1003,14 +990,6 @@ export const PROPERTY_DEFS = {
     },
 
     // KOMPANSATÖR
-    kompansator_sec_tanim: { type: 'section', label: 'Tanım' },
-    kompansatorMuhafaza: {
-        label: 'Muhafaza',
-        type: 'toggle',
-        key: 'muhafaza',
-        default: false,
-        groupBtn: 'muhafazaGrupla',
-    },
     kompansator_sec_urun: { type: 'section', label: 'Ürün' },
     kompansatorMarka: {
         label: 'Marka',
@@ -1020,6 +999,31 @@ export const PROPERTY_DEFS = {
         placeholder: 'Marka...',
     },
     kompansatorModel: {
+        label: 'Model',
+        type: 'text',
+        key: 'model',
+        default: '',
+        placeholder: 'Model...',
+    },
+
+    // TOPRAKLAMA
+    topraklama_sec_tanim: { type: 'section', label: 'Tanım' },
+    topraklamaYontemi: {
+        label: 'Topraklama Yöntemi',
+        type: 'select',
+        key: 'topraklamaYontemi',
+        options: TOPRAKLAMA_YONTEMLERI,
+        default: TOPRAKLAMA_YONTEMLERI[0],
+    },
+    topraklama_sec_urun: { type: 'section', label: 'Ürün' },
+    topraklamaMarka: {
+        label: 'Marka',
+        type: 'text',
+        key: 'marka',
+        default: '',
+        placeholder: 'Marka...',
+    },
+    topraklamaModel: {
         label: 'Model',
         type: 'text',
         key: 'model',
@@ -1813,7 +1817,6 @@ export const OBJECT_PROPERTIES = {
         'boruP1',
         'boruP2',
         'boru_sec_ozellik',
-        'boruTopraklama',
         'boruGomulu',
     ],
     sayac: [
@@ -1874,15 +1877,11 @@ export const OBJECT_PROPERTIES = {
         'filtreModel',
     ],
     izolasyon_flansi: [
-        'izolasyon_sec_tanim',
-        'izolasyonMuhafaza',
         'izolasyon_sec_urun',
         'izolasyonMarka',
         'izolasyonModel',
     ],
     kompansator: [
-        'kompansator_sec_tanim',
-        'kompansatorMuhafaza',
         'kompansator_sec_urun',
         'kompansatorMarka',
         'kompansatorModel',
@@ -1893,6 +1892,13 @@ export const OBJECT_PROPERTIES = {
         'manometre_sec_urun',
         'manometreMarka',
         'manometreModel',
+    ],
+    topraklama: [
+        'topraklama_sec_tanim',
+        'topraklamaYontemi',
+        'topraklama_sec_urun',
+        'topraklamaMarka',
+        'topraklamaModel',
     ],
     servis_kutusu: [
         // 'kutu_sec_tanim',
@@ -2015,6 +2021,7 @@ export function getObjectTypeLabel(type) {
         izolasyon_flansi: 'İzolasyon Flanşı',
         kompansator: 'Kompansatör',
         manometre: 'Manometre',
+        topraklama: 'Topraklama',
         servis_kutusu: 'Servis Kutusu',
         cihaz: 'Cihaz',
         room: 'Oda',

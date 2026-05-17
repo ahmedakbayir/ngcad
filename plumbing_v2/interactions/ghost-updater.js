@@ -337,7 +337,7 @@ export function updateGhostPosition(ghost, point, snap) {
     if ((ghost.type === 'sayac' || ghost.type === 'vana'
         || ghost.type === 'regulator' || ghost.type === 'filtre'
         || ghost.type === 'izolasyon_flansi' || ghost.type === 'kompansator'
-        || ghost.type === 'manometre') && snap && snap.target) {
+        || ghost.type === 'manometre' || ghost.type === 'topraklama') && snap && snap.target) {
         if (snap.target.isPipe) {
             ghost.rotation = snap.target.aciDerece || 0;
         }

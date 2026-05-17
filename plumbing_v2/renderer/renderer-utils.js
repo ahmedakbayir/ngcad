@@ -176,7 +176,7 @@ export function slicePipeAcrossFloors(pipe, floors) {
 
 /**
  * Slice verisinden çizim için pipe proxy'si üretir. Orijinal boru özelliklerini
- * (boruTipi, colorGroup, id, boruCap, topraklama) miras alır, yalnız p1/p2 değişir.
+ * (boruTipi, colorGroup, id, boruCap) miras alır, yalnız p1/p2 değişir.
  */
 export function makeSlicedPipeProxy(slice) {
     const proxy = Object.create(slice.originalPipe);

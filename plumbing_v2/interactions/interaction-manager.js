@@ -163,6 +163,7 @@ export const TESISAT_MODLARI = {
     IZOLASYON_FLANSI: 'izolasyon_flansi',
     KOMPANSATOR: 'kompansator',
     MANOMETRE: 'manometre',
+    TOPRAKLAMA: 'topraklama',
     CIHAZ: 'cihaz',
     BACA: 'baca'
 };

@@ -19,7 +19,8 @@ import { syncAllFloorAssignments } from '../floor-sync.js';
 function _isOnPipeComp(type) {
     return type === 'vana' || type === 'regulator'
         || type === 'filtre' || type === 'izolasyon_flansi'
-        || type === 'kompansator' || type === 'manometre';
+        || type === 'kompansator' || type === 'manometre'
+        || type === 'topraklama';
 }
 
 export function isProtectedPoint(point, manager, currentPipe, oldPoint, excludeComponentId = null, skipBostaUcCheck = false) {

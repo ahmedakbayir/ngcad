@@ -98,6 +98,7 @@ export function placeComponent(point) {
         case 'izolasyon_flansi':
         case 'kompansator':
         case 'manometre':
+        case 'topraklama':
             if (this.fittingPreview) {
                 this.handleFittingPlacement(this.fittingPreview);
                 return;

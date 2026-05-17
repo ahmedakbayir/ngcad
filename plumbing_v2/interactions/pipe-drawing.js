@@ -197,7 +197,8 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
     const valves = interactionManager.manager.components.filter(c =>
         (c.type === 'vana' || c.type === 'regulator'
             || c.type === 'filtre' || c.type === 'izolasyon_flansi'
-            || c.type === 'kompansator' || c.type === 'manometre')
+            || c.type === 'kompansator' || c.type === 'manometre'
+            || c.type === 'topraklama')
         && c.bagliBoruId === pipe.id);
     valves.forEach(v => {
         const pos = (pipe.getVanaPozisyon && pipe.getVanaPozisyon()) || pipe.getPointAt(v.boruPozisyonu !== undefined ? v.boruPozisyonu : 0.5);

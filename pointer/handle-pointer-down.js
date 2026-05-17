@@ -212,7 +212,8 @@ export function handlePointerDown(e) {
     // 0.4c Tesisat aksesuarı ekleme - Filtre / İzolasyon Flanşı / Kompansatör / Manometre
     if (!this.boruCizimAktif && this.fittingPreview &&
         (this.manager.activeTool === 'filtre' || this.manager.activeTool === 'izolasyon_flansi' ||
-         this.manager.activeTool === 'kompansator' || this.manager.activeTool === 'manometre')) {
+         this.manager.activeTool === 'kompansator' || this.manager.activeTool === 'manometre' ||
+         this.manager.activeTool === 'topraklama')) {
         this.handleFittingPlacement(this.fittingPreview);
         return true;
     }
@@ -342,7 +343,8 @@ export function handlePointerDown(e) {
                        this.selectedObject.type === 'sayac' || this.selectedObject.type === 'cihaz' ||
                        this.selectedObject.type === 'servis_kutusu' ||
                        this.selectedObject.type === 'filtre' || this.selectedObject.type === 'izolasyon_flansi' ||
-                       this.selectedObject.type === 'kompansator' || this.selectedObject.type === 'manometre') {
+                       this.selectedObject.type === 'kompansator' || this.selectedObject.type === 'manometre' ||
+                       this.selectedObject.type === 'topraklama') {
                 const gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
                 const clickedAxis = findTranslateGizmoAxisAt(gizmoCenter, point, ['X', 'Y', 'Z']);
 
@@ -373,7 +375,8 @@ export function handlePointerDown(e) {
                         (c.type === 'cihaz' || c.type === 'sayac' || c.type === 'servis_kutusu'
                             || c.type === 'vana' || c.type === 'regulator'
                             || c.type === 'filtre' || c.type === 'izolasyon_flansi'
-                            || c.type === 'kompansator' || c.type === 'manometre')) ||
+                            || c.type === 'kompansator' || c.type === 'manometre'
+                            || c.type === 'topraklama')) ||
                     this.manager.pipes.find(p => p.id === labelId);
                 if (labelObj) {
                     this._pendingLabelClick = { id: labelId, sx: point.x, sy: point.y, obj: labelObj };

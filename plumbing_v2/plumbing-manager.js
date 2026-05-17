@@ -147,6 +147,7 @@ export class PlumbingManager {
             case TESISAT_MODLARI.IZOLASYON_FLANSI:
             case TESISAT_MODLARI.KOMPANSATOR:
             case TESISAT_MODLARI.MANOMETRE:
+            case TESISAT_MODLARI.TOPRAKLAMA:
                 if (FITTING_DEFS[type]) {
                     this.tempComponent = createPipeFitting(type, 0, 0, {
                         floorId: state.currentFloor?.id
@@ -391,6 +392,7 @@ export class PlumbingManager {
                     case 'izolasyon_flansi':
                     case 'kompansator':
                     case 'manometre':
+                    case 'topraklama':
                         return PipeFitting.fromJSON(data);
                     default:
                         return null;
@@ -717,6 +719,34 @@ export class PlumbingManager {
                 bestDist = dist;
                 bestHit = { type: 'component', object: comp, handle: 'body' };
             }
+
+            // Topraklama: drop-arm bölgesi de tıklanabilir olmalı (sembol borudan
+            // ~17cm uzağa iniyor). Lokal koordinatta dik kol +/-Y yönünde.
+            if (comp.type === 'topraklama') {
+                const sign = comp.direction === -1 ? -1 : 1;
+                const rad = (comp.rotation || 0) * Math.PI / 180;
+                const cos = Math.cos(rad), sin = Math.sin(rad);
+                // Sembol kutusu local: x ∈ [-14, +2], y ∈ [0, sign*18]
+                const lxMin = -14, lxMax = 2;
+                const lyMin = sign === 1 ? 0 : -18;
+                const lyMax = sign === 1 ? 18 : 0;
+                const dxw = pos.x - compScreen.x;
+                const dyw = pos.y - compScreen.y;
+                // ekran → lokal (ters rotasyon)
+                const lx = dxw * cos + dyw * sin;
+                const ly = -dxw * sin + dyw * cos;
+                const PAD = 4;
+                if (lx >= lxMin - PAD && lx <= lxMax + PAD
+                    && ly >= lyMin - PAD && ly <= lyMax + PAD) {
+                    // Drop-arm içinde — sıkı bir uzaklık ata ki pipe gövdesine
+                    // yenik düşmesin
+                    const armDist = 3;
+                    if (armDist < bestDist) {
+                        bestDist = armDist;
+                        bestHit = { type: 'component', object: comp, handle: 'body' };
+                    }
+                }
+            }
         }
 
         for (const pipe of pipes) {
@@ -814,6 +844,7 @@ export class PlumbingManager {
                     case 'izolasyon_flansi':
                     case 'kompansator':
                     case 'manometre':
+                    case 'topraklama':
                         return PipeFitting.fromJSON(c);
                     default:
                         return null;
@@ -908,7 +939,8 @@ export class PlumbingManager {
 function _isOnPipeComponent(type) {
     return type === 'vana' || type === 'regulator'
         || type === 'filtre' || type === 'izolasyon_flansi'
-        || type === 'kompansator' || type === 'manometre';
+        || type === 'kompansator' || type === 'manometre'
+        || type === 'topraklama';
 }
 
 /**

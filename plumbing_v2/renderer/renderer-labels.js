@@ -323,18 +323,13 @@ export const LabelMixin = {
                     case 'izolasyon_flansi':
                     case 'kompansator':
                     case 'manometre':
+                    case 'topraklama':
                         this._drawFittingObjLabel(ctx, comp, manager, opts);
                         break;
                 }
             });
         }
 
-        // Topraklama etiketleri
-        if (_pipesForLabels) {
-            _pipesForLabels.forEach(pipe => {
-                if (pipe.topraklama) this._drawTopraklamaLabel(ctx, pipe, opts);
-            });
-        }
     },
 
     // ─── Yardımcı: ekran koordinatı ─────────────────────────────────────────
@@ -1028,9 +1023,14 @@ export const LabelMixin = {
             case 'izolasyon_flansi': baslik = 'İzolasyon Flanşı'; break;
             case 'kompansator': baslik = 'Kompansatör'; break;
             case 'manometre': baslik = 'Manometre'; break;
+            case 'topraklama': baslik = 'TOPRAKLAMA'; break;
             default: baslik = '';
         }
-        if (baslik) lines.push({ text: baslik });
+        if (baslik) lines.push({ text: baslik, bold: comp.type === 'topraklama' });
+
+        if (comp.type === 'topraklama' && comp.topraklamaYontemi) {
+            lines.push({ text: comp.topraklamaYontemi, sub: true });
+        }
 
         const marka = (comp.marka ?? '').toString().trim();
         const model = (comp.model ?? '').toString().trim();
@@ -1145,130 +1145,6 @@ export const LabelMixin = {
         this._drawObjLabelBoxBelow(ctx, comp.id, cx, cy, off.dx, off.dy, lines, opts, hh);
     },
 
-    _drawTopraklamaLabel(ctx, pipe, opts) {
-        if (!pipe.p1 || !pipe.p2) return;
-        const { t, zoom, fontSize, lineH,
-            textColor, subColor, bgColor, borderColor, connColor, accentBar } = opts;
-
-        const STEM = 12, VERT = 8, W1 = 9;
-
-        const z1 = (pipe.p1.z || 0) * t, z2 = (pipe.p2.z || 0) * t;
-        const sx1 = pipe.p1.x + z1, sy1 = pipe.p1.y - z1;
-        const sx2 = pipe.p2.x + z2, sy2 = pipe.p2.y - z2;
-        const mx = (sx1 + sx2) / 2, my = (sy1 + sy2) / 2;
-
-        const dx = sx2 - sx1, dy = sy2 - sy1;
-        const len = Math.hypot(dx, dy);
-        const ndx = len > 0.01 ? dx / len : 0;
-        const ndy = len > 0.01 ? dy / len : 1;
-
-        let px = ndy, py = -ndx;
-        if (px < -0.001 || (Math.abs(px) < 0.001 && py < 0)) { px = -px; py = -py; }
-
-        const qx = -ndx, qy = -ndy;
-
-        const e5x = mx + px * STEM, e5y = my + py * STEM;
-        const bx = e5x + qx * VERT, by = e5y + qy * VERT;
-
-        const connX = bx + px * W1, connY = by + py * W1;
-
-        const stored = _labelOffsets.get(pipe.id + '_topraklama');
-        let ax, ay;
-        if (stored?.ax != null) {
-            ax = stored.ax; ay = stored.ay;
-        } else {
-            ax = connX + px * 10; ay = connY + py * 10;
-        }
-
-        const lines = [
-            { text: 'TOPRAKLAMA', bold: true },
-            { text: 'Bakır Çubuk', sub: true },
-            { text: 'ø:16mm - L:1.5m', sub: true },
-        ];
-
-        const pad = fontSize * 0.5;
-        const r = 2.5 / zoom;
-
-        ctx.save();
-        ctx.font = `bold ${fontSize}px "Segoe UI",sans-serif`;
-        let maxW = 0;
-        lines.forEach(l => {
-            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
-            maxW = Math.max(maxW, ctx.measureText(l.text).width);
-        });
-
-        const boxW = maxW + pad * 2;
-        const boxH = lines.length * lineH + pad * 0.6;
-        const boxX = ax;
-        const boxY = ay - boxH / 2;
-
-        _labelBBoxes.push({
-            id: pipe.id + '_topraklama',
-            bx: boxX, by: boxY, bw: boxW, bh: boxH,
-            style: 'left-center',
-        });
-
-        {
-            const centerX = boxX + boxW / 2;
-            const centerY = boxY + boxH / 2;
-            const dx = connX - centerX;
-            const dy = connY - centerY;
-            const dist = Math.hypot(dx, dy);
-
-            let edgeX = centerX;
-            let edgeY = centerY;
-
-            if (dist > 0.1) {
-                const ux = dx / dist;
-                const uy = dy / dist;
-                let tEdge = Infinity;
-                if (ux > 0) tEdge = Math.min(tEdge, (boxW / 2) / ux);
-                if (ux < 0) tEdge = Math.min(tEdge, (-boxW / 2) / ux);
-                if (uy > 0) tEdge = Math.min(tEdge, (boxH / 2) / uy);
-                if (uy < 0) tEdge = Math.min(tEdge, (-boxH / 2) / uy);
-
-                if (isFinite(tEdge)) {
-                    edgeX = centerX + ux * tEdge;
-                    edgeY = centerY + uy * tEdge;
-                }
-            }
-
-            ctx.strokeStyle = connColor;
-            ctx.lineWidth = 0.5 / zoom;
-            ctx.beginPath();
-            ctx.moveTo(connX, connY);
-            ctx.lineTo(edgeX, edgeY);
-            ctx.stroke();
-        }
-
-        ctx.fillStyle = bgColor;
-        ctx.strokeStyle = borderColor;
-        ctx.lineWidth = 0.5 / zoom;
-        ctx.beginPath();
-        ctx.roundRect(boxX, boxY, boxW, boxH, Math.max(0, r));
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.strokeStyle = accentBar;
-        ctx.lineWidth = 1.5 / zoom;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(boxX + 0.75 / zoom, boxY + r);
-        ctx.lineTo(boxX + 0.75 / zoom, boxY + boxH - r);
-        ctx.stroke();
-
-        let ty = boxY + pad * 0.1 + fontSize;
-        lines.forEach(l => {
-            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
-            ctx.fillStyle = l.sub ? subColor : textColor;
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'alphabetic';
-            ctx.fillText(l.text, boxX + pad, ty);
-            ty += lineH;
-        });
-
-        ctx.restore();
-    },
 };
 
 // ─── ETİKET YENİDEN YERLEŞİMİ (AKILLI LOKAL KEŞİF + GLOBAL FİZİK) ──────────
@@ -1373,7 +1249,8 @@ function _collectAllCandidates(manager) {
             else if (c.type === 'servis_kutusu') cands.push({ obj: c, type: 'servis_kutusu' });
             else if (c.type === 'regulator') cands.push({ obj: c, type: 'regulator' });
             else if (c.type === 'filtre' || c.type === 'izolasyon_flansi'
-                || c.type === 'kompansator' || c.type === 'manometre') {
+                || c.type === 'kompansator' || c.type === 'manometre'
+                || c.type === 'topraklama') {
                 cands.push({ obj: c, type: c.type });
             }
         });
@@ -1417,7 +1294,8 @@ function _buildObstacleRects(manager, t) {
             }
             else if (c.type === 'vana' || c.type === 'regulator'
                 || c.type === 'filtre' || c.type === 'izolasyon_flansi'
-                || c.type === 'kompansator' || c.type === 'manometre') { bw = 18; bh = 18; }
+                || c.type === 'kompansator' || c.type === 'manometre'
+                || c.type === 'topraklama') { bw = 18; bh = 18; }
             
             if (bw > 0) rects.push({ id: c.id, bx: sx - bw / 2, by: sy - bh / 2, bw, bh });
         }
@@ -1513,7 +1391,8 @@ function _getObjectHalfSize(obj) {
     }
     if (obj.type === 'vana' || obj.type === 'regulator'
         || obj.type === 'filtre' || obj.type === 'izolasyon_flansi'
-        || obj.type === 'kompansator' || obj.type === 'manometre') return { hw: 9, hh: 9 };
+        || obj.type === 'kompansator' || obj.type === 'manometre'
+        || obj.type === 'topraklama') return { hw: 9, hh: 9 };
     return { hw: 4, hh: 4 };
 }
 
@@ -1552,7 +1431,7 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors)
 
     const directions = [
         { id: 'bottom', nx: 0, ny: 1, align: 'vertical', pref: ['cihaz', 'sayac', 'servis_kutusu'], dirPenalty: 0 },
-        { id: 'right', nx: 1, ny: 0, align: 'horizontal', pref: ['vana', 'regulator', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre', 'cihaz', 'sayac'], dirPenalty: 0 },
+        { id: 'right', nx: 1, ny: 0, align: 'horizontal', pref: ['vana', 'regulator', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre', 'topraklama', 'cihaz', 'sayac'], dirPenalty: 0 },
         { id: 'top', nx: 0, ny: -1, align: 'vertical', pref: ['cihaz', 'sayac', 'servis_kutusu'], dirPenalty: 15 },
         { id: 'left', nx: -1, ny: 0, align: 'horizontal', pref: ['cihaz', 'sayac'], dirPenalty: 25 },
         
@@ -1830,7 +1709,7 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
         c.hostPipeDir = _getHostPipeDir(c.obj, manager, t);
     });
 
-    const _typeOrder = { sayac: 0, servis_kutusu: 0, vana: 1, regulator: 1, cihaz: 1, filtre: 1, izolasyon_flansi: 1, kompansator: 1, manometre: 1, boru: 2 };
+    const _typeOrder = { sayac: 0, servis_kutusu: 0, vana: 1, regulator: 1, cihaz: 1, filtre: 1, izolasyon_flansi: 1, kompansator: 1, manometre: 1, topraklama: 1, boru: 2 };
     cands.sort((a, b) => (_typeOrder[a.obj.type] ?? 3) - (_typeOrder[b.obj.type] ?? 3));
 
     const runningObstacles = obstacleRects.slice();

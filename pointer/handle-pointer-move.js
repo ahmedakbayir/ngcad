@@ -98,7 +98,8 @@ export function handlePointerMove(e) {
             this.selectedObject.type === 'sayac' || this.selectedObject.type === 'cihaz' ||
             this.selectedObject.type === 'servis_kutusu' ||
             this.selectedObject.type === 'filtre' || this.selectedObject.type === 'izolasyon_flansi' ||
-            this.selectedObject.type === 'kompansator' || this.selectedObject.type === 'manometre') {
+            this.selectedObject.type === 'kompansator' || this.selectedObject.type === 'manometre' ||
+            this.selectedObject.type === 'topraklama') {
             const gizmoCenter = { x: this.selectedObject.x, y: this.selectedObject.y, z: this.selectedObject.z || 0 };
             this.hoveredGizmoAxis = findTranslateGizmoAxisAt(gizmoCenter, point, ['X', 'Y', 'Z']);
         } else {
@@ -362,7 +363,8 @@ export function handlePointerMove(e) {
     const _isFittingTool = this.manager.activeTool === 'filtre'
         || this.manager.activeTool === 'izolasyon_flansi'
         || this.manager.activeTool === 'kompansator'
-        || this.manager.activeTool === 'manometre';
+        || this.manager.activeTool === 'manometre'
+        || this.manager.activeTool === 'topraklama';
     if ((_isVanaTool || _isRegulatorTool || _isFittingTool) && !this.boruCizimAktif) {
         // Varsayılan olarak mouse pozisyonuna getir (eğer boru yoksa)
         if (this.manager.tempComponent) {

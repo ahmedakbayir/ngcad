@@ -101,7 +101,6 @@ export class PlumbingRenderer {
             this.drawPipes(ctx, _pipesOther);
             this.drawServiceBoxReducers(ctx, _skOther, _pipesOther);
             this.drawPipeWallCrossings(ctx, _pipesOther);
-            this.drawTopraklamaSymbols(ctx, _pipesOther);
             this.drawFloorCrossingMarkers(ctx, _pipesOther);
             this.drawComponents(ctx, _digerOther, manager);
             ctx.restore();
@@ -112,7 +111,6 @@ export class PlumbingRenderer {
         this.drawPipes(ctx, _pipesCurrent);
         this.drawServiceBoxReducers(ctx, _skCurrent, _pipesCurrent);
         this.drawPipeWallCrossings(ctx, _pipesCurrent);
-        this.drawTopraklamaSymbols(ctx, _pipesCurrent);
         this.drawFloorCrossingMarkers(ctx, _pipesCurrent);
         this.drawComponents(ctx, _digerCurrent, manager);
 

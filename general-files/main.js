@@ -580,6 +580,7 @@ export const dom = {
     bIzolasyonFlansi: document.getElementById("bIzolasyonFlansi"),
     bKompansator: document.getElementById("bKompansator"),
     bManometre: document.getElementById("bManometre"),
+    bTopraklama: document.getElementById("bTopraklama"),
     bKombi: document.getElementById("bKombi"),
     bOcak: document.getElementById("bOcak"),
     bBaca: document.getElementById("bBaca"),
@@ -935,11 +936,12 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     if (dom.bIzolasyonFlansi) dom.bIzolasyonFlansi.classList.toggle("active", isPlumbingV2 && activeTool === 'izolasyon_flansi');
     if (dom.bKompansator) dom.bKompansator.classList.toggle("active", isPlumbingV2 && activeTool === 'kompansator');
     if (dom.bManometre) dom.bManometre.classList.toggle("active", isPlumbingV2 && activeTool === 'manometre');
+    if (dom.bTopraklama) dom.bTopraklama.classList.toggle("active", isPlumbingV2 && activeTool === 'topraklama');
     if (dom.bTesisatToolbox) {
         const anyFittingActive = isPlumbingV2 && (
             activeTool === 'regulator' || activeTool === 'filtre' ||
             activeTool === 'izolasyon_flansi' || activeTool === 'kompansator' ||
-            activeTool === 'manometre'
+            activeTool === 'manometre' || activeTool === 'topraklama'
         );
         dom.bTesisatToolbox.classList.toggle("active", anyFittingActive);
     }
@@ -1374,6 +1376,9 @@ function initialize() {
     }
     if (dom.bKompansator) {
         dom.bKompansator.addEventListener("click", () => _startFittingPlacement(TESISAT_MODLARI.KOMPANSATOR));
+    }
+    if (dom.bTopraklama) {
+        dom.bTopraklama.addEventListener("click", () => _startFittingPlacement(TESISAT_MODLARI.TOPRAKLAMA));
     }
     if (dom.bManometre) {
         dom.bManometre.addEventListener("click", () => _startFittingPlacement(TESISAT_MODLARI.MANOMETRE));

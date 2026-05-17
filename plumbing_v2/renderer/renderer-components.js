@@ -158,6 +158,7 @@ export const ComponentMixin = {
             case 'izolasyon_flansi':
             case 'kompansator':
             case 'manometre':
+            case 'topraklama':
                 this.drawFitting(ctx, comp, manager);
                 break;
         }
@@ -915,6 +916,7 @@ export const ComponentMixin = {
         this.drawFittingSymbol(ctx, comp.type, {
             isSelected: comp.isSelected,
             colorGroup,
+            direction: comp.direction,
         });
     },
 
@@ -923,7 +925,7 @@ export const ComponentMixin = {
      * Local koordinat: boru +X yönünde akıyor; -X giriş, +X çıkış.
      */
     drawFittingSymbol(ctx, type, opts = {}) {
-        const { isSelected = false, colorGroup = 'YELLOW', isPreview = false } = opts;
+        const { isSelected = false, colorGroup = 'YELLOW', isPreview = false, direction = 1 } = opts;
 
         const mode = isLightMode() ? 'light' : 'dark';
         const theme = VALVE_THEMES[colorGroup] || VALVE_THEMES.DEFAULT;
@@ -1017,6 +1019,41 @@ export const ComponentMixin = {
                     else ctx.lineTo(x, y);
                 }
                 ctx.stroke();
+                break;
+            }
+            case 'topraklama': {
+                // Boruya dik çıkan kısa sap + boruya paralel kısa kol +
+                // gittikçe kısalan 3 paralel çizgi (klasik toprak sembolü).
+                // direction: +1 → +Y (lokal alt), -1 → -Y (lokal üst).
+                const sign = direction === -1 ? -1 : 1;
+                const STEM = 12;     // boruya dik çıkış
+                const VERT = 5;      // boruya paralel iniş (lokal -X yönünde)
+                const W1 = 9, W2 = 6, W3 = 3, GAP = 1.8;
+
+                ctx.strokeStyle = baseFill;
+                ctx.lineCap = 'round';
+                ctx.lineWidth = 1.4;
+
+                // Line 5: borudan dik çıkış (lokal Y)
+                const e5x = 0,         e5y = sign * STEM;
+                // Line 4: boruya paralel (lokal -X)
+                const bx  = e5x - VERT, by = e5y;
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(e5x, e5y);
+                ctx.moveTo(e5x, e5y);
+                ctx.lineTo(bx, by);
+                ctx.stroke();
+
+                // Lines 1-2-3: boruya dik kısalan çizgiler (lokal -X yönünde dizilir)
+                [[W1, 0], [W2, GAP], [W3, GAP * 2]].forEach(([hw, off]) => {
+                    const lx = bx - off;
+                    ctx.beginPath();
+                    ctx.moveTo(lx, by - hw);
+                    ctx.lineTo(lx, by + hw);
+                    ctx.stroke();
+                });
                 break;
             }
             case 'manometre': {

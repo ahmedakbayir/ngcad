@@ -96,7 +96,8 @@ export function selectObject(interactionManager, obj, opts = {}) {
     // Çizim motoru veya panel vanayı özel değişkende ararsa diye ikisini eşitliyoruz
     if (obj.type === 'vana' || obj.type === 'regulator'
         || obj.type === 'filtre' || obj.type === 'izolasyon_flansi'
-        || obj.type === 'kompansator' || obj.type === 'manometre') {
+        || obj.type === 'kompansator' || obj.type === 'manometre'
+        || obj.type === 'topraklama') {
         let pipe = null;
         if (interactionManager.manager && interactionManager.manager.pipes) {
             pipe = interactionManager.manager.pipes.find(p => 
@@ -136,7 +137,7 @@ export function selectObject(interactionManager, obj, opts = {}) {
         }
     });
 
-    if (['boru', 'sayac', 'vana', 'regulator', 'servis_kutusu', 'cihaz', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre'].includes(obj.type)) {
+    if (['boru', 'sayac', 'vana', 'regulator', 'servis_kutusu', 'cihaz', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre', 'topraklama'].includes(obj.type)) {
         if (isPinned() || isPanelOpen() || openPanel) {
             openPropertiesPanel(obj, interactionManager.manager);
         }

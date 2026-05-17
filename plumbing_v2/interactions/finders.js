@@ -617,7 +617,7 @@ export function removeObject(manager, obj) {
         const componentsToDelete = manager.components.filter(c =>
             ((c.type === 'vana' || c.type === 'regulator' ||
               c.type === 'filtre' || c.type === 'izolasyon_flansi' ||
-              c.type === 'kompansator' || c.type === 'manometre') && c.bagliBoruId === pipeId) ||
+              c.type === 'kompansator' || c.type === 'manometre' || c.type === 'topraklama') && c.bagliBoruId === pipeId) ||
             (c.fleksBaglanti && c.fleksBaglanti.boruId === pipeId)
         );
         componentsToDelete.forEach(c => {
@@ -695,7 +695,7 @@ export function removeObject(manager, obj) {
                 (c.type === 'baca' && cihazIds.has(c.parentCihazId)) ||            // baca
                 ((c.type === 'vana' || c.type === 'regulator' ||
                   c.type === 'filtre' || c.type === 'izolasyon_flansi' ||
-                  c.type === 'kompansator' || c.type === 'manometre') && pipeIds.has(c.bagliBoruId)) || // boru üstü aksesuarlar
+                  c.type === 'kompansator' || c.type === 'manometre' || c.type === 'topraklama') && pipeIds.has(c.bagliBoruId)) || // boru üstü aksesuarlar
                 (c.fleksBaglanti?.boruId && pipeIds.has(c.fleksBaglanti.boruId));   // fleks bağlı
             if (remove) manager.components.splice(i, 1);
         }
@@ -737,7 +737,8 @@ export function removeObject(manager, obj) {
         const idx = manager.components.findIndex(c => c.id === obj.id);
         if (idx !== -1) manager.components.splice(idx, 1);
     } else if (obj.type === 'filtre' || obj.type === 'izolasyon_flansi'
-        || obj.type === 'kompansator' || obj.type === 'manometre') {
+        || obj.type === 'kompansator' || obj.type === 'manometre'
+        || obj.type === 'topraklama') {
         const idx = manager.components.findIndex(c => c.id === obj.id);
         if (idx !== -1) manager.components.splice(idx, 1);
     } else {
@@ -817,7 +818,7 @@ function _cascadeDeleteMeterDownstream(manager, sayac) {
             (c.type === 'baca' && cihazIds.has(c.parentCihazId)) ||
             ((c.type === 'vana' || c.type === 'regulator' ||
               c.type === 'filtre' || c.type === 'izolasyon_flansi' ||
-              c.type === 'kompansator' || c.type === 'manometre') && pipeIdsToDelete.has(c.bagliBoruId)) ||
+              c.type === 'kompansator' || c.type === 'manometre' || c.type === 'topraklama') && pipeIdsToDelete.has(c.bagliBoruId)) ||
             (c.fleksBaglanti?.boruId && pipeIdsToDelete.has(c.fleksBaglanti.boruId));
         if (remove) manager.components.splice(i, 1);
     }

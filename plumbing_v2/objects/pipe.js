@@ -564,7 +564,6 @@ export class Boru {
             vana: this.vana ? { ...this.vana } : null,
             // Panel özellikleri
             boruCap: this.boruCap,
-            topraklama: this.topraklama,
             gomulu: this.gomulu,
             description: this.description ?? ''
         };
@@ -587,7 +586,6 @@ export class Boru {
         boru.vana = data.vana || null;
         // Panel özellikleri
         if (data.boruCap !== undefined) boru.boruCap = data.boruCap;
-        if (data.topraklama !== undefined) boru.topraklama = data.topraklama;
         if (data.gomulu !== undefined) boru.gomulu = data.gomulu;
         boru.description = data.description ?? '';
         return boru;
