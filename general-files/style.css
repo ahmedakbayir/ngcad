@@ -343,6 +343,11 @@ canvas {
     left: 260px;
 }
 
+#group-hesap {
+    top: 50px;
+    left: 390px;
+}
+
 /* Grup Etiketi - Sürükleme Handle */
 .group-label {
     font-size: 10px;
@@ -425,7 +430,8 @@ body.light-mode .group-label {
 }
 
 
-#bTesisatToolbox.flyout-open {
+#bTesisatToolbox.flyout-open,
+#bHesapAutoCap.flyout-open {
     background: var(--bg-button-active, rgba(80, 130, 255, 0.25));
 }
 
@@ -4200,7 +4206,8 @@ body.light-mode .vis-panel-inner {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
     min-width: 720px;
     max-width: calc(100vw - 60px);
-    max-height: calc(100vh - 60px);
+    /* Üstte ~%10 açılır; alt kenarı ~%80'de kalsın. */
+    max-height: 70vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -4412,7 +4419,8 @@ body.light-mode .fittings-table-wrapper {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
     min-width: 920px;
     max-width: calc(100vw - 60px);
-    max-height: calc(100vh - 60px);
+    /* Üstte ~%10 açılır; alt kenarı ~%80'de kalsın. */
+    max-height: 70vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -5219,8 +5227,8 @@ body {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
     min-width: 560px;
     max-width: calc(100vw - 60px);
-    /* Görünür alan: üst araç çubuğu (40px) + alt boşluk (~80px) çıkar */
-    max-height: calc(100vh - 160px);
+    /* Ekran üstünde (≈%10) açılır; alt kenarı ekranın %80'inden aşağıya inmesin. */
+    max-height: 70vh;
     width: 640px;
     display: flex;
     flex-direction: column;
@@ -5306,7 +5314,8 @@ body {
     overflow: auto;
     flex: 1 1 auto;
     min-height: 220px;
-    max-height: calc(100vh - 220px);
+    /* Modal max-height 70vh; başlık+padding payı düşülmüş gövde alanı. */
+    max-height: calc(70vh - 56px);
 }
 
 .hk-empty {
@@ -5394,6 +5403,13 @@ body {
     font-weight: 500;
     letter-spacing: 0.1px;
 }
+/* Mesaj içindeki yardımcı parçalar (kat/daire ve limit kriterleri) silik. */
+.hk-row-dim {
+    color: rgba(230, 232, 235, 0.40);
+    font-weight: 400;
+}
+.hk-row-loc::after { content: ""; }
+.hk-row-main { color: inherit; }
 .hk-row-actions {
     display: inline-flex;
     align-items: center;

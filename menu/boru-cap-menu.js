@@ -1218,7 +1218,8 @@ function centerModal() {
     if (!modal) return;
     const rect = modal.getBoundingClientRect();
     const left = Math.max(20, (window.innerWidth - rect.width) / 2);
-    const top  = Math.max(20, (window.innerHeight - rect.height) / 2);
+    // Yukarıdan ~%10 (alt kenarı ~%80'de kalsın; oransal).
+    const top  = Math.max(20, Math.round(window.innerHeight * 0.10));
     modal.style.left = `${left}px`;
     modal.style.top  = `${top}px`;
 }
@@ -1295,4 +1296,13 @@ export function initBoruCapMenu() {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && overlay && overlay.style.display !== 'none') hideBoruCapModal();
     });
+
+    // HESAP ikon paneli: Boru Çapı butonu
+    const iconBtn = document.getElementById('bHesapBoruCap');
+    if (iconBtn) {
+        iconBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showBoruCapModal();
+        });
+    }
 }

@@ -694,4 +694,43 @@ export function initAutoCapMenu() {
             runMode('CONSERVATIVE');
         });
     }
+
+    // HESAP ikon paneli: Otomatik Çap butonu + flyout
+    const wrapBtn   = document.getElementById('bHesapAutoCap');
+    const flyout    = document.getElementById('hesap-autocap-flyout');
+    const iconAggr  = document.getElementById('bHesapAutoCapAggr');
+    const iconCons  = document.getElementById('bHesapAutoCapCons');
+
+    function closeFlyout() {
+        if (flyout) flyout.classList.remove('open');
+        if (wrapBtn) wrapBtn.classList.remove('flyout-open');
+    }
+
+    if (wrapBtn && flyout) {
+        wrapBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const open = flyout.classList.toggle('open');
+            wrapBtn.classList.toggle('flyout-open', open);
+        });
+        document.addEventListener('click', (e) => {
+            if (!flyout.classList.contains('open')) return;
+            if (flyout.contains(e.target)) return;
+            if (wrapBtn.contains(e.target)) return;
+            closeFlyout();
+        });
+    }
+    if (iconAggr) {
+        iconAggr.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeFlyout();
+            runMode('AGGRESSIVE');
+        });
+    }
+    if (iconCons) {
+        iconCons.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeFlyout();
+            runMode('CONSERVATIVE');
+        });
+    }
 }

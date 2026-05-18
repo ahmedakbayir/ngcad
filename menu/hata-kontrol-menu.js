@@ -10,6 +10,8 @@ import { ERROR_GROUPS, getGroupLabel, getGroupOrder } from '../plumbing_v2/error
 import { selectHatInProject, selectPathInProject } from './calc-table-helpers.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { draw2D } from '../draw/draw2d.js';
+import { state } from '../general-files/main.js';
+import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
 
 const MODAL_ID    = 'hata-kontrol-modal-overlay';
 const BODY_ID     = 'hata-kontrol-modal-body';
@@ -28,9 +30,11 @@ function centerModal() {
     if (!overlay) return;
     const modal = overlay.querySelector('.hk-modal');
     if (!modal) return;
+    // Yatayda ortalanmış, dikeyde ekranın üst %10'una hizalanmış.
+    // max-height %70 → alt kenar ~%80'de kalır.
     const rect = modal.getBoundingClientRect();
     const left = Math.max(20, (window.innerWidth - rect.width) / 2);
-    const top  = Math.max(20, (window.innerHeight - rect.height) / 2);
+    const top  = Math.max(20, Math.round(window.innerHeight * 0.10));
     modal.style.left = `${left}px`;
     modal.style.top  = `${top}px`;
 }
@@ -184,6 +188,150 @@ function escapeHtml(s) {
     }[c]));
 }
 
+// ─── Yer bilgisi (kat + daire) ────────────────────────────────────────────
+function dairePrefixFromComp(comp) {
+    if (!comp) return '';
+    const no = comp.birimNo;
+    if (no == null || String(no).trim() === '') return '';
+    const tipi = comp.birimTipi || 'KONUT';
+    switch (tipi) {
+        case 'KONUT':         return `D${no}`;
+        case 'OFİS':          return `Ofis ${no}`;
+        case 'TİCARİ':        return `Dük ${no}`;
+        case 'KAZAN DAİRESİ': return `KD${no}`;
+        default:              return `D${no}`;
+    }
+}
+
+function getManager() {
+    return window.plumbingManager?.interactionManager?.manager
+        || window.plumbingManager
+        || plumbingManager;
+}
+
+// Bir pipe'tan parent zincirini takip ederek üstteki sayacı bulur.
+function findMeterUpstream(manager, pipeId) {
+    if (!pipeId || !manager?.pipes) return null;
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    const metersByExit = new Map();
+    (manager.components || []).forEach(c => {
+        if (c.type === 'sayac' && c.cikisBagliBoruId) {
+            metersByExit.set(c.cikisBagliBoruId, c);
+        }
+    });
+    let cursor = pipeMap.get(pipeId);
+    const seen = new Set();
+    while (cursor && !seen.has(cursor.id)) {
+        seen.add(cursor.id);
+        const m = metersByExit.get(cursor.id);
+        if (m) return m;
+        const par = cursor.baslangicBaglanti;
+        if (par?.tip === 'boru' && par.hedefId) cursor = pipeMap.get(par.hedefId);
+        else break;
+    }
+    return null;
+}
+
+function floorNameById(floorId) {
+    if (!floorId) return '';
+    const f = (state.floors || []).find(x => x.id === floorId);
+    return f?.name || '';
+}
+
+// hatNo → o hatta ait borular (cache'lenir; tek render içinde tek build).
+let _hatPipesCache = null;
+function buildHatPipesMap(manager) {
+    if (_hatPipesCache) return _hatPipesCache;
+    const out = new Map();
+    if (!manager?.pipes?.length) { _hatPipesCache = out; return out; }
+    try {
+        const { hatMap } = computeHatGroups(manager.pipes, manager.components || []);
+        manager.pipes.forEach(p => {
+            const hn = hatMap.get(p.id);
+            if (hn == null) return;
+            if (!out.has(hn)) out.set(hn, []);
+            out.get(hn).push(p);
+        });
+    } catch (_) {}
+    _hatPipesCache = out;
+    return out;
+}
+
+function getLocationInfo(item) {
+    if (!Array.isArray(item.targets) || item.targets.length === 0) return '';
+    const manager = getManager();
+    if (!manager) return '';
+
+    let floorId = null;
+    let birim = '';
+
+    const t = item.targets[0];
+
+    if (t.type === 'comp' && t.id) {
+        const comp = (manager.components || []).find(c => c.id === t.id);
+        if (comp) {
+            floorId = comp.floorId || null;
+            if (comp.type === 'sayac') {
+                birim = dairePrefixFromComp(comp);
+            } else if (comp.type === 'cihaz' || comp.type === 'vana' || comp.type === 'regulator') {
+                const m = findMeterUpstream(manager, comp.fleksBaglanti?.boruId || comp.bagliBoruId);
+                birim = dairePrefixFromComp(m);
+            }
+        }
+    } else if (t.type === 'pipe' && t.id) {
+        const pipe = (manager.pipes || []).find(p => p.id === t.id);
+        if (pipe) {
+            floorId = pipe.floorId || null;
+            const m = findMeterUpstream(manager, pipe.id);
+            birim = dairePrefixFromComp(m);
+        }
+    } else if (t.type === 'hat' && Number.isFinite(Number(t.no))) {
+        const hatPipes = buildHatPipesMap(manager).get(Number(t.no)) || [];
+        if (hatPipes.length) {
+            floorId = hatPipes[0].floorId || null;
+            const m = findMeterUpstream(manager, hatPipes[0].id);
+            birim = dairePrefixFromComp(m);
+        }
+    } else if (t.type === 'path' && Array.isArray(t.hatNos) && t.hatNos.length) {
+        const lastHat = t.hatNos[t.hatNos.length - 1];
+        const hatPipes = buildHatPipesMap(manager).get(Number(lastHat)) || [];
+        if (hatPipes.length) {
+            floorId = hatPipes[0].floorId || null;
+            const m = findMeterUpstream(manager, hatPipes[0].id);
+            birim = dairePrefixFromComp(m);
+        }
+    }
+
+    // Grup başına gösterim politikası:
+    //   • BASINC_KAYIP / TESISAT_HIZ → kolon hatasında KAT yazılmaz; yalnızca birim
+    //     (iç tesisat / sayaç sonrası) bulunduysa KAT + Daire yazılır.
+    //   • TASARIM / VANA_EKSIK / diğer → KAT her zaman, daire varsa eklenir.
+    const onlyWithBirim = (item.group === 'BASINC_KAYIP' || item.group === 'TESISAT_HIZ');
+    const fn = floorNameById(floorId);
+    const parts = [];
+    if (onlyWithBirim) {
+        if (birim) {
+            if (fn) parts.push(fn);
+            parts.push(birim);
+        }
+    } else {
+        if (fn) parts.push(fn);
+        if (birim) parts.push(birim);
+    }
+    return parts.join(' • ');
+}
+
+// Mesajı "(≤ ... olmalıdır)" suffix'i varsa ayırır.
+function splitLimitSuffix(message) {
+    const re = /\s*(\(\s*[≤≥<>=].*?olmalıdır\s*\))\s*$/;
+    const m = String(message || '').match(re);
+    if (!m) return { main: String(message || ''), limit: '' };
+    return {
+        main: String(message).slice(0, m.index).trimEnd(),
+        limit: m[1],
+    };
+}
+
 function updateSummary(total) {
     const el = document.getElementById(SUMMARY_ID);
     if (!el) return;
@@ -201,6 +349,9 @@ function renderResults() {
     const body = getBody();
     if (!body) return;
 
+    // Her render başında hat-pipes cache'ini sıfırla — proje değişebilir.
+    _hatPipesCache = null;
+
     const grouped = errorCheckManager.getGroupedResults();
     const groupIds = Object.keys(grouped).sort((a, b) => getGroupOrder(a) - getGroupOrder(b));
     const total = errorCheckManager.getResults().length;
@@ -217,9 +368,14 @@ function renderResults() {
         const fixable = items.some(it => it.fix && typeof it.fix.apply === 'function');
         const rows = items.map((it) => {
             const hasFix = !!(it.fix && typeof it.fix.apply === 'function');
+            const loc = getLocationInfo(it);
+            const { main, limit } = splitLimitSuffix(it.message);
+            const locHtml   = loc   ? `<span class="hk-row-dim hk-row-loc">${escapeHtml(loc)}</span> ` : '';
+            const mainHtml  = `<span class="hk-row-main">${escapeHtml(main)}</span>`;
+            const limitHtml = limit ? ` <span class="hk-row-dim hk-row-limit">${escapeHtml(limit)}</span>` : '';
             return `
                 <div class="hk-row" data-error-id="${escapeHtml(it.errorId)}">
-                    <div class="hk-row-msg">${escapeHtml(it.message)}</div>
+                    <div class="hk-row-msg">${locHtml}${mainHtml}${limitHtml}</div>
                     <div class="hk-row-actions">
                         <button class="hk-icon-btn hk-goto-btn"   title="Hataya Git">⊙</button>
                         <button class="hk-icon-btn hk-fix-btn"    title="Çözüm Öner" ${hasFix ? '' : 'disabled'}>💡</button>
@@ -370,4 +526,13 @@ export function initHataKontrolMenu() {
             hideHataKontrolModal();
         }
     });
+
+    // HESAP ikon paneli: Hata Kontrol butonu
+    const iconBtn = document.getElementById('bHesapHataKontrol');
+    if (iconBtn) {
+        iconBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showHataKontrolModal();
+        });
+    }
 }

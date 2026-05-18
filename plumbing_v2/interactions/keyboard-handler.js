@@ -14,6 +14,7 @@ import { Vana } from '../objects/valve.js';
 import { Sayac } from '../objects/meter.js';
 import { Cihaz } from '../objects/device.js';
 import { Baca } from '../objects/chimney.js';
+import { Regulator } from '../objects/regulator.js';
 import { getFloorIdForZ } from '../../floor/floor-handler.js';
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
 import { togglePropertiesPanel, closePropertiesPanel, isPanelOpen, openEmptyPanel, currentPanelMode, PANEL_MODES } from '../properties/properties-panel.js';
@@ -880,12 +881,13 @@ function getDownstreamPipesAndComponents(startPipe, manager) {
             }
         }
 
-        // Bu boru üzerindeki Vana bileşenlerini topla (manager.components'tan, bagliBoruId ile)
+        // Bu boru üzerindeki Vana ve Regülatör bileşenlerini topla
+        // (manager.components'tan, bagliBoruId ile).
         // NOT: pipe.vana eski stil basit metadata'dır; gerçek vana bileşenleri manager.components'tedir.
         for (const comp of manager.components) {
-            if (comp.type === 'vana' && comp.bagliBoruId === currentPipe.id) {
+            if ((comp.type === 'vana' || comp.type === 'regulator') && comp.bagliBoruId === currentPipe.id) {
                 result.components.push({
-                    type: 'vana',
+                    type: comp.type,
                     object: comp,
                     parentPipeId: currentPipe.id
                 });
@@ -1214,6 +1216,40 @@ export function handlePipePaste() {
 
                 componentIdMap.set(vanaData.id, newVana.id);
                 newComponents.push(newVana);
+            }
+        }
+        else if (compData.type === 'regulator') {
+            // Regülatör: parentPipeId'yi bul; vana ile aynı mantık.
+            const newParentPipeId = pipeIdMap.get(compData.parentPipeId);
+            const newParentPipe = newPipes.find(p => p.id === newParentPipeId);
+
+            if (newParentPipe) {
+                const regData = compData.data;
+                const newRegZ = (regData.z || 0) + dz;
+                ensureFloorForElevation(newRegZ);
+                const newRegFloorId = newParentPipe.floorId || getFloorIdForZ(newRegZ) || regData.floorId;
+                const newReg = new Regulator(regData.x + dx, regData.y + dy, {
+                    z: newRegZ,
+                    floorId: newRegFloorId,
+                    bagliBoruId: newParentPipe.id,
+                    boruPozisyonu: regData.boruPozisyonu,
+                    fromEnd: regData.fromEnd,
+                    fixedDistance: regData.fixedDistance,
+                    cikisBasinc: regData.cikisBasinc,
+                    shutOff: regData.shutOff,
+                    marka: regData.marka,
+                    model: regData.model,
+                });
+                newReg.rotation = regData.rotation || 0;
+
+                // Panel özellikleri (toJSON ile aynı set)
+                ['muhafaza', 'muhafazaGrupla', 'description'].forEach(k => {
+                    if (regData[k] !== undefined) newReg[k] = regData[k];
+                });
+
+                this.manager.components.push(newReg);
+                componentIdMap.set(regData.id, newReg.id);
+                newComponents.push(newReg);
             }
         }
         else if (compData.type === 'sayac') {

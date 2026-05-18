@@ -331,7 +331,8 @@ function centerModal() {
     if (!modal) return;
     const rect = modal.getBoundingClientRect();
     const left = Math.max(20, (window.innerWidth - rect.width) / 2);
-    const top = Math.max(20, (window.innerHeight - rect.height) / 2);
+    // Yukarıdan ~%10 (alt kenarı ~%80'de kalsın; oransal).
+    const top = Math.max(20, Math.round(window.innerHeight * 0.10));
     modal.style.left = `${left}px`;
     modal.style.top = `${top}px`;
 }
@@ -444,5 +445,14 @@ export function initFittingsMenu() {
     const hesapTrigger = document.getElementById('menuHesap');
     if (hesapTrigger) {
         hesapTrigger.addEventListener('click', (e) => e.preventDefault());
+    }
+
+    // HESAP ikon paneli: ξ butonu → fittings modalı
+    const iconBtn = document.getElementById('bHesapFittings');
+    if (iconBtn) {
+        iconBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showFittingsModal();
+        });
     }
 }
