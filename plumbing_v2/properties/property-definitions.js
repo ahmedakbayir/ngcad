@@ -202,24 +202,37 @@ function _findSayacForBransman(vana, manager) {
     ) || null;
 }
 
-/** Vana + bağlı sayaca aynı birim no'yu yaz */
-function _applyBirimNoToBransman(vana, no, manager) {
-    if (!vana) return;
-    vana.birimNo = String(no);
-    const sayac = _findSayacForBransman(vana, manager);
-    if (sayac) {
-        sayac.birimNo = String(no);
-        if (!sayac.birimTipi && vana.birimTipi) sayac.birimTipi = vana.birimTipi;
+/** Birim çapasına (BRANSMAN vana veya sayaç) aynı birim no'yu yaz */
+function _applyBirimNoToAnchor(anchor, no, manager) {
+    if (!anchor) return;
+    anchor.birimNo = String(no);
+    // BRANSMAN'ın bağlı bir sayacı varsa (ara durum) ona da yansıt.
+    if (anchor.type === 'vana' && anchor.vanaTipi === 'BRANSMAN') {
+        const sayac = _findSayacForBransman(anchor, manager);
+        if (sayac) {
+            sayac.birimNo = String(no);
+            if (!sayac.birimTipi && anchor.birimTipi) sayac.birimTipi = anchor.birimTipi;
+        }
     }
 }
 
-/** Kattaki tüm BRANSMAN vanaları (x,y'a göre sıralı) — ilerdeKullanim hariç */
-function _branchValvesOnFloor(manager, floorId) {
+/**
+ * Kattaki birim çapaları: BRANSMAN vanaları (ilerdeKullanim hariç) + sayaçlar,
+ * x/y konumuna göre sıralı. Sayaçlar da numaralanır çünkü sayaç eklenince
+ * BRANSMAN otomatikmen EMNIYET'e dönüşür ve birim no sayaçta tutulur.
+ */
+function _unitAnchorsOnFloor(manager, floorId) {
     if (!manager) return [];
-    return (manager.components || [])
-        .filter(c => c.type === 'vana' && c.vanaTipi === 'BRANSMAN' && c.floorId === floorId && !c.ilerdeKullanim)
-        .slice()
-        .sort((a, b) => (a.x - b.x) || (a.y - b.y));
+    const anchors = [];
+    for (const c of (manager.components || [])) {
+        if (c.floorId !== floorId) continue;
+        if (c.type === 'vana' && c.vanaTipi === 'BRANSMAN' && !c.ilerdeKullanim) {
+            anchors.push(c);
+        } else if (c.type === 'sayac') {
+            anchors.push(c);
+        }
+    }
+    return anchors.sort((a, b) => (a.x - b.x) || (a.y - b.y));
 }
 
 /** Placeholder olmayan katlar, alttan üste sıralı */
@@ -266,7 +279,12 @@ function _autoAssignByFloorPattern(vana, manager) {
     const currentIdx = floors.findIndex(f => f.id === vana.floorId);
     if (currentIdx < 0) return;
 
-    const allHere = _branchValvesOnFloor(manager, vana.floorId);
+    // Sadece basılan çapanın birim tipiyle aynı tipteki çapaları numaralandır.
+    // (KONUT için sadece konutlar, OFİS/TİCARİ için sadece kendi tipi.)
+    const wantedTipi = vana.birimTipi || 'KONUT';
+    const matchTipi = (a) => (a.birimTipi || 'KONUT') === wantedTipi;
+
+    const allHere = _unitAnchorsOnFloor(manager, vana.floorId).filter(matchTipi);
     if (allHere.length === 0) return;
 
     // Mevcut kattaki vanaları, no'larıyla birlikte indeksle
@@ -302,7 +320,7 @@ function _autoAssignByFloorPattern(vana, manager) {
         if (!anchor) continue;
         const newN = anchor.no + (h.idx - anchor.idx) * step;
         if (!Number.isFinite(newN) || newN <= 0) continue;
-        _applyBirimNoToBransman(h.v, newN, manager);
+        _applyBirimNoToAnchor(h.v, newN, manager);
         h.no = newN;
     }
 
@@ -317,14 +335,14 @@ function _autoAssignByFloorPattern(vana, manager) {
     }
     let nextNo = maxRefNo + step;
     for (const h of outsideEmpty) {
-        _applyBirimNoToBransman(h.v, nextNo, manager);
+        _applyBirimNoToAnchor(h.v, nextNo, manager);
         h.no = nextNo;
         nextNo += step;
     }
 
     // Mevcut katın dolu vanalarına da apply çağır (sayaç senkronu için)
     for (const r of refs) {
-        if (Number.isFinite(r.no)) _applyBirimNoToBransman(r.v, r.no, manager);
+        if (Number.isFinite(r.no)) _applyBirimNoToAnchor(r.v, r.no, manager);
     }
 
     // 2) Katlar arası: her vana için (kat_idx − currentIdx) × patternLen offset ile
@@ -335,7 +353,7 @@ function _autoAssignByFloorPattern(vana, manager) {
     for (let k = 0; k < floors.length; k++) {
         if (k === currentIdx) continue;
         const delta = (k - currentIdx) * patternLen;
-        const targets = _branchValvesOnFloor(manager, floors[k].id);
+        const targets = _unitAnchorsOnFloor(manager, floors[k].id).filter(matchTipi);
         const used = new Set();
         for (const h of here) {
             if (!Number.isFinite(h.no)) continue;
@@ -350,7 +368,7 @@ function _autoAssignByFloorPattern(vana, manager) {
             }
             if (bestIdx >= 0 && bestDist <= TOL) {
                 used.add(bestIdx);
-                _applyBirimNoToBransman(targets[bestIdx], newN, manager);
+                _applyBirimNoToAnchor(targets[bestIdx], newN, manager);
             }
         }
     }
@@ -684,6 +702,13 @@ export const PROPERTY_DEFS = {
                 default: '',
                 placeholder: 'No...',
                 flex: 1,
+                inlineButtons: [
+                    {
+                        label: '⇅',
+                        title: 'Aynı birim tipindeki tüm vana ve sayaçları (kat içi + diğer katlar) otomatik numaralandır.',
+                        onClick: (obj, manager) => _autoAssignByFloorPattern(obj, manager),
+                    },
+                ],
             },
         ],
     },
@@ -736,10 +761,19 @@ export const PROPERTY_DEFS = {
         visibleFn: (obj) => obj.birimBoruTipi === 'ESNEK',
     },
 
-    // Eski (ayrı) tanımlar — artık listede değil ama başka nesneler için saklanıyor
+    // Tekil tanımlar — sayaç panelinde her seçim ayrı satırda görünür
     sayacTipi: {
         label: 'Tip', type: 'select', key: 'sayacTipi',
         options: SAYAC_TIPLERI, default: 'G4',
+        afterChange: (obj, _manager, panelEl) => {
+            const row = SAYAC_DEBI_TABLOSU.find(r => r.Tip === obj.sayacTipi);
+            if (row) {
+                const turSel = panelEl?.querySelector('[data-prop-key="sayacTuru"]');
+                if (turSel) { obj.sayacTuru = row.Tur; turSel.value = row.Tur; }
+                const capSel = panelEl?.querySelector('[data-prop-key="cikisCap"]');
+                if (capSel) { obj.cikisCap = `DN${row.Cap}`; capSel.value = `DN${row.Cap}`; }
+            }
+        },
     },
     sayacTuru: {
         label: 'Tür', type: 'select', key: 'sayacTuru',
@@ -747,11 +781,41 @@ export const PROPERTY_DEFS = {
     },
     sayacCikisCap: {
         label: 'Çıkış Çapı', type: 'select', key: 'cikisCap',
-        options: BORU_CAPLARI_TUMU, default: 'DN25',
+        options: (obj, manager) => {
+            if (manager && obj.cikisBagliBoruId) {
+                const boru = manager.pipes.find(p => p.id === obj.cikisBagliBoruId);
+                if (boru?.boruTipi) return BORU_CAPLARI[boru.boruTipi] || BORU_CAPLARI_TUMU;
+            }
+            return BORU_CAPLARI_TUMU;
+        },
+        default: 'DN25',
     },
     sayacBasinc: {
         label: 'Basınç', type: 'select', key: 'basinc',
         options: KUTU_BASINCLAR, default: '21',
+        disabledFn: (obj, manager) => {
+            if (!manager) return false;
+            if (_hasRegulatorDownstreamOfMeter(obj, manager)) return false;
+            return manager.components.some(c => c.type === 'servis_kutusu');
+        },
+        afterChange: (obj, manager) => {
+            if (!manager) return;
+            const isCanliHat = !manager.components.some(c => c.type === 'servis_kutusu');
+            if (obj?.basinc === '300') {
+                if (isCanliHat) {
+                    _setMeterUpstreamPressure(obj, manager, 300);
+                } else {
+                    manager.components.forEach(c => {
+                        if (c.type === 'servis_kutusu' && c.kutuBasinc !== '300') {
+                            c.kutuBasinc = '300';
+                        }
+                    });
+                }
+            } else if (obj?.basinc === '21' && isCanliHat) {
+                _setMeterUpstreamPressure(obj, manager, 21);
+            }
+            recomputeAllPressures(manager);
+        },
     },
     sayacBirimTipi: {
         label: 'Birim Tipi', type: 'select', key: 'birimTipi',
@@ -762,6 +826,13 @@ export const PROPERTY_DEFS = {
         label: 'Birim No', type: 'text', key: 'birimNo',
         default: '', placeholder: 'Birim no...',
         afterChange: () => { syncBirimState(); invalidateBirimCache(); },
+        inlineButtons: [
+            {
+                label: '⇅',
+                title: 'Aynı birim tipindeki tüm vana ve sayaçları (kat içi + diğer katlar) otomatik numaralandır.',
+                onClick: (obj, manager) => _autoAssignByFloorPattern(obj, manager),
+            },
+        ],
     },
     sayacBirimBoruTipi: {
         label: 'Boru Tipi', type: 'select', key: 'birimBoruTipi',
@@ -914,6 +985,10 @@ export const PROPERTY_DEFS = {
             if (obj.ilerdeKullanim) {
                 if (!obj.birimSayisi) obj.birimSayisi = '1';
                 _updateIlerdeBirimNo(obj);
+            } else {
+                // Kapatılınca ilerde kullanım için yazılmış "N daire/ofis…"
+                // birim no'su temizlenir; alan boş hale gelsin.
+                obj.birimNo = '';
             }
             if (panelEl?._refresh) panelEl._refresh();
             if (manager) recomputeAllPressures(manager);
@@ -2002,18 +2077,22 @@ export const OBJECT_PROPERTIES = {
     ],
     sayac: [
         'sayac_sec_tanim',
-        'sayac_tiptur',         // Tip + Tür yanyana
-        'sayac_capbasinc',      // Çıkış Çapı + Basınç yanyana
+        'sayacTipi',
+        'sayacTuru',
+        'sayacCikisCap',
+        'sayacBasinc',
+        'sayacMuhafaza',        // Sayaç özelliği (birim değil) — TANIM grubunda
         'sayacDebiCubugu',
         'sayac_sec_birim',
-        'sayac_birimtipi_no',   // Birim Tipi + No yanyana
-        'sayac_borubag',        // Kombine boru bağlantısı
-        'sayacEsnekMarka',      // Sadece ESNEK seçiliyken görünür
-        'sayac_sec_ozellik',
-        'sayacMuhafaza',
+        'sayacBirimTipi',
+        'sayacBirimNo',
+        'sayac_borubag',
+        'sayacEsnekMarka',
         'sayac_sec_abone_usta',
-        'sayac_abone_row',      // Abone adı + no yanyana
-        'sayac_usta_row',       // Usta adı + no yanyana
+        'sayacAboneAdi',
+        'sayacAboneNo',
+        'sayacUstaAdi',
+        'sayacUstaNo',
     ],
     vana: [
         // 'vana_sec_urun',

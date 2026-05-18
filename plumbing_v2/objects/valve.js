@@ -315,13 +315,74 @@ const dx = pipe.p2.x - pipe.p1.x;
     }
 
     /**
-         * Boru üzerinde pozisyonu değiştir (sürüklenirken)
-         * @param {Boru} pipe - Bağlı olduğu boru
-         * @param {object} point - Hedef nokta {x, y}
-         * @param {Array} otherObjects - Boru üzerindeki diğer nesneler [{t, width}, ...]
-         * @returns {boolean} - Başarılı mı?
-         */
-    moveAlongPipe(pipe, point, otherObjects = []) {
+     * Bir borunun verilen ucunun sonlanma vanası için müsait olup olmadığını döner.
+     * Müsait = o ucta başka boru, fleks (cihaz/sayaç) veya başka sonlanma vana yok.
+     */
+    static isPipeEndAvailableForSonlanma(manager, pipe, endpoint, excludeVanaId = null) {
+        if (!manager || !pipe || !endpoint) return false;
+        const node = pipe[endpoint];
+        if (!node) return false;
+        const TOL = 1; // cm
+
+        for (const other of (manager.pipes || [])) {
+            if (other.id === pipe.id) continue;
+            const d1 = Math.hypot(node.x - other.p1.x, node.y - other.p1.y, (node.z || 0) - (other.p1.z || 0));
+            const d2 = Math.hypot(node.x - other.p2.x, node.y - other.p2.y, (node.z || 0) - (other.p2.z || 0));
+            if (d1 < TOL || d2 < TOL) return false;
+        }
+
+        for (const c of (manager.components || [])) {
+            if ((c.type === 'cihaz' || c.type === 'sayac') && c.fleksBaglanti
+                && c.fleksBaglanti.boruId === pipe.id && c.fleksBaglanti.endpoint === endpoint) {
+                return false;
+            }
+        }
+
+        for (const c of (manager.components || [])) {
+            if (c.type !== 'vana' || c.id === excludeVanaId) continue;
+            if (!SONLANMA_VANALARI.includes(c.vanaTipi)) continue;
+            if (c.bagliBoruId === pipe.id && c.fromEnd === endpoint) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Vanayı bağlı olduğu borunun en uygun boş ucuna taşır (sonlanma için).
+     * Önce p2, sonra p1 denenir. Hiçbiri uygun değilse false döner ve vana değişmez.
+     */
+    snapToFreeEnd(manager) {
+        if (!manager || !this.bagliBoruId) return false;
+        const pipe = (manager.pipes || []).find(p => p.id === this.bagliBoruId);
+        if (!pipe) return false;
+
+        const SONLANMA_FIXED_CM = 1;
+        if (this.fromEnd && this.fixedDistance != null && this.fixedDistance <= 3
+            && Vana.isPipeEndAvailableForSonlanma(manager, pipe, this.fromEnd, this.id)) {
+            this.fixedDistance = SONLANMA_FIXED_CM;
+            this.updatePositionFromPipe(pipe);
+            return true;
+        }
+
+        for (const end of ['p2', 'p1']) {
+            if (Vana.isPipeEndAvailableForSonlanma(manager, pipe, end, this.id)) {
+                this.fromEnd = end;
+                this.fixedDistance = SONLANMA_FIXED_CM;
+                this.updatePositionFromPipe(pipe);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Boru üzerinde pozisyonu değiştir (sürüklenirken)
+     * @param {Boru} pipe - Bağlı olduğu boru
+     * @param {object} point - Hedef nokta {x, y}
+     * @param {Array} otherObjects - Boru üzerindeki diğer nesneler [{t, width}, ...]
+     * @param {object} [manager] - PlumbingManager (sonlanma vanasının uç müsaitlik kontrolü için)
+     * @returns {boolean} - Başarılı mı?
+     */
+    moveAlongPipe(pipe, point, otherObjects = [], manager = null) {
         if (!pipe || !this.bagliBoruId || pipe.id !== this.bagliBoruId) {
             return false;
         }
@@ -447,32 +508,45 @@ const dx = pipe.p2.x - pipe.p1.x;
         const distToP2 = (1 - newT) * pipeLength;
 
         // *** SONLANMA VANALARI İÇİN ÖZEL MANTIK ***
-        // Sonlanma vanası için fromEnd değerini koru (hareket sırasında kaybolmasın)
+        // Sonlanma vanası (BRANSMAN, YAN_BINA) hat ucunda sonlandırma görevindedir.
+        // Asla orta yere kayamaz; sürüklenirken hep MÜSAİT en yakın uca snap olur.
+        // Diğer uçta başka boru, fleks veya sonlanma vana varsa o uç kapalıdır;
+        // vana o tarafa kaydırılamaz.
         if (this.isSonlanma()) {
-            const SONLANMA_KEEP_THRESHOLD = 15; // 15cm içinde kaldığı sürece fromEnd koru
+            // Manager verilmişse her uç için müsaitlik kontrolü yap; yoksa
+            // (eski çağrılar) ikisi de müsait kabul edilir.
+            const p2Avail = !manager || Vana.isPipeEndAvailableForSonlanma(manager, pipe, 'p2', this.id);
+            const p1Avail = !manager || Vana.isPipeEndAvailableForSonlanma(manager, pipe, 'p1', this.id);
 
-            // Zaten bir uca bağlıysa ve hala yakınsa, korumaya devam et
-            if (this.fromEnd === 'p2' && distToP2 < SONLANMA_KEEP_THRESHOLD) {
-                // p2'ye bağlı kalmaya devam et
-                this.fromEnd = 'p2';
-                this.fixedDistance = fixedDistanceFromEnd;
-            } else if (this.fromEnd === 'p1' && distToP1 < SONLANMA_KEEP_THRESHOLD) {
-                // p1'e bağlı kalmaya devam et
-                this.fromEnd = 'p1';
-                this.fixedDistance = fixedDistanceFromEnd;
-            } else if (distToP2 < END_THRESHOLD_CM) {
-                // p2'ye yeni yaklaştı
-                this.fromEnd = 'p2';
-                this.fixedDistance = fixedDistanceFromEnd;
-            } else if (distToP1 < END_THRESHOLD_CM) {
-                // p1'e yeni yaklaştı
-                this.fromEnd = 'p1';
-                this.fixedDistance = fixedDistanceFromEnd;
+            const STICKY_THRESHOLD = 15; // mevcut uca daha yakınsa onu bırakma
+            let target;
+            if (this.fromEnd === 'p2' && p2Avail && distToP2 < STICKY_THRESHOLD) {
+                target = 'p2';
+            } else if (this.fromEnd === 'p1' && p1Avail && distToP1 < STICKY_THRESHOLD) {
+                target = 'p1';
+            } else if (p2Avail && p1Avail) {
+                target = (distToP2 <= distToP1) ? 'p2' : 'p1';
+            } else if (p2Avail) {
+                target = 'p2';
+            } else if (p1Avail) {
+                target = 'p1';
             } else {
-                // Gerçekten ortada (15cm'den uzak)
-                this.fixedDistance = null;
-                this.fromEnd = null;
+                // Hiç müsait uç yok — mevcut bağlılığı koru (kuralın bir
+                // şekilde ihlal edilmiş olduğu kalıntı durum için emniyet).
+                target = this.fromEnd || 'p2';
             }
+            this.fromEnd = target;
+            this.fixedDistance = fixedDistanceFromEnd;
+
+            // Pozisyonu seçilen uca göre yeniden hesapla — orta yerde kalmasın.
+            const endT = this.fromEnd === 'p2'
+                ? Math.max(1 - fixedDistanceFromEnd / pipeLength, 0.05)
+                : Math.min(fixedDistanceFromEnd / pipeLength, 0.95);
+            const endPos = pipe.getPointAt(endT);
+            this.boruPozisyonu = endT;
+            this.x = endPos.x;
+            this.y = endPos.y;
+            this.z = endPos.z;
         } else {
             // *** ARA VANALAR İÇİN MEVCUT MANTIK ***
             if (distToP2 < END_THRESHOLD_CM) {

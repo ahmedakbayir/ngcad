@@ -15,6 +15,7 @@ import { update3DScene } from '../../scene3d/scene3d-update.js';
 import { setLabelOffsetsJSON, relayoutAllLabels } from '../renderer/renderer-labels.js';
 import { startTextAnnotationPlacement } from '../../architectural-objects/text-annotation-placement.js';
 import { selectObject as plumbingSelectObject } from '../interactions/selection-manager.js';
+import { SONLANMA_VANALARI } from '../objects/valve.js';
 
 
 export const PANEL_MODES = {
@@ -401,13 +402,25 @@ function renderDualField(field, obj, manager) {
         const current = _formatNumeric(raw, field.precision);
         const placeholder = field.placeholder || '';
         const isDisabled = field.disabled === true || (field.disabledFn && field.disabledFn(obj, manager));
+        const hasButtons = Array.isArray(field.inlineButtons) && field.inlineButtons.length;
         const flexStyle = field.flex ? ` style="flex:${field.flex}"` : '';
         const precAttr = field.precision != null ? ` data-precision="${field.precision}"` : '';
-        return `<input class="props-input props-dual-field" type="text"
+        const inputFlexStyle = hasButtons ? ' style="flex:1;min-width:0"' : flexStyle;
+        const inputHtml = `<input class="props-input props-dual-field" type="text"
             data-prop-key="${field.key}"${precAttr}
             value="${escHtml(String(current))}"
-            placeholder="${escHtml(placeholder)}"${flexStyle}
+            placeholder="${escHtml(placeholder)}"${inputFlexStyle}
             ${isDisabled ? 'disabled' : ''}>`;
+        if (hasButtons) {
+            const btnsHtml = field.inlineButtons.map((b, i) => {
+                const bDisabled = (b.disabledFn && b.disabledFn(obj, manager)) || b.disabled === true;
+                const title = escHtml(b.title || '');
+                return `<button class="props-inline-action-btn" data-field-key="${field.key}" data-inline-btn-idx="${i}" title="${title}" style="flex:0 0 auto" ${bDisabled ? 'disabled' : ''}>${escHtml(b.label || '')}</button>`;
+            }).join('');
+            const wrapperFlex = field.flex ? ` flex:${field.flex};` : '';
+            return `<div class="props-input-with-buttons" style="display:flex;gap:4px;align-items:center;min-width:0;${wrapperFlex}">${inputHtml}${btnsHtml}</div>`;
+        }
+        return inputHtml;
     }
     return '';
 }
@@ -911,7 +924,11 @@ function _applyCollapsible(headers) {
         const key = header.dataset.sectionKey || header.textContent.trim();
         const wrapper = document.createElement('div');
         wrapper.className = 'section-content';
-        const collapsed = _sectionCollapsed.get(key) || false;
+        // Varsayılan olarak Açıklama kapalı; kullanıcı bir kere değiştirmişse map'teki değer geçerli.
+        const defaultCollapsed = (key === 'Açıklama');
+        const collapsed = _sectionCollapsed.has(key)
+            ? _sectionCollapsed.get(key)
+            : defaultCollapsed;
         if (collapsed) wrapper.classList.add('sec-collapsed');
 
         header.insertAdjacentElement('afterend', wrapper);
@@ -1153,10 +1170,34 @@ function bindInputEvents(panelEl, props, obj, manager) {
         el.addEventListener('change', (e) => {
             const key = e.target.dataset.propKey;
             if (!key) return;
+
+            // Vana tipi değişimi: sonlanma (BRANSMAN/YAN_BINA) hat ucunda olmak
+            // zorunda. İçeri taşınamaz; uygun boş uç yoksa dönüşüm reddedilir.
+            if (key === 'vanaTipi' && obj?.type === 'vana') {
+                const oldTip = obj.vanaTipi;
+                const newTip = e.target.value;
+                if (SONLANMA_VANALARI.includes(newTip)) {
+                    obj.vanaTipi = newTip;
+                    const moved = typeof obj.snapToFreeEnd === 'function'
+                        ? obj.snapToFreeEnd(manager)
+                        : false;
+                    if (!moved) {
+                        obj.vanaTipi = oldTip;
+                        alert('Hattın ucunda uygun boş yer yok — vana branşman veya yan bina vanası yapılamaz.');
+                        renderPanel(obj, manager);
+                        return;
+                    }
+                } else {
+                    obj.vanaTipi = newTip;
+                }
+                obj.updateEndCapStatus?.(manager);
+                persist();
+                renderPanel(obj, manager);
+                return;
+            }
+
             obj[key] = e.target.value;
             if (key === 'birimBoruTipi') refreshEsnekMarkaDurum(panelEl, obj);
-            // vanaTipi değişince visibleFn'ler yeniden değerlendirsin
-            if (key === 'vanaTipi') { persist(); renderPanel(obj, manager); return; }
             // boruCap değişince çapı ilk ayrıma kadar (TE/sayaç/regülatör) tüm hatta uygula
             if (key === 'boruCap') propagateBoruCapAlongRun(obj, e.target.value, manager);
             const prop = _findPropByKey(props, key);
@@ -1218,10 +1259,15 @@ function bindInputEvents(panelEl, props, obj, manager) {
     panelEl.querySelectorAll('.props-inline-action-btn[data-inline-btn-idx]').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
-            const propId = btn.dataset.propId;
-            const prop = props.find(p => p.id === propId);
             const idx = parseInt(btn.dataset.inlineBtnIdx);
-            const action = prop?.inlineButtons?.[idx];
+            // Üst seviye prop (data-prop-id) veya dual'in alt-alanı (data-field-key)
+            let source = null;
+            if (btn.dataset.propId) {
+                source = props.find(p => p.id === btn.dataset.propId);
+            } else if (btn.dataset.fieldKey) {
+                source = _findPropByKey(props, btn.dataset.fieldKey);
+            }
+            const action = source?.inlineButtons?.[idx];
             if (action?.onClick) {
                 action.onClick(obj, manager, panelEl);
                 persist();

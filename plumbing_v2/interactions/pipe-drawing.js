@@ -56,6 +56,28 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
         return;
     }
 
+    // Sonlanma vanası (BRANSMAN / YAN_BINA) hat sonu vanasıdır; ucundan tesisat
+    // devam edemez. Başlangıç noktası böyle bir vananın ucunda ise çizim başlatma.
+    const SONLANMA_TIPLERI = ['BRANSMAN', 'YAN_BINA'];
+    const problematicSonlanmaVana = interactionManager.manager.components.find(c => {
+        if (c.type !== 'vana' || !SONLANMA_TIPLERI.includes(c.vanaTipi)) return false;
+        if (!c.bagliBoruId || !c.fromEnd) return false;
+        const pipe = interactionManager.manager.pipes.find(p => p.id === c.bagliBoruId);
+        if (!pipe) return false;
+        const node = pipe[c.fromEnd];
+        if (!node) return false;
+        return Math.hypot(
+            baslangicNoktasi.x - node.x,
+            baslangicNoktasi.y - node.y,
+            (baslangicNoktasi.z || 0) - (node.z || 0)
+        ) < tolerance;
+    });
+
+    if (problematicSonlanmaVana) {
+        console.warn('⚠️ Sonlanma vanasının (Branşman/Yan Bina) ucundan tesisat devam edemez!');
+        return;
+    }
+
     // ✨✨✨ GELİŞMİŞ PARENT SEÇİMİ (SMART PARENT SELECTION) ✨✨✨
     // Eğer kaynak bir boruysa, o noktada BİTEN (Akışın geldiği) başka bir boru var mı diye kontrol et.
     // Çünkü T-bağlantı her zaman "Gelen Hattan" (Upstream) alınmalıdır.

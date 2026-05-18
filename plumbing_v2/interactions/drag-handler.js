@@ -928,8 +928,9 @@ export function handleDrag(interactionManager, point, event = null) {
             if (moved) return;
         }
 
-        // 3D Düzeltilmiş nokta (correctedPoint) kullanarak taşı
-        vana.moveAlongPipe(targetPipe, correctedPoint, objectsOnPipe);
+        // 3D Düzeltilmiş nokta (correctedPoint) kullanarak taşı.
+        // manager verilirse sonlanma vanaları yalnız MÜSAİT uçlara snap olur.
+        vana.moveAlongPipe(targetPipe, correctedPoint, objectsOnPipe, interactionManager.manager);
 
         // Sadece vana için kapama sembolü güncelle
         if (vana.type === 'vana' && vana.updateEndCapStatus) {

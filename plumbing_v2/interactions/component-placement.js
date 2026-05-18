@@ -855,6 +855,13 @@ export function handleSayacEndPlacement(meter) {
     // Boru ucunda vana var mı kontrol et
     const vanaVar = this.checkVanaAtPoint(boruUcu.nokta);
 
+    // Sonlanma vanası varsa: sadece BRANSMAN'a sayaç eklenebilir.
+    // YAN_BINA bir terminal vanadır, sayaç eklemesi reddedilir.
+    if (vanaVar && vanaVar.vanaTipi === 'YAN_BINA') {
+        console.warn('[handleSayacEndPlacement] ✗ Yan Bina vanasına sayaç eklenemez!');
+        return false;
+    }
+
     // Vana yoksa otomatik ekle
     if (!vanaVar) {
         // Vana pozisyonunu hesapla
@@ -903,6 +910,19 @@ export function handleSayacEndPlacement(meter) {
         vana.updateEndCapStatus(this.manager);
         meter.iliskiliVanaId = vana.id;
     } else {
+        // BRANSMAN → EMNIYET dönüşümü: branşman vanasına sayaç eklenince
+        // vana otomatik olarak sayaç-emniyet vanasına dönüşür ve birim no
+        // sayaca aktarılır.
+        if (vanaVar.vanaTipi === 'BRANSMAN') {
+            if (typeof vanaVar.bransmandanSayacVanasiyaDonustur === 'function') {
+                vanaVar.bransmandanSayacVanasiyaDonustur();
+            } else {
+                vanaVar.vanaTipi = 'EMNIYET';
+            }
+            if (vanaVar.birimNo != null && vanaVar.birimNo !== '') {
+                meter.birimNo = vanaVar.birimNo;
+            }
+        }
         meter.iliskiliVanaId = vanaVar.id;
         // Mevcut vananın kapama durumunu güncelle (yeni sayaç eklendi)
         vanaVar.updateEndCapStatus(this.manager);
