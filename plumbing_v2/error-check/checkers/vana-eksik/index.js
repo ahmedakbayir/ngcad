@@ -16,6 +16,7 @@
 
 import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
+import { addKolonAkv, addCihazValve, addSayacEmniyet, addTicariSelenoid } from './fix.js';
 
 const CIHAZ_VANA_MAX_CM = 50;
 const SAYAC_EMNIYET_MAX_CM = 100;
@@ -205,19 +206,35 @@ function kolonAkvKuralı(manager, out) {
             source:  'TS7363 Md:5.1.9',
             detail:  'Doğalgaz bina bağlantı hattı üzerinde, rahatça ulaşılabilecek 1,90 – 2,10 m yükseklikte, tüm tesisatın gaz akışını gerektiğinde kesip açma işlevini yerine getirecek ana kapatma vanası (AKV) konulmalıdır.',
             targets: [{ type: 'comp', id: box.id }],
-            fix: null,
+            fix: {
+                description: 'Kolonda servis kutusu sonrası ilk borunun sonuna AKV eklenecek',
+                apply: () => addKolonAkv(manager, box.id),
+            },
         });
     });
 }
 
-// 2. Cihaz vanası — her cihaz için 50 cm içinde CIHAZ vanası
+// "Cihaz/sayaç girişinin bulunduğu uca ≤ maxCm yakın vana var mı?" kontrolü.
+// Geride (parent zinciri) vana olsa da, hattın sonunda yoksa eksik sayılır.
+function hasVanaAtComponentEnd(manager, pipe, endpoint, tip, maxCm) {
+    if (!pipe || !endpoint) return false;
+    return endpoint === 'p1'
+        ? hasVanaNearStart(manager, pipe, tip, maxCm)
+        : hasVanaNearEnd(manager, pipe, tip, maxCm);
+}
+
+// 2. Cihaz vanası — her cihazın bağlandığı borunun cihaz tarafı ucunda
+//    (≤ 50 cm) bir CIHAZ vanası bulunmalı.
 function cihazVanaKuralı(manager, out) {
     (manager.components || []).forEach(cihaz => {
         if (cihaz.type !== 'cihaz') return;
         const inletPipeId = cihaz.fleksBaglanti?.boruId;
-        if (!inletPipeId) return;
+        const endpoint    = cihaz.fleksBaglanti?.endpoint;
+        if (!inletPipeId || !endpoint) return;
+        const pipe = manager.pipes.find(p => p.id === inletPipeId);
+        if (!pipe) return;
 
-        if (hasVanaUpstreamWithin(manager, inletPipeId, 'CIHAZ', CIHAZ_VANA_MAX_CM)) return;
+        if (hasVanaAtComponentEnd(manager, pipe, endpoint, 'CIHAZ', CIHAZ_VANA_MAX_CM)) return;
 
         const ad = CIHAZ_AD[cihaz.cihazTipi] || 'Cihaz';
         out.push({
@@ -227,19 +244,26 @@ function cihazVanaKuralı(manager, out) {
             source:  'TS7363 Md:6',
             detail:  'Her cihazın girişine bir adet kesme vanası mutlaka konulmalıdır.',
             targets: [{ type: 'comp', id: cihaz.id }],
-            fix: null,
+            fix: {
+                description: 'Cihaz girişinin bulunduğu boru ucuna kesme vanası eklenecek',
+                apply: () => addCihazValve(manager, cihaz.id),
+            },
         });
     });
 }
 
-// 3. Sayaç öncesi emniyet vanası — her sayaç için 1 m içinde EMNIYET vanası
+// 3. Sayaç öncesi emniyet vanası — her sayacın bağlandığı borunun sayaç
+//    tarafı ucunda (≤ 100 cm) bir EMNIYET vanası bulunmalı.
 function sayacEmniyetKuralı(manager, out) {
     (manager.components || []).forEach(sayac => {
         if (sayac.type !== 'sayac') return;
         const inletPipeId = sayac.fleksBaglanti?.boruId;
-        if (!inletPipeId) return;
+        const endpoint    = sayac.fleksBaglanti?.endpoint;
+        if (!inletPipeId || !endpoint) return;
+        const pipe = manager.pipes.find(p => p.id === inletPipeId);
+        if (!pipe) return;
 
-        if (hasVanaUpstreamWithin(manager, inletPipeId, 'EMNIYET', SAYAC_EMNIYET_MAX_CM)) return;
+        if (hasVanaAtComponentEnd(manager, pipe, endpoint, 'EMNIYET', SAYAC_EMNIYET_MAX_CM)) return;
 
         const pre = dairePrefix(sayac);
         out.push({
@@ -249,7 +273,10 @@ function sayacEmniyetKuralı(manager, out) {
             source:  'TS7363 Md:5.2.6',
             detail:  'Her sayaçtan önce bir kapama vanası bulunmalıdır.',
             targets: [{ type: 'comp', id: sayac.id }],
-            fix: null,
+            fix: {
+                description: 'Sayaç girişinin bulunduğu boru ucuna emniyet vanası eklenecek',
+                apply: () => addSayacEmniyet(manager, sayac.id),
+            },
         });
     });
 }
@@ -274,7 +301,10 @@ function ticariSelenoidKuralı(manager, out) {
             source:  'TS7363 Md:5.1.31',
             detail:  'Ticari yerler için yapılan tesisatlarda, solenoid vana ve gaz alarm cihazı bulundurulmak zorundadır. Daire dışında daireye ait ana hat üzerine monte edilecek solenoid vana ile irtibatlandırılmalıdır.',
             targets: [{ type: 'comp', id: sayac.id }],
-            fix: null,
+            fix: {
+                description: 'Sayaç çıkışına yakın bir noktaya selenoid vana eklenecek',
+                apply: () => addTicariSelenoid(manager, sayac.id),
+            },
         });
     });
 }

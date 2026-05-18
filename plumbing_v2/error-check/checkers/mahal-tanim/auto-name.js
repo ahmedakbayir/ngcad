@@ -104,6 +104,21 @@ function pointInRoom(pt, room) {
     } catch { return false; }
 }
 
+// Polygon ortalama (centroid) — basit aritmetik ortalama (uç düğüm yok).
+function roomCentroid(r) {
+    const coords = r?.polygon?.geometry?.coordinates?.[0];
+    if (!Array.isArray(coords) || coords.length < 3) return null;
+    let sx = 0, sy = 0, n = 0;
+    // Son köşe genelde ilki ile aynıdır — onu atla.
+    for (let i = 0; i < coords.length - 1; i++) {
+        const c = coords[i];
+        if (!c || c.length < 2) continue;
+        sx += c[0]; sy += c[1]; n++;
+    }
+    if (n === 0) return null;
+    return { x: sx / n, y: sy / n };
+}
+
 // ─── Bileşen-mahal indeksleri ─────────────────────────────────────────────
 
 // Mahalin içinde belirli tipte tesisat bileşeni var mı?
@@ -118,6 +133,147 @@ function roomContainsCihazTipi(room, comps, cihazTipi) {
         c.cihazTipi === cihazTipi &&
         pointInRoom({ x: c.x, y: c.y }, room)
     );
+}
+
+// "Tesisat olan tarafı öncelikli" — YATAK ODASI vs OTURMA ODASI seçiminde
+// kombi/şofben/soba veya cihaz vanası içeren oda öncelikli olarak
+// OTURMA ODASI atanır. Bulunmazsa null.
+const TESISAT_OTURMA_CIHAZ = new Set(['KOMBI', 'SOFBEN', 'SOBA']);
+function pickOturmaByTesisat(rooms, comps) {
+    for (const r of rooms) {
+        const hasIsiTesisat = comps.some(c =>
+            c.type === 'cihaz' &&
+            TESISAT_OTURMA_CIHAZ.has(c.cihazTipi) &&
+            pointInRoom({ x: c.x, y: c.y }, r)
+        );
+        if (hasIsiTesisat) return r;
+    }
+    return null;
+}
+
+// Birimin (daire) içinde herhangi bir tesisat cihazı (kombi/ocak/şofben/...)
+// veya sayaç var mı?
+function isUnitWithTesisat(unit, comps) {
+    for (const r of unit) {
+        for (const c of comps) {
+            if (c.type !== 'cihaz' && c.type !== 'sayac') continue;
+            if (pointInRoom({ x: c.x, y: c.y }, r)) return true;
+        }
+    }
+    return false;
+}
+
+// Mahalin duvarları üzerindeki toplam kapı sayısı.
+function roomDoorCount(room, walls, doors) {
+    const rWalls = roomWalls(room, walls);
+    if (!rWalls.length) return 0;
+    let count = 0;
+    for (const d of doors) {
+        if (rWalls.some(w => doorOnWall(d, w))) count++;
+    }
+    return count;
+}
+
+// Mahalin dış ortama açılan kapısı var mı?
+// Bir kapı "dış" sayılır: o duvarın diğer tarafında başka mahal yok.
+function hasExteriorDoor(room, walls, doors, allRooms) {
+    const rWalls = roomWalls(room, walls);
+    for (const d of doors) {
+        const matchingWall = rWalls.find(w => doorOnWall(d, w));
+        if (!matchingWall) continue;
+        const adj = wallRooms(matchingWall, allRooms);
+        // Sadece bu mahal duvara sınır → dış kapı.
+        if (adj.length <= 1) return true;
+    }
+    return false;
+}
+
+// Aynı kat içinde simetri / benzer birim için isim kopyala.
+// En az 1 isimli odası olan birimleri şablon olarak kabul eder. Reflection
+// (perpendicular bisector) ile hedef birimin odalarını şablon odalarına eşler.
+function applySameFloorMirror(units, roomCentroidFn, setName) {
+    const unitTotalArea = (u) => u.reduce((s, r) => s + (Number(r.area) || 0), 0);
+    const unitNamedRatio = (u) => {
+        if (!u.length) return 0;
+        const NEEDS_LOCAL = (n) => {
+            const s = String(n || '').trim().toUpperCase();
+            return s === '' || s === 'MAHAL';
+        };
+        return u.filter(r => !NEEDS_LOCAL(r.name)).length / u.length;
+    };
+    const unitCentroid = (u) => {
+        let sx = 0, sy = 0, n = 0;
+        for (const r of u) {
+            const c = roomCentroidFn(r);
+            if (!c) continue;
+            sx += c.x; sy += c.y; n++;
+        }
+        if (n === 0) return null;
+        return { x: sx / n, y: sy / n };
+    };
+    const reflectAcrossAxis = (point, pA, pB) => {
+        const dx = pB.x - pA.x, dy = pB.y - pA.y;
+        const len = Math.hypot(dx, dy);
+        if (len < 1e-6) return { ...point };
+        const nx = dx / len, ny = dy / len;
+        const midx = (pA.x + pB.x) / 2;
+        const midy = (pA.y + pB.y) / 2;
+        const vx = point.x - midx, vy = point.y - midy;
+        const dot = vx * nx + vy * ny;
+        return {
+            x: point.x - 2 * dot * nx,
+            y: point.y - 2 * dot * ny,
+        };
+    };
+
+    const NEEDS_LOCAL = (n) => {
+        const s = String(n || '').trim().toUpperCase();
+        return s === '' || s === 'MAHAL';
+    };
+    // Şablon: en az 1 isimli oda içeren herhangi bir birim. Tercih: en yüksek
+    // isimli oranı + benzer alan.
+    const candidateTemplates = units.filter(u => u.some(r => !NEEDS_LOCAL(r.name)));
+    for (const target of units) {
+        if (!target.some(r => NEEDS_LOCAL(r.name))) continue;
+        const tArea = unitTotalArea(target);
+        const tCount = target.length;
+        const tCentroid = unitCentroid(target);
+        if (!tCentroid) continue;
+
+        // En iyi şablonu seç: oda sayısı ±1, alan ±%40.
+        let bestTemplate = null, bestScore = -Infinity;
+        for (const tmpl of candidateTemplates) {
+            if (tmpl === target) continue;
+            if (Math.abs(tmpl.length - tCount) > 1) continue;
+            const ta = unitTotalArea(tmpl);
+            if (tArea <= 0 || ta <= 0) continue;
+            const ratio = Math.abs(ta - tArea) / Math.max(ta, tArea);
+            if (ratio > 0.40) continue;
+            const score = unitNamedRatio(tmpl) - ratio;
+            if (score > bestScore) { bestScore = score; bestTemplate = tmpl; }
+        }
+        if (!bestTemplate) continue;
+
+        const sCentroid = unitCentroid(bestTemplate);
+        if (!sCentroid) continue;
+
+        // Hedef oda merkezini şablon merkezine yansıt → en yakın şablon odasını
+        // bul → ismi kopyala.
+        for (const tr of target) {
+            if (!NEEDS_LOCAL(tr.name)) continue;
+            const tc = roomCentroidFn(tr);
+            if (!tc) continue;
+            const reflected = reflectAcrossAxis(tc, tCentroid, sCentroid);
+            let best = null, bestD = Infinity;
+            for (const sr of bestTemplate) {
+                const sc = roomCentroidFn(sr);
+                if (!sc) continue;
+                const d = Math.hypot(sc.x - reflected.x, sc.y - reflected.y);
+                if (d < bestD) { bestD = d; best = sr; }
+            }
+            if (best && !NEEDS_LOCAL(best.name)) setName(tr, best.name);
+        }
+    }
 }
 
 function roomContainsStairs(room, stairs) {
@@ -240,9 +396,50 @@ function buildUnits(rooms, separators, doorGraph) {
     return units;
 }
 
+// ─── Phase 1 ön-geçişi: tüm katlarda komponent türetilmiş isimleri set et ──
+// Bu sayede nameFloor(F) çağrısı, sıradan diğer katların komponent kaynaklı
+// isimlerini (MUTFAK / SAHANLIK / AÇIK SAHANLIK) referans olarak kullanabilir.
+// Idempotent: aynı çağrılarda tekrar set olur ama herhangi bir yan etki yok.
+function applyComponentNamesForFloor(targetFid) {
+    const matchRoom = (r) => (r?.floorId ?? null) === targetFid;
+    const matchOrLegacy = (obj) => {
+        const fid = obj?.floorId ?? null;
+        return fid === null || fid === targetFid;
+    };
+    const rooms  = (state.rooms || []).filter(matchRoom);
+    if (!rooms.length) return;
+    const walls  = (state.walls || []).filter(matchOrLegacy);
+    const stairs = (state.stairs || []).filter(matchOrLegacy);
+    const comps  = (plumbingManager?.components || []).filter(matchOrLegacy);
+
+    const setForComp = (r, n) => {
+        if (!CAN_OVERRIDE_FOR_COMPONENT(r.name)) return;
+        if (r.name === n) return;
+        r.name = n;
+    };
+
+    for (const r of rooms) {
+        const hasOcak  = roomContainsCihazTipi(r, comps, 'OCAK');
+        const hasSayac = roomContainsType(r, comps, 'sayac');
+        const hasStair = roomContainsStairs(r, stairs);
+        if (hasOcak)  { setForComp(r, 'MUTFAK'); continue; }
+        if (hasSayac) {
+            if (hasBalkonWall(r, walls, rooms)) setForComp(r, 'AÇIK SAHANLIK');
+            else                                 setForComp(r, 'SAHANLIK');
+            continue;
+        }
+        if (hasStair) { setForComp(r, 'SAHANLIK'); continue; }
+    }
+}
+
 // ─── Tek bir kata isim atama ──────────────────────────────────────────────
 
 export function nameFloor(floorId) {
+    // Ön-geçiş: tüm katlarda komponent kaynaklı isimleri set et.
+    // Böylece cross-floor pattern (Phase 1.5) hangi sırada çalışırsa çalışsın
+    // diğer katlarda MUTFAK/SAHANLIK referansını bulur.
+    const allFids = new Set((state.rooms || []).map(r => r.floorId ?? null));
+    for (const fid of allFids) applyComponentNamesForFloor(fid);
     // Rooms: KESİN floor eşleşmesi (yanlış katta isim değiştirmemek için).
     // Walls/doors/stairs/comps: floor eşleşmesi VEYA floorId hiç set edilmemiş
     // (legacy/paylaşımlı objeler) → coğrafyaya göre roomWalls onları zaten odanın
@@ -303,8 +500,18 @@ export function nameFloor(floorId) {
     // ── Faz 2 — Birimlere böl ──
     const units = buildUnits(rooms, separators, doorGraph);
 
+    // ── Faz 2.5 — Aynı kat simetri (erken pas) ──
+    // Phase 1/1.5'ten gelen kısmî isimlerle (MUTFAK/SAHANLIK) bir başlangıç
+    // simetri kopyası dene. Phase 3a'dan sonra tekrar çalıştırılır.
+    applySameFloorMirror(units, roomCentroid, setName);
+
     // ── Faz 3 — Birim içi atamalar ──
-    for (const unit of units) {
+    // Restructure: önce TESİSAT olan dairelerin tamamı isimlendirilir.
+    // Sonra Phase 2.5 simetrik daireleri kopyalar. En sonda kalan daireler
+    // için kurallar tekrar çalışır.
+
+    // Bir birimi mevcut kurallarla isimlendiren yerel fonksiyon.
+    const nameUnitRules = (unit) => {
         const unitSet = new Set(unit);
 
         // ── ANTRE adayları ──
@@ -349,16 +556,16 @@ export function nameFloor(floorId) {
             if (antre) setName(antre, 'ANTRE');
         }
 
-        // Kural sırası (kullanıcının güncel spec'i):
-        //  1. SALON      — geriye kalan en büyük (sadece ANTRE varsa)
-        //  2. WC         — antreye komşu + alan < 3 m²  (birden fazla)
-        //  3. BANYO (erken) — WC YOKSA, antreye komşu en küçük alanlı kalan
-        //                  (WC varsa bu adım atlanır)
-        //  4. BALKON     — antreye komşu OLMAYAN + alan < 5 m² (birden fazla)
-        //  5. İlk 2 antreye komşu (büyükten küçüğe): YATAK ODASI, OTURMA ODASI
-        //  6. BANYO (geç) — antreye komşu en küçük alanlı kalan
-        //                  (yukarıda BANYO atandıysa atlanır)
-        //  7. Kalan antre komşuları: dönüşümlü YATAK ODASI / OTURMA ODASI
+        // Kural sırası (kullanıcının revize spec'i):
+        //  A. SALON  — geriye kalan en büyük (ANTRE varsa)
+        //  B. WC     — antreye komşu + alan < 3 m² + max 1 kapı (birden fazla)
+        //  C. BANYO  — WC yoksa, antreye komşu en küçük + max 1 kapı
+        //  D. BALKON — antreye komşu OLMAYAN + alan < 5 m² (AÇIK/KAPALI)
+        //  E. HOL    — min 3 kapı + dış kapı yok
+        //  F. YATAK/MUTFAK/OTURMA — alan sırasına göre:
+        //     • Tesisat varsa: 1=YATAK, 2=OTURMA (kombi → OTURMA önceliği)
+        //     • Tesisat yoksa: 1=YATAK, 2=MUTFAK, 3=OTURMA
+        //  G. Kalanlar — >5 m² OTURMA ODASI, ≤5 m² HOL
 
         const antreNeighbors = antre
             ? unit.filter(r => r !== antre && areAdjacent(antre, r, walls))
@@ -366,28 +573,32 @@ export function nameFloor(floorId) {
         const hasName = (target) =>
             unit.some(r => String(r.name || '').toUpperCase().trim() === target);
 
-        // 1. SALON
+        // A. SALON
         if (antre && !hasName('SALON')) {
             const rem = unit.filter(r => NEEDS(r.name)).sort((a, b) => roomAreaM2(b) - roomAreaM2(a));
             if (rem.length) setName(rem[0], 'SALON');
         }
 
-        // 2. WC (birden fazla)
+        // B. WC — antreye komşu + alan < 3 m² + max 1 kapı (birden fazla)
         let wcAssigned = false;
         for (const r of antreNeighbors) {
             if (!NEEDS(r.name)) continue;
-            if (roomAreaM2(r) < 3) { setName(r, 'WC'); wcAssigned = true; }
+            if (roomAreaM2(r) >= 3) continue;
+            if (roomDoorCount(r, walls, doors) > 1) continue;
+            setName(r, 'WC');
+            wcAssigned = true;
         }
 
-        // 3. BANYO — sadece WC atanmadıysa
+        // C. BANYO — WC yoksa, antreye komşu en küçük + max 1 kapı
         if (antre && !wcAssigned && !hasName('BANYO')) {
             const cand = antreNeighbors
                 .filter(r => NEEDS(r.name))
+                .filter(r => roomDoorCount(r, walls, doors) <= 1)
                 .sort((a, b) => roomAreaM2(a) - roomAreaM2(b));
             if (cand[0]) setName(cand[0], 'BANYO');
         }
 
-        // 4. BALKON (birden fazla)
+        // D. BALKON — antreye komşu OLMAYAN + alan < 5 m²
         for (const r of unit) {
             if (!NEEDS(r.name)) continue;
             if (antre && areAdjacent(antre, r, walls)) continue;
@@ -396,44 +607,98 @@ export function nameFloor(floorId) {
             else                          setName(r, 'KAPALI BALKON');
         }
 
-        // 5. İlk 2 antre komşusu (büyükten küçüğe): YATAK ODASI, OTURMA ODASI
-        if (antre) {
-            const top2 = antreNeighbors
-                .filter(r => NEEDS(r.name))
-                .sort((a, b) => roomAreaM2(b) - roomAreaM2(a));
-            if (top2[0]) setName(top2[0], 'YATAK ODASI');
-            if (top2[1]) setName(top2[1], 'OTURMA ODASI');
+        // E. HOL — min 3 kapı + dış kapı yok (ANTRE değil)
+        for (const r of unit) {
+            if (!NEEDS(r.name)) continue;
+            if (r === antre) continue;
+            if (roomDoorCount(r, walls, doors) < 3) continue;
+            if (hasExteriorDoor(r, walls, doors, rooms)) continue;
+            setName(r, 'HOL');
         }
 
-        // 6. BANYO (geç) — antreye komşu en küçük kalan (üstte atanmadıysa)
-        if (antre && !hasName('BANYO')) {
-            const cand = antreNeighbors
-                .filter(r => NEEDS(r.name))
-                .sort((a, b) => roomAreaM2(a) - roomAreaM2(b));
-            if (cand[0]) setName(cand[0], 'BANYO');
-        }
-
-        // 7. Kalan antre komşuları: dönüşümlü YATAK ODASI / OTURMA ODASI
-        if (antre) {
-            const leftovers = antreNeighbors
-                .filter(r => NEEDS(r.name))
-                .sort((a, b) => roomAreaM2(b) - roomAreaM2(a));
-            let toggle = 0;
-            for (const r of leftovers) {
-                setName(r, toggle === 0 ? 'YATAK ODASI' : 'OTURMA ODASI');
-                toggle = 1 - toggle;
+        // F. YATAK / MUTFAK / OTURMA — alan sırasına göre
+        const tesisatVar = isUnitWithTesisat(unit, comps);
+        const candidatePool = (antre && antreNeighbors.length)
+            ? antreNeighbors.filter(r => NEEDS(r.name))
+            : unit.filter(r => NEEDS(r.name));
+        const ranked = candidatePool.sort((a, b) => roomAreaM2(b) - roomAreaM2(a));
+        if (tesisatVar) {
+            // Tesisat varsa: top 2 — kombi → OTURMA önceliği
+            const top2 = ranked.slice(0, 2);
+            if (top2.length) {
+                const oturmaPick = pickOturmaByTesisat(top2, comps);
+                if (oturmaPick) {
+                    setName(oturmaPick, 'OTURMA ODASI');
+                    const other = top2.find(r => r !== oturmaPick);
+                    if (other) setName(other, 'YATAK ODASI');
+                } else {
+                    setName(top2[0], 'YATAK ODASI');
+                    if (top2[1]) setName(top2[1], 'OTURMA ODASI');
+                }
             }
+        } else {
+            // Tesisat yoksa: 1=YATAK, 2=MUTFAK, 3=OTURMA
+            if (ranked[0]) setName(ranked[0], 'YATAK ODASI');
+            if (ranked[1] && !hasName('MUTFAK')) setName(ranked[1], 'MUTFAK');
+            else if (ranked[1]) setName(ranked[1], 'OTURMA ODASI');
+            if (ranked[2] && !hasName('OTURMA ODASI')) setName(ranked[2], 'OTURMA ODASI');
         }
 
-        // Birim içi diğer kalanlar (antreye komşu değil, balkon değil, > 5 m²)
-        // → sıralı fallback isim listesi
-        const farLeftovers = unit
-            .filter(r => NEEDS(r.name))
-            .sort((a, b) => roomAreaM2(b) - roomAreaM2(a));
-        let fi = 0;
-        for (const r of farLeftovers) {
-            setName(r, FALLBACK_NAMES[fi % FALLBACK_NAMES.length]);
-            fi++;
+        // G. Kalanlar — >5 m² OTURMA ODASI, ≤5 m² HOL
+        for (const r of unit) {
+            if (!NEEDS(r.name)) continue;
+            if (roomAreaM2(r) > 5) setName(r, 'OTURMA ODASI');
+            else                    setName(r, 'HOL');
+        }
+    };
+
+    // ── Faz 3a — TESİSAT olan birimleri tam isimlendir ──
+    const tesisatUnits = units.filter(u => isUnitWithTesisat(u, comps));
+    const otherUnits   = units.filter(u => !isUnitWithTesisat(u, comps));
+    for (const unit of tesisatUnits) nameUnitRules(unit);
+
+    // ── Faz 3b — Aynı kat simetrisi tetikleyici ──
+    // Phase 2.5 zaten yukarıda Phase 3'ten önce çalıştı; ancak o sırada
+    // tesisat birimi henüz tam isimlendirilmemiş olabilirdi. TESİSAT birimi
+    // şimdi tam isimli olduğu için diğer birimleri yeniden eşle.
+    if (otherUnits.length && tesisatUnits.length) {
+        applySameFloorMirror(units, roomCentroid, setName);
+    }
+
+    // ── Faz 3c — Kalan birimleri kurallarla isimlendir ──
+    for (const unit of otherUnits) nameUnitRules(unit);
+
+    // ── Faz 4a — Cross-floor pattern: başka katlardaki aynı pozisyondaki ──
+    // Bu kat içindeki isimsiz odalar için diğer katlardaki aynı pozisyondaki
+    // isimleri kopyala (kullanıcı veya başka kat auto-name çıktısı).
+    {
+        const POSITION_TOL_CM = 100;
+        const AREA_TOL_RATIO  = 0.30;
+        const otherFloorNamed = (state.rooms || []).filter(o =>
+            (o.floorId ?? null) !== targetFid &&
+            !NEEDS(o.name)
+        );
+        if (otherFloorNamed.length) {
+            for (const r of rooms) {
+                if (!NEEDS(r.name)) continue;
+                const c = roomCentroid(r);
+                if (!c) continue;
+                const ra = roomAreaM2(r);
+                let best = null, bestD = Infinity;
+                for (const o of otherFloorNamed) {
+                    const oc = roomCentroid(o);
+                    if (!oc) continue;
+                    const d = Math.hypot(oc.x - c.x, oc.y - c.y);
+                    if (d > POSITION_TOL_CM) continue;
+                    const oa = roomAreaM2(o);
+                    if (ra > 0 && oa > 0) {
+                        const ratio = Math.abs(oa - ra) / Math.max(oa, ra);
+                        if (ratio > AREA_TOL_RATIO) continue;
+                    }
+                    if (d < bestD) { bestD = d; best = o; }
+                }
+                if (best) setName(r, best.name);
+            }
         }
     }
 

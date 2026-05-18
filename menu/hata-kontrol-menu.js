@@ -332,6 +332,15 @@ function splitLimitSuffix(message) {
     };
 }
 
+// MAHAL_TANIM hatalarında "Zemin Kat: 7 mahalin tanımı eksik" gibi
+// mesajlarda baştaki kat ismi prefix'ini ayırır (silik render için).
+function splitFloorPrefix(item) {
+    if (item.group !== 'MAHAL_TANIM') return { prefix: '', rest: String(item.message || '') };
+    const m = String(item.message || '').match(/^([^:]+):\s*(.+)$/);
+    if (!m) return { prefix: '', rest: String(item.message || '') };
+    return { prefix: m[1].trim(), rest: m[2] };
+}
+
 function updateSummary(total) {
     const el = document.getElementById(SUMMARY_ID);
     if (!el) return;
@@ -369,8 +378,12 @@ function renderResults() {
         const rows = items.map((it) => {
             const hasFix = !!(it.fix && typeof it.fix.apply === 'function');
             const loc = getLocationInfo(it);
-            const { main, limit } = splitLimitSuffix(it.message);
-            const locHtml   = loc   ? `<span class="hk-row-dim hk-row-loc">${escapeHtml(loc)}</span> ` : '';
+            // MAHAL_TANIM mesajları "Zemin Kat: …" formatında — kat ismi silik.
+            const { prefix: floorPrefix, rest: msgRest } = splitFloorPrefix(it);
+            const { main, limit } = splitLimitSuffix(msgRest);
+            // İki türlü "silik prefix" olabilir; ikisi de varsa loc önde gelir.
+            const dimPrefix = loc || floorPrefix;
+            const locHtml   = dimPrefix ? `<span class="hk-row-dim hk-row-loc">${escapeHtml(dimPrefix)}</span> ` : '';
             const mainHtml  = `<span class="hk-row-main">${escapeHtml(main)}</span>`;
             const limitHtml = limit ? ` <span class="hk-row-dim hk-row-limit">${escapeHtml(limit)}</span>` : '';
             return `

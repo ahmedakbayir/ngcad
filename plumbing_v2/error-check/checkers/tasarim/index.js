@@ -39,7 +39,7 @@ function isUpstreamOfAnyMeter(manager, regulator) {
 function regLabel(reg) {
     if (!reg?.id) return 'Regülatör';
     const tail = reg.id.split('_').pop();
-    return `Regülatör (${tail.slice(0, 4)})`;
+    return `Regülatör`;
 }
 
 function cihazLabel(c, fallback) {
@@ -145,6 +145,69 @@ function kombiFleksUzunluk(manager, out) {
     });
 }
 
+// ─── Md:4.1.3 — Esnek (ondüleli) boruda T dışında redüksiyon yapılamaz ───
+// Sayaç sonrası, birimBoruTipi='ESNEK' olan tesisatlarda her boru çiftinde
+// parent ile child çapı farklıysa ve child parent'ın T-ayrımında değilse hata.
+function esnekReduksiyonKurali(manager, out) {
+    if (!manager?.pipes?.length) return;
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+
+    (manager.components || []).forEach(sayac => {
+        if (sayac.type !== 'sayac') return;
+        if (sayac.birimBoruTipi !== 'ESNEK') return;
+        const startPipeId = sayac.cikisBagliBoruId;
+        if (!startPipeId) return;
+
+        const seen = new Set();
+        const queue = [startPipeId];
+        while (queue.length) {
+            const pid = queue.shift();
+            if (seen.has(pid)) continue;
+            seen.add(pid);
+            const parent = pipeMap.get(pid);
+            if (!parent) continue;
+
+            // parent'ın downstream çocukları
+            const children = manager.pipes.filter(child =>
+                child.baslangicBaglanti?.tip === 'boru' &&
+                child.baslangicBaglanti.hedefId === pid
+            );
+
+            for (const child of children) {
+                const isTBranch = Array.isArray(parent.tBaglantilar)
+                    && parent.tBaglantilar.some(tb => tb.boruId === child.id);
+                const pCap = parent.boruCap;
+                const cCap = child.boruCap;
+                if (pCap && cCap && pCap !== cCap && !isTBranch) {
+                    out.push({
+                        group:   ERROR_GROUP_IDS.TASARIM,
+                        errorId: `tasarim-esnek-reduksiyon-${child.id}`,
+                        message: 'Esnek boruda, sadece T ayrımında redüksiyon kullanılabilir',
+                        source:  'TS7363 Md:4.1.3',
+                        detail:  'Ondüleli boruda ek ve/veya redüksiyon ile çap değişimi yapılmamalıdır. T ayrımına kadar tesisat tek parça olmalı, T ayrımında redüksiyon ile çap değişimi yapılmalıdır.',
+                        targets: [{ type: 'pipe', id: child.id }],
+                        fix: {
+                            description: `Redüksiyon kaldırılacak: ${cCap} → ${pCap} (parent çapı)`,
+                            apply: () => fixEsnekReduksiyon(manager, child.id, pCap),
+                        },
+                    });
+                }
+                queue.push(child.id);
+            }
+        }
+    });
+}
+
+function fixEsnekReduksiyon(manager, pipeId, parentCap) {
+    const p = manager.pipes?.find(pp => pp.id === pipeId);
+    if (!p || !parentCap) return false;
+    p.boruCap = parentCap;
+    try { recomputeAllPressures(manager); } catch (_) {}
+    manager.saveToState?.();
+    try { draw2D(); } catch (_) {}
+    return true;
+}
+
 // ─── Toplu checker ────────────────────────────────────────────────────────
 
 function tasarimChecker({ manager }) {
@@ -153,6 +216,7 @@ function tasarimChecker({ manager }) {
     regCikisBasinc50(manager, out);
     ocakFleksUzunluk(manager, out);
     kombiFleksUzunluk(manager, out);
+    esnekReduksiyonKurali(manager, out);
     return out;
 }
 
