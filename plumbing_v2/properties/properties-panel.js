@@ -502,15 +502,33 @@ function renderProperty(prop, obj, manager) {
             prop.max != null ? `max="${prop.max}"` : '',
         ].filter(Boolean).join(' ');
         const precAttr = prop.precision != null ? ` data-precision="${prop.precision}"` : '';
-        return `
-            <div class="props-row">
-                <label class="props-label">${prop.label}</label>
-                <input class="props-input" type="${itype}"
+        const inputExtraStyle = Array.isArray(prop.inlineButtons) && prop.inlineButtons.length
+            ? ' style="flex:1;min-width:0"' : '';
+        const inputHtml = `<input class="props-input" type="${itype}"
                     data-prop-key="${prop.key}"${precAttr}
                     value="${escHtml(String(current))}"
                     placeholder="${escHtml(placeholder)}"
-                    ${extraAttrs}
-                    ${isDisabled ? 'disabled' : ''}>
+                    ${extraAttrs}${inputExtraStyle}
+                    ${isDisabled ? 'disabled' : ''}>`;
+        if (Array.isArray(prop.inlineButtons) && prop.inlineButtons.length) {
+            const btnsHtml = prop.inlineButtons.map((b, i) => {
+                const bDisabled = (b.disabledFn && b.disabledFn(obj, manager)) || b.disabled === true;
+                const title = escHtml(b.title || '');
+                return `<button class="props-inline-action-btn" data-prop-id="${prop.id}" data-inline-btn-idx="${i}" title="${title}" style="flex:0 0 auto" ${bDisabled ? 'disabled' : ''}>${escHtml(b.label || '')}</button>`;
+            }).join('');
+            return `
+                <div class="props-row">
+                    <label class="props-label">${prop.label}</label>
+                    <div class="props-input-with-buttons" data-prop-id="${prop.id}" style="display:flex;gap:4px;align-items:center;min-width:0">
+                        ${inputHtml}
+                        ${btnsHtml}
+                    </div>
+                </div>`;
+        }
+        return `
+            <div class="props-row">
+                <label class="props-label">${prop.label}</label>
+                ${inputHtml}
             </div>`;
     }
 
@@ -1188,6 +1206,22 @@ function bindInputEvents(panelEl, props, obj, manager) {
             const prop = props.find(p => p.id === propId);
             const idx = parseInt(btn.dataset.actionIdx);
             const action = prop?.buttons?.[idx];
+            if (action?.onClick) {
+                action.onClick(obj, manager, panelEl);
+                persist();
+                if (panelEl._refresh) panelEl._refresh();
+            }
+        });
+    });
+
+    // Text input yanındaki inline buton dizisi (inlineButtons)
+    panelEl.querySelectorAll('.props-inline-action-btn[data-inline-btn-idx]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const propId = btn.dataset.propId;
+            const prop = props.find(p => p.id === propId);
+            const idx = parseInt(btn.dataset.inlineBtnIdx);
+            const action = prop?.inlineButtons?.[idx];
             if (action?.onClick) {
                 action.onClick(obj, manager, panelEl);
                 persist();

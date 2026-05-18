@@ -185,6 +185,179 @@ function _updateIlerdeBirimNo(obj) {
     obj.birimNo = n > 0 ? `${n} ${lbl}` : '';
 }
 
+/**
+ * BRANSMAN vanasının pipe ucuna bağlı sayacı bul.
+ * Vana boru üzerinde fromEnd ucunda sonlanır; sayaç o boruya o uçtan fleks ile bağlanmıştır.
+ */
+function _findSayacForBransman(vana, manager) {
+    if (!vana || !manager) return null;
+    if (vana.vanaTipi !== 'BRANSMAN') return null;
+    const pipeId = vana.bagliBoruId;
+    if (!pipeId) return null;
+    const endpoint = vana.fromEnd || null;
+    return (manager.components || []).find(c =>
+        c.type === 'sayac' &&
+        c.fleksBaglanti?.boruId === pipeId &&
+        (!endpoint || c.fleksBaglanti?.endpoint === endpoint)
+    ) || null;
+}
+
+/** Vana + bağlı sayaca aynı birim no'yu yaz */
+function _applyBirimNoToBransman(vana, no, manager) {
+    if (!vana) return;
+    vana.birimNo = String(no);
+    const sayac = _findSayacForBransman(vana, manager);
+    if (sayac) {
+        sayac.birimNo = String(no);
+        if (!sayac.birimTipi && vana.birimTipi) sayac.birimTipi = vana.birimTipi;
+    }
+}
+
+/** Kattaki tüm BRANSMAN vanaları (x,y'a göre sıralı) — ilerdeKullanim hariç */
+function _branchValvesOnFloor(manager, floorId) {
+    if (!manager) return [];
+    return (manager.components || [])
+        .filter(c => c.type === 'vana' && c.vanaTipi === 'BRANSMAN' && c.floorId === floorId && !c.ilerdeKullanim)
+        .slice()
+        .sort((a, b) => (a.x - b.x) || (a.y - b.y));
+}
+
+/** Placeholder olmayan katlar, alttan üste sıralı */
+function _orderedRealFloors() {
+    const floors = state.floors || [];
+    return floors
+        .filter(f => !f.isPlaceholder)
+        .slice()
+        .sort((a, b) => (a.bottomElevation || 0) - (b.bottomElevation || 0));
+}
+
+/**
+ * Branşman vanalarına otomatik birim no atama.
+ *
+ * Kat içi temel kural: verilen no'lar (refs) kattaki EN KÜÇÜK no'lardır. Kattaki TÜM boş
+ * vanalara no atanır; ancak hiçbiri maxRefNo'dan küçük olamaz.
+ *   - "5" girildiyse diğerleri 6,7,8…
+ *   - "1,2" girildiyse diğerleri 3,4,5…
+ *   - "8,9" girildiyse diğerleri 10,11,12…
+ *
+ * Step:
+ *   - 1 ref → step = 1
+ *   - ≥2 ref → step = max(1, round(|noDiff| / idxDiff)). Yön refs sırasından bellidir.
+ *
+ * Atama iki aşamada:
+ *   a) Refs aralığındaki boşluklar (refFirst.idx < idx < refLast.idx) interpolation ile,
+ *      en yakın ref'in no'suna step × idx farkı eklenerek.
+ *   b) Refs aralığı dışındaki boşluklar: maxRefNo + step'ten artarak; önce refs'in sağındaki
+ *      idx'ler (sondan), sonra solundakine sarmala (baştan refFirst−1'e kadar).
+ *
+ * Katlar arası: kat içi tamamlandıktan sonra patternLen = mevcut kattaki vana sayısı.
+ *   Her diğer kat için delta = (kat_idx − currentIdx) × patternLen. Geometrik eşleştirilen
+ *   vanalara no = sourceNo + delta. Hesaplanan no ≤ 0 olan vana atlanır (aşağıya doğru 1'e
+ *   indikten sonra kalan vanalara no girilmez).
+ *
+ * Örn. zemin + 2 normal kat, her katta 2 daire; aradaki katta 3 ve 4 girip butona basılınca:
+ *   alttaki kat → 1, 2;  üstteki kat → 5, 6.
+ *
+ * Eşleme: en yakın komşu (tolerans 100 cm). Sayaçlar da senkronize edilir.
+ */
+function _autoAssignByFloorPattern(vana, manager) {
+    if (!vana || !manager || !vana.floorId) return;
+    const floors = _orderedRealFloors();
+    const currentIdx = floors.findIndex(f => f.id === vana.floorId);
+    if (currentIdx < 0) return;
+
+    const allHere = _branchValvesOnFloor(manager, vana.floorId);
+    if (allHere.length === 0) return;
+
+    // Mevcut kattaki vanaları, no'larıyla birlikte indeksle
+    const here = allHere.map((v, i) => ({ v, idx: i, no: parseInt(v.birimNo, 10) }));
+    const refs = here.filter(h => Number.isFinite(h.no));
+    if (refs.length === 0) return;
+
+    // Kat içi step (pozitif). Yön refs sırasından gelir.
+    let step = 1;
+    if (refs.length >= 2) {
+        const first = refs[0];
+        const last = refs[refs.length - 1];
+        const idxDiff = last.idx - first.idx;
+        const noDiff = Math.abs(last.no - first.no);
+        if (idxDiff > 0) step = Math.max(1, Math.round(noDiff / idxDiff));
+    }
+
+    // 1) Kat içini tamamla
+    //   a) refs aralığındaki boşluklara interpolation (en yakın anchor + step)
+    //   b) refs aralığı dışındakilere: maxRefNo + step'ten başlayıp sırayla;
+    //      önce refs'in sağındaki idx'ler (refLast+1 → son), sonra solundakine sarmala (0 → refFirst−1)
+    const refFirst = refs[0];
+    const refLast = refs[refs.length - 1];
+
+    for (const h of here) {
+        if (Number.isFinite(h.no)) continue;
+        if (h.idx <= refFirst.idx || h.idx >= refLast.idx) continue; // dışarıdakini aşama 2'ye bırak
+        let anchor = null, bestDist = Infinity;
+        for (const r of refs) {
+            const d = Math.abs(r.idx - h.idx);
+            if (d < bestDist) { bestDist = d; anchor = r; }
+        }
+        if (!anchor) continue;
+        const newN = anchor.no + (h.idx - anchor.idx) * step;
+        if (!Number.isFinite(newN) || newN <= 0) continue;
+        _applyBirimNoToBransman(h.v, newN, manager);
+        h.no = newN;
+    }
+
+    // Aşama 2: refs aralığı dışındaki tüm boş vanalara, maxRefNo + step'ten artarak sarmala
+    const maxRefNo = refs.reduce((m, r) => Math.max(m, r.no), -Infinity);
+    const outsideEmpty = [];
+    for (let i = refLast.idx + 1; i < here.length; i++) {
+        if (!Number.isFinite(here[i].no)) outsideEmpty.push(here[i]);
+    }
+    for (let i = 0; i < refFirst.idx; i++) {
+        if (!Number.isFinite(here[i].no)) outsideEmpty.push(here[i]);
+    }
+    let nextNo = maxRefNo + step;
+    for (const h of outsideEmpty) {
+        _applyBirimNoToBransman(h.v, nextNo, manager);
+        h.no = nextNo;
+        nextNo += step;
+    }
+
+    // Mevcut katın dolu vanalarına da apply çağır (sayaç senkronu için)
+    for (const r of refs) {
+        if (Number.isFinite(r.no)) _applyBirimNoToBransman(r.v, r.no, manager);
+    }
+
+    // 2) Katlar arası: her vana için (kat_idx − currentIdx) × patternLen offset ile
+    //    diğer katlardaki en yakın konumlu vanaya ata
+    const patternLen = allHere.length;
+    const TOL = 100; // cm
+
+    for (let k = 0; k < floors.length; k++) {
+        if (k === currentIdx) continue;
+        const delta = (k - currentIdx) * patternLen;
+        const targets = _branchValvesOnFloor(manager, floors[k].id);
+        const used = new Set();
+        for (const h of here) {
+            if (!Number.isFinite(h.no)) continue;
+            const newN = h.no + delta;
+            if (!Number.isFinite(newN) || newN <= 0) continue;
+            let bestIdx = -1, bestDist = Infinity;
+            for (let i = 0; i < targets.length; i++) {
+                if (used.has(i)) continue;
+                const t = targets[i];
+                const d = Math.hypot(t.x - h.v.x, t.y - h.v.y);
+                if (d < bestDist) { bestDist = d; bestIdx = i; }
+            }
+            if (bestIdx >= 0 && bestDist <= TOL) {
+                used.add(bestIdx);
+                _applyBirimNoToBransman(targets[bestIdx], newN, manager);
+            }
+        }
+    }
+
+    try { syncBirimState(); invalidateBirimCache(); } catch (e) { console.error(e); }
+}
+
 /** P1/P2 koordinat span'ı: değişen siyah, değişmeyen gri */
 function _coordSpan(label, changed) {
     return changed
@@ -766,9 +939,17 @@ export const PROPERTY_DEFS = {
         type: 'text',
         key: 'birimNo',
         default: '',
-        placeholder: 'Birim no...',
+        placeholder: 'No...',
         visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
         disabledFn: (obj) => !!obj.ilerdeKullanim,
+        inlineButtons: [
+            {
+                label: '⇅',
+                title: 'Önce kat içindeki boş vanaları, sonra alt/üst katları geometrik konuma göre otomatik doldur (sayaçlar dahil).',
+                disabledFn: (obj) => !!obj.ilerdeKullanim,
+                onClick: (obj, manager) => _autoAssignByFloorPattern(obj, manager),
+            },
+        ],
     },
 
     // YANBINA ek bilgiler
