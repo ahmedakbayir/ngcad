@@ -71,12 +71,23 @@ function getComponentIsoPos(component) {
         const a = inletPipe ? _pipeEndpointIso(inletPipe, inletEp) : null;
         const b = outletPipe ? _pipeEndpointIso(outletPipe, 'start') : null;
         if (a && b) {
-            pos = { isoX: (a.isoX + b.isoX) / 2, isoY: (a.isoY + b.isoY) / 2 };
+            pos = {
+                isoX: (a.isoX + b.isoX) / 2,
+                isoY: (a.isoY + b.isoY) / 2,
+                inletIsoX: a.isoX, inletIsoY: a.isoY,
+                outletIsoX: b.isoX, outletIsoY: b.isoY,
+                inletColorGroup: inletPipe.colorGroup || 'YELLOW',
+                outletColorGroup: outletPipe.colorGroup || 'TURQUAZ',
+            };
             anchoredToPipe = true;
         } else if (a) {
-            pos = a; anchoredToPipe = true;
+            pos = { ...a, inletIsoX: a.isoX, inletIsoY: a.isoY,
+                    inletColorGroup: inletPipe.colorGroup || 'YELLOW' };
+            anchoredToPipe = true;
         } else if (b) {
-            pos = b; anchoredToPipe = true;
+            pos = { ...b, outletIsoX: b.isoX, outletIsoY: b.isoY,
+                    outletColorGroup: outletPipe.colorGroup || 'TURQUAZ' };
+            anchoredToPipe = true;
         }
     } else if (component.type === 'cihaz'
             && component.fleksBaglanti?.boruId && plumbingManager) {
@@ -469,6 +480,79 @@ export function drawIsometricPipes(ctx) {
     });
 }
 
+// ─── İso boru rengi (drawIsometricPipes ile aynı palet) ─────────────────────
+function _isoPipeColorFor(colorGroup) {
+    const isLight = document.body.classList.contains('light-mode');
+    if (colorGroup === 'YELLOW') return isLight ? 'rgba(160, 82, 45, 1)' : 'rgba(184, 134, 11, 1)';
+    if (colorGroup === 'TURQUAZ') return isLight ? 'rgba(0, 100, 204, 1)' : 'rgba(21, 154, 172, 1)';
+    return isLight ? 'rgba(128, 128, 128, 1)' : 'rgba(200, 200, 200, 1)';
+}
+
+// ─── Sayaç fleksi (dalgalı gri çizgi) — boru ucundan gövde anchor'ına ────────
+function _drawIsoSayacFleks(ctx, fromX, fromY, toX, toY) {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const len = Math.hypot(dx, dy);
+    if (len < 2) return;
+
+    // Anchor'a girmeden önce kısa bir tampon — gövde üst kenarına denk gelsin
+    const stopBuffer = Math.min(2, len * 0.05);
+    const r = Math.max(0, (len - stopBuffer) / len);
+    const endX = fromX + dx * r;
+    const endY = fromY + dy * r;
+
+    const segLen = Math.hypot(endX - fromX, endY - fromY);
+    const ux = (endX - fromX) / segLen;
+    const uy = (endY - fromY) / segLen;
+    const px = -uy, py = ux;
+
+    const waveCount = Math.max(3, Math.min(8, Math.round(segLen / 6)));
+    const waveAmp = 1.6;
+    const steps = waveCount * 6;
+
+    const isLight = document.body.classList.contains('light-mode');
+    ctx.save();
+    ctx.strokeStyle = isLight ? '#555' : '#bbb';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const baseX = fromX + (endX - fromX) * t;
+        const baseY = fromY + (endY - fromY) * t;
+        const taper = Math.sin(t * Math.PI); // uçlarda 0, ortada 1
+        const off = Math.sin(t * Math.PI * waveCount) * waveAmp * taper;
+        ctx.lineTo(baseX + px * off, baseY + py * off);
+    }
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+    ctx.restore();
+}
+
+// ─── Sayaç rijit çıkış stub'ı (düz boru-renk çizgisi) ────────────────────────
+function _drawIsoSayacRijit(ctx, fromX, fromY, toX, toY, colorGroup) {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const len = Math.hypot(dx, dy);
+    if (len < 2) return;
+
+    const startBuffer = Math.min(2, len * 0.05);
+    const r = Math.max(0, startBuffer / len);
+    const startX = fromX + dx * r;
+    const startY = fromY + dy * r;
+
+    ctx.save();
+    ctx.strokeStyle = _isoPipeColorFor(colorGroup);
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+    ctx.restore();
+}
+
 /**
  * Tesisat bileşenlerini (servis kutusu, sayaç, vana, cihaz) izometrik perspektifte çizer
  * @param {CanvasRenderingContext2D} ctx - Canvas context
@@ -484,6 +568,16 @@ function drawIsometricComponents(ctx) {
         // Z kotunu ve boru iso offset'lerini hesaba kat — nesne hat üzerindeki gerçek
         // yüksekliğinde durup, hat uzatılıp kısaltıldığında onunla birlikte hareket etsin
         const pos = getComponentIsoPos(component);
+
+        // Sayaç için fleks (inlet) + rijit çıkış (outlet) — gövdeden ÖNCE çiz ki altta kalsın
+        if (component.type === 'sayac') {
+            if (pos.inletIsoX != null) {
+                _drawIsoSayacFleks(ctx, pos.inletIsoX, pos.inletIsoY, pos.isoX, pos.isoY);
+            }
+            if (pos.outletIsoX != null) {
+                _drawIsoSayacRijit(ctx, pos.outletIsoX, pos.outletIsoY, pos.isoX, pos.isoY, pos.outletColorGroup);
+            }
+        }
 
         // Bileşen tipine göre farklı şekiller çiz
         ctx.save();
@@ -1804,6 +1898,984 @@ export function cycleIsoLabelDir(id) {
     const next = (((cur.dir ?? 0) + 1) % 4);
     newOffsets[id] = { dir: next };
     return newOffsets;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// İZO OTOMATİK ETİKET YERLEŞTİRME + YOĞUN HAT ÖLÇEKLEMESİ
+// ═════════════════════════════════════════════════════════════════════════════
+//
+// Akış:
+//   1) Doğal iso konumda her etiketin bbox'ını topla, yoğunluk haritası kur
+//   2) Her pipe için yoğunluğa göre ölçek faktörü hesapla (1, 2, 3, 5, 10)
+//   3) Pipe junction graph'ı çıkar, source'tan BFS ile junction delta'larını biriktir,
+//      isoPipeOffsets'i baştan yaz — yoğun bölgeler subtree olarak dışa öteler
+//   4) Yeni iso konumlarda etiketleri öncelik sırasıyla yerleştir
+//      (vana/pipe önce, sayaç/cihaz sonra), greedy + force-based relaxation
+//   5) isoLabelOffsets'i delta olarak yaz
+
+const ISO_PRIORITY = {
+    vana: 0, boru: 0,
+    regulator: 1, filtre: 1, izolasyon_flansi: 1, kompansator: 1, manometre: 1, topraklama: 1,
+    sayac: 2, servis_kutusu: 2,
+    cihaz: 3, baca: 3,
+};
+
+const ISO_CLIP_BY_TYPE = {
+    sayac: 36, cihaz: 30, servis_kutusu: 18, baca: 16,
+    vana: 6, regulator: 8,
+    filtre: 6, izolasyon_flansi: 6, kompansator: 6, manometre: 6, topraklama: 6,
+    boru: 8,
+};
+
+const ISO_DEFAULT_STYLE_BY_TYPE = {
+    sayac: 'top-center', cihaz: 'top-center', servis_kutusu: 'top-center', baca: 'top-center',
+    vana: 'left-center', regulator: 'left-center',
+    filtre: 'left-center', izolasyon_flansi: 'left-center', kompansator: 'left-center',
+    manometre: 'left-center', topraklama: 'left-center',
+    boru: 'left-center',
+};
+
+let _isoMeasureCtx = null;
+function _getIsoMeasureCtx() {
+    if (!_isoMeasureCtx) {
+        const c = document.createElement('canvas');
+        c.width = 4; c.height = 4;
+        _isoMeasureCtx = c.getContext('2d');
+    }
+    return _isoMeasureCtx;
+}
+
+function _isoMeasureLines(lines, { fontSize = 11, pad = 6.05, lineH = 16.5 } = {}) {
+    const ctx = _getIsoMeasureCtx();
+    let maxW = 0;
+    let visCount = 0;
+    for (const l of lines) {
+        if (!l || !l.text) continue;
+        visCount++;
+        ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+        const w = ctx.measureText(l.text).width;
+        if (w > maxW) maxW = w;
+    }
+    if (visCount === 0) return { bw: 0, bh: 0 };
+    return { bw: maxW + pad * 2, bh: visCount * lineH + pad * 0.8 };
+}
+
+function _isoMeasureHatLabel(hatNo, infoLines) {
+    const ctx = _getIsoMeasureCtx();
+    const fontSize = 11, numFontSize = 14, pad = 4;
+    ctx.font = `bold ${numFontSize}px "Segoe UI",sans-serif`;
+    const numW = ctx.measureText(String(hatNo)).width;
+    ctx.font = `${fontSize}px "Segoe UI",sans-serif`;
+    let maxInfoW = 0;
+    for (const t of infoLines) maxInfoW = Math.max(maxInfoW, ctx.measureText(t).width);
+    const numCellW = pad * 2 + numW;
+    const infoCellW = infoLines.length > 0 ? pad * 2 + maxInfoW : 0;
+    const bw = numCellW + (infoCellW > 0 ? 1 + infoCellW : 0);
+    const bh = Math.max(numFontSize + pad * 2, infoLines.length * (fontSize * 1.4) + pad * 1.2);
+    return { bw, bh };
+}
+
+// ─── Pipe junction graph (world coords) ──────────────────────────────────────
+function _buildIsoPipeJunctions(manager) {
+    const TOL = 1.0;
+    const junctions = [];
+    const pipeIdToJuncs = new Map();
+
+    const findOrCreate = (x, y, z) => {
+        for (const j of junctions) {
+            if (Math.abs(j.wx - x) < TOL && Math.abs(j.wy - y) < TOL &&
+                Math.abs(j.wz - (z || 0)) < TOL) return j;
+        }
+        const j = { wx: x, wy: y, wz: z || 0, pipeEnds: [] };
+        junctions.push(j);
+        return j;
+    };
+
+    for (const p of manager.pipes) {
+        if (!p.p1 || !p.p2) continue;
+        const j1 = findOrCreate(p.p1.x, p.p1.y, p.p1.z);
+        const j2 = findOrCreate(p.p2.x, p.p2.y, p.p2.z);
+        j1.pipeEnds.push({ pipeId: p.id, end: 'p1' });
+        j2.pipeEnds.push({ pipeId: p.id, end: 'p2' });
+        pipeIdToJuncs.set(p.id, { p1Junc: j1, p2Junc: j2 });
+    }
+    return { junctions, pipeIdToJuncs };
+}
+
+// ─── Multi-source BFS: source'tan + disconnected subgraph'leri de gez ────────
+function _bfsIsoPipeOrder(manager, junctions, pipeIdToJuncs) {
+    const source = manager.components.find(c =>
+        c.type === 'servis_kutusu' || c.type === 'sayac');
+
+    let sourceJunc = null;
+    if (source) {
+        let minDist = Infinity;
+        for (const j of junctions) {
+            const d = Math.hypot(j.wx - source.x, j.wy - source.y);
+            if (d < minDist) { minDist = d; sourceJunc = j; }
+        }
+    }
+    if (!sourceJunc && junctions.length > 0) sourceJunc = junctions[0];
+    if (!sourceJunc) return [];
+
+    const visitedPipes = new Set();
+    const visitedJuncs = new Set();
+    const traversal = [];
+
+    const bfsFrom = (start) => {
+        if (visitedJuncs.has(start)) return;
+        visitedJuncs.add(start);
+        const queue = [start];
+        while (queue.length > 0) {
+            const j = queue.shift();
+            for (const { pipeId } of j.pipeEnds) {
+                if (visitedPipes.has(pipeId)) continue;
+                visitedPipes.add(pipeId);
+                const { p1Junc, p2Junc } = pipeIdToJuncs.get(pipeId);
+                const fromJunc = j;
+                const toJunc = (p1Junc === j) ? p2Junc : p1Junc;
+                traversal.push({ pipeId, fromJunc, toJunc });
+                if (!visitedJuncs.has(toJunc)) {
+                    visitedJuncs.add(toJunc);
+                    queue.push(toJunc);
+                }
+            }
+        }
+    };
+
+    bfsFrom(sourceJunc);
+    for (const j of junctions) bfsFrom(j); // disconnected komponentleri de kapsa
+    return traversal;
+}
+
+// ─── Yoğunluk: grid-based label count haritası ───────────────────────────────
+function _buildIsoDensity(cands, cellSize = 90) {
+    const grid = new Map();
+    // Etiket bbox merkezini ve etrafındaki birkaç hücreyi say (büyük etiketler
+    // tek hücreyi geçer; bunu yansıtmak için bbox boyutuyla orantılı kapsama)
+    for (const c of cands) {
+        // Default left-center pozisyondaki bbox merkezi
+        const cx = c.anchorX + c.clip + 12 + c.bw / 2;
+        const cy = c.anchorY;
+        const halfW = c.bw / 2;
+        const halfH = c.bh / 2;
+        const x0 = Math.floor((cx - halfW) / cellSize);
+        const x1 = Math.floor((cx + halfW) / cellSize);
+        const y0 = Math.floor((cy - halfH) / cellSize);
+        const y1 = Math.floor((cy + halfH) / cellSize);
+        for (let ix = x0; ix <= x1; ix++) {
+            for (let iy = y0; iy <= y1; iy++) {
+                const k = `${ix},${iy}`;
+                grid.set(k, (grid.get(k) || 0) + 1);
+            }
+        }
+    }
+    return { grid, cellSize };
+}
+
+function _densityAt(density, x, y) {
+    const ix = Math.floor(x / density.cellSize);
+    const iy = Math.floor(y / density.cellSize);
+    let max = 0;
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            const c = density.grid.get(`${ix + dx},${iy + dy}`) || 0;
+            if (c > max) max = c;
+        }
+    }
+    return max;
+}
+
+function _pipeScaleFromDensity(maxLocalCount, isoLength) {
+    // Yoğun → büyüt
+    if (maxLocalCount >= 6) return 10;
+    if (maxLocalCount >= 5) return 6;
+    if (maxLocalCount >= 4) return 4;
+    if (maxLocalCount >= 3) return 2.5;
+    if (maxLocalCount >= 2) return 1.6;
+    // Boş + uzun → küçült
+    if (maxLocalCount <= 1) {
+        if (isoLength > 280) return 0.5;
+        if (isoLength > 180) return 0.7;
+        if (isoLength > 120) return 0.85;
+    }
+    return 1;
+}
+
+// ─── Etiket aday toplama (komponent + pipe hat etiketleri) ───────────────────
+function _collectIsoLabelCandidates(manager, ignoreOffsets = true) {
+    const cands = [];
+
+    // 1) Komponentler
+    for (const comp of manager.components) {
+        if (typeof comp.x !== 'number' || typeof comp.y !== 'number') continue;
+        let lines = null;
+        switch (comp.type) {
+            case 'sayac':           lines = _buildSayacLinesIso(comp); break;
+            case 'cihaz':           lines = _buildCihazLinesIso(comp); break;
+            case 'servis_kutusu':   lines = _buildKutuLinesIso(comp); break;
+            case 'vana':            lines = _buildVanaLinesIso(comp, manager); break;
+            case 'regulator':       lines = _buildRegulatorLinesIso(comp, manager); break;
+            case 'filtre':
+            case 'izolasyon_flansi':
+            case 'kompansator':
+            case 'manometre':
+            case 'topraklama':      lines = _buildFittingLinesIso(comp); break;
+            case 'baca':            lines = [{ text: 'Baca', bold: true }]; break;
+            default: continue;
+        }
+        if (!lines || lines.filter(l => l && l.text).length === 0) continue;
+        const sz = _isoMeasureLines(lines);
+        if (sz.bw === 0) continue;
+
+        // Anchor: ignoreOffsets=true ise default doğal konum, false ise mevcut state ile
+        let pos;
+        if (ignoreOffsets) {
+            // Geçici olarak isoPipeOffsets ve isoComponentOffsets'i bypass etmek yerine
+            // doğal projeksiyonu kullanırız: getComponentIsoPos zaten state'i okuyor —
+            // şu anki rendering pozisyonunu kullanmak istiyoruz (post-scaling).
+            pos = getComponentIsoPos(comp);
+        } else {
+            pos = getComponentIsoPos(comp);
+        }
+
+        cands.push({
+            kind: 'comp',
+            id: comp.id,
+            type: comp.type,
+            anchorX: pos.isoX,
+            anchorY: pos.isoY,
+            clip: ISO_CLIP_BY_TYPE[comp.type] ?? 10,
+            defaultStyle: ISO_DEFAULT_STYLE_BY_TYPE[comp.type] || 'left-center',
+            bw: sz.bw, bh: sz.bh,
+            priority: ISO_PRIORITY[comp.type] ?? 4,
+            obj: comp,
+        });
+    }
+
+    // 2) Hat (boru) etiketleri — her hat için tek temsilci pipe
+    const { hatMap } = computeHatGroups(manager.pipes, manager.components);
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    const childrenIdx = new Map();
+    manager.pipes.forEach(p => {
+        if (p.baslangicBaglanti?.tip === 'boru' && p.baslangicBaglanti.hedefId) {
+            const par = p.baslangicBaglanti.hedefId;
+            if (!childrenIdx.has(par)) childrenIdx.set(par, []);
+            childrenIdx.get(par).push(p.id);
+        }
+    });
+
+    const visited = new Set();
+    for (const seed of manager.pipes) {
+        if (visited.has(seed.id)) continue;
+        const hatNo = hatMap.get(seed.id);
+        if (hatNo == null) continue;
+        const group = [];
+        const queue = [seed.id];
+        while (queue.length > 0) {
+            const id = queue.shift();
+            if (visited.has(id)) continue;
+            if (hatMap.get(id) !== hatNo) continue;
+            const p = pipeMap.get(id);
+            if (!p) continue;
+            visited.add(id);
+            group.push(p);
+            const par = p.baslangicBaglanti?.tip === 'boru' ? p.baslangicBaglanti.hedefId : null;
+            if (par && hatMap.get(par) === hatNo) queue.push(par);
+            (childrenIdx.get(id) || []).forEach(cid => {
+                if (hatMap.get(cid) === hatNo) queue.push(cid);
+            });
+        }
+        if (group.length === 0) continue;
+
+        let chosen = group[0];
+        let maxLen = 0;
+        let totalLen = 0;
+        for (const p of group) {
+            if (!p.p1 || !p.p2) continue;
+            const len = Math.hypot(p.p2.x - p.p1.x, p.p2.y - p.p1.y, (p.p2.z || 0) - (p.p1.z || 0));
+            totalLen += len;
+            if (len > maxLen) { maxLen = len; chosen = p; }
+        }
+        if (!chosen || !chosen.p1 || !chosen.p2) continue;
+
+        const a = toIsometric(chosen.p1.x, chosen.p1.y, chosen.p1.z || 0);
+        const b = toIsometric(chosen.p2.x, chosen.p2.y, chosen.p2.z || 0);
+        const off = state.isoPipeOffsets?.[chosen.id] || {};
+        a.isoX += (off.startDx || 0); a.isoY += (off.startDy || 0);
+        b.isoX += (off.endDx || 0);   b.isoY += (off.endDy || 0);
+        const midX = (a.isoX + b.isoX) / 2;
+        const midY = (a.isoY + b.isoY) / 2;
+
+        const uzunluk = (totalLen > 0) ? (totalLen / 100).toFixed(2) : null;
+        const debi = typeof chosen.debi === 'number' ? chosen.debi : null;
+        const cap = chosen.boruCap || '';
+        const infoLines = [
+            debi != null ? `${debi.toFixed(2)} m³/h` : null,
+            uzunluk != null ? `${uzunluk} m` : null,
+            cap || null,
+        ].filter(Boolean);
+
+        const sz = _isoMeasureHatLabel(hatNo, infoLines);
+        cands.push({
+            kind: 'pipe',
+            id: chosen.id,
+            type: 'boru',
+            anchorX: midX,
+            anchorY: midY,
+            clip: ISO_CLIP_BY_TYPE.boru,
+            defaultStyle: 'left-center',
+            bw: sz.bw, bh: sz.bh,
+            priority: ISO_PRIORITY.boru,
+            obj: chosen,
+            hatNo,
+        });
+    }
+
+    return cands;
+}
+
+// ─── Obstacle rectangles: komponent gövdeleri ─────────────────────────────────
+function _buildIsoObstacleRects(manager) {
+    const obstacles = [];
+    for (const comp of manager.components) {
+        if (typeof comp.x !== 'number' || typeof comp.y !== 'number') continue;
+        const pos = getComponentIsoPos(comp);
+        const clip = ISO_CLIP_BY_TYPE[comp.type] ?? 10;
+        // Yaklaşık bounding box — gövde clip'in iki katı
+        obstacles.push({
+            id: comp.id + '_body',
+            bx: pos.isoX - clip,
+            by: pos.isoY - clip,
+            bw: clip * 2,
+            bh: clip * 2,
+        });
+    }
+    return obstacles;
+}
+
+// ─── Pipe segment listesi (etiket leader line için, ufak çekim için) ─────────
+function _buildIsoPipeSegments(manager) {
+    const segs = [];
+    for (const p of manager.pipes) {
+        if (!p.p1 || !p.p2) continue;
+        const a = toIsometric(p.p1.x, p.p1.y, p.p1.z || 0);
+        const b = toIsometric(p.p2.x, p.p2.y, p.p2.z || 0);
+        const off = state.isoPipeOffsets?.[p.id] || {};
+        a.isoX += (off.startDx || 0); a.isoY += (off.startDy || 0);
+        b.isoX += (off.endDx || 0);   b.isoY += (off.endDy || 0);
+        segs.push({ x1: a.isoX, y1: a.isoY, x2: b.isoX, y2: b.isoY, pipeId: p.id });
+    }
+    return segs;
+}
+
+function _rectOverlapArea(a, b) {
+    const x1 = Math.max(a.bx, b.bx);
+    const y1 = Math.max(a.by, b.by);
+    const x2 = Math.min(a.bx + a.bw, b.bx + b.bw);
+    const y2 = Math.min(a.by + a.bh, b.by + b.bh);
+    if (x2 <= x1 || y2 <= y1) return 0;
+    return (x2 - x1) * (y2 - y1);
+}
+
+function _segRectIntersects(x1, y1, x2, y2, rx, ry, rw, rh) {
+    const r = rx + rw, b = ry + rh;
+    const inside = (px, py) => px >= rx && px <= r && py >= ry && py <= b;
+    if (inside(x1, y1) || inside(x2, y2)) return true;
+    const seg = (ax, ay, bx, by, cx, cy, dx, dy) => {
+        const d = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+        if (Math.abs(d) < 1e-9) return false;
+        const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / d;
+        const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / d;
+        return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+    };
+    return seg(x1, y1, x2, y2, rx, ry, r, ry) || seg(x1, y1, x2, y2, r, ry, r, b) ||
+        seg(x1, y1, x2, y2, r, b, rx, b) || seg(x1, y1, x2, y2, rx, b, rx, ry);
+}
+
+function _bboxFromStyle(ax, ay, bw, bh, style) {
+    if (style === 'top-center') return { bx: ax - bw / 2, by: ay, bw, bh };
+    return { bx: ax, by: ay - bh / 2, bw, bh };
+}
+
+function _candidatePositions(c, gapBase = 12) {
+    // 8 yön, mesafe katmanları
+    const positions = [];
+    const layers = [c.clip + gapBase, c.clip + gapBase + 18, c.clip + gapBase + 40, c.clip + gapBase + 80];
+    for (const r of layers) {
+        // 0: üst (top-center)
+        positions.push({ ax: c.anchorX, ay: c.anchorY - r - c.bh, style: 'top-center' });
+        // 1: sağ (left-center)
+        positions.push({ ax: c.anchorX + r, ay: c.anchorY, style: 'left-center' });
+        // 2: alt (top-center)
+        positions.push({ ax: c.anchorX, ay: c.anchorY + r, style: 'top-center' });
+        // 3: sol (left-center)
+        positions.push({ ax: c.anchorX - r - c.bw, ay: c.anchorY, style: 'left-center' });
+        // çapraz dört
+        const d = r * 0.7;
+        positions.push({ ax: c.anchorX + d, ay: c.anchorY - d - c.bh, style: 'top-center' });
+        positions.push({ ax: c.anchorX + d, ay: c.anchorY + d, style: 'top-center' });
+        positions.push({ ax: c.anchorX - d - c.bw, ay: c.anchorY - d - c.bh, style: 'top-center' });
+        positions.push({ ax: c.anchorX - d - c.bw, ay: c.anchorY + d, style: 'top-center' });
+    }
+    return positions;
+}
+
+function _scorePosition(box, obstacles, placedLabels, pipeSegs, anchorX, anchorY, ownPipeId) {
+    let overlapPenalty = 0;
+    for (const o of obstacles) {
+        if (ownPipeId && o.id === ownPipeId + '_body') continue;
+        const ov = _rectOverlapArea(box, o);
+        if (ov > 0) overlapPenalty += ov * 4;
+    }
+    for (const p of placedLabels) {
+        const ov = _rectOverlapArea(box, p);
+        if (ov > 0) overlapPenalty += ov * 6;
+    }
+    let pipeCross = 0;
+    for (const s of pipeSegs) {
+        if (s.pipeId === ownPipeId) continue;
+        if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, box.bx, box.by, box.bw, box.bh)) {
+            pipeCross += 30;
+        }
+    }
+    const cx = box.bx + box.bw / 2;
+    const cy = box.by + box.bh / 2;
+    const dist = Math.hypot(cx - anchorX, cy - anchorY);
+    return overlapPenalty + pipeCross + dist * 0.6;
+}
+
+// ─── Pipe'a "ait" etiketleri grupla (komponentin bagli boruları + hat repr.) ──
+function _groupCandsByHostPipe(cands) {
+    const map = new Map();
+    for (const c of cands) {
+        const pipeIds = new Set();
+        if (c.kind === 'pipe') {
+            pipeIds.add(c.id);
+        } else if (c.obj) {
+            const comp = c.obj;
+            if (comp.bagliBoruId) pipeIds.add(comp.bagliBoruId);
+            if (comp.fleksBaglanti?.boruId) pipeIds.add(comp.fleksBaglanti.boruId);
+            if (comp.cikisBagliBoruId) pipeIds.add(comp.cikisBagliBoruId);
+        }
+        for (const pid of pipeIds) {
+            if (!map.has(pid)) map.set(pid, []);
+            map.get(pid).push(c);
+        }
+    }
+    return map;
+}
+
+// ─── Etiket-talebine göre her pipe için serbest ölçek hesapla ────────────────
+function _computeIsoPipeScalesByLabelNeed(manager, cands) {
+    const candsByPipe = _groupCandsByHostPipe(cands);
+    const scales = new Map();
+    const GAP = 24;             // etiket-etiket arası rahat boşluk
+    const MIN_SCALE = 0.4;
+    const MAX_SCALE = 10;
+
+    for (const p of manager.pipes) {
+        if (!p.p1 || !p.p2) continue;
+        const a = toIsometric(p.p1.x, p.p1.y, p.p1.z || 0);
+        const b = toIsometric(p.p2.x, p.p2.y, p.p2.z || 0);
+        const isoLen = Math.hypot(b.isoX - a.isoX, b.isoY - a.isoY);
+        const myCands = candsByPipe.get(p.id) || [];
+        const n = myCands.length;
+
+        if (n === 0) {
+            let s = 1;
+            if (isoLen > 280) s = 0.5;
+            else if (isoLen > 180) s = 0.7;
+            else if (isoLen > 120) s = 0.85;
+            scales.set(p.id, s);
+            continue;
+        }
+
+        // Pipe yönünde etiketlerin aldığı brüt span (bbox büyük kenarı + GAP)
+        let need = 0;
+        for (const c of myCands) {
+            need += Math.max(c.bw, c.bh) + GAP;
+        }
+
+        // Need-based oran + etiket sayısına göre GARANTİ minimum
+        let scale = need / Math.max(isoLen, 8);
+        if (n >= 5)      scale = Math.max(scale, 5);
+        else if (n >= 4) scale = Math.max(scale, 4);
+        else if (n >= 3) scale = Math.max(scale, 3);
+        else if (n >= 2) scale = Math.max(scale, 2);
+        else             scale = Math.max(scale, 1.5);
+
+        scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
+        scales.set(p.id, scale);
+    }
+    return scales;
+}
+
+// ─── Verilen scale haritasıyla isoPipeOffsets hesapla (BFS subtree shift) ────
+function _computePipeOffsetsFromScales(manager, scales) {
+    const { junctions, pipeIdToJuncs } = _buildIsoPipeJunctions(manager);
+    const traversal = _bfsIsoPipeOrder(manager, junctions, pipeIdToJuncs);
+    if (traversal.length === 0) return {};
+
+    const deltas = new Map();
+    for (const j of junctions) deltas.set(j, { dx: 0, dy: 0 });
+    const settled = new Set();
+
+    for (const { pipeId, fromJunc, toJunc } of traversal) {
+        const fromIso = toIsometric(fromJunc.wx, fromJunc.wy, fromJunc.wz);
+        const toIso = toIsometric(toJunc.wx, toJunc.wy, toJunc.wz);
+        const F = scales.get(pipeId) ?? 1;
+        const vx = toIso.isoX - fromIso.isoX;
+        const vy = toIso.isoY - fromIso.isoY;
+        const extX = vx * (F - 1);
+        const extY = vy * (F - 1);
+        const fd = deltas.get(fromJunc);
+        if (!settled.has(toJunc)) {
+            deltas.set(toJunc, { dx: fd.dx + extX, dy: fd.dy + extY });
+            settled.add(toJunc);
+        }
+    }
+
+    const offsets = {};
+    for (const p of manager.pipes) {
+        const j = pipeIdToJuncs.get(p.id);
+        if (!j) continue;
+        const d1 = deltas.get(j.p1Junc) || { dx: 0, dy: 0 };
+        const d2 = deltas.get(j.p2Junc) || { dx: 0, dy: 0 };
+        if (d1.dx || d1.dy || d2.dx || d2.dy) {
+            offsets[p.id] = {
+                startDx: d1.dx, startDy: d1.dy,
+                endDx: d2.dx, endDy: d2.dy,
+            };
+        }
+    }
+    return offsets;
+}
+
+// ─── Segment-segment kesişim (uç noktaları sayma) ─────────────────────────────
+function _segSegIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
+    const d = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+    if (Math.abs(d) < 1e-9) return false;
+    const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / d;
+    const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / d;
+    return t > 0.01 && t < 0.99 && u > 0.01 && u < 0.99;
+}
+
+// ─── Leader segment'i obstacle veya pipe ile kesişiyor mu? ───────────────────
+function _leaderCrossesAnything(x1, y1, x2, y2, obstacles, ownObstId, pipeSegs, ownPipeId, placedLeaders, ownLeaderId) {
+    // Obstacle bbox kesişimi
+    for (const o of obstacles) {
+        if (ownObstId && o.id === ownObstId) continue;
+        if (_segRectIntersects(x1, y1, x2, y2, o.bx, o.by, o.bw, o.bh)) return true;
+    }
+    // Pipe segment kesişimi
+    for (const s of pipeSegs) {
+        if (ownPipeId && s.pipeId === ownPipeId) continue;
+        if (_segSegIntersect(x1, y1, x2, y2, s.x1, s.y1, s.x2, s.y2)) return true;
+    }
+    // Diğer leader'lar
+    for (const L of placedLeaders) {
+        if (ownLeaderId && L.id === ownLeaderId) continue;
+        if (_segSegIntersect(x1, y1, x2, y2, L.x1, L.y1, L.x2, L.y2)) return true;
+    }
+    return false;
+}
+
+// ─── HARD: overlap yok + leader hiçbir şeyi kesmez ───────────────────────────
+// returns: { placed, failed, longLeaders }
+// failed = hiç temiz spot bulunamayanlar (fallback'te)
+// longLeaders = bulundu ama leader istenenden uzun (pipe scaling istek nedeni)
+function _tryPlaceLabelsStrict(cands, obstacles, pipeSegs) {
+    cands.sort((a, b) => (a.priority - b.priority) || ((a.bw * a.bh) - (b.bw * b.bh)));
+
+    const placed = [];
+    const placedLeaders = [];
+    const failed = [];
+    const longLeaders = [];
+
+    for (const c of cands) {
+        const ownObstId = c.kind === 'comp' ? (c.id + '_body') : null;
+        const ownPipeId = c.kind === 'pipe' ? c.id : null;
+
+        let best = null;
+        let bestDist = Infinity;
+        const baseR = c.clip + 12;
+        const maxR = 1400;
+        const rStep = 8;
+
+        for (let r = baseR; r <= maxR; r += rStep) {
+            const positions = _positionsAtRadius(c, r + Math.max(c.bw, c.bh) / 2);
+            for (const pos of positions) {
+                const box = _bboxFromStyle(pos.ax, pos.ay, c.bw, c.bh, pos.style);
+                if (_boxHasAnyOverlap(box, obstacles, placed, pipeSegs, ownObstId, ownPipeId)) continue;
+
+                const boxCx = box.bx + box.bw / 2;
+                const boxCy = box.by + box.bh / 2;
+
+                if (_leaderCrossesAnything(c.anchorX, c.anchorY, boxCx, boxCy,
+                        obstacles, ownObstId, pipeSegs, ownPipeId, placedLeaders, c.id)) continue;
+
+                const dist = Math.hypot(boxCx - c.anchorX, boxCy - c.anchorY);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = { bx: box.bx, by: box.by, bw: c.bw, bh: c.bh, style: pos.style };
+                }
+            }
+            if (best) break;
+        }
+
+        if (best) {
+            c.bx = best.bx; c.by = best.by; c.style = best.style;
+            placed.push(c);
+            placedLeaders.push({
+                id: c.id,
+                x1: c.anchorX, y1: c.anchorY,
+                x2: c.bx + c.bw / 2, y2: c.by + c.bh / 2,
+            });
+
+            // Uzun leader tespiti — pipe scaling tetiklemek için
+            const idealMax = c.clip + Math.max(c.bw, c.bh) * 0.5 + 28;
+            if (bestDist > idealMax * 1.4) longLeaders.push(c);
+        } else {
+            c.bx = c.anchorX + c.clip + 14;
+            c.by = c.anchorY - c.bh / 2;
+            c.style = 'left-center';
+            placed.push(c);
+            failed.push(c);
+        }
+    }
+    return { placed, failed, longLeaders };
+}
+
+// ─── Bir cand'ın host pipe'ını bul (uzatılacak hat) ──────────────────────────
+function _findHostPipeIds(c) {
+    if (c.kind === 'pipe') return [c.id];
+    if (!c.obj) return [];
+    const comp = c.obj;
+    const ids = [];
+    if (comp.bagliBoruId) ids.push(comp.bagliBoruId);
+    if (comp.fleksBaglanti?.boruId) ids.push(comp.fleksBaglanti.boruId);
+    if (comp.cikisBagliBoruId) ids.push(comp.cikisBagliBoruId);
+    return ids;
+}
+
+// ─── Failed listesinden en yoğun pipe'ı seç (en çok fail eden) ───────────────
+function _findCrowdedPipeFromFails(failed) {
+    if (failed.length === 0) return null;
+    const counts = new Map();
+    for (const c of failed) {
+        for (const pid of _findHostPipeIds(c)) {
+            counts.set(pid, (counts.get(pid) || 0) + 1);
+        }
+    }
+    if (counts.size === 0) return null;
+    let bestPipe = null, bestCount = -1;
+    for (const [pid, cnt] of counts) {
+        if (cnt > bestCount) { bestCount = cnt; bestPipe = pid; }
+    }
+    return bestPipe;
+}
+
+// ─── Force-based relaxation (etiket-etiket + obstacle + pipe segment itme) ───
+function _relaxIsoLabels(placed, obstacles, pipeSegs, iterCount = 25) {
+    const PAD = 4;
+    const maxStep = 10;
+
+    for (let iter = 0; iter < iterCount; iter++) {
+        for (const c of placed) {
+            if (c.locked) continue;
+            let fx = 0, fy = 0;
+            const ownObstacleId = c.kind === 'comp' ? (c.id + '_body') : null;
+            const ownPipeId = c.kind === 'pipe' ? c.id : null;
+
+            // Komponent gövdeleri (obstacle) itmesi
+            for (const o of obstacles) {
+                if (ownObstacleId && o.id === ownObstacleId) continue;
+                const ax1 = c.bx - PAD, ay1 = c.by - PAD;
+                const aw = c.bw + 2 * PAD, ah = c.bh + 2 * PAD;
+                const x1 = Math.max(ax1, o.bx);
+                const y1 = Math.max(ay1, o.by);
+                const x2 = Math.min(ax1 + aw, o.bx + o.bw);
+                const y2 = Math.min(ay1 + ah, o.by + o.bh);
+                if (x2 > x1 && y2 > y1) {
+                    const cx1 = c.bx + c.bw / 2, cy1 = c.by + c.bh / 2;
+                    const cx2 = o.bx + o.bw / 2, cy2 = o.by + o.bh / 2;
+                    let dx = cx1 - cx2, dy = cy1 - cy2;
+                    const len = Math.hypot(dx, dy) || 1;
+                    fx += (dx / len) * 7;
+                    fy += (dy / len) * 7;
+                }
+            }
+
+            // Etiket-etiket itmesi
+            for (const other of placed) {
+                if (other === c) continue;
+                const ax1 = c.bx - PAD, ay1 = c.by - PAD;
+                const aw = c.bw + 2 * PAD, ah = c.bh + 2 * PAD;
+                const x1 = Math.max(ax1, other.bx);
+                const y1 = Math.max(ay1, other.by);
+                const x2 = Math.min(ax1 + aw, other.bx + other.bw);
+                const y2 = Math.min(ay1 + ah, other.by + other.bh);
+                if (x2 > x1 && y2 > y1) {
+                    const cx1 = c.bx + c.bw / 2, cy1 = c.by + c.bh / 2;
+                    const cx2 = other.bx + other.bw / 2, cy2 = other.by + other.bh / 2;
+                    let dx = cx1 - cx2, dy = cy1 - cy2;
+                    const len = Math.hypot(dx, dy) || 1;
+                    const w = (other.priority < c.priority) ? 6 : 3;
+                    fx += (dx / len) * w;
+                    fy += (dy / len) * w;
+                }
+            }
+
+            // Pipe segment'leri (HAT) itmesi — kutu boru üzerine düşmesin
+            for (const s of pipeSegs) {
+                if (ownPipeId && s.pipeId === ownPipeId) continue;
+                if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, c.bx, c.by, c.bw, c.bh)) {
+                    const smx = (s.x1 + s.x2) / 2;
+                    const smy = (s.y1 + s.y2) / 2;
+                    const cx = c.bx + c.bw / 2, cy = c.by + c.bh / 2;
+                    let dx = cx - smx, dy = cy - smy;
+                    const len = Math.hypot(dx, dy) || 1;
+                    fx += (dx / len) * 9;
+                    fy += (dy / len) * 9;
+                }
+            }
+
+            // Anchor'a hafif geri çekme — öncelik arttıkça daha güçlü
+            const pullCoef = c.priority === 0 ? 0.04
+                            : c.priority === 1 ? 0.025
+                            : c.priority === 2 ? 0.012
+                            : 0;
+            if (pullCoef > 0) {
+                const cx = c.bx + c.bw / 2, cy = c.by + c.bh / 2;
+                const dax = c.anchorX - cx, day = c.anchorY - cy;
+                fx += dax * pullCoef;
+                fy += day * pullCoef;
+            }
+
+            const sp = Math.hypot(fx, fy);
+            if (sp > maxStep) { fx = (fx / sp) * maxStep; fy = (fy / sp) * maxStep; }
+            c.bx += fx; c.by += fy;
+        }
+    }
+}
+
+// ─── Strict separation: kalan çakışmaları radyal nudge ile temizle ───────────
+function _strictIsoSeparation(placed, obstacles, pipeSegs, maxPasses = 8) {
+    for (let pass = 0; pass < maxPasses; pass++) {
+        let anyMoved = false;
+        for (const c of placed) {
+            const ownObstacleId = c.kind === 'comp' ? (c.id + '_body') : null;
+            const ownPipeId = c.kind === 'pipe' ? c.id : null;
+            const box = { bx: c.bx, by: c.by, bw: c.bw, bh: c.bh };
+            if (!_boxHasAnyOverlap(box, obstacles, placed.filter(p => p !== c), pipeSegs, ownObstacleId, ownPipeId)) {
+                continue;
+            }
+            // Anchor'dan radyal yönde 6px nudge — birkaç kez dene
+            const cx = c.bx + c.bw / 2, cy = c.by + c.bh / 2;
+            let dx = cx - c.anchorX, dy = cy - c.anchorY;
+            const len = Math.hypot(dx, dy) || 1;
+            dx /= len; dy /= len;
+            c.bx += dx * 6;
+            c.by += dy * 6;
+            anyMoved = true;
+        }
+        if (!anyMoved) break;
+    }
+}
+
+// ─── Kutu obje/boru üzerinde mi? (HARD overlap kontrolü) ─────────────────────
+function _boxHasAnyOverlap(box, obstacles, placedLabels, pipeSegs, ownObstacleId, ownPipeId) {
+    const PAD = 2; // küçük güvenlik payı
+    const expBox = { bx: box.bx - PAD, by: box.by - PAD, bw: box.bw + 2 * PAD, bh: box.bh + 2 * PAD };
+    for (const o of obstacles) {
+        if (ownObstacleId && o.id === ownObstacleId) continue;
+        if (_rectOverlapArea(expBox, o) > 0) return true;
+    }
+    for (const p of placedLabels) {
+        if (_rectOverlapArea(expBox, p) > 0) return true;
+    }
+    for (const s of pipeSegs) {
+        if (ownPipeId && s.pipeId === ownPipeId) continue;
+        if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, expBox.bx, expBox.by, expBox.bw, expBox.bh)) return true;
+    }
+    return false;
+}
+
+// ─── Belirli mesafe halkasında 16 yönde adaylar üret ─────────────────────────
+function _positionsAtRadius(c, radius) {
+    const out = [];
+    const N = 16;
+    for (let i = 0; i < N; i++) {
+        const ang = (i / N) * 2 * Math.PI;
+        const ux = Math.cos(ang), uy = Math.sin(ang);
+        // Stili yöne göre seç — yatayda left-center, dikeyde top-center daha iyi
+        const style = Math.abs(ux) >= Math.abs(uy) ? 'left-center' : 'top-center';
+        // Anchor kutuyu nereye koyacağımızı stilden hesaplıyor:
+        // - left-center: ax solunda kutu BAŞLAR; ax sağa giderse kutu sağa kayar
+        // - top-center: ay üstünde kutu BAŞLAR; ay aşağı giderse kutu aşağı kayar
+        // Kutu merkezini hedef konuma yerleştirip ax/ay'ı stile göre türetelim
+        const tcx = c.anchorX + ux * radius;
+        const tcy = c.anchorY + uy * radius;
+        let ax, ay;
+        if (style === 'top-center') {
+            ax = tcx;
+            ay = tcy - c.bh / 2;
+        } else {
+            ax = tcx - c.bw / 2;
+            ay = tcy;
+        }
+        out.push({ ax, ay, style, ux, uy });
+    }
+    return out;
+}
+
+// ─── Greedy yerleştirme: önceliğe göre en yakın TEMİZ spot ───────────────────
+function _placeIsoLabelsByPriority(cands, obstacles, pipeSegs) {
+    // Sırala: priority artan, içinde de daha küçük bbox önce (sığması kolay)
+    cands.sort((a, b) => (a.priority - b.priority) || ((a.bw * a.bh) - (b.bw * b.bh)));
+
+    const placed = [];
+    for (const c of cands) {
+        const ownObstacleId = c.kind === 'comp' ? (c.id + '_body') : null;
+        const ownPipeId = c.kind === 'pipe' ? c.id : null;
+
+        // Anchor'dan dışa açılan halkalar — ilk TEMİZ spot bulununca o halkadaki
+        // en yakın temizi seç
+        let best = null;
+        const baseR = c.clip + 14;
+        const maxR = 800;
+        let r = baseR;
+        const rStep = 12;
+
+        while (r <= maxR) {
+            const positions = _positionsAtRadius(c, r + Math.max(c.bw, c.bh) / 2);
+            let layerBest = null;
+            let layerBestScore = Infinity;
+            for (const pos of positions) {
+                const box = _bboxFromStyle(pos.ax, pos.ay, c.bw, c.bh, pos.style);
+                if (_boxHasAnyOverlap(box, obstacles, placed, pipeSegs, ownObstacleId, ownPipeId)) continue;
+                // Temiz: anchor'a olan mesafeyi skor olarak kullan (en yakın kazansın)
+                const cx = box.bx + box.bw / 2, cy = box.by + box.bh / 2;
+                const dist = Math.hypot(cx - c.anchorX, cy - c.anchorY);
+                // Varsayılan stile yakın olana hafif bonus (sayaç/cihaz alt, vana sağ tercih)
+                let stylePenalty = 0;
+                if (c.defaultStyle === 'top-center' && pos.style === 'top-center' && pos.uy > 0) stylePenalty = -4;
+                if (c.defaultStyle === 'left-center' && pos.style === 'left-center' && pos.ux > 0) stylePenalty = -4;
+                const score = dist + stylePenalty;
+                if (score < layerBestScore) {
+                    layerBestScore = score;
+                    layerBest = { bx: box.bx, by: box.by, bw: c.bw, bh: c.bh, style: pos.style };
+                }
+            }
+            if (layerBest) { best = layerBest; break; }
+            r += rStep;
+        }
+
+        if (!best) {
+            // Tamamen tıkalı (çok nadir) — anchor sağına koy, sonradan relaxation iter
+            best = {
+                bx: c.anchorX + c.clip + 14,
+                by: c.anchorY - c.bh / 2,
+                bw: c.bw, bh: c.bh, style: 'left-center',
+            };
+        }
+        c.bx = best.bx; c.by = best.by; c.style = best.style;
+        placed.push(c);
+    }
+    return placed;
+}
+
+// ─── isoLabelOffsets olarak DELTA kaydet (anchor takip etsin diye) ───────────
+function _saveIsoLabelOffsetsFromPlaced(placed) {
+    const out = {};
+    for (const c of placed) {
+        let ax, ay;
+        if (c.style === 'top-center') { ax = c.bx + c.bw / 2; ay = c.by; }
+        else { ax = c.bx; ay = c.by + c.bh / 2; }
+        out[c.id] = { dax: ax - c.anchorX, day: ay - c.anchorY };
+    }
+    return out;
+}
+
+/**
+ * Ana giriş: iso etiketleri otomatik yerleştir + yoğun hatları ölçeklendir.
+ * @param {object} manager - plumbingManager
+ * @returns {{ pipeOffsets: object, labelOffsets: object }}
+ */
+export function relayoutIsoLabels(manager) {
+    if (!manager || !manager.pipes || !manager.components) {
+        return { pipeOffsets: {}, labelOffsets: {} };
+    }
+
+    // İlk scale = 1; iterasyonla failed VEYA uzun-leader pipe'larını büyüteceğiz
+    const scales = new Map();
+    for (const p of manager.pipes) scales.set(p.id, 1);
+
+    const prevPipeOffsets = state.isoPipeOffsets || {};
+    const MAX_ITER = 30;
+    const SCALE_STEP = 1.35;
+    const MAX_PIPE_SCALE = 10;
+    let iterUsed = 0;
+    let finalRun = null;
+
+    for (let iter = 0; iter < MAX_ITER; iter++) {
+        iterUsed = iter + 1;
+        const pipeOffsetsAttempt = _computePipeOffsetsFromScales(manager, scales);
+        state.isoPipeOffsets = pipeOffsetsAttempt;
+
+        const cands = _collectIsoLabelCandidates(manager, false);
+        const obstacles = _buildIsoObstacleRects(manager);
+        const pipeSegs = _buildIsoPipeSegments(manager);
+
+        const { placed, failed, longLeaders } = _tryPlaceLabelsStrict(cands, obstacles, pipeSegs);
+        finalRun = { placed, failed, longLeaders };
+
+        // Hem tamamen tıkananları hem uzun-leader olanları scaling hedefi yap
+        const targets = [...failed, ...longLeaders];
+        if (targets.length === 0) break;
+
+        // Tüm hedef pipe'ları aynı iter'de büyüt (multi-pipe scaling)
+        const pipesToScale = new Map(); // pid → count
+        for (const c of targets) {
+            for (const pid of _findHostPipeIds(c)) {
+                pipesToScale.set(pid, (pipesToScale.get(pid) || 0) + 1);
+            }
+        }
+        if (pipesToScale.size === 0) break;
+
+        let anyScaled = false;
+        for (const [pid, cnt] of pipesToScale) {
+            const cur = scales.get(pid) || 1;
+            if (cur >= MAX_PIPE_SCALE) continue;
+            // Conflict sayısına göre step (daha çok fail = daha sert bump)
+            const step = cnt >= 3 ? SCALE_STEP * 1.5 : cnt >= 2 ? SCALE_STEP * 1.2 : SCALE_STEP;
+            const next = Math.min(MAX_PIPE_SCALE, cur * step);
+            if (next > cur + 0.01) {
+                scales.set(pid, next);
+                anyScaled = true;
+            }
+        }
+        if (!anyScaled) break; // tüm hedefler cap'te → yardım edemiyoruz
+    }
+
+    const finalPipeOffsets = _computePipeOffsetsFromScales(manager, scales);
+    state.isoPipeOffsets = prevPipeOffsets; // restore
+
+    const labelOffsets = _saveIsoLabelOffsetsFromPlaced(finalRun.placed);
+
+    if (window.__DEBUG_ISO_RELAYOUT__ !== false) {
+        let scaledCount = 0, maxS = 0, sumS = 0;
+        scales.forEach(s => { sumS += s; if (s !== 1) scaledCount++; if (s > maxS) maxS = s; });
+        console.log(
+            `[iso-relayout] iters=${iterUsed} pipes=${scales.size} `
+            + `scaled=${scaledCount} avg=${(sumS / Math.max(1, scales.size)).toFixed(2)} `
+            + `max=${maxS.toFixed(2)} failed=${finalRun.failed.length} `
+            + `longLeaders=${finalRun.longLeaders.length}`
+        );
+    }
+
+    return { pipeOffsets: finalPipeOffsets, labelOffsets };
 }
 
 /**

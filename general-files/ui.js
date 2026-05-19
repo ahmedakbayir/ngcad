@@ -13,7 +13,7 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { updateSceneBackground } from '../scene3d/scene3d-core.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
-import { renderIsometric, hitTestIsoLabel, setIsoLabelPos, cycleIsoLabelDir } from '../scene3d/scene-isometric.js';
+import { renderIsometric, hitTestIsoLabel, setIsoLabelPos, cycleIsoLabelDir, relayoutIsoLabels } from '../scene3d/scene-isometric.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { closePropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
@@ -1941,6 +1941,31 @@ export function setupUIListeners() {
             resetIsometricView();
         });
     }
+
+    // İZOMETRİ ETİKETLERİ YERLEŞTİR + YOĞUN HATLARI ÖLÇEKLE
+    const isoRelayoutBtn = document.getElementById('iso-relayout');
+    if (isoRelayoutBtn) {
+        isoRelayoutBtn.addEventListener('click', () => {
+            if (!plumbingManager) return;
+            const toast = document.getElementById('label-relayout-toast');
+            const toastText = document.getElementById('label-relayout-toast-text');
+            if (toast && toastText) {
+                toastText.textContent = 'İzo etiketleri yerleştiriliyor…';
+                toast.style.display = 'flex';
+            }
+            try {
+                const { pipeOffsets, labelOffsets } = relayoutIsoLabels(plumbingManager);
+                setState({
+                    isoPipeOffsets: pipeOffsets,
+                    isoLabelOffsets: labelOffsets,
+                });
+                drawIsoView();
+            } finally {
+                if (toast) setTimeout(() => { toast.style.display = 'none'; }, 600);
+            }
+        });
+    }
+
     setupVisibilityPanel();
 }
 
