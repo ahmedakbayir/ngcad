@@ -493,9 +493,13 @@ export let state = {
     perspHover: false, // mouse bu canvas üzerindeyse true
     // Sürükleme ile değiştirilen boru offsetleri (görsel değişiklikler, projeyi etkilemez)
     isoPipeOffsets: {}, // { pipeId: { dx: number, dy: number } }
+    isoComponentOffsets: {}, // { compId: { dx, dy } } — sayaç/cihaz/kutu için
+    isoLabelOffsets: {}, // { labelId: { ax: number, ay: number } }
     isoDragging: false,
     isoDraggedPipe: null,
     isoDraggedEndpoint: null, // 'start' veya 'end'
+    isoLabelDragging: false,
+    isoDraggedLabelId: null,
     // --- İZOMETRİK GÖRÜNÜM SONU ---
 
     // ...
