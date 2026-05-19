@@ -81,16 +81,20 @@ function getComponentIsoPos(component) {
             };
             anchoredToPipe = true;
         } else if (a) {
-            pos = { ...a, inletIsoX: a.isoX, inletIsoY: a.isoY,
-                    inletColorGroup: inletPipe.colorGroup || 'YELLOW' };
+            pos = {
+                ...a, inletIsoX: a.isoX, inletIsoY: a.isoY,
+                inletColorGroup: inletPipe.colorGroup || 'YELLOW'
+            };
             anchoredToPipe = true;
         } else if (b) {
-            pos = { ...b, outletIsoX: b.isoX, outletIsoY: b.isoY,
-                    outletColorGroup: outletPipe.colorGroup || 'TURQUAZ' };
+            pos = {
+                ...b, outletIsoX: b.isoX, outletIsoY: b.isoY,
+                outletColorGroup: outletPipe.colorGroup || 'TURQUAZ'
+            };
             anchoredToPipe = true;
         }
     } else if (component.type === 'cihaz'
-            && component.fleksBaglanti?.boruId && plumbingManager) {
+        && component.fleksBaglanti?.boruId && plumbingManager) {
         // Cihaz → inlet (fleks) boru ucuna anchor — hat sonunda görünür
         const pipe = plumbingManager.findPipeById(component.fleksBaglanti.boruId);
         if (pipe) {
@@ -403,6 +407,9 @@ renderIsometric = ((oldRender) => {
  * Boruları izometrik perspektifte çizer (Z koordinatlarıyla)
  * @param {CanvasRenderingContext2D} ctx - Canvas context
  */
+/**
+ * Boruları izometrik perspektifte çizer (Z koordinatlarıyla) ve düşey hatların h değerini yazar.
+ */
 export function drawIsometricPipes(ctx) {
     if (!plumbingManager || !plumbingManager.pipes) return;
     if (!state) return;
@@ -411,7 +418,7 @@ export function drawIsometricPipes(ctx) {
     ctx.lineWidth = 3;
 
     // Düşey boru renkleri
-    const greenColor = isLightMode ? '#008000' : '#39ff14'; // Light: Koyu Yeşil, Dark: Neon Yeşil
+    const greenColor = isLightMode ? '#008000' : '#39ff14';
 
     plumbingManager.pipes.forEach(pipe => {
         if (!pipe.p1 || !pipe.p2) return;
@@ -420,22 +427,19 @@ export function drawIsometricPipes(ctx) {
         const dx = pipe.p2.x - pipe.p1.x;
         const dy = pipe.p2.y - pipe.p1.y;
         const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
-        // 2D mesafesi çok kısa (örn: < 1 cm) VE Z farkı varsa düşeydir
         const isVertical = Math.hypot(dx, dy) < 1.0 && Math.abs(dz) > 1.0; 
 
         // Boru rengini belirle
         let pipeColor;
-        
         if (isVertical) {
             pipeColor = greenColor;
         } else {
-            // Yatay borular için standart renkler
             if (pipe.colorGroup === 'YELLOW') {
-                pipeColor = isLightMode ? 'rgba(160, 82, 45, 1)' : 'rgba(184, 134, 11, 1)';  // Sienna / Dark Goldenrod
+                pipeColor = isLightMode ? 'rgba(160, 82, 45, 1)' : 'rgba(184, 134, 11, 1)'; 
             } else if (pipe.colorGroup === 'TURQUAZ') {
-                pipeColor = isLightMode ? 'rgba(0, 100, 204, 1)' : 'rgba(21, 154, 172, 1)';  // Dark Blue / Dodger Blue
+                pipeColor = isLightMode ? 'rgba(0, 100, 204, 1)' : 'rgba(21, 154, 172, 1)'; 
             } else {
-                pipeColor = isLightMode ? 'rgba(128, 128, 128, 1)' : 'rgba(200, 200, 200, 1)';  // Gray / Light Gray
+                pipeColor = isLightMode ? 'rgba(128, 128, 128, 1)' : 'rgba(200, 200, 200, 1)'; 
             }
         }
 
@@ -448,15 +452,11 @@ export function drawIsometricPipes(ctx) {
         const endDx = offset.endDx || 0;
         const endDy = offset.endDy || 0;
 
-        // Başlangıç ve bitiş noktalarını izometrik koordinatlara dönüştür
         let start = toIsometric(pipe.p1.x, pipe.p1.y, pipe.p1.z || 0);
         let end = toIsometric(pipe.p2.x, pipe.p2.y, pipe.p2.z || 0);
 
-        // Offset uygula
-        start.isoX += startDx;
-        start.isoY += startDy;
-        end.isoX += endDx;
-        end.isoY += endDy;
+        start.isoX += startDx; start.isoY += startDy;
+        end.isoX += endDx; end.isoY += endDy;
 
         // Çizgiyi çiz
         ctx.beginPath();
@@ -464,7 +464,29 @@ export function drawIsometricPipes(ctx) {
         ctx.lineTo(end.isoX, end.isoY);
         ctx.stroke();
 
-        // Uç noktaları çiz (sürüklenebilir)
+        // --- YÜKSELİŞ HATTI İÇİN "h" YAZISI (YENİ EKLENEN KISIM) ---
+        if (isVertical) {
+            const midX = (start.isoX + end.isoX) / 2;
+            const midY = (start.isoY + end.isoY) / 2;
+            
+            ctx.save();
+            ctx.font = '9px "Segoe UI", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            const hText = `${(Math.abs(dz) / 100).toFixed(1)}m`;
+            
+            // Okunabilirliği artırmak için yazının arkasına hafif transparan bir kutu çiziyoruz
+            const tw = ctx.measureText(hText).width;
+            ctx.fillStyle = isLightMode ? 'rgba(255,255,255,0.75)' : 'rgba(30,30,30,0.75)';
+            ctx.fillRect(midX + 5, midY - 8, tw + 4, 16);
+            
+            // h Değerini yaz
+            ctx.fillStyle = isLightMode ? '#006400' : '#4ade80'; 
+            ctx.fillText(hText, midX + 7, midY);
+            ctx.restore();
+        }
+
+        // Uç noktaları çiz
         ctx.fillStyle = pipeColor;
         ctx.beginPath();
         ctx.arc(start.isoX, start.isoY, 2.5, 0, Math.PI * 2);
@@ -473,7 +495,6 @@ export function drawIsometricPipes(ctx) {
         ctx.arc(end.isoX, end.isoY, 2.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Global endpoint pozisyonlarını sakla (hit detection için)
         if (!window._isoEndpoints) window._isoEndpoints = [];
         window._isoEndpoints.push({ pipe, type: 'start', x: start.isoX, y: start.isoY });
         window._isoEndpoints.push({ pipe, type: 'end', x: end.isoX, y: end.isoY });
@@ -487,75 +508,161 @@ function _isoPipeColorFor(colorGroup) {
     if (colorGroup === 'TURQUAZ') return isLight ? 'rgba(0, 100, 204, 1)' : 'rgba(21, 154, 172, 1)';
     return isLight ? 'rgba(128, 128, 128, 1)' : 'rgba(200, 200, 200, 1)';
 }
+// ─── 2D Canvas üzerinde Gerçek İzometrik 3D Kutu Çizer ───────────────────────
+function drawIso3DBox(ctx, w, d, h, colorBase) {
+    const cos30 = Math.cos(Math.PI / 6);
+    const sin30 = Math.sin(Math.PI / 6);
 
-// ─── Sayaç fleksi (dalgalı gri çizgi) — boru ucundan gövde anchor'ına ────────
+    // Yön vektörleri
+    const xVec = { x: cos30, y: sin30 };   // Sağ-Alt
+    const yVec = { x: -cos30, y: sin30 };  // Sol-Alt
+    
+    // Renk Tonları (Işıklandırma efekti için)
+    const topColor = shadeColor(colorBase, 20);   // Üst yüzey aydınlık
+    const leftColor = colorBase;                  // Sol yüzey normal
+    const rightColor = shadeColor(colorBase, -20);// Sağ yüzey gölgeli
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = shadeColor(colorBase, -40);
+
+    // ÜST YÜZEY
+    ctx.fillStyle = topColor;
+    ctx.beginPath();
+    ctx.moveTo(0, -h);
+    ctx.lineTo(w * xVec.x, -h + w * xVec.y);
+    ctx.lineTo((w * xVec.x) + (d * yVec.x), -h + (w * xVec.y) + (d * yVec.y));
+    ctx.lineTo(d * yVec.x, -h + d * yVec.y);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+
+    // SOL YÜZEY
+    ctx.fillStyle = leftColor;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(d * yVec.x, d * yVec.y);
+    ctx.lineTo(d * yVec.x, -h + d * yVec.y);
+    ctx.lineTo(0, -h);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+
+    // SAĞ YÜZEY
+    ctx.fillStyle = rightColor;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(w * xVec.x, w * xVec.y);
+    ctx.lineTo(w * xVec.x, -h + w * xVec.y);
+    ctx.lineTo(0, -h);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+}
+
+
+// ─── Sayaç fleksi (Daha gerçekçi ve belirgin dalgalı çelik fleks) ─────────────
 function _drawIsoSayacFleks(ctx, fromX, fromY, toX, toY) {
     const dx = toX - fromX;
     const dy = toY - fromY;
     const len = Math.hypot(dx, dy);
     if (len < 2) return;
 
-    // Anchor'a girmeden önce kısa bir tampon — gövde üst kenarına denk gelsin
-    const stopBuffer = Math.min(2, len * 0.05);
-    const r = Math.max(0, (len - stopBuffer) / len);
-    const endX = fromX + dx * r;
-    const endY = fromY + dy * r;
-
-    const segLen = Math.hypot(endX - fromX, endY - fromY);
-    const ux = (endX - fromX) / segLen;
-    const uy = (endY - fromY) / segLen;
+    const segLen = Math.hypot(dx, dy);
+    const ux = dx / segLen, uy = dy / segLen;
     const px = -uy, py = ux;
 
-    const waveCount = Math.max(3, Math.min(8, Math.round(segLen / 6)));
-    const waveAmp = 1.6;
+    const waveCount = Math.max(4, Math.min(10, Math.round(segLen / 5)));
+    const waveAmp = 2.5; // Dalgalanma şiddeti artırıldı
     const steps = waveCount * 6;
 
     const isLight = document.body.classList.contains('light-mode');
     ctx.save();
     ctx.strokeStyle = isLight ? '#555' : '#bbb';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(fromX, fromY);
     for (let i = 1; i <= steps; i++) {
         const t = i / steps;
-        const baseX = fromX + (endX - fromX) * t;
-        const baseY = fromY + (endY - fromY) * t;
-        const taper = Math.sin(t * Math.PI); // uçlarda 0, ortada 1
+        const baseX = fromX + dx * t;
+        const baseY = fromY + dy * t;
+        const taper = Math.sin(t * Math.PI); 
         const off = Math.sin(t * Math.PI * waveCount) * waveAmp * taper;
         ctx.lineTo(baseX + px * off, baseY + py * off);
     }
-    ctx.lineTo(endX, endY);
-    ctx.stroke();
-    ctx.restore();
-}
-
-// ─── Sayaç rijit çıkış stub'ı (düz boru-renk çizgisi) ────────────────────────
-function _drawIsoSayacRijit(ctx, fromX, fromY, toX, toY, colorGroup) {
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-    const len = Math.hypot(dx, dy);
-    if (len < 2) return;
-
-    const startBuffer = Math.min(2, len * 0.05);
-    const r = Math.max(0, startBuffer / len);
-    const startX = fromX + dx * r;
-    const startY = fromY + dy * r;
-
-    ctx.save();
-    ctx.strokeStyle = _isoPipeColorFor(colorGroup);
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
     ctx.lineTo(toX, toY);
     ctx.stroke();
     ctx.restore();
 }
 
+// ─── SAYAÇ (Gerçekçi Körüklü Sayaç Görünümü, İzometrik Duvara Yaslanmış) ───
+function drawSayacIso(ctx, component, isXAxis) {
+    const cos30 = Math.cos(Math.PI / 6);
+    const sin30 = Math.sin(Math.PI / 6);
+
+    ctx.save();
+    // Borunun geldiği yöne göre sağ veya sol duvara Matrix ile 3D olarak yasla
+    if (isXAxis) {
+        ctx.transform(cos30, -sin30, 0, 1, 0, 0); 
+    } else {
+        ctx.transform(cos30, sin30, 0, 1, 0, 0);
+    }
+
+    // --- GÖRSEL AÇIDAN GERÇEKÇİ KÖRÜKLÜ SAYAÇ ---
+    const w = 24; // Genişlik
+    const h = 32; // Yükseklik
+
+    // 1. Dış Gövde (Açık Gri / Beyaz Metal)
+    ctx.fillStyle = '#f5f6fa';
+    ctx.strokeStyle = '#718093';
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(-w/2, 0, w, h, 3);
+    else ctx.rect(-w/2, 0, w, h);
+    ctx.fill(); ctx.stroke();
+
+    // 2. Alt Gövde Kıvrımı (Körüklü bombesi çizgisi)
+    ctx.beginPath();
+    ctx.moveTo(-w/2, h - 8);
+    ctx.lineTo(w/2, h - 8);
+    ctx.stroke();
+
+    // 3. Numaratör Ekranı (Üst Kısım)
+    const ew = 16, eh = 8;
+    ctx.fillStyle = '#dcdde1'; 
+    ctx.strokeStyle = '#2f3640';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.rect(-ew/2, 6, ew, eh);
+    ctx.fill(); ctx.stroke();
+
+    // 4. Kırmızı Haneler (Gaz tüketim okuma)
+    ctx.fillStyle = '#e84118';
+    ctx.fillRect(ew/2 - 6, 7, 5, eh - 2);
+    
+    // Siyah Haneler
+    ctx.fillStyle = '#2f3640';
+    ctx.fillRect(-ew/2 + 1, 7, 8, eh - 2);
+
+    // 5. Üst Bağlantı Rekorları (Tam bağlantı hizasında)
+    ctx.fillStyle = '#7f8fa6';
+    ctx.strokeStyle = '#2f3640';
+    ctx.lineWidth = 1;
+    
+    // Sol Rekor
+    ctx.beginPath();
+    ctx.rect(-w/3 - 2.5, -3, 5, 3);
+    ctx.fill(); ctx.stroke();
+    
+    // Sağ Rekor
+    ctx.beginPath();
+    ctx.rect(w/3 - 2.5, -3, 5, 3);
+    ctx.fill(); ctx.stroke();
+
+    ctx.restore();
+}
+
 /**
  * Tesisat bileşenlerini (servis kutusu, sayaç, vana, cihaz) izometrik perspektifte çizer
- * @param {CanvasRenderingContext2D} ctx - Canvas context
  */
 function drawIsometricComponents(ctx) {
     if (!plumbingManager || !plumbingManager.components) return;
@@ -565,11 +672,8 @@ function drawIsometricComponents(ctx) {
     plumbingManager.components.forEach((component, index) => {
         if (typeof component.x !== 'number' || typeof component.y !== 'number') return;
 
-        // Z kotunu ve boru iso offset'lerini hesaba kat — nesne hat üzerindeki gerçek
-        // yüksekliğinde durup, hat uzatılıp kısaltıldığında onunla birlikte hareket etsin
         const pos = getComponentIsoPos(component);
 
-        // Sayaç için fleks (inlet) + rijit çıkış (outlet) — gövdeden ÖNCE çiz ki altta kalsın
         if (component.type === 'sayac') {
             if (pos.inletIsoX != null) {
                 _drawIsoSayacFleks(ctx, pos.inletIsoX, pos.inletIsoY, pos.isoX, pos.isoY);
@@ -579,26 +683,26 @@ function drawIsometricComponents(ctx) {
             }
         }
 
-        // Bileşen tipine göre farklı şekiller çiz
         ctx.save();
         ctx.translate(pos.isoX, pos.isoY);
 
-        // Rotation — vana/regülatör/fitting boru üzerinde olduğundan döndürmeyi
-        // bunlar için uygulamıyoruz (eşkenar dörtgen / üçgen / daire simetrik).
+        // Rotation — vana/regülatör/fitting boru üzerinde olduğundan döndürmeyi uygulamıyoruz.
+        // DİKKAT: Sayacı listeden çıkardık, çünkü artık 3D Matrix Duvar Yaslaması kullanıyor.
         const rotatable = component.type === 'servis_kutusu'
             || component.type === 'cihaz'
-            || component.type === 'sayac'
             || component.type === 'baca';
+            
         if (component.rotation && rotatable) {
             const isoAngle = angleToIsometric(component.rotation);
             ctx.rotate((isoAngle * Math.PI) / 180);
         }
 
-        // Bileşen tipine göre çiz
         if (component.type === 'servis_kutusu') {
             drawServisKutusuIso(ctx, component);
         } else if (component.type === 'sayac') {
-            drawSayacIso(ctx, component);
+            // Rotasyondan duvar yönünü bul (0 veya 180 ise X ekseni, 90 veya 270 ise Y ekseni)
+            const isXAxis = (component.rotation === 0 || component.rotation === 180);
+            drawSayacIso(ctx, component, isXAxis);
         } else if (component.type === 'vana') {
             drawVanaIso(ctx, component);
         } else if (component.type === 'regulator') {
@@ -619,6 +723,185 @@ function drawIsometricComponents(ctx) {
         drawComponentLabelIso(ctx, component, pos);
     });
 }
+
+function _drawIsoSayacRijit(ctx, fromX, fromY, toX, toY, colorGroup) {
+    ctx.save();
+    ctx.strokeStyle = _isoPipeColorFor(colorGroup);
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+    ctx.restore();
+}
+
+// ─── Cihaza bağlanan borunun izometrik yönünü bul ────────────────────────────
+function _getIncomingPipeVector(comp, manager) {
+    let pipeId = comp.fleksBaglanti?.boruId || comp.bagliBoruId || comp.cikisBagliBoruId;
+    if (!pipeId && manager) {
+        for (const p of manager.pipes) {
+            if (!p.p1 || !p.p2) continue;
+            if (Math.hypot(p.p1.x - comp.x, p.p1.y - comp.y) < 5) return { dx: p.p2.x - p.p1.x, dy: p.p2.y - p.p1.y };
+            if (Math.hypot(p.p2.x - comp.x, p.p2.y - comp.y) < 5) return { dx: p.p1.x - p.p2.x, dy: p.p1.y - p.p2.y };
+        }
+    }
+    if (pipeId && manager) {
+        const p = manager.findPipeById(pipeId);
+        if (p && p.p1 && p.p2) {
+            return { dx: p.p2.x - p.p1.x, dy: p.p2.y - p.p1.y };
+        }
+    }
+    return { dx: 1, dy: 0 };
+}
+
+// ─── Cihazları duvara/zemine tam oturtan 3D Matrix Dönüşümü ──────────────────
+function applyIsoTransform(ctx, planeType, isXAxis) {
+    const cos30 = Math.cos(Math.PI / 6);
+    const sin30 = Math.sin(Math.PI / 6);
+    
+    if (planeType === 'floor') {
+        // Zemin Düzlemi (Örn: Ocaklar için)
+        ctx.transform(cos30, -sin30, cos30, sin30, 0, 0);
+    } else if (planeType === 'wall') {
+        // Duvar Düzlemi (Kombi, Sayaç, Servis Kutusu)
+        if (isXAxis) {
+            ctx.transform(cos30, -sin30, 0, -1, 0, 0); // Sağ Duvara Yasla
+        } else {
+            ctx.transform(cos30, sin30, 0, -1, 0, 0);  // Sol Duvara Yasla
+        }
+    }
+}
+
+// ─── YENİ TASARIMLAR (Saf 2D Çizilir, Matrix ile 3D olur) ────────────────────
+function drawSayac2D(ctx) {
+    const w = 30, h = 20; 
+    ctx.fillStyle = '#43A047';
+    ctx.strokeStyle = '#1B5E20';
+    ctx.lineWidth = 1.5;
+    // Gövde
+    ctx.fillRect(-w/2, -h/2, w, h);
+    ctx.strokeRect(-w/2, -h/2, w, h);
+    // İç Panel (Ekran)
+    ctx.fillStyle = '#E8F5E9';
+    ctx.fillRect(-w/4, -h/4, w/2, h/2);
+    ctx.strokeRect(-w/4, -h/4, w/2, h/2);
+    // Sayaç numaratör çarkı (Küçük Daire)
+    ctx.beginPath();
+    ctx.arc(-w/6 + 2, 0, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#1B5E20';
+    ctx.fill();
+    // Üst çıkış / bağlantı rekorları (Fleks ve borunun bağlandığı yerler)
+    ctx.fillStyle = '#B0BEC5';
+    ctx.fillRect(-w/3, -h/2 - 2, 6, 2);
+    ctx.fillRect(w/3 - 6, -h/2 - 2, 6, 2);
+}
+
+function drawCihaz2D(ctx, component) {
+    const tip = component.cihazTipi || 'KOMBI';
+    if (tip === 'KOMBI') {
+        const r = 16;
+        ctx.fillStyle = '#1E88E5';
+        ctx.strokeStyle = '#0D47A1';
+        ctx.lineWidth = 1.5;
+        // Daire çizeriz, Matrix bunu mükemmel bir Elips (3D Silindir disk) yapar
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        // Alev
+        ctx.fillStyle = '#FFB74D';
+        ctx.beginPath(); ctx.arc(0, 0, r*0.4, 0, Math.PI * 2); ctx.fill();
+    } else if (tip === 'OCAK') {
+        const w = 24, h = 24;
+        ctx.fillStyle = '#FB8C00';
+        ctx.strokeStyle = '#7A3E00';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(-w/2, -h/2, w, h);
+        ctx.strokeRect(-w/2, -h/2, w, h);
+        // Ocak gözleri
+        ctx.fillStyle = '#3D1E00';
+        const d = 6, r = 2.5;
+        [-d, d].forEach(bx => { [-d, d].forEach(by => {
+            ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI*2); ctx.fill();
+        });});
+    } else {
+        const w = 22, h = 22;
+        ctx.fillStyle = '#9E9E9E'; ctx.strokeStyle = '#424242'; ctx.lineWidth = 1.5;
+        ctx.fillRect(-w/2, -h/2, w, h); ctx.strokeRect(-w/2, -h/2, w, h);
+    }
+}
+
+function drawServisKutusu2D(ctx) {
+    const w = 24, h = 36;
+    ctx.fillStyle = '#9c66bb';
+    ctx.strokeStyle = '#3a1f4d';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(-w/2, -h/2, w, h);
+    ctx.strokeRect(-w/2, -h/2, w, h);
+    // İç çerçeve
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-w/2 + 3, -h/2 + 3, w - 6, h - 6);
+}
+
+// ─── SERVİS KUTUSU (İstediğiniz gibi önceki haline - 2D Parallelogram - döndü)
+function drawServisKutusuIso(ctx, component) {
+    const w = 18, h = 30;
+    const bottomFrac = 0.20;             
+    const yBottom = h * bottomFrac;      
+    const yTop = h - yBottom;            
+    const cikisYonu = component.cikisYonu || 'sag';
+
+    const sx = w * ISO_COS;
+    const sy = w * ISO_SIN;
+
+    let BL, BR, TL, TR;
+    switch (cikisYonu) {
+        case 'sol':
+            BL = { x: 0,    y:  yBottom };
+            BR = { x: sx,   y:  yBottom - sy };
+            TL = { x: 0,    y: -yTop };
+            TR = { x: sx,   y: -yTop - sy };
+            break;
+        case 'sag':
+        default:
+            BR = { x: 0,    y:  yBottom };
+            BL = { x: -sx,  y:  yBottom + sy };
+            TR = { x: 0,    y: -yTop };
+            TL = { x: -sx,  y: -yTop + sy };
+            break;
+    }
+
+    ctx.fillStyle = '#9c66bb';
+    ctx.strokeStyle = '#3a1f4d';
+    ctx.lineWidth = 1;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(BL.x, BL.y);
+    ctx.lineTo(BR.x, BR.y);
+    ctx.lineTo(TR.x, TR.y);
+    ctx.lineTo(TL.x, TL.y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    const cx = (BL.x + BR.x + TR.x + TL.x) / 4;
+    const cy = (BL.y + BR.y + TR.y + TL.y) / 4;
+    const shrink = (p) => ({
+        x: p.x + (cx - p.x) * 0.18,
+        y: p.y + (cy - p.y) * 0.18,
+    });
+    ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+    ctx.lineWidth = 0.6;
+    const iBL = shrink(BL), iBR = shrink(BR), iTR = shrink(TR), iTL = shrink(TL);
+    ctx.beginPath();
+    ctx.moveTo(iBL.x, iBL.y);
+    ctx.lineTo(iBR.x, iBR.y);
+    ctx.lineTo(iTR.x, iTR.y);
+    ctx.lineTo(iTL.x, iTL.y);
+    ctx.closePath();
+    ctx.stroke();
+}
+
+
 
 /**
  * Boru etiketlerini çizer (Parent:Self:[Children] formatında)
@@ -837,130 +1120,9 @@ function shadeColor(color, percent) {
 const ISO_COS = Math.cos(Math.PI / 6);
 const ISO_SIN = Math.sin(Math.PI / 6);
 
-/**
- * Servis kutusunu 2D izometrik parallelogram olarak çizer.
- * Dikey kenarlar dik kalır, üst/alt kenarlar iso eğimiyle (30°) eğimli.
- * Anchor = pipe.p1 = SK çıkış noktası → kutunun ilgili dik kenarında,
- * ALTTAN %20 mesafede (kutunun içine girer, kutu anchor'ı SARAR).
- */
-function drawServisKutusuIso(ctx, component) {
-    const w = 18, h = 30;
-    const bottomFrac = 0.20;             // çıkış kenarda alttan %20'de
-    const yBottom = h * bottomFrac;      // anchor'dan kutu altına mesafe (aşağı)
-    const yTop = h - yBottom;            // anchor'dan kutu üstüne mesafe (yukarı)
-    const cikisYonu = component.cikisYonu || 'sag';
 
-    const sx = w * ISO_COS;
-    const sy = w * ISO_SIN;
 
-    // Anchor (0, 0). Çıkış kenarındaki anchor; karşı kenar iso eğimle kaymış.
-    let BL, BR, TL, TR;
-    switch (cikisYonu) {
-        case 'sol':
-            // Anchor sol kenarda — kutu anchor'ın sağında
-            BL = { x: 0,    y:  yBottom };
-            BR = { x: sx,   y:  yBottom - sy };
-            TL = { x: 0,    y: -yTop };
-            TR = { x: sx,   y: -yTop - sy };
-            break;
-        case 'sag':
-        default:
-            // Anchor sağ kenarda — kutu anchor'ın solunda
-            BR = { x: 0,    y:  yBottom };
-            BL = { x: -sx,  y:  yBottom + sy };
-            TR = { x: 0,    y: -yTop };
-            TL = { x: -sx,  y: -yTop + sy };
-            break;
-    }
 
-    // Dolgu (mor) + iso parallelogram konturu
-    ctx.fillStyle = '#9c66bb';
-    ctx.strokeStyle = '#3a1f4d';
-    ctx.lineWidth = 1;
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(BL.x, BL.y);
-    ctx.lineTo(BR.x, BR.y);
-    ctx.lineTo(TR.x, TR.y);
-    ctx.lineTo(TL.x, TL.y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // İç çerçeve detayı
-    const cx = (BL.x + BR.x + TR.x + TL.x) / 4;
-    const cy = (BL.y + BR.y + TR.y + TL.y) / 4;
-    const shrink = (p) => ({
-        x: p.x + (cx - p.x) * 0.18,
-        y: p.y + (cy - p.y) * 0.18,
-    });
-    ctx.strokeStyle = 'rgba(255,255,255,0.30)';
-    ctx.lineWidth = 0.6;
-    const iBL = shrink(BL), iBR = shrink(BR), iTR = shrink(TR), iTL = shrink(TL);
-    ctx.beginPath();
-    ctx.moveTo(iBL.x, iBL.y);
-    ctx.lineTo(iBR.x, iBR.y);
-    ctx.lineTo(iTR.x, iTR.y);
-    ctx.lineTo(iTL.x, iTL.y);
-    ctx.closePath();
-    ctx.stroke();
-}
-
-/**
- * Sayacı 2D izometrik parallelogram olarak çizer — dikey kenarlar dik,
- * üst/alt kenarlar iso eğiminde. Anchor (üst-orta) ile gövde arası fleks gap.
- */
-function drawSayacIso(ctx, component) {
-    const w = 18, h = 20;
-    const gap = 10; // fleks boşluğu
-    const sx = w * ISO_COS / 2; // yarı genişlik (iso)
-    const sy = w * ISO_SIN / 2; // yarı eğim farkı
-
-    // Parallelogram köşeleri — anchor (0,0) üst-orta'da, gövde anchor altında
-    const TL = { x: -sx, y: gap + sy };
-    const TR = { x:  sx, y: gap - sy };
-    const BR = { x:  sx, y: gap - sy + h };
-    const BL = { x: -sx, y: gap + sy + h };
-
-    ctx.fillStyle = '#43A047';
-    ctx.strokeStyle = '#1B5E20';
-    ctx.lineWidth = 1;
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(TL.x, TL.y);
-    ctx.lineTo(TR.x, TR.y);
-    ctx.lineTo(BR.x, BR.y);
-    ctx.lineTo(BL.x, BL.y);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-
-    // Cam yüzeyi iç çerçeve
-    const cx = (TL.x + TR.x + BR.x + BL.x) / 4;
-    const cy = (TL.y + TR.y + BR.y + BL.y) / 4;
-    const shrink = (p) => ({
-        x: p.x + (cx - p.x) * 0.18,
-        y: p.y + (cy - p.y) * 0.18,
-    });
-    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-    ctx.lineWidth = 0.6;
-    const iTL = shrink(TL), iTR = shrink(TR), iBR = shrink(BR), iBL = shrink(BL);
-    ctx.beginPath();
-    ctx.moveTo(iTL.x, iTL.y);
-    ctx.lineTo(iTR.x, iTR.y);
-    ctx.lineTo(iBR.x, iBR.y);
-    ctx.lineTo(iBL.x, iBL.y);
-    ctx.closePath();
-    ctx.stroke();
-
-    // Fleks bağlantı çizgisi (anchor → üst kenar orta noktası)
-    ctx.strokeStyle = '#1B5E20';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(0, gap);
-    ctx.stroke();
-}
 
 /**
  * Vanayı izometrik perspektifte çizer — eşkenar dörtgen + kol (boru rengine göre)
@@ -1067,8 +1229,8 @@ function drawCihazIso(ctx, component) {
         const sx = w * ISO_COS / 2;
         const sy = w * ISO_SIN / 2;
         const TL = { x: -sx, y: sy };
-        const TR = { x:  sx, y: -sy };
-        const BR = { x:  sx, y: -sy + h };
+        const TR = { x: sx, y: -sy };
+        const BR = { x: sx, y: -sy + h };
         const BL = { x: -sx, y: sy + h };
 
         ctx.fillStyle = '#FB8C00';
@@ -1093,9 +1255,9 @@ function drawCihazIso(ctx, component) {
         // Eğime göre göz konumlarını da kaydır
         const burners = [
             { x: -ox, y: cy - oy + ox * (ISO_SIN / ISO_COS) },
-            { x:  ox, y: cy - oy - ox * (ISO_SIN / ISO_COS) },
+            { x: ox, y: cy - oy - ox * (ISO_SIN / ISO_COS) },
             { x: -ox, y: cy + oy + ox * (ISO_SIN / ISO_COS) },
-            { x:  ox, y: cy + oy - ox * (ISO_SIN / ISO_COS) },
+            { x: ox, y: cy + oy - ox * (ISO_SIN / ISO_COS) },
         ];
         burners.forEach(p => {
             ctx.beginPath();
@@ -1226,9 +1388,15 @@ function _drawIsoLabelBox(ctx, id, ax, ay, cx, cy, lines, objClip, forceStyle) {
     const boxW = maxW + pad * 2;
     const boxH = visLines.length * lineH + pad * 0.8;
 
-    // Manuel konum (DELTA) veya yön (dir) — kullanıcı sürüklemiş veya dblclick'lemiş olabilir.
     const stored = state.isoLabelOffsets?.[id];
     let style = forceStyle || 'left-center';
+
+    // KRİTİK DÜZELTME: Eğer yerleşim algoritması veya kullanıcı bir stil belirlemişse
+    // render motorunun varsayılanını (forceStyle) EZ GEÇ ve kaydedilmişi kullan!
+    if (stored && stored.style != null) {
+        style = stored.style;
+    }
+
     if (stored && stored.dax != null) {
         ax = cx + stored.dax;
         ay = cy + stored.day;
@@ -1721,7 +1889,7 @@ function drawPipeLabelsIso(ctx) {
         const b = toIsometric(chosen.p2.x, chosen.p2.y, chosen.p2.z || 0);
         const off = state.isoPipeOffsets?.[chosen.id] || {};
         a.isoX += (off.startDx || 0); a.isoY += (off.startDy || 0);
-        b.isoX += (off.endDx || 0);   b.isoY += (off.endDy || 0);
+        b.isoX += (off.endDx || 0); b.isoY += (off.endDy || 0);
         const midX = (a.isoX + b.isoX) / 2;
         const midY = (a.isoY + b.isoY) / 2;
 
@@ -1752,16 +1920,23 @@ function drawPipeLabelsIso(ctx) {
         // Manuel konum (DELTA) veya dir (4 yön) — varsayılan sağa ofset.
         const stored = state.isoLabelOffsets?.[chosen.id];
         let ax, ay, style = 'left-center';
+
+        // KRİTİK DÜZELTME: Kaydedilmiş stil varsa onu kullan!
+        if (stored && stored.style != null) {
+            style = stored.style;
+        }
+
         if (stored && stored.dax != null) {
             ax = midX + stored.dax;
             ay = midY + stored.day;
         } else if (stored && stored.dir != null) {
-            const r2 = _resolveLabelAnchorByDir(midX, midY, 8, boxW, boxH, stored.dir, 'left-center');
+            const r2 = _resolveLabelAnchorByDir(midX, midY, 8, boxW, boxH, stored.dir, style);
             ax = r2.ax; ay = r2.ay; style = r2.style;
         } else {
             ax = midX + 20;
             ay = midY;
         }
+
         let bx, by;
         if (style === 'top-center') {
             bx = ax - boxW / 2;
@@ -1862,9 +2037,22 @@ export function hitTestIsoLabel(wx, wy) {
     return null;
 }
 
+// ─── isoLabelOffsets olarak DELTA ve STİL kaydet (anchor takip etsin diye) ───
+function _saveIsoLabelOffsetsFromPlaced(placed) {
+    const out = {};
+    for (const c of placed) {
+        let ax, ay;
+        if (c.style === 'top-center') { ax = c.bx + c.bw / 2; ay = c.by; }
+        else { ax = c.bx; ay = c.by + c.bh / 2; }
+        // KRİTİK: Stili de kaydediyoruz ki render motoru yanlış çizmesin
+        out[c.id] = { dax: ax - c.anchorX, day: ay - c.anchorY, style: c.style };
+    }
+    return out;
+}
+
 /**
  * Etiket sürükleme — yeni iso world konumunu, nesnenin (cx, cy) iso pozisyonuna
- * göre DELTA olarak saklar. Böylece nesne sonradan sürüklendiğinde etiket takip eder.
+ * göre DELTA olarak saklar.
  */
 export function setIsoLabelPos(id, style, bx, by, bw, bh, cx, cy) {
     const newOffsets = { ...(state.isoLabelOffsets || {}) };
@@ -1876,7 +2064,8 @@ export function setIsoLabelPos(id, style, bx, by, bw, bh, cx, cy) {
         ax = bx;
         ay = by + bh / 2;
     }
-    newOffsets[id] = { dax: ax - cx, day: ay - cy };
+    // MANUEL SÜRÜKLEMEDE DE STİLİ KAYDET
+    newOffsets[id] = { dax: ax - cx, day: ay - cy, style: style };
     return newOffsets;
 }
 
@@ -2111,17 +2300,17 @@ function _collectIsoLabelCandidates(manager, ignoreOffsets = true) {
         if (typeof comp.x !== 'number' || typeof comp.y !== 'number') continue;
         let lines = null;
         switch (comp.type) {
-            case 'sayac':           lines = _buildSayacLinesIso(comp); break;
-            case 'cihaz':           lines = _buildCihazLinesIso(comp); break;
-            case 'servis_kutusu':   lines = _buildKutuLinesIso(comp); break;
-            case 'vana':            lines = _buildVanaLinesIso(comp, manager); break;
-            case 'regulator':       lines = _buildRegulatorLinesIso(comp, manager); break;
+            case 'sayac': lines = _buildSayacLinesIso(comp); break;
+            case 'cihaz': lines = _buildCihazLinesIso(comp); break;
+            case 'servis_kutusu': lines = _buildKutuLinesIso(comp); break;
+            case 'vana': lines = _buildVanaLinesIso(comp, manager); break;
+            case 'regulator': lines = _buildRegulatorLinesIso(comp, manager); break;
             case 'filtre':
             case 'izolasyon_flansi':
             case 'kompansator':
             case 'manometre':
-            case 'topraklama':      lines = _buildFittingLinesIso(comp); break;
-            case 'baca':            lines = [{ text: 'Baca', bold: true }]; break;
+            case 'topraklama': lines = _buildFittingLinesIso(comp); break;
+            case 'baca': lines = [{ text: 'Baca', bold: true }]; break;
             default: continue;
         }
         if (!lines || lines.filter(l => l && l.text).length === 0) continue;
@@ -2203,7 +2392,7 @@ function _collectIsoLabelCandidates(manager, ignoreOffsets = true) {
         const b = toIsometric(chosen.p2.x, chosen.p2.y, chosen.p2.z || 0);
         const off = state.isoPipeOffsets?.[chosen.id] || {};
         a.isoX += (off.startDx || 0); a.isoY += (off.startDy || 0);
-        b.isoX += (off.endDx || 0);   b.isoY += (off.endDy || 0);
+        b.isoX += (off.endDx || 0); b.isoY += (off.endDy || 0);
         const midX = (a.isoX + b.isoX) / 2;
         const midY = (a.isoY + b.isoY) / 2;
 
@@ -2263,35 +2452,12 @@ function _buildIsoPipeSegments(manager) {
         const b = toIsometric(p.p2.x, p.p2.y, p.p2.z || 0);
         const off = state.isoPipeOffsets?.[p.id] || {};
         a.isoX += (off.startDx || 0); a.isoY += (off.startDy || 0);
-        b.isoX += (off.endDx || 0);   b.isoY += (off.endDy || 0);
+        b.isoX += (off.endDx || 0); b.isoY += (off.endDy || 0);
         segs.push({ x1: a.isoX, y1: a.isoY, x2: b.isoX, y2: b.isoY, pipeId: p.id });
     }
     return segs;
 }
 
-function _rectOverlapArea(a, b) {
-    const x1 = Math.max(a.bx, b.bx);
-    const y1 = Math.max(a.by, b.by);
-    const x2 = Math.min(a.bx + a.bw, b.bx + b.bw);
-    const y2 = Math.min(a.by + a.bh, b.by + b.bh);
-    if (x2 <= x1 || y2 <= y1) return 0;
-    return (x2 - x1) * (y2 - y1);
-}
-
-function _segRectIntersects(x1, y1, x2, y2, rx, ry, rw, rh) {
-    const r = rx + rw, b = ry + rh;
-    const inside = (px, py) => px >= rx && px <= r && py >= ry && py <= b;
-    if (inside(x1, y1) || inside(x2, y2)) return true;
-    const seg = (ax, ay, bx, by, cx, cy, dx, dy) => {
-        const d = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
-        if (Math.abs(d) < 1e-9) return false;
-        const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / d;
-        const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / d;
-        return t >= 0 && t <= 1 && u >= 0 && u <= 1;
-    };
-    return seg(x1, y1, x2, y2, rx, ry, r, ry) || seg(x1, y1, x2, y2, r, ry, r, b) ||
-        seg(x1, y1, x2, y2, r, b, rx, b) || seg(x1, y1, x2, y2, rx, b, rx, ry);
-}
 
 function _bboxFromStyle(ax, ay, bw, bh, style) {
     if (style === 'top-center') return { bx: ax - bw / 2, by: ay, bw, bh };
@@ -2344,6 +2510,159 @@ function _scorePosition(box, obstacles, placedLabels, pipeSegs, anchorX, anchorY
     const dist = Math.hypot(cx - anchorX, cy - anchorY);
     return overlapPenalty + pipeCross + dist * 0.6;
 }
+
+
+
+// ─── ÇİZGİ - ÇİZGİ KESİŞİM KONTROLÜ (Sadece Leader Çizgileri İçin) ───────────
+function _segSegIntersectStrict(ax, ay, bx, by, cx, cy, dx, dy) {
+    const den = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+    if (Math.abs(den) < 1e-9) return false;
+    const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / den;
+    const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / den;
+    // Çizgilerin sadece uç noktalardan teğet geçmesine izin ver
+    return t > 0.01 && t < 0.99 && u > 0.01 && u < 0.99;
+}
+
+// ─── KUTU - ÇİZGİ / BORU KESİŞİMİ (SIFIR TOLERANS, UÇLAR DAHİL) ─────────────
+function _segRectIntersects(x1, y1, x2, y2, rx, ry, rw, rh) {
+    // 1. Borunun/Çizginin uç noktalarından biri kutunun içindeyse kesin kesişiyordur
+    if (x1 >= rx && x1 <= rx + rw && y1 >= ry && y1 <= ry + rh) return true;
+    if (x2 >= rx && x2 <= rx + rw && y2 >= ry && y2 <= ry + rh) return true;
+
+    const r = rx + rw;
+    const b = ry + rh;
+
+    // Tam kesinlikte (t=0 ve t=1 dahil) kesişim hesabı (Yüzdelik payı yok sayar!)
+    const _int = (ax, ay, bx, by, cx, cy, dx, dy) => {
+        const den = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+        if (Math.abs(den) < 1e-9) return false;
+        const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / den;
+        const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / den;
+        return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+    };
+
+    // 2. Çizgi kutunun 4 kenarından herhangi birini %100 kesiyorsa
+    if (_int(x1, y1, x2, y2, rx, ry, r, ry)) return true; // Üst kenar
+    if (_int(x1, y1, x2, y2, r, ry, r, b)) return true;   // Sağ kenar
+    if (_int(x1, y1, x2, y2, r, b, rx, b)) return true;   // Alt kenar
+    if (_int(x1, y1, x2, y2, rx, b, rx, ry)) return true; // Sol kenar
+
+    return false;
+}
+
+function _rectOverlapArea(a, b) {
+    const x1 = Math.max(a.bx, b.bx);
+    const y1 = Math.max(a.by, b.by);
+    const x2 = Math.min(a.bx + a.bw, b.bx + b.bw);
+    const y2 = Math.min(a.by + a.bh, b.by + b.bh);
+    if (x2 <= x1 || y2 <= y1) return 0;
+    return (x2 - x1) * (y2 - y1);
+}
+
+function _positionsAtRadius(c, radius) {
+    const out = [];
+    const N = Math.max(16, Math.floor(radius / 8));
+    for (let i = 0; i < N; i++) {
+        const ang = (i / N) * 2 * Math.PI;
+        const ux = Math.cos(ang), uy = Math.sin(ang);
+        const style = Math.abs(ux) >= Math.abs(uy) ? 'left-center' : 'top-center';
+
+        const tcx = c.anchorX + ux * radius;
+        const tcy = c.anchorY + uy * radius;
+        let ax, ay;
+        if (style === 'top-center') {
+            ax = tcx; ay = tcy - c.bh / 2;
+        } else {
+            ax = tcx - c.bw / 2; ay = tcy;
+        }
+        out.push({ ax, ay, style, ux, uy });
+    }
+    return out;
+}
+
+// ─── %100 MUTLAK BOŞ ALAN KONTROLÜ ───────────────────────────────────────────
+function _isSpotCompletelyClean(box, leader, obstacles, placedLabels, placedLeaders, pipeSegs) {
+    const PAD = 8; // Güvenlik kalkanı, etiketlerin rahat nefes alması için 8 piksel
+    const expBox = { bx: box.bx - PAD, by: box.by - PAD, bw: box.bw + 2 * PAD, bh: box.bh + 2 * PAD };
+
+    // 1. KUTU NESNELERE BİNEMEZ
+    for (const o of obstacles) {
+        const expO = { bx: o.bx - 2, by: o.by - 2, bw: o.bw + 4, bh: o.bh + 4 };
+        if (_rectOverlapArea(expBox, expO) > 0) return false;
+    }
+
+    // 2. KUTU BORULARA BİNEMEZ (Sıfır Toleranslı yeni fonksiyon devrede)
+    for (const s of pipeSegs) {
+        if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, expBox.bx, expBox.by, expBox.bw, expBox.bh)) return false;
+    }
+
+    // 3. KUTU VEYA ÇİZGİ, DİĞER ETİKETLERE BİNEMEZ
+    for (const p of placedLabels) {
+        const expP = { bx: p.bx - PAD, by: p.by - PAD, bw: p.bw + 2 * PAD, bh: p.bh + 2 * PAD };
+        if (_rectOverlapArea(expBox, expP) > 0) return false;
+        if (_segRectIntersects(leader.x1, leader.y1, leader.x2, leader.y2, expP.bx, expP.by, expP.bw, expP.bh)) return false;
+    }
+
+    // 4. BAĞLANTI ÇİZGİLERİ (LEADER) BİRBİRİNİ VE KUTULARI KESEMEZ
+    for (const L of placedLeaders) {
+        if (_segRectIntersects(L.x1, L.y1, L.x2, L.y2, expBox.bx, expBox.by, expBox.bw, expBox.bh)) return false;
+        if (_segSegIntersectStrict(leader.x1, leader.y1, leader.x2, leader.y2, L.x1, L.y1, L.x2, L.y2)) return false;
+    }
+
+    return true;
+}
+
+// ─── İÇTEN DIŞA DOĞRU BOŞLUK ARAMA (BORU UZATMA YOK) ─────────────────────────
+function _tryPlaceLabelsStrict(cands, obstacles, pipeSegs) {
+    cands.sort((a, b) => (a.priority - b.priority) || ((b.bw * b.bh) - (a.bw * a.bh)));
+
+    const placed = [];
+    const placedLeaders = [];
+
+    for (const c of cands) {
+        let best = null;
+        let bestLeader = null;
+
+        const baseR = c.clip + 15;
+        const maxR = 4000;
+        const rStep = 15;
+
+        for (let r = baseR; r <= maxR; r += rStep) {
+            const positions = _positionsAtRadius(c, r + Math.max(c.bw, c.bh) / 2);
+
+            for (const pos of positions) {
+                const box = _bboxFromStyle(pos.ax, pos.ay, c.bw, c.bh, pos.style);
+                const boxCx = box.bx + box.bw / 2;
+                const boxCy = box.by + box.bh / 2;
+                const leader = { x1: c.anchorX, y1: c.anchorY, x2: boxCx, y2: boxCy };
+
+                if (_isSpotCompletelyClean(box, leader, obstacles, placed, placedLeaders, pipeSegs)) {
+                    best = { bx: box.bx, by: box.by, bw: c.bw, bh: c.bh, style: pos.style };
+                    bestLeader = leader;
+                    break;
+                }
+            }
+            if (best) break;
+        }
+
+        if (best) {
+            c.bx = best.bx; c.by = best.by; c.style = best.style;
+            placed.push(c);
+            placedLeaders.push(bestLeader);
+        } else {
+            // İmkansız ama tıkalıysa, en azından aynı noktada yığılıp üst üste binmesinler
+            const offset = placed.length * 15;
+            c.bx = c.anchorX + c.clip + 25 + offset;
+            c.by = c.anchorY - c.bh / 2 + offset;
+            c.style = 'left-center';
+            placed.push(c);
+            placedLeaders.push({ x1: c.anchorX, y1: c.anchorY, x2: c.bx, y2: c.by });
+        }
+    }
+
+    return { placed };
+}
+
 
 // ─── Pipe'a "ait" etiketleri grupla (komponentin bagli boruları + hat repr.) ──
 function _groupCandsByHostPipe(cands) {
@@ -2399,11 +2718,11 @@ function _computeIsoPipeScalesByLabelNeed(manager, cands) {
 
         // Need-based oran + etiket sayısına göre GARANTİ minimum
         let scale = need / Math.max(isoLen, 8);
-        if (n >= 5)      scale = Math.max(scale, 5);
+        if (n >= 5) scale = Math.max(scale, 5);
         else if (n >= 4) scale = Math.max(scale, 4);
         else if (n >= 3) scale = Math.max(scale, 3);
         else if (n >= 2) scale = Math.max(scale, 2);
-        else             scale = Math.max(scale, 1.5);
+        else scale = Math.max(scale, 1.5);
 
         scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale));
         scales.set(p.id, scale);
@@ -2452,100 +2771,102 @@ function _computePipeOffsetsFromScales(manager, scales) {
     return offsets;
 }
 
-// ─── Segment-segment kesişim (uç noktaları sayma) ─────────────────────────────
+// ─── ÇİZGİ KESİŞİM KONTROLÜ (Tam Kesinlik) ───────────────────────────────────
 function _segSegIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
-    const d = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
-    if (Math.abs(d) < 1e-9) return false;
-    const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / d;
-    const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / d;
+    const den = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+    if (Math.abs(den) < 1e-9) return false; // Çizgiler paralel
+    const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / den;
+    const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / den;
+    // t ve u'nun 0.01 ve 0.99 olması: çizgiler uç noktalarında değebilir ama gövdeleri kesişemez
     return t > 0.01 && t < 0.99 && u > 0.01 && u < 0.99;
 }
 
-// ─── Leader segment'i obstacle veya pipe ile kesişiyor mu? ───────────────────
-function _leaderCrossesAnything(x1, y1, x2, y2, obstacles, ownObstId, pipeSegs, ownPipeId, placedLeaders, ownLeaderId) {
-    // Obstacle bbox kesişimi
-    for (const o of obstacles) {
-        if (ownObstId && o.id === ownObstId) continue;
-        if (_segRectIntersects(x1, y1, x2, y2, o.bx, o.by, o.bw, o.bh)) return true;
-    }
-    // Pipe segment kesişimi
-    for (const s of pipeSegs) {
-        if (ownPipeId && s.pipeId === ownPipeId) continue;
-        if (_segSegIntersect(x1, y1, x2, y2, s.x1, s.y1, s.x2, s.y2)) return true;
-    }
-    // Diğer leader'lar
-    for (const L of placedLeaders) {
-        if (ownLeaderId && L.id === ownLeaderId) continue;
-        if (_segSegIntersect(x1, y1, x2, y2, L.x1, L.y1, L.x2, L.y2)) return true;
-    }
+// ─── GEOMETRİK YARDIMCI FONKSİYONLAR (GÜVENLİ VE KESİN) ──────────────────────
+
+
+
+function _lineIntersectsBox(x1, y1, x2, y2, box) {
+    const rx = box.bx, ry = box.by, r = rx + box.bw, b = ry + box.bh;
+    // 1. Çizgi kutunun sınırlarını kesiyor mu?
+    if (_segSegIntersectStrict(x1, y1, x2, y2, rx, ry, r, ry)) return true; // Üst
+    if (_segSegIntersectStrict(x1, y1, x2, y2, rx, b, r, b)) return true;   // Alt
+    if (_segSegIntersectStrict(x1, y1, x2, y2, rx, ry, rx, b)) return true; // Sol
+    if (_segSegIntersectStrict(x1, y1, x2, y2, r, ry, r, b)) return true;   // Sağ
+    // 2. Çizgi tamamen kutunun içinde mi kaldı?
+    if (x1 > rx && x1 < r && y1 > ry && y1 < b) return true;
+    if (x2 > rx && x2 < r && y2 > ry && y2 < b) return true;
     return false;
 }
 
-// ─── HARD: overlap yok + leader hiçbir şeyi kesmez ───────────────────────────
-// returns: { placed, failed, longLeaders }
-// failed = hiç temiz spot bulunamayanlar (fallback'te)
-// longLeaders = bulundu ama leader istenenden uzun (pipe scaling istek nedeni)
-function _tryPlaceLabelsStrict(cands, obstacles, pipeSegs) {
-    cands.sort((a, b) => (a.priority - b.priority) || ((a.bw * a.bh) - (b.bw * b.bh)));
 
-    const placed = [];
-    const placedLeaders = [];
-    const failed = [];
-    const longLeaders = [];
 
-    for (const c of cands) {
-        const ownObstId = c.kind === 'comp' ? (c.id + '_body') : null;
-        const ownPipeId = c.kind === 'pipe' ? c.id : null;
+/**
+ * ANA GİRİŞ: Boru uzatma iptal edildi. Sadece boşluk arama çalışır.
+ * KULLANICININ MANUEL UZATTIĞI HATLAR (OFFSETLER) KORUNUR.
+ */
+export function relayoutIsoLabels(manager) {
+    if (!manager || !manager.pipes || !manager.components) {
+        return { pipeOffsets: {}, labelOffsets: {} };
+    }
 
-        let best = null;
-        let bestDist = Infinity;
-        const baseR = c.clip + 12;
-        const maxR = 1400;
-        const rStep = 8;
+    // 1. Kullanıcının manuel olarak yaptığı boru uzatmalarını (offset) alıyoruz.
+    // Asla sıfırlamıyoruz!
+    const currentPipeOffsets = state.isoPipeOffsets || {};
 
-        for (let r = baseR; r <= maxR; r += rStep) {
-            const positions = _positionsAtRadius(c, r + Math.max(c.bw, c.bh) / 2);
-            for (const pos of positions) {
-                const box = _bboxFromStyle(pos.ax, pos.ay, c.bw, c.bh, pos.style);
-                if (_boxHasAnyOverlap(box, obstacles, placed, pipeSegs, ownObstId, ownPipeId)) continue;
+    // 2. Sahnedeki her şeyi MEVCUT uzatılmış koordinatlara göre hesapla
+    // (ikinci parametre olan 'false', offsetleri yoksayma anlamına gelir)
+    const cands = _collectIsoLabelCandidates(manager, false);
+    const obstacles = _buildIsoObstacleRects(manager);
+    const pipeSegs = _buildIsoPipeSegments(manager);
 
-                const boxCx = box.bx + box.bw / 2;
-                const boxCy = box.by + box.bh / 2;
+    // 3. Etiketleri mevcut sıkışıklığa göre içten dışa en yakın boşluğa yerleştir
+    const finalRun = _tryPlaceLabelsStrict(cands, obstacles, pipeSegs);
 
-                if (_leaderCrossesAnything(c.anchorX, c.anchorY, boxCx, boxCy,
-                        obstacles, ownObstId, pipeSegs, ownPipeId, placedLeaders, c.id)) continue;
+    // 4. Etiketlerin yeni bağlantı çizgisi mesafelerini kaydet
+    const labelOffsets = _saveIsoLabelOffsetsFromPlaced(finalRun.placed);
 
-                const dist = Math.hypot(boxCx - c.anchorX, boxCy - c.anchorY);
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    best = { bx: box.bx, by: box.by, bw: c.bw, bh: c.bh, style: pos.style };
-                }
+    // 5. KRİTİK NOKTA: Boru offsetlerini (pipeOffsets) OLDUĞU GİBİ geri döndürüyoruz.
+    // Böylece React/Vue tarafı (veya state manager) hatları geri kısaltmaz.
+    return { pipeOffsets: currentPipeOffsets, labelOffsets };
+}
+
+
+// ─── İzometrik Boru Kesişim Sayacı (Uzatma yaparken hatlar birbirine girmesin diye) ───
+function _countPipeCollisionsWithOffsets(manager, offsets) {
+    const segs = [];
+    for (const p of manager.pipes) {
+        if (!p.p1 || !p.p2) continue;
+        const a = toIsometric(p.p1.x, p.p1.y, p.p1.z || 0);
+        const b = toIsometric(p.p2.x, p.p2.y, p.p2.z || 0);
+        const off = offsets[p.id] || {};
+        a.isoX += (off.startDx || 0); a.isoY += (off.startDy || 0);
+        b.isoX += (off.endDx || 0); b.isoY += (off.endDy || 0);
+        segs.push({ x1: a.isoX, y1: a.isoY, x2: b.isoX, y2: b.isoY, id: p.id });
+    }
+
+    let collisions = 0;
+    for (let i = 0; i < segs.length; i++) {
+        for (let j = i + 1; j < segs.length; j++) {
+            const s1 = segs[i], s2 = segs[j];
+
+            // Eğer iki borunun uçları birbirine değiyorsa (bağlılarsa), bu doğal bir kesişimdir, sayma.
+            const connected =
+                (Math.hypot(s1.x1 - s2.x1, s1.y1 - s2.y1) < 3) ||
+                (Math.hypot(s1.x1 - s2.x2, s1.y1 - s2.y2) < 3) ||
+                (Math.hypot(s1.x2 - s2.x1, s1.y2 - s2.y1) < 3) ||
+                (Math.hypot(s1.x2 - s2.x2, s1.y2 - s2.y2) < 3);
+
+            if (connected) continue;
+
+            if (_segSegIntersect(s1.x1, s1.y1, s1.x2, s1.y2, s2.x1, s2.y1, s2.x2, s2.y2)) {
+                collisions++;
             }
-            if (best) break;
-        }
-
-        if (best) {
-            c.bx = best.bx; c.by = best.by; c.style = best.style;
-            placed.push(c);
-            placedLeaders.push({
-                id: c.id,
-                x1: c.anchorX, y1: c.anchorY,
-                x2: c.bx + c.bw / 2, y2: c.by + c.bh / 2,
-            });
-
-            // Uzun leader tespiti — pipe scaling tetiklemek için
-            const idealMax = c.clip + Math.max(c.bw, c.bh) * 0.5 + 28;
-            if (bestDist > idealMax * 1.4) longLeaders.push(c);
-        } else {
-            c.bx = c.anchorX + c.clip + 14;
-            c.by = c.anchorY - c.bh / 2;
-            c.style = 'left-center';
-            placed.push(c);
-            failed.push(c);
         }
     }
-    return { placed, failed, longLeaders };
+    return collisions;
 }
+
+
 
 // ─── Bir cand'ın host pipe'ını bul (uzatılacak hat) ──────────────────────────
 function _findHostPipeIds(c) {
@@ -2643,9 +2964,9 @@ function _relaxIsoLabels(placed, obstacles, pipeSegs, iterCount = 25) {
 
             // Anchor'a hafif geri çekme — öncelik arttıkça daha güçlü
             const pullCoef = c.priority === 0 ? 0.04
-                            : c.priority === 1 ? 0.025
-                            : c.priority === 2 ? 0.012
-                            : 0;
+                : c.priority === 1 ? 0.025
+                    : c.priority === 2 ? 0.012
+                        : 0;
             if (pullCoef > 0) {
                 const cx = c.bx + c.bw / 2, cy = c.by + c.bh / 2;
                 const dax = c.anchorX - cx, day = c.anchorY - cy;
@@ -2702,33 +3023,7 @@ function _boxHasAnyOverlap(box, obstacles, placedLabels, pipeSegs, ownObstacleId
     return false;
 }
 
-// ─── Belirli mesafe halkasında 16 yönde adaylar üret ─────────────────────────
-function _positionsAtRadius(c, radius) {
-    const out = [];
-    const N = 16;
-    for (let i = 0; i < N; i++) {
-        const ang = (i / N) * 2 * Math.PI;
-        const ux = Math.cos(ang), uy = Math.sin(ang);
-        // Stili yöne göre seç — yatayda left-center, dikeyde top-center daha iyi
-        const style = Math.abs(ux) >= Math.abs(uy) ? 'left-center' : 'top-center';
-        // Anchor kutuyu nereye koyacağımızı stilden hesaplıyor:
-        // - left-center: ax solunda kutu BAŞLAR; ax sağa giderse kutu sağa kayar
-        // - top-center: ay üstünde kutu BAŞLAR; ay aşağı giderse kutu aşağı kayar
-        // Kutu merkezini hedef konuma yerleştirip ax/ay'ı stile göre türetelim
-        const tcx = c.anchorX + ux * radius;
-        const tcy = c.anchorY + uy * radius;
-        let ax, ay;
-        if (style === 'top-center') {
-            ax = tcx;
-            ay = tcy - c.bh / 2;
-        } else {
-            ax = tcx - c.bw / 2;
-            ay = tcy;
-        }
-        out.push({ ax, ay, style, ux, uy });
-    }
-    return out;
-}
+
 
 // ─── Greedy yerleştirme: önceliğe göre en yakın TEMİZ spot ───────────────────
 function _placeIsoLabelsByPriority(cands, obstacles, pipeSegs) {
@@ -2786,97 +3081,8 @@ function _placeIsoLabelsByPriority(cands, obstacles, pipeSegs) {
     return placed;
 }
 
-// ─── isoLabelOffsets olarak DELTA kaydet (anchor takip etsin diye) ───────────
-function _saveIsoLabelOffsetsFromPlaced(placed) {
-    const out = {};
-    for (const c of placed) {
-        let ax, ay;
-        if (c.style === 'top-center') { ax = c.bx + c.bw / 2; ay = c.by; }
-        else { ax = c.bx; ay = c.by + c.bh / 2; }
-        out[c.id] = { dax: ax - c.anchorX, day: ay - c.anchorY };
-    }
-    return out;
-}
 
-/**
- * Ana giriş: iso etiketleri otomatik yerleştir + yoğun hatları ölçeklendir.
- * @param {object} manager - plumbingManager
- * @returns {{ pipeOffsets: object, labelOffsets: object }}
- */
-export function relayoutIsoLabels(manager) {
-    if (!manager || !manager.pipes || !manager.components) {
-        return { pipeOffsets: {}, labelOffsets: {} };
-    }
 
-    // İlk scale = 1; iterasyonla failed VEYA uzun-leader pipe'larını büyüteceğiz
-    const scales = new Map();
-    for (const p of manager.pipes) scales.set(p.id, 1);
-
-    const prevPipeOffsets = state.isoPipeOffsets || {};
-    const MAX_ITER = 30;
-    const SCALE_STEP = 1.35;
-    const MAX_PIPE_SCALE = 10;
-    let iterUsed = 0;
-    let finalRun = null;
-
-    for (let iter = 0; iter < MAX_ITER; iter++) {
-        iterUsed = iter + 1;
-        const pipeOffsetsAttempt = _computePipeOffsetsFromScales(manager, scales);
-        state.isoPipeOffsets = pipeOffsetsAttempt;
-
-        const cands = _collectIsoLabelCandidates(manager, false);
-        const obstacles = _buildIsoObstacleRects(manager);
-        const pipeSegs = _buildIsoPipeSegments(manager);
-
-        const { placed, failed, longLeaders } = _tryPlaceLabelsStrict(cands, obstacles, pipeSegs);
-        finalRun = { placed, failed, longLeaders };
-
-        // Hem tamamen tıkananları hem uzun-leader olanları scaling hedefi yap
-        const targets = [...failed, ...longLeaders];
-        if (targets.length === 0) break;
-
-        // Tüm hedef pipe'ları aynı iter'de büyüt (multi-pipe scaling)
-        const pipesToScale = new Map(); // pid → count
-        for (const c of targets) {
-            for (const pid of _findHostPipeIds(c)) {
-                pipesToScale.set(pid, (pipesToScale.get(pid) || 0) + 1);
-            }
-        }
-        if (pipesToScale.size === 0) break;
-
-        let anyScaled = false;
-        for (const [pid, cnt] of pipesToScale) {
-            const cur = scales.get(pid) || 1;
-            if (cur >= MAX_PIPE_SCALE) continue;
-            // Conflict sayısına göre step (daha çok fail = daha sert bump)
-            const step = cnt >= 3 ? SCALE_STEP * 1.5 : cnt >= 2 ? SCALE_STEP * 1.2 : SCALE_STEP;
-            const next = Math.min(MAX_PIPE_SCALE, cur * step);
-            if (next > cur + 0.01) {
-                scales.set(pid, next);
-                anyScaled = true;
-            }
-        }
-        if (!anyScaled) break; // tüm hedefler cap'te → yardım edemiyoruz
-    }
-
-    const finalPipeOffsets = _computePipeOffsetsFromScales(manager, scales);
-    state.isoPipeOffsets = prevPipeOffsets; // restore
-
-    const labelOffsets = _saveIsoLabelOffsetsFromPlaced(finalRun.placed);
-
-    if (window.__DEBUG_ISO_RELAYOUT__ !== false) {
-        let scaledCount = 0, maxS = 0, sumS = 0;
-        scales.forEach(s => { sumS += s; if (s !== 1) scaledCount++; if (s > maxS) maxS = s; });
-        console.log(
-            `[iso-relayout] iters=${iterUsed} pipes=${scales.size} `
-            + `scaled=${scaledCount} avg=${(sumS / Math.max(1, scales.size)).toFixed(2)} `
-            + `max=${maxS.toFixed(2)} failed=${finalRun.failed.length} `
-            + `longLeaders=${finalRun.longLeaders.length}`
-        );
-    }
-
-    return { pipeOffsets: finalPipeOffsets, labelOffsets };
-}
 
 /**
  * Bir etiketin "objClip + gap" mesafelerini hesaplar — dir tabanlı konumlandırma için.

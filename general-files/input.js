@@ -656,9 +656,9 @@ function onKeyDown(e) {
     }
 
     // Mahal (room) seçili VEYA üzerinde hover iken harf girişi → mahal tanımlama
-    // MİMARİ ve KARMA modlarında çalışır, 2D sahnede
+    // Sadece MİMARİ modda ve 2D sahnede çalışır (TESİSAT/KARMA'da mahal tanımı açılmaz)
     const is2DScene   = !dom.mainContainer.classList.contains('show-3d');
-    const isArchMode  = state.currentDrawingMode === 'MİMARİ' || state.currentDrawingMode === 'KARMA';
+    const isArchMode  = state.currentDrawingMode === 'MİMARİ';
     if (is2DScene && isArchMode && /^[a-zA-ZçğıöşüÇĞİÖŞÜ]$/.test(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey) {
         let targetRoom = state.selectedRoom || null;
         if (targetRoom) {
@@ -1194,8 +1194,9 @@ export function setupInputListeners() {
         hidePlumbingContextMenu();
         hideDescriptionPopup();
 
-        // MİMARİ nesneler (oda/duvar/merdiven) — mod farketmeksizin kendi menüsü/paneli gelir
-        if (object && (object.type === 'room' || object.type === 'roomName')) {
+        // Mahal sağ-tık → sadece MİMARİ modda mahal tanım popup'ı açılır
+        // TESİSAT/KARMA modlarında mahal'a sağ tıklanırsa popup gelmez, plumbing menüsüne düşülür
+        if (object && (object.type === 'room' || object.type === 'roomName') && state.currentDrawingMode === 'MİMARİ') {
             showRoomNamePopup(object.object, e);
             return;
         }

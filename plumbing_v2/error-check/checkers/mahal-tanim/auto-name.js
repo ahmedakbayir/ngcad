@@ -583,14 +583,14 @@ export function nameFloor(floorId) {
         let wcAssigned = false;
         for (const r of antreNeighbors) {
             if (!NEEDS(r.name)) continue;
-            if (roomAreaM2(r) >= 3) continue;
+            if (roomAreaM2(r) >= 4) continue;
             if (roomDoorCount(r, walls, doors) > 1) continue;
             setName(r, 'WC');
             wcAssigned = true;
         }
 
         // C. BANYO — WC yoksa, antreye komşu en küçük + max 1 kapı
-        if (antre && !wcAssigned && !hasName('BANYO')) {
+        if (antre && !hasName('BANYO')) {
             const cand = antreNeighbors
                 .filter(r => NEEDS(r.name))
                 .filter(r => roomDoorCount(r, walls, doors) <= 1)
@@ -598,22 +598,14 @@ export function nameFloor(floorId) {
             if (cand[0]) setName(cand[0], 'BANYO');
         }
 
-        // D. BALKON — antreye komşu OLMAYAN + alan < 5 m²
+        // D. BALKON — antreye komşu OLMAYAN + alan < 6 m²
         for (const r of unit) {
             if (!NEEDS(r.name)) continue;
             if (antre && areAdjacent(antre, r, walls)) continue;
-            if (roomAreaM2(r) >= 5) continue;
+            if (roomAreaM2(r) >= 6) continue;
+            
             if (hasBalkonWall(r, walls)) setName(r, 'AÇIK BALKON');
             else                          setName(r, 'KAPALI BALKON');
-        }
-
-        // E. HOL — min 3 kapı + dış kapı yok (ANTRE değil)
-        for (const r of unit) {
-            if (!NEEDS(r.name)) continue;
-            if (r === antre) continue;
-            if (roomDoorCount(r, walls, doors) < 3) continue;
-            if (hasExteriorDoor(r, walls, doors, rooms)) continue;
-            setName(r, 'HOL');
         }
 
         // F. YATAK / MUTFAK / OTURMA — alan sırasına göre
@@ -644,11 +636,23 @@ export function nameFloor(floorId) {
             if (ranked[2] && !hasName('OTURMA ODASI')) setName(ranked[2], 'OTURMA ODASI');
         }
 
+
+        // E. HOL — min 3 kapı + dış kapı yok (ANTRE değil)
+        for (const r of unit) {
+            if (!NEEDS(r.name)) continue;
+            if (r === antre) continue;
+            if (roomAreaM2(r) >= 3) continue;
+            if (roomDoorCount(r, walls, doors) < 2) continue;
+            if (hasExteriorDoor(r, walls, doors, rooms)) continue;
+            setName(r, 'HOL');
+        }
+
+        
         // G. Kalanlar — >5 m² OTURMA ODASI, ≤5 m² HOL
         for (const r of unit) {
             if (!NEEDS(r.name)) continue;
             if (roomAreaM2(r) > 5) setName(r, 'OTURMA ODASI');
-            else                    setName(r, 'HOL');
+            else                    setName(r, 'YATAK ODASI');
         }
     };
 

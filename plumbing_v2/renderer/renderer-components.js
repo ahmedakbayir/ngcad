@@ -846,47 +846,63 @@ export const ComponentMixin = {
         else ctx.rect(connectionOffset - nutWidth / 2, connY - nutHeight, nutWidth, nutHeight);
         ctx.fill(); ctx.stroke();
 
-        // --- 5. SAYAÇ GÖVDESİ ---
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(width, height) / 1.5);
-        const colors = isLightMode() ? CUSTOM_COLORS.METER_GREEN.light : CUSTOM_COLORS.METER_GREEN.dark;
-
-        if (comp.isSelected) {
-            gradient.addColorStop(0, '#FFFFFF');
-            gradient.addColorStop(0.4, '#C0C0C0');
-            gradient.addColorStop(0.7, '#A0A0A0');
-            gradient.addColorStop(1, '#606060');
-        } else {
-            gradient.addColorStop(0, colors[0]);
-            gradient.addColorStop(0.3, colors[0.3]);
-            gradient.addColorStop(0.7, colors[0.7]);
-            gradient.addColorStop(1, colors[1]);
-        }
-
-        ctx.fillStyle = gradient;
-        const radius = 4;
+// --- 5. SAYAÇ GÖVDESİ (GERÇEKÇİ KÖRÜKLÜ SAYAÇ TASARIMI) ---
+        ctx.save();
+        
+        // 1. Dış Gövde Metalik Görünüm (Açık Gri / Beyaz Çelik Gövde)
+        ctx.fillStyle = comp.isSelected ? '#808080' : '#f5f6fa';
+        ctx.strokeStyle = comp.isSelected ? '#505050' : '#718093';
+        ctx.lineWidth = (comp.isSelected ? 2.5 : 1.5) / zoom;
+        ctx.lineJoin = 'round';
 
         ctx.beginPath();
+        const radius = 4;
         if (ctx.roundRect) ctx.roundRect(-width / 2, -height / 2, width, height, radius);
         else ctx.rect(-width / 2, -height / 2, width, height);
-        ctx.fill();
+        ctx.fill(); ctx.stroke();
 
-        ctx.lineWidth = 1.2 / zoom;
-        ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : colors[1];
-        ctx.stroke();
+        // 2. Alt Gövde Kıvrımı (Körüklü sayacın iki sac birleşim bombesi çizgisi)
+        if (!comp.isSelected) {
+            ctx.strokeStyle = '#b5b8c0';
+            ctx.lineWidth = 1 / zoom;
+            ctx.beginPath();
+            ctx.moveTo(-width / 2, height / 2 - height * 0.25);
+            ctx.lineTo(width / 2, height / 2 - height * 0.25);
+            ctx.stroke();
+        }
 
-        // Sayaç tipi yazısı (G4, G6, ... — karakter sayısına göre font küçülür)
+        // 3. Numaratör Ekranı (Üst Yarım Alandaki Gösterge Paneli)
+        const ew = width * 0.85;
+        const eh = height * 0.25;
+        ctx.fillStyle = '#dcdde1'; 
+        ctx.strokeStyle = '#2f3640';
+        ctx.lineWidth = 1 / zoom;
+        ctx.beginPath();
+        ctx.rect(-ew / 2, -height / 3, ew, eh);
+        ctx.fill(); ctx.stroke();
+
+        
+        // Siyah Haneler (Ana metreküp bölmesi - Sol Taraf)
+        ctx.fillStyle = '#2f3640';
+        ctx.fillRect(-ew / 2 + 1, -height / 3 + 1, ew * 0.72 - 1, eh - 2);
+        // 4. Kırmızı Haneler (Gaz tüketim küsurat bölmesi - Sağ Taraf)
+        ctx.fillStyle = '#e84118';
+        ctx.fillRect(ew / 2 - ew * 0.48, -height / 3 + 1, ew * 0.48 - 1, eh - 2);
+
+        // 5. Sayaç Tipi Yazısı (G4, G6 vb. Numaratörün Altında Marka Logosu Gibi Duracak)
         ctx.shadowBlur = 0;
-        ctx.fillStyle = '#222';
+        ctx.fillStyle = comp.isSelected ? '#fff' : '#2f3640';
         const tipText = comp.sayacTipi || 'G4';
-        const tipFontSize = tipText.length <= 3 ? 12 : tipText.length <= 4 ? 10 : 8;
-        ctx.font = `bold ${tipFontSize}px Arial`;
+        const tipFontSize = tipText.length <= 3 ? 11 : tipText.length <= 4 ? 9 : 7;
+        ctx.font = `bold ${tipFontSize}px "Segoe UI", Arial, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(tipText, 0, 2);
+        ctx.fillText(tipText, 0, height / 4);
 
-        ctx.restore(); // Her şeyi temizle
+        ctx.restore(); // Körüklü sayaç görsel stil save'ini kapatır
+
+        ctx.restore(); // Fonksiyonun en başındaki ana transform save'ini kapatır
     },
-
     /**
      * Tesisat aksesuarı (Filtre / İzolasyon Flanşı / Kompansatör / Manometre)
      * Boru üzerinde vana/regülatör gibi konumlanır. Sadece görseldir.
