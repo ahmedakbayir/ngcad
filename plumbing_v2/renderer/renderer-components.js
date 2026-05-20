@@ -131,6 +131,21 @@ export const ComponentMixin = {
     drawComponent(ctx, comp, manager) {
         ctx.save();
         const t = state.viewBlendFactor || 0;
+
+        // 3D Perspektif şematiği: cihaz hat doğrultusunda, hattın tam devamında.
+        // comp.x/y/z/rotation geçici olarak override edilir; finally'de geri yüklenir.
+        // Böylece drawKombi/drawOcak içindeki comp.x/y/rotation referansları da
+        // (fleks, getGirisNoktasi) aynı şematik konumu kullanır.
+        const persp = (comp.type === 'cihaz' && state.is3DPerspectiveActive)
+            ? this._computeCihazPerspSchematic(comp, manager, t)
+            : null;
+        let _origX, _origY, _origZ, _origRot;
+        if (persp) {
+            _origX = comp.x; _origY = comp.y; _origZ = comp.z; _origRot = comp.rotation;
+            comp.x = persp.x; comp.y = persp.y; comp.z = persp.z; comp.rotation = persp.rotation;
+        }
+
+        try {
         const z = (comp.z || 0) * t;
         ctx.translate(comp.x + z, comp.y - z);
 
@@ -174,8 +189,59 @@ export const ComponentMixin = {
                 this.drawRotationHandles(ctx, comp);
             }
         }
+        } finally {
+            if (persp) {
+                comp.x = _origX; comp.y = _origY; comp.z = _origZ; comp.rotation = _origRot;
+            }
+            ctx.restore();
+        }
+    },
 
-        ctx.restore();
+    /**
+     * 3D Perspektif şematik hesabı: cihazı hat doğrultusunda, hattın
+     * (pipe endpoint) tam devamında (fleks + cihaz yarı genişliği kadar
+     * uzakta) ve hattın iso-ekran doğrultusuyla hizalı şekilde konumlar.
+     * Hat sağa/sola/ileri/geri/yukarı/aşağı — hangi yöne olursa olsun.
+     * Dönüş: { x, y, z, rotation } veya null (hesaplanamazsa).
+     */
+    _computeCihazPerspSchematic(comp, manager, t) {
+        if (!manager || !comp.fleksBaglanti?.boruId || !comp.fleksBaglanti.endpoint) return null;
+        const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
+        if (!pipe) return null;
+        const ep = comp.fleksBaglanti.endpoint;
+        const endpoint = ep === 'p1' ? pipe.p1 : pipe.p2;
+        const otherEnd = ep === 'p1' ? pipe.p2 : pipe.p1;
+
+        const dx = endpoint.x - otherEnd.x;
+        const dy = endpoint.y - otherEnd.y;
+        const dz = (endpoint.z || 0) - (otherEnd.z || 0);
+        if (Math.hypot(dx, dy, dz) < 0.1) return null;
+
+        // İso-ekran (z-shift uygulanmış) yön: bu yöne göre hem rotasyon
+        // hem de hattın devamındaki ofset hesaplanır — vertical/eğik borularda
+        // da cihaz görsel olarak hat doğrultusunda devam eder.
+        const su = dx + dz * t;
+        const sv = dy - dz * t;
+        const sLen = Math.hypot(su, sv);
+        if (sLen < 0.1) return null;
+        const ux = su / sLen;
+        const uy = sv / sLen;
+
+        const flexLen = comp.fleksBaglanti.uzunluk || 30;
+        const halfW = (comp.config?.width || 30) / 2;
+        const dist = flexLen + halfW;
+        const rotation = Math.atan2(sv, su) * 180 / Math.PI;
+
+        // drawZ = endpoint.z → cihaz z-shift'i pipe endpoint'iyle aynı,
+        // böylece (drawX + drawZ*t, drawY - drawZ*t) çıkışı endpoint
+        // iso-ekran koordinatına eşitlenir; halfW + flexLen mesafesi
+        // tam olarak iso-ekranda gözükür.
+        return {
+            x: endpoint.x + dist * ux,
+            y: endpoint.y + dist * uy,
+            z: endpoint.z || 0,
+            rotation,
+        };
     },
 
     drawServisKutusu(ctx, comp) {

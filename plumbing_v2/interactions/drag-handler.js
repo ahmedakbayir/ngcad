@@ -1034,9 +1034,13 @@ export function handleDrag(interactionManager, point, event = null) {
 
 // 5. Cihaz Taşıma
     if (interactionManager.dragObject.type === 'cihaz') {
+        // 3D Perspektif şematik: cihaz hattın devamında sabittir, taşınmaz.
+        // (Konum 2D'de değiştirilebilir; 3D sahnede pipe doğrultusu belirler.)
+        if (state.is3DPerspectiveActive) return;
+
         const cihaz = interactionManager.dragObject;
         const oldPos = { x: cihaz.x, y: cihaz.y };
-        const oldZ = cihaz.z || 0; 
+        const oldZ = cihaz.z || 0;
         const t = state.viewBlendFactor || 0;
 
         let targetX = correctedPoint.x;
