@@ -21,6 +21,104 @@ const CLOSE_ID    = 'hata-kontrol-modal-close';
 const TRIGGER_ID  = 'menuHesapHataKontrol';
 const DETAIL_POPUP_ID = 'hk-detail-popup';
 
+// ─── Gruplandırma Dropdown State ve Mantığı (Yalnızca Düz Tekli Metin Seçimi) ───
+let hkGroupingState = [
+    { id: 'Genel', label: 'Genel', checked: true },
+    { id: 'Kat', label: 'Kat', checked: false },
+    { id: 'Birim', label: 'Birim', checked: false },
+    { id: 'Cihaz', label: 'Cihaz', checked: false }
+];
+
+function injectHataKontrolGrouping() {
+    const header = document.querySelector('.hk-modal-header');
+    if (!header) return;
+
+    // Tekrar eklenmesini önle
+    if (document.getElementById('hk-grouping-wrapper')) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.id = 'hk-grouping-wrapper';
+    wrapper.className = 'hk-grouping-container';
+    
+    wrapper.innerHTML = `
+        <span class="hk-grouping-label">Gruplandır</span>
+        <div class="hk-grouping-dropdown">
+            <button id="hk-grouping-btn" class="hk-grouping-btn">
+                <span id="hk-grouping-btn-text">Genel</span>
+                <span class="hk-grouping-btn-arrow">▾</span>
+            </button>
+            <div id="hk-grouping-menu" class="hk-grouping-menu"></div>
+        </div>
+    `;
+
+    // .hk-header-actions öğesinin (Yenile/Kapat butonları) hemen soluna yerleştirir
+    const actions = header.querySelector('.hk-header-actions');
+    if (actions) {
+        header.insertBefore(wrapper, actions);
+    } else {
+        header.appendChild(wrapper);
+    }
+
+    const btn = document.getElementById('hk-grouping-btn');
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wrapper.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) {
+            wrapper.classList.remove('open');
+        }
+    });
+
+    renderGroupingMenu();
+}
+
+function renderGroupingMenu() {
+    const wrapper = document.getElementById('hk-grouping-wrapper');
+    const menu = document.getElementById('hk-grouping-menu');
+    if (!menu) return;
+
+    menu.innerHTML = '';
+
+    hkGroupingState.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'hk-grouping-item' + (item.checked ? ' selected' : '');
+        row.dataset.index = index;
+
+        // Radio butonlar ve tüm ekstra işaretleyiciler/tutamaçlar tamamen kaldırıldı. Sadece yalın metin.
+        row.innerHTML = `<span class="hk-grouping-item-label">${item.label}</span>`;
+
+        // Satırın kendisine tıklandığında tekli seçim yapar ve menüyü kapatır
+        row.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // Seçimi tekli olarak güncelle
+            hkGroupingState.forEach(x => x.checked = (x.id === item.id));
+
+            updateGroupingButtonText();
+            renderGroupingMenu();
+            
+            // Seçim yapılınca dropdown listesini otomatik kapat
+            if (wrapper) wrapper.classList.remove('open');
+
+            runAndRender();
+        });
+
+        menu.appendChild(row);
+    });
+
+    updateGroupingButtonText();
+}
+
+function updateGroupingButtonText() {
+    const btnText = document.getElementById('hk-grouping-btn-text');
+    if (!btnText) return;
+
+    const selectedItem = hkGroupingState.find(item => item.checked);
+    btnText.textContent = selectedItem ? selectedItem.label : 'Seçiniz';
+}
+
 // ─── Modal aç/kapat ───────────────────────────────────────────────────────
 function getOverlay() { return document.getElementById(MODAL_ID); }
 function getBody()    { return document.getElementById(BODY_ID); }
@@ -30,8 +128,6 @@ function centerModal() {
     if (!overlay) return;
     const modal = overlay.querySelector('.hk-modal');
     if (!modal) return;
-    // Yatayda ortalanmış, dikeyde ekranın üst %10'una hizalanmış.
-    // max-height %70 → alt kenar ~%80'de kalır.
     const rect = modal.getBoundingClientRect();
     const left = Math.max(20, (window.innerWidth - rect.width) / 2);
     const top  = Math.max(20, Math.round(window.innerHeight * 0.10));
@@ -45,6 +141,10 @@ export function showHataKontrolModal() {
     overlay.style.display = 'block';
     centerModal();
     hideDetailPopup();
+    
+    // Açılış esnasında gruplandırma dropdown arayüzünü enjekte et
+    injectHataKontrolGrouping();
+    
     // Açılışta otomatik olarak kontrolü çalıştır.
     runAndRender();
 }
@@ -70,7 +170,7 @@ function makeDraggable() {
     let dragging = false, startX = 0, startY = 0, startLeft = 0, startTop = 0;
 
     header.addEventListener('mousedown', (e) => {
-        if (e.target.closest('.hk-modal-close')) return;
+        if (e.target.closest('.hk-modal-close') || e.target.closest('.hk-grouping-container')) return;
         dragging = true;
         const rect = modal.getBoundingClientRect();
         startX = e.clientX; startY = e.clientY;
@@ -105,13 +205,11 @@ function showToast(msg, duration = 1400) {
 }
 
 // ─── "Hataya git" yönlendiricisi ──────────────────────────────────────────
-// targets: [{ type:'hat', no:N } | { type:'path', hatNos:[..] } | { type:'comp', id } | { type:'pipe', id }]
 function navigateToTargets(targets) {
     if (!Array.isArray(targets) || targets.length === 0) {
         showToast('Bu hata için bir konum tanımlanmamış');
         return;
     }
-    // Birden fazla hat içeren bir "yol" varsa onu seç; aksi halde ilk hedef.
     const path = targets.find(t => t && t.type === 'path' && Array.isArray(t.hatNos) && t.hatNos.length);
     if (path) { selectPathInProject(path.hatNos); return; }
 
@@ -188,7 +286,6 @@ function escapeHtml(s) {
     }[c]));
 }
 
-// ─── Yer bilgisi (kat + daire) ────────────────────────────────────────────
 function dairePrefixFromComp(comp) {
     if (!comp) return '';
     const no = comp.birimNo;
@@ -209,7 +306,6 @@ function getManager() {
         || plumbingManager;
 }
 
-// Bir pipe'tan parent zincirini takip ederek üstteki sayacı bulur.
 function findMeterUpstream(manager, pipeId) {
     if (!pipeId || !manager?.pipes) return null;
     const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
@@ -238,7 +334,6 @@ function floorNameById(floorId) {
     return f?.name || '';
 }
 
-// hatNo → o hatta ait borular (cache'lenir; tek render içinde tek build).
 let _hatPipesCache = null;
 function buildHatPipesMap(manager) {
     if (_hatPipesCache) return _hatPipesCache;
@@ -302,10 +397,6 @@ function getLocationInfo(item) {
         }
     }
 
-    // Grup başına gösterim politikası:
-    //   • BASINC_KAYIP / TESISAT_HIZ → kolon hatasında KAT yazılmaz; yalnızca birim
-    //     (iç tesisat / sayaç sonrası) bulunduysa KAT + Daire yazılır.
-    //   • TASARIM / VANA_EKSIK / diğer → KAT her zaman, daire varsa eklenir.
     const onlyWithBirim = (item.group === 'BASINC_KAYIP' || item.group === 'TESISAT_HIZ');
     const fn = floorNameById(floorId);
     const parts = [];
@@ -321,7 +412,6 @@ function getLocationInfo(item) {
     return parts.join(' • ');
 }
 
-// Mesajı "(≤ ... olmalıdır)" suffix'i varsa ayırır.
 function splitLimitSuffix(message) {
     const re = /\s*(\(\s*[≤≥<>=].*?olmalıdır\s*\))\s*$/;
     const m = String(message || '').match(re);
@@ -332,8 +422,6 @@ function splitLimitSuffix(message) {
     };
 }
 
-// MAHAL_TANIM hatalarında "Zemin Kat: 7 mahalin tanımı eksik" gibi
-// mesajlarda baştaki kat ismi prefix'ini ayırır (silik render için).
 function splitFloorPrefix(item) {
     if (item.group !== 'MAHAL_TANIM') return { prefix: '', rest: String(item.message || '') };
     const m = String(item.message || '').match(/^([^:]+):\s*(.+)$/);
@@ -358,7 +446,6 @@ function renderResults() {
     const body = getBody();
     if (!body) return;
 
-    // Her render başında hat-pipes cache'ini sıfırla — proje değişebilir.
     _hatPipesCache = null;
 
     const grouped = errorCheckManager.getGroupedResults();
@@ -378,10 +465,8 @@ function renderResults() {
         const rows = items.map((it) => {
             const hasFix = !!(it.fix && typeof it.fix.apply === 'function');
             const loc = getLocationInfo(it);
-            // MAHAL_TANIM mesajları "Zemin Kat: …" formatında — kat ismi silik.
             const { prefix: floorPrefix, rest: msgRest } = splitFloorPrefix(it);
             const { main, limit } = splitLimitSuffix(msgRest);
-            // İki türlü "silik prefix" olabilir; ikisi de varsa loc önde gelir.
             const dimPrefix = loc || floorPrefix;
             const locHtml   = dimPrefix ? `<span class="hk-row-dim hk-row-loc">${escapeHtml(dimPrefix)}</span> ` : '';
             const mainHtml  = `<span class="hk-row-main">${escapeHtml(main)}</span>`;
@@ -418,7 +503,6 @@ function attachRowHandlers() {
     const body = getBody();
     if (!body) return;
 
-    // Grup başlığı: tıklayınca aç/kapa (fix butonu hariç)
     body.querySelectorAll('.hk-group-header').forEach(h => {
         h.addEventListener('click', (e) => {
             if (e.target.closest('.hk-group-fix-btn')) return;
@@ -426,7 +510,6 @@ function attachRowHandlers() {
         });
     });
 
-    // Grup "Hepsini Çöz"
     body.querySelectorAll('.hk-group-fix-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -443,7 +526,6 @@ function attachRowHandlers() {
         });
     });
 
-    // Satır gövdesi: çift tıklama → hataya git
     body.querySelectorAll('.hk-row').forEach(row => {
         row.addEventListener('dblclick', (e) => {
             if (e.target.closest('.hk-row-actions')) return;
@@ -453,7 +535,6 @@ function attachRowHandlers() {
         });
     });
 
-    // Satır: Hataya Git (ikon buton)
     body.querySelectorAll('.hk-goto-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const id = btn.closest('.hk-row')?.dataset.errorId;
@@ -463,7 +544,6 @@ function attachRowHandlers() {
         });
     });
 
-    // Satır: Detay Göster
     body.querySelectorAll('.hk-detail-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -474,7 +554,6 @@ function attachRowHandlers() {
         });
     });
 
-    // Satır: Çözüm Öner → inline kutu aç → [Uygula]
     body.querySelectorAll('.hk-fix-btn').forEach(btn => {
         if (btn.disabled) return;
         btn.addEventListener('click', () => {
@@ -507,7 +586,6 @@ function attachRowHandlers() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────
 export function initHataKontrolMenu() {
-    initGroupingDropdown(); // Gruplandırma dropdown panelini başlatır
     makeDraggable();
 
     const trigger  = document.getElementById(TRIGGER_ID);
@@ -534,14 +612,12 @@ export function initHataKontrolMenu() {
     }
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && overlay && overlay.style.display !== 'none') {
-            // Önce detay popup açıksa onu kapat
             const dp = document.getElementById(DETAIL_POPUP_ID);
             if (dp && dp.style.display !== 'none') { hideDetailPopup(); return; }
             hideHataKontrolModal();
         }
     });
 
-    // HESAP ikon paneli: Hata Kontrol butonu
     const iconBtn = document.getElementById('bHesapHataKontrol');
     if (iconBtn) {
         iconBtn.addEventListener('click', (e) => {
@@ -549,163 +625,4 @@ export function initHataKontrolMenu() {
             showHataKontrolModal();
         });
     }
-}
-
-// ─── Gruplandırma Seçenekleri State Yapısı ───────────────────────────────
-let groupingState = [
-    { id: 'Genel', label: 'Genel', checked: true, lock: true },
-    { id: 'Kat', label: 'Kat', checked: false, lock: false },
-    { id: 'Birim', label: 'Birim', checked: true, lock: false },
-    { id: 'Cihaz', label: 'Cihaz', checked: true, lock: false }
-];
-
-export function initGroupingDropdown() {
-    const root = document.getElementById('hk-custom-grouping-root');
-    if (!root) return;
-
-    // Ana bileşen şablonu oluşturuluyor
-    root.innerHTML = `
-        <div class="hk-grouping-container" id="hk-grouping-container">
-            <span class="hk-grouping-label">Gruplandır</span>
-            <button class="hk-grouping-trigger" id="hk-grouping-trigger">
-                <span id="hk-grouping-value-text">Genel-Birim-Cihaz</span>
-                <span class="hk-grouping-arrow">▼</span>
-            </button>
-            <div class="hk-grouping-menu" id="hk-grouping-menu"></div>
-        </div>
-    `;
-
-    const container = document.getElementById('hk-grouping-container');
-    const trigger = document.getElementById('hk-grouping-trigger');
-    const menu = document.getElementById('hk-grouping-menu');
-
-    // Dışarı tıklanınca menüyü kapatma
-    document.addEventListener('click', (e) => {
-        if (!container.contains(e.target)) {
-            container.classList.remove('active');
-        }
-    });
-
-    // Tetikleyici butona basınca aç/kapat
-    trigger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        container.classList.toggle('active');
-    });
-
-    renderMenu();
-}
-
-// Menü Elemanlarını ve Kuralları Render Eden Fonksiyon
-function renderMenu() {
-    const menu = document.getElementById('hk-grouping-menu');
-    if (!menu) return;
-
-    menu.innerHTML = '';
-
-    // Aktif olan "diğer" (kilitli olmayan) checkbox sayısı kontrol ediliyor
-    const activeOthersCount = groupingState.filter(item => !item.lock && item.checked).length;
-
-    groupingState.forEach((item, index) => {
-        const row = document.createElement('div');
-        row.className = 'hk-group-item';
-        row.draggable = true;
-        row.dataset.index = index;
-
-        // "Genel" her zaman en üstte durur kuralı varsa ilk satırın sürüklenmesini isteğe bağlı esnetebilirsiniz.
-        // Görselde hepsi taşınabilir göründüğü için drag aktif bırakılmıştır.
-
-        // Checkbox durumu yönetimi
-        let disableAttr = '';
-        if (item.lock) {
-            disableAttr = 'disabled'; // En üstteki (Genel) seçimi kaldırılamaz
-        } else if (item.checked && activeOthersCount <= 1) {
-            disableAttr = 'disabled'; // Diğerlerinden en az biri işaretli kalmak zorunda
-        }
-
-        row.innerHTML = `
-            <div class="hk-drag-handle">⋮⋮</div>
-            <label class="hk-checkbox-wrapper">
-                <input type="checkbox" data-id="${item.id}" ${item.checked ? 'checked' : ''} ${disableAttr}>
-            </label>
-            <div class="hk-item-text-box">${item.label}</div>
-        `;
-
-        // Checkbox Değişim Dinleyicisi
-        const checkbox = row.querySelector('input[type="checkbox"]');
-        checkbox.addEventListener('change', (e) => {
-            item.checked = e.target.checked;
-            updateTriggerText();
-            renderMenu(); // Duruma göre diğer butonların disabled durumunu güncellemek için yeniden çiz
-            
-            // Buraya gelindiğinde isterseniz ana tablonuzu yeniden gruplayacak fonksiyonu tetikleyebilirsiniz:
-            // Örn: onGroupingChanged(groupingState);
-        });
-
-        // Sürükle-Bırak Eventleri (HTML5 Drag & Drop)
-        row.addEventListener('dragstart', (e) => {
-            row.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', index);
-        });
-
-        row.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            const draggingRow = menu.querySelector('.hk-group-item.dragging');
-            if (!draggingRow || draggingRow === row) return;
-
-            const bounding = row.getBoundingClientRect();
-            const offset = e.clientY - bounding.top - bounding.height / 2;
-            if (offset > 0) {
-                row.after(draggingRow);
-            } else {
-                row.before(draggingRow);
-            }
-        });
-
-        row.addEventListener('drop', (e) => {
-            e.preventDefault();
-            reorderStateFromDOM();
-        });
-
-        row.addEventListener('dragend', () => {
-            row.classList.remove('dragging');
-            renderMenu(); // Sıralama sonrası disabled kontrollerini ve kilitleri tazelemek için
-        });
-
-        menu.appendChild(row);
-    });
-
-    updateTriggerText();
-}
-
-// DOM Sıralamasına Göre State'i Güncelleyen Fonksiyon
-function reorderStateFromDOM() {
-    const menu = document.getElementById('hk-grouping-menu');
-    const rows = Array.from(menu.querySelectorAll('.hk-group-item'));
-    
-    const newState = rows.map(row => {
-        const index = parseInt(row.dataset.index);
-        return groupingState[index];
-    });
-
-    // Kurallar: En üstte kalanın durum güncellemelerini korumak için lock parametresini dinamik yönetebilirsiniz.
-    // Mevcut yapıda "İlk eleman kim olursa olsun seçim kaldırılamaz" kuralı için:
-    newState.forEach((item, idx) => {
-        item.lock = (idx === 0); // Sürükleme sonrası en tepeye yerleşen kilitlenir.
-    });
-
-    groupingState = newState;
-    updateTriggerText();
-}
-
-// Seçili Grupları Tire (-) ile Birleştirip Butona Yazan Fonksiyon
-function updateTriggerText() {
-    const textEl = document.getElementById('hk-grouping-value-text');
-    if (!textEl) return;
-
-    const activeLabels = groupingState
-        .filter(item => item.checked)
-        .map(item => item.label);
-
-    textEl.textContent = activeLabels.join('-');
 }

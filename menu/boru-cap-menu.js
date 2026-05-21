@@ -552,21 +552,34 @@ export function cascadeHats(hats, fittingsByHat) {
 // ─── BİÇİMLENDİRME ─────────────────────────────────────────────────────────────
 const NF5 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 5, maximumFractionDigits: 5 });
 const NF4 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+const NF3 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const NF2 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const NF1 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-function f4(n) {
-    if (n == null || !isFinite(n)) return '–';
-    if (Math.abs(n) < 1e-9) return '0,0000';
-    return NF4.format(n);
-}
 function f5(n) {
     if (n == null || !isFinite(n)) return '–';
     if (Math.abs(n) < 1e-9) return '0,00000';
     return NF5.format(n);
 }
+function f4(n) {
+    if (n == null || !isFinite(n)) return '–';
+    if (Math.abs(n) < 1e-9) return '0,0000';
+    return NF4.format(n);
+}
+function f3(n) {
+    if (n == null || !isFinite(n)) return '–';
+    if (Math.abs(n) < 1e-9) return '0,000';
+    return NF3.format(n);
+}
 function f2(n) {
     if (n == null || !isFinite(n)) return '–';
+    if (Math.abs(n) < 1e-9) return '0,00';
     return NF2.format(n);
+}
+function f1(n) {
+    if (n == null || !isFinite(n)) return '–';
+    if (Math.abs(n) < 1e-9) return '0,0';
+    return NF1.format(n);
 }
 
 // ─── FITTINGS BREAKDOWN (HOVER HINT) ───────────────────────────────────────────
@@ -657,7 +670,7 @@ function renderRow(row, fittingsRow, cols) {
             <td class="bc-cell">${f5(row.P2_bar)}</td>`
         : `
             <td class="bc-cell">${f2(row.H_m)}</td>
-            <td class="bc-cell">${f4(row.dPA)}</td>`;
+            <td class="bc-cell">${f3(row.dPA)}</td>`;
 
     return `
         <tr data-hat-no="${row.hatNo}">
@@ -666,12 +679,12 @@ function renderRow(row, fittingsRow, cols) {
             <td class="bc-cell">${f2(row.L_m)}</td>
             <td class="bc-cell bc-dn">${dnSelect}</td>
             <td class="${vClass}" title="${vTitle}">${f2(row.v)}</td>
-            ${isHigh ? '' : `<td class="bc-cell">${f4(row.dPR_L)}</td>`}
-            <td class="bc-cell">${f4(row.dPR)}</td>
+            ${isHigh ? '' : `<td class="bc-cell">${f3(row.dPR_L)}</td>`}
+            <td class="bc-cell">${f3(row.dPR)}</td>
             <td class="bc-cell bc-xi" title="${escAttr(xiTooltip)}">${f2(row.sigmaXi)}</td>
-            <td class="bc-cell">${f4(row.dPF)}</td>
+            <td class="bc-cell">${f3(row.dPF)}</td>
             ${tailCells}
-            <td class="bc-cell bc-total">${f4(row.sumDP)}</td>
+            <td class="bc-cell bc-total">${f3(row.sumDP)}</td>
         </tr>`;
 }
 
@@ -712,27 +725,27 @@ function renderTable(rows, fittingsByHat, tabId) {
 // Limit (mbar) — bu değer ve üstü hatalı (kırmızı).
 export const PATH_LIMITS = {
     // 21 mbar kutu → sayaç (varsayılan kolon)
-    KOLON:                   1.0000,
+    KOLON:                   1.0,
     // 21 mbar kutu → branşman (ilerde kullanım)
-    KOLON_BRANSMAN:          0.7000,
+    KOLON_BRANSMAN:          0.7,
     // 21 mbar kutu → yan bina
-    KOLON_YANBINA:           0.4000,
+    KOLON_YANBINA:           0.4,
     // 300 mbar kutu → sayaç (regülatör yok)
-    KOLON_HIGH:             21.0000,
+    KOLON_HIGH:             21.0,
     // 300 mbar kutu → branşman (ilerde, regülatör yok)
-    KOLON_HIGH_BRANSMAN:    15.0000,
+    KOLON_HIGH_BRANSMAN:    15.0,
     // 300 mbar kutu → yan bina (regülatör yok)
-    KOLON_HIGH_YANBINA:     15.0000,
+    KOLON_HIGH_YANBINA:     15.0,
     // 300 mbar yolda regülatör sonrası → sayaç (regülatör sayaç öncesi)
-    REG_SAYAC:               1.0000,
+    REG_SAYAC:               1.0,
     // 300 mbar yolda regülatör sonrası → branşman (ilerde)
-    REG_BRANSMAN:            0.7000,
+    REG_BRANSMAN:            0.7,
     // 300 mbar yolda regülatör sonrası → yan bina
-    REG_YANBINA:             0.4000,
+    REG_YANBINA:             0.4,
     // Sayaç sonrası iç tesisat (cihaz)
-    TUKETIM:                 0.8000,
+    TUKETIM:                 0.8,
     // Sayaç sonrası regülatör → cihaz
-    REG_CIHAZ:               1.8000,
+    REG_CIHAZ:               1.8,
 };
 
 // Endpoint + start basıncı + regülatör varlığına göre yol limiti ve evalFromIdx
@@ -918,7 +931,7 @@ function renderPathItem(path) {
         path.isCritical ? 'critical' : '',
         path.overLimit  ? 'over'     : '',
     ].filter(Boolean).join(' ');
-    const limitStr = NF4.format(limit);
+    const limitStr = NF1.format(limit);
     const epLabel = path.endpointLabel || ENDPOINT_LABELS[path.endpointType] || '';
     const epHtml = epLabel ? `<span class="bc-path-endpoint">${epLabel}</span>` : '';
     // Sadece post-regülatör hatları göster — kayba bakılmayan (pre-reg) hatlar yol etiketinde yazılmaz.
@@ -928,7 +941,7 @@ function renderPathItem(path) {
             <span class="bc-path-status">${status}</span>
             <span class="bc-path-label">${displayHats.join(' + ')}</span>
             ${epHtml}
-            <span class="bc-path-value">${f4(value)} mbar</span>
+            <span class="bc-path-value">${f3(value)} mbar</span>
             <span class="bc-path-limit">&lt; ${limitStr} mbar</span>
         </button>`;
 }
@@ -1010,7 +1023,7 @@ function renderCriticalLine(groupLabel, p) {
         <button type="button" class="bc-crit-line ${cls}" data-hats="${p.hatNos.join(',')}">
             <span class="bc-crit-group-label">${groupLabel}</span>
             <span class="bc-crit-path">${displayHats.join('-')}</span>
-            <span class="bc-crit-eq">: ${f4(value)} ${cmp} ${NF4.format(limit)} mbar</span>
+            <span class="bc-crit-eq">: ${f3(value)} ${cmp} ${NF1.format(limit)} mbar</span>
             <span class="bc-crit-status">${status}</span>
         </button>`;
 }

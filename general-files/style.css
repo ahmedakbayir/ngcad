@@ -5493,147 +5493,127 @@ body {
 .hk-detail-text { display: block; margin-top: 4px; color: rgba(230, 232, 235, 0.85); }
 
 
-/* Gruplandırma Ana Konteyner */
+/* ═══════════════════════════════════════════════════════════════ */
+/* HATA KONTROL - PANELE ENTEGRE YALIN TEKLİ SEÇİM PANELİ         */
+/* ═══════════════════════════════════════════════════════════════ */
+
+/* Ana Yerleşim Konteyneri */
 .hk-grouping-container {
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    position: relative;
+    gap: 8px;
+    margin: 0 14px;
+    font-family: inherit;
     user-select: none;
-    margin: 0 15px;
+    pointer-events: auto; /* Modal başlığı altındaki tıklama engelini çözer */
 }
 
+/* "Gruplandır" Seçenek Metni */
 .hk-grouping-label {
-    color: #ffffff;
-    font-size: 14px;
-    font-weight: 500;
+    color: var(--color-secondary);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
-/* Dropdown Tetikleyici Buton (Kapalı Durum) */
-.hk-grouping-trigger {
-    background: #000000;
-    border: 1px solid #ffffff;
-    color: #ffffff;
-    padding: 4px 10px;
-    font-size: 14px;
+.hk-grouping-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+/* Ana Tetikleyici Kutu Butonu - Kontrast azaltıldı, tamamen panele entegre edildi */
+.hk-grouping-btn {
+    background: var(--bg-input) !important;
+    border: 1px solid var(--border-panel) !important; /* Düşük kontrastlı panel çizgileri */
+    color: var(--color-text) !important;
+    padding: 0 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 6px !important;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-width: 160px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: border-color 0.2s;
+    width: 110px; /* Sadece tek kelime görüneceği için ideal kompakt genişlik */
+    height: 32px;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.hk-grouping-trigger:hover, .hk-grouping-container.active .hk-grouping-trigger {
-    border-color: #ff9800; /* Görseldeki turuncu vurgu hattı */
+.hk-grouping-btn:hover,
+.hk-grouping-container.open .hk-grouping-btn {
+    border-color: var(--border-button-active) !important;
+    box-shadow: inset 0 0 0 1px var(--border-button-active);
 }
 
-.hk-grouping-arrow {
+.hk-grouping-btn-arrow {
+    margin-left: 6px;
     font-size: 10px;
-    margin-left: 10px;
-    transition: transform 0.2s;
+    color: var(--color-secondary);
+    opacity: 0.7;
 }
 
-.hk-grouping-container.active .hk-grouping-arrow {
-    transform: rotate(180deg);
-}
-
-/* Açılır Menü (Açık Durum) */
+/* Açılır Seçim Menüsü Kutusu */
 .hk-grouping-menu {
     display: none;
     position: absolute;
     top: 100%;
-    right: 0;
-    margin-top: 5px;
-    background: #ffffff;
-    border: 1px solid #ccc;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    z-index: 1000;
-    padding: 6px;
-    min-width: 160px;
-    border-radius: 2px;
-}
-
-.hk-grouping-container.active .hk-grouping-menu {
-    display: block;
-}
-
-/* Her Bir Seçenek Satırı */
-.hk-group-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    left: 0;
+    margin-top: 4px;
+    background: var(--bg-popup) !important;
+    border: 1px solid var(--border-panel) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     padding: 4px;
-    background: #ffffff;
-    cursor: grab;
-    transition: background 0.15s;
+    width: 110px; /* Üst tetikleyici buton ile tam aynı genişlik */
+    z-index: 10005;
+    border-radius: 6px !important;
+    flex-direction: column;
+    gap: 2px;
+    box-sizing: border-box;
 }
 
-.hk-group-item.dragging {
-    opacity: 0.4;
-    background: #f0f0f0;
-    cursor: grabbing;
+.hk-grouping-container.open .hk-grouping-menu {
+    display: flex;
 }
 
-/* Sürükleme Tutamacı (:: İkonu) */
-.hk-drag-handle {
-    color: #888888;
-    font-size: 12px;
-    letter-spacing: 1px;
-    cursor: grab;
-    padding: 0 2px;
-}
-
-/* Custom Checkbox Tasarımı */
-.hk-checkbox-wrapper {
-    display: inline-flex;
-    align-items: center;
-    cursor: pointer;
-    position: relative;
-}
-
-.hk-checkbox-wrapper input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
-    background: #2a2d32;
-    border: 1px solid #555;
-    border-radius: 2px;
-    cursor: pointer;
+/* Listelenen Satır Öğeleri - Radio ve tutamaç barındırmayan düz şeritler */
+.hk-grouping-item {
     display: flex;
     align-items: center;
-    justify-content: center;
-    transition: background 0.1s;
-}
-
-.hk-checkbox-wrapper input[type="checkbox"]:checked {
-    background: #007acc; /* Mavi onay rengi */
-    border-color: #007acc;
-}
-
-.hk-checkbox-wrapper input[type="checkbox"]:checked::after {
-    content: '✓';
-    color: #ffffff;
-    font-size: 11px;
-    font-weight: bold;
-}
-
-.hk-checkbox-wrapper input[type="checkbox"]:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* Metin Kutuları kutucuk efekti */
-.hk-item-text-box {
-    border: 1px solid #b0b5bc;
+    padding: 6px 10px;
     border-radius: 4px;
-    padding: 2px 8px;
-    background: #ffffff;
-    color: #000000;
-    font-size: 14px;
-    flex-grow: 1;
-    pointer-events: none; /* Tıklamayı engellemek için */
+    background: transparent !important;
+    transition: background 0.12s, color 0.12s;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+/* Liste elemanı seçildiğinde veya üzerine gelindiğinde (Hover/Selected) */
+.hk-grouping-item:hover {
+    background: var(--ctx-hover-bg, var(--bg-button-hover)) !important;
+}
+
+.hk-grouping-item.selected {
+    background: var(--bg-button-active) !important;
+    color: var(--color-button-active) !important;
+}
+
+/* Seçenek Metin Alanı */
+.hk-grouping-item-label {
+    color: inherit;
+    font-size: 11.5px;
+    font-weight: 500;
+    flex: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    line-height: 1.2;
+    text-align: left;
+    user-select: none;
+}
+
+/* Herhangi bir gizli input kalıntısını ezmek için */
+.hk-grouping-item input {
+    display: none !important;
 }
