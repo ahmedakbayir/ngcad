@@ -40,6 +40,11 @@ function toWorldOffset(dx, dy) {
     return { dwx, dwy };
 }
 
+// Fiziksel bağlantı noktası için ortak ID oluşturur (Kopmaları önlemek için)
+function getJointKey(p) {
+    return `${Math.round(p.x)}_${Math.round(p.y)}_${Math.round(p.z || 0)}`;
+}
+
 /**
  * 3D Perspektif motorunu kandırmak için Proxy (Kopya) Manager.
  * Tüm nesnelerin konumları, kullanıcının yaptığı izometrik offset'lere göre kaydırılır.
@@ -47,15 +52,61 @@ function toWorldOffset(dx, dy) {
 function createIsoProxyManager(manager) {
     const proxyManager = Object.create(manager);
     
-    // 1. Boruları kaydır
+    // 1. JOINT OFSET HARİTASI (Kopmaları ve fırlamaları kesin çözer)
+    const jointOffsets = new Map();
+    
+    // Önce kullanıcı tarafından yapılmış manuel sürüklemeleri Joint'lere kaydet
+    manager.pipes.forEach(pipe => {
+        const off = state.isoPipeOffsets?.[pipe.id];
+        if (off) {
+            if (off.startDx || off.startDy) {
+                jointOffsets.set(getJointKey(pipe.p1), toWorldOffset(off.startDx, off.startDy));
+            }
+            if (off.endDx || off.endDy) {
+                jointOffsets.set(getJointKey(pipe.p2), toWorldOffset(off.endDx, off.endDy));
+            }
+        }
+    });
+
+    // Dikey Boru Koruması (Propagasyon):
+    // Dikey bir borunun bir ucu sürüklendiyse, diğer ucunun da aynı miktarda sürüklenmesini sağla.
+    // Böylece dikey boru asla eğilmez ve rengini kaybetmez.
+    const isVertical = (p) => {
+        const dx = p.p2.x - p.p1.x;
+        const dy = p.p2.y - p.p1.y;
+        const dz = (p.p2.z || 0) - (p.p1.z || 0);
+        return Math.hypot(dx, dy) < 2.0 && Math.abs(dz) > 1.0;
+    };
+
+    for (let i = 0; i < 5; i++) {
+        let changed = false;
+        manager.pipes.forEach(pipe => {
+            if (isVertical(pipe)) {
+                const k1 = getJointKey(pipe.p1);
+                const k2 = getJointKey(pipe.p2);
+                const off1 = jointOffsets.get(k1);
+                const off2 = jointOffsets.get(k2);
+                
+                if (off1 && !off2) {
+                    jointOffsets.set(k2, { ...off1 });
+                    changed = true;
+                } else if (off2 && !off1) {
+                    jointOffsets.set(k1, { ...off2 });
+                    changed = true;
+                }
+            }
+        });
+        if (!changed) break; // Dengelenme tamamlandı
+    }
+    
+    // 2. Kopya (Proxy) boruları Joint haritasındaki net ofsetlere göre kaydır
     proxyManager.pipes = manager.pipes.map(pipe => {
-        const off = state.isoPipeOffsets?.[pipe.id] || {};
-        const sw = toWorldOffset(off.startDx || 0, off.startDy || 0);
-        const ew = toWorldOffset(off.endDx || 0, off.endDy || 0);
-        
         const proxyPipe = Object.create(pipe);
-        proxyPipe.p1 = { ...pipe.p1, x: pipe.p1.x + sw.dwx, y: pipe.p1.y + sw.dwy };
-        proxyPipe.p2 = { ...pipe.p2, x: pipe.p2.x + ew.dwx, y: pipe.p2.y + ew.dwy };
+        const off1 = jointOffsets.get(getJointKey(pipe.p1)) || { dwx: 0, dwy: 0 };
+        const off2 = jointOffsets.get(getJointKey(pipe.p2)) || { dwx: 0, dwy: 0 };
+        
+        proxyPipe.p1 = { ...pipe.p1, x: pipe.p1.x + off1.dwx, y: pipe.p1.y + off1.dwy };
+        proxyPipe.p2 = { ...pipe.p2, x: pipe.p2.x + off2.dwx, y: pipe.p2.y + off2.dwy };
         return proxyPipe;
     });
     
@@ -63,7 +114,7 @@ function createIsoProxyManager(manager) {
         return this.pipes.find(p => p.id === id);
     };
     
-    // 2. Cihaz ve bileşenleri "Vektörel Kilit" ile kaydır. Asla bozulmazlar.
+    // 3. Cihaz ve bileşenleri "Vektörel Kilit" ile kaydır. 
     proxyManager.components = manager.components.map(comp => {
         const proxyComp = Object.create(comp);
         proxyComp.x = comp.x; proxyComp.y = comp.y; proxyComp.z = comp.z || 0;
@@ -75,7 +126,6 @@ function createIsoProxyManager(manager) {
             manualDwx = wOff.dwx; manualDwy = wOff.dwy;
         }
 
-        // Ana kilit (Anchor) noktasını bulup orijinal vektörü kopyala
         let anchorOrig = null;
         let anchorProxy = null;
 
@@ -123,9 +173,9 @@ function createIsoProxyManager(manager) {
             }
         }
 
-        // Cihazın orijinal noktasından ne kadar uzaklaştığını aynen koru
+        // Cihazın ofseti anchor noktasıyla %100 senkron çalışır. Çifte ofset yaratmaz.
         if (anchorOrig && anchorProxy) {
-            proxyComp.x = anchorProxy.x + (comp.x - anchorOrig.x) + manualDwx;
+            proxyComp.x = anchorProxy.x + (comp.x - anchorOrig.x) + manualDwx;  
             proxyComp.y = anchorProxy.y + (comp.y - anchorOrig.y) + manualDwy;
         } else {
             proxyComp.x += manualDwx;
@@ -241,7 +291,7 @@ window.getIsoEndpointAtMouse = function (mouseX, mouseY) {
 };
 
 
-// ─── İZOMETRİK ETİKETLEME SİSTEMİ ─────────────────────────────────────────────
+// ─── İZOMETRİK ETİKETLEME SİSTEMI (Kenarlıksız / Arka plansız) ─────────────────
 
 const SAYAC_TURU_LABEL_ISO = { 'KÖRÜKLÜ': '', 'ROTARY': 'Rotary Sayaç', 'TÜRBİN': 'Türbin Sayaç' };
 let _isoLabelBBoxes = [];
@@ -255,10 +305,7 @@ function _isoLabelTheme() {
         textColor: light ? '#0a0e16' : '#f3f4f8',
         subColor: light ? '#25272c' : '#c8ced8',
         accentColor: light ? '#153692' : '#a2cbfc',
-        bgColor: light ? 'rgba(255,255,255,0.90)' : 'rgba(20,20,35,0.90)',
-        borderColor: light ? 'rgba(0,0,0,0.30)' : 'rgba(255,255,255,0.30)',
         connColor: light ? 'rgba(85,85,85,0.85)' : 'rgba(200,200,200,0.85)',
-        accentBar: light ? 'rgba(29,78,216,0.60)' : 'rgba(96,165,250,0.60)',
     };
 }
 
@@ -274,6 +321,7 @@ function _resolveLabelAnchorByDir(cx, cy, clip, boxW, boxH, dir, defaultStyle) {
     return { ax: cx + clip + gap, ay: cy, style: 'left-center' };
 }
 
+// Etiketler arka plansız, kenarlıksız (sadece metin + isteğe bağlı hizalama çizgisi)
 function _drawIsoLabelBox(ctx, id, ax, ay, cx, cy, lines, objClip, forceStyle) {
     const visLines = lines.filter(l => l && l.text);
     if (visLines.length === 0) return;
@@ -312,18 +360,6 @@ function _drawIsoLabelBox(ctx, id, ax, ay, cx, cy, lines, objClip, forceStyle) {
             ctx.beginPath(); ctx.moveTo(cx + ux * tObj, cy + uy * tObj); ctx.lineTo(lx - ux * tLab, ly - uy * tLab); ctx.stroke();
         }
     }
-
-    ctx.fillStyle = T.bgColor; ctx.strokeStyle = T.borderColor; ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(bx, by, boxW, boxH, 2.5);
-    else ctx.rect(bx, by, boxW, boxH);
-    ctx.fill(); ctx.stroke();
-
-    ctx.strokeStyle = T.accentBar; ctx.lineWidth = 2; ctx.lineCap = 'round';
-    ctx.beginPath();
-    if (style === 'top-center') { ctx.moveTo(bx + 2.5, by + 1); ctx.lineTo(bx + boxW - 2.5, by + 1); }
-    else { ctx.moveTo(bx + 1, by + 2.5); ctx.lineTo(bx + 1, by + boxH - 2.5); }
-    ctx.stroke(); ctx.lineCap = 'butt';
 
     let ty = by + pad * 0.4 + fontSize;
     visLines.forEach(l => {
@@ -435,52 +471,121 @@ function drawIsometricComponentLabels(ctx, proxyManager) {
     });
 }
 
-// ─── DİKEY BORULARIN BOY ETİKETLERİ (YENİ VE KONTRASTLI) ───
+// Gruplanmış Dikey Boru Etiketleri
 function drawVerticalPipeLabelsIso(ctx, proxyManager) {
     const isLightMode = document.body.classList.contains('light-mode');
-    
-    // Arkaplanla kesinlikle karışmaması için saf beyaz/siyah (Zıt renkler)
-    const boxBg = isLightMode ? '#ffffff' : '#222222';
-    const boxBorder = isLightMode ? '#000000' : '#ffffff';
     const textColor = isLightMode ? '#000000' : '#ffffff';
-
+    
     ctx.font = 'bold 11px "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     
-    proxyManager.pipes.forEach(pipe => {
-        if (!pipe.p1 || !pipe.p2) return;
-        
+    // Yalnızca orijinal boruları temel al (Eğilme/sündürmelerden etkilenmez)
+    const originalPipes = plumbingManager.pipes;
+    const vertPipes = originalPipes.filter(pipe => {
+        if (!pipe.p1 || !pipe.p2) return false;
         const dx = pipe.p2.x - pipe.p1.x;
         const dy = pipe.p2.y - pipe.p1.y;
         const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
-        
-        if (Math.hypot(dx, dy) < 2.0 && Math.abs(dz) > 1.0) {
-            const start = toIsometric(pipe.p1.x, pipe.p1.y, pipe.p1.z || 0);
-            const end = toIsometric(pipe.p2.x, pipe.p2.y, pipe.p2.z || 0);
-            const midX = (start.isoX + end.isoX) / 2;
-            const midY = (start.isoY + end.isoY) / 2;
-            
-            // "3.0m" (h= ve sıfırlar kaldırıldı, tek ondalık)
-            const hText = `${(Math.abs(dz) / 100).toFixed(1)}m`;
-            
-            ctx.save();
-            const tw = ctx.measureText(hText).width;
-            
-            ctx.fillStyle = boxBg;
-            ctx.strokeStyle = boxBorder;
-            ctx.lineWidth = 1;
-            
-            if (ctx.roundRect) ctx.roundRect(midX + 6, midY - 9, tw + 6, 18, 3);
-            else ctx.rect(midX + 6, midY - 9, tw + 6, 18);
-            
-            ctx.fill();
-            ctx.stroke();
-            
-            ctx.fillStyle = textColor;
-            ctx.fillText(hText, midX + 9, midY);
-            ctx.restore();
+        return Math.hypot(dx, dy) < 2.0 && Math.abs(dz) > 1.0;
+    });
+
+    const visited = new Set();
+    const groups = [];
+
+    // Uç uca bağlı dikey boruları bul ve grupla (Kopuk parçaları toplar)
+    vertPipes.forEach(startPipe => {
+        if (visited.has(startPipe.id)) return;
+        const group = [];
+        const queue = [startPipe];
+        visited.add(startPipe.id);
+
+        while(queue.length > 0) {
+            const curr = queue.shift();
+            group.push(curr);
+
+            vertPipes.forEach(other => {
+                if (!visited.has(other.id)) {
+                    // Bağlantı noktası toleransı 1cm
+                    if (
+                        (Math.abs(curr.p1.x - other.p1.x) < 1 && Math.abs(curr.p1.y - other.p1.y) < 1 && Math.abs((curr.p1.z||0) - (other.p1.z||0)) < 1) ||
+                        (Math.abs(curr.p1.x - other.p2.x) < 1 && Math.abs(curr.p1.y - other.p2.y) < 1 && Math.abs((curr.p1.z||0) - (other.p2.z||0)) < 1) ||
+                        (Math.abs(curr.p2.x - other.p1.x) < 1 && Math.abs(curr.p2.y - other.p1.y) < 1 && Math.abs((curr.p2.z||0) - (other.p1.z||0)) < 1) ||
+                        (Math.abs(curr.p2.x - other.p2.x) < 1 && Math.abs(curr.p2.y - other.p2.y) < 1 && Math.abs((curr.p2.z||0) - (other.p2.z||0)) < 1)
+                    ) {
+                        visited.add(other.id);
+                        queue.push(other);
+                    }
+                }
+            });
         }
+        groups.push(group);
+    });
+
+    groups.forEach(group => {
+        let totalDz = 0;
+        let sumIsoX = 0;
+        let sumIsoY = 0;
+        let validCount = 0;
+
+        // Orijinal h değerlerini topla ve ekranın ortasına (proxy) sabitle
+        group.forEach(pipe => {
+            totalDz += Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
+            
+            const proxyP = proxyManager.pipes.find(pp => pp.id === pipe.id);
+            if (proxyP && proxyP.p1 && proxyP.p2) {
+                const start = toIsometric(proxyP.p1.x, proxyP.p1.y, proxyP.p1.z || 0);
+                const end = toIsometric(proxyP.p2.x, proxyP.p2.y, proxyP.p2.z || 0);
+                sumIsoX += (start.isoX + end.isoX) / 2;
+                sumIsoY += (start.isoY + end.isoY) / 2;
+                validCount++;
+            }
+        });
+
+        if (validCount === 0 || totalDz < 1.0) return;
+
+        const midX = sumIsoX / validCount;
+        const midY = sumIsoY / validCount;
+        
+        const repId = group[0].id; // Sütun temsilcisi ID'si
+        const hText = `h=${(totalDz / 100).toFixed(2)}m`;
+        
+        const tw = ctx.measureText(hText).width;
+        const boxW = tw + 6;
+        const boxH = 18;
+        
+        let bx = midX + 6;
+        let by = midY - 9;
+        
+        const stored = state.isoLabelOffsets?.[`vert_${repId}`];
+        if (stored && stored.dax != null) {
+            bx = midX + stored.dax;
+            by = midY + stored.day;
+        } else if (stored && stored.dir != null) {
+            const gap = 12;
+            switch(stored.dir) {
+                case 0: bx = midX; by = midY - gap - boxH; break;
+                case 1: bx = midX + gap; by = midY - boxH/2; break;
+                case 2: bx = midX; by = midY + gap; break;
+                case 3: bx = midX - gap - boxW; by = midY - boxH/2; break;
+            }
+        }
+        
+        _isoLabelBBoxes.push({
+            id: `vert_${repId}`,
+            bx: bx,
+            by: by,
+            bw: boxW,
+            bh: boxH,
+            style: 'left-center',
+            cx: midX,
+            cy: midY
+        });
+        
+        ctx.save();
+        ctx.fillStyle = textColor;
+        ctx.fillText(hText, bx + 3, by + boxH/2);
+        ctx.restore();
     });
 }
 
@@ -519,12 +624,22 @@ function drawPipeLabelsIso(ctx, proxyManager) {
     });
 
     sections.forEach(({ hatNo, pipes }) => {
-        let chosen = pipes[0]; let maxLen = 0; let totalLen = 0;
+        let chosen = pipes[0]; let maxProxyLen = 0; let totalLen = 0;
+        
+        // BORU UZUNLUKLARI ORİJİNAL (GERÇEK) DEĞERLER ÜZERİNDEN HESAPLANIR
         pipes.forEach(p => {
             if (!p.p1 || !p.p2) return;
-            const len = Math.hypot(p.p2.x - p.p1.x, p.p2.y - p.p1.y, (p.p2.z || 0) - (p.p1.z || 0));
-            totalLen += len; if (len > maxLen) { maxLen = len; chosen = p; }
+            const origPipe = plumbingManager.pipes.find(op => op.id === p.id);
+            if (origPipe && origPipe.p1 && origPipe.p2) {
+                const realLen = Math.hypot(origPipe.p2.x - origPipe.p1.x, origPipe.p2.y - origPipe.p1.y, (origPipe.p2.z || 0) - (origPipe.p1.z || 0));
+                totalLen += realLen;
+            }
+            
+            // Etiketi en uzun çizilen hatta bağlamak için Proxy boyunu referans alırız
+            const proxyLen = Math.hypot(p.p2.x - p.p1.x, p.p2.y - p.p1.y, (p.p2.z || 0) - (p.p1.z || 0));
+            if (proxyLen > maxProxyLen) { maxProxyLen = proxyLen; chosen = p; }
         });
+        
         if (!chosen || !chosen.p1 || !chosen.p2) return;
 
         const a = toIsometric(chosen.p1.x, chosen.p1.y, chosen.p1.z || 0);
@@ -561,13 +676,14 @@ function drawPipeLabelsIso(ctx, proxyManager) {
             ctx.beginPath(); ctx.moveTo(midX, midY); ctx.lineTo(lx - (lx - midX) / Math.hypot(lx - midX, ly - midY) * (boxW / 2), ly - (ly - midY) / Math.hypot(lx - midX, ly - midY) * (boxH / 2)); ctx.stroke();
         }
 
-        ctx.fillStyle = T.bgColor; ctx.strokeStyle = T.borderColor; ctx.lineWidth = 0.8;
-        ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(bx, by, boxW, boxH, 3); else ctx.rect(bx, by, boxW, boxH);
-        ctx.fill(); ctx.stroke();
-
+        // TURUNCU AYIRAÇ ÇİZGİSİ (Kullanıcının talep ettiği şematik çizgi)
         if (infoCellW > 0) {
-            ctx.strokeStyle = T.borderColor; ctx.lineWidth = 0.5;
-            ctx.beginPath(); ctx.moveTo(bx + numCellW, by + pad); ctx.lineTo(bx + numCellW, by + boxH - pad); ctx.stroke();
+            ctx.strokeStyle = '#e85d04'; 
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); 
+            ctx.moveTo(bx + numCellW, by + pad); 
+            ctx.lineTo(bx + numCellW, by + boxH - pad); 
+            ctx.stroke();
         }
 
         ctx.font = `bold ${numFontSize}px "Segoe UI",sans-serif`; ctx.fillStyle = hatNo >= 300 ? '#8d2121' : T.accentColor;
@@ -773,8 +889,6 @@ export function relayoutIsoLabels(manager) {
 }
 
 // ─── GERİYE DÖNÜK UYUMLULUK (COMPATIBILITY) EKLENTİLERİ ─────────────────────
-// draw2d.js gibi diğer dosyaların "import" hatası vermemesi için eklenmiştir.
-
 export function drawIsometricPipes(ctx) { }
 export function drawIsometricComponents(ctx) { }
 export function angleToIsometric(angle) {

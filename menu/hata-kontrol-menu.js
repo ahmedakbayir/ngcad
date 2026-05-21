@@ -507,6 +507,7 @@ function attachRowHandlers() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────
 export function initHataKontrolMenu() {
+    initGroupingDropdown(); // Gruplandırma dropdown panelini başlatır
     makeDraggable();
 
     const trigger  = document.getElementById(TRIGGER_ID);
@@ -548,4 +549,163 @@ export function initHataKontrolMenu() {
             showHataKontrolModal();
         });
     }
+}
+
+// ─── Gruplandırma Seçenekleri State Yapısı ───────────────────────────────
+let groupingState = [
+    { id: 'Genel', label: 'Genel', checked: true, lock: true },
+    { id: 'Kat', label: 'Kat', checked: false, lock: false },
+    { id: 'Birim', label: 'Birim', checked: true, lock: false },
+    { id: 'Cihaz', label: 'Cihaz', checked: true, lock: false }
+];
+
+export function initGroupingDropdown() {
+    const root = document.getElementById('hk-custom-grouping-root');
+    if (!root) return;
+
+    // Ana bileşen şablonu oluşturuluyor
+    root.innerHTML = `
+        <div class="hk-grouping-container" id="hk-grouping-container">
+            <span class="hk-grouping-label">Gruplandır</span>
+            <button class="hk-grouping-trigger" id="hk-grouping-trigger">
+                <span id="hk-grouping-value-text">Genel-Birim-Cihaz</span>
+                <span class="hk-grouping-arrow">▼</span>
+            </button>
+            <div class="hk-grouping-menu" id="hk-grouping-menu"></div>
+        </div>
+    `;
+
+    const container = document.getElementById('hk-grouping-container');
+    const trigger = document.getElementById('hk-grouping-trigger');
+    const menu = document.getElementById('hk-grouping-menu');
+
+    // Dışarı tıklanınca menüyü kapatma
+    document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+            container.classList.remove('active');
+        }
+    });
+
+    // Tetikleyici butona basınca aç/kapat
+    trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        container.classList.toggle('active');
+    });
+
+    renderMenu();
+}
+
+// Menü Elemanlarını ve Kuralları Render Eden Fonksiyon
+function renderMenu() {
+    const menu = document.getElementById('hk-grouping-menu');
+    if (!menu) return;
+
+    menu.innerHTML = '';
+
+    // Aktif olan "diğer" (kilitli olmayan) checkbox sayısı kontrol ediliyor
+    const activeOthersCount = groupingState.filter(item => !item.lock && item.checked).length;
+
+    groupingState.forEach((item, index) => {
+        const row = document.createElement('div');
+        row.className = 'hk-group-item';
+        row.draggable = true;
+        row.dataset.index = index;
+
+        // "Genel" her zaman en üstte durur kuralı varsa ilk satırın sürüklenmesini isteğe bağlı esnetebilirsiniz.
+        // Görselde hepsi taşınabilir göründüğü için drag aktif bırakılmıştır.
+
+        // Checkbox durumu yönetimi
+        let disableAttr = '';
+        if (item.lock) {
+            disableAttr = 'disabled'; // En üstteki (Genel) seçimi kaldırılamaz
+        } else if (item.checked && activeOthersCount <= 1) {
+            disableAttr = 'disabled'; // Diğerlerinden en az biri işaretli kalmak zorunda
+        }
+
+        row.innerHTML = `
+            <div class="hk-drag-handle">⋮⋮</div>
+            <label class="hk-checkbox-wrapper">
+                <input type="checkbox" data-id="${item.id}" ${item.checked ? 'checked' : ''} ${disableAttr}>
+            </label>
+            <div class="hk-item-text-box">${item.label}</div>
+        `;
+
+        // Checkbox Değişim Dinleyicisi
+        const checkbox = row.querySelector('input[type="checkbox"]');
+        checkbox.addEventListener('change', (e) => {
+            item.checked = e.target.checked;
+            updateTriggerText();
+            renderMenu(); // Duruma göre diğer butonların disabled durumunu güncellemek için yeniden çiz
+            
+            // Buraya gelindiğinde isterseniz ana tablonuzu yeniden gruplayacak fonksiyonu tetikleyebilirsiniz:
+            // Örn: onGroupingChanged(groupingState);
+        });
+
+        // Sürükle-Bırak Eventleri (HTML5 Drag & Drop)
+        row.addEventListener('dragstart', (e) => {
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', index);
+        });
+
+        row.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const draggingRow = menu.querySelector('.hk-group-item.dragging');
+            if (!draggingRow || draggingRow === row) return;
+
+            const bounding = row.getBoundingClientRect();
+            const offset = e.clientY - bounding.top - bounding.height / 2;
+            if (offset > 0) {
+                row.after(draggingRow);
+            } else {
+                row.before(draggingRow);
+            }
+        });
+
+        row.addEventListener('drop', (e) => {
+            e.preventDefault();
+            reorderStateFromDOM();
+        });
+
+        row.addEventListener('dragend', () => {
+            row.classList.remove('dragging');
+            renderMenu(); // Sıralama sonrası disabled kontrollerini ve kilitleri tazelemek için
+        });
+
+        menu.appendChild(row);
+    });
+
+    updateTriggerText();
+}
+
+// DOM Sıralamasına Göre State'i Güncelleyen Fonksiyon
+function reorderStateFromDOM() {
+    const menu = document.getElementById('hk-grouping-menu');
+    const rows = Array.from(menu.querySelectorAll('.hk-group-item'));
+    
+    const newState = rows.map(row => {
+        const index = parseInt(row.dataset.index);
+        return groupingState[index];
+    });
+
+    // Kurallar: En üstte kalanın durum güncellemelerini korumak için lock parametresini dinamik yönetebilirsiniz.
+    // Mevcut yapıda "İlk eleman kim olursa olsun seçim kaldırılamaz" kuralı için:
+    newState.forEach((item, idx) => {
+        item.lock = (idx === 0); // Sürükleme sonrası en tepeye yerleşen kilitlenir.
+    });
+
+    groupingState = newState;
+    updateTriggerText();
+}
+
+// Seçili Grupları Tire (-) ile Birleştirip Butona Yazan Fonksiyon
+function updateTriggerText() {
+    const textEl = document.getElementById('hk-grouping-value-text');
+    if (!textEl) return;
+
+    const activeLabels = groupingState
+        .filter(item => item.checked)
+        .map(item => item.label);
+
+    textEl.textContent = activeLabels.join('-');
 }

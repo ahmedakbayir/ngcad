@@ -5491,3 +5491,149 @@ body {
 }
 .hk-detail-source { color: #fbbf24; font-weight: 600; }
 .hk-detail-text { display: block; margin-top: 4px; color: rgba(230, 232, 235, 0.85); }
+
+
+/* Gruplandırma Ana Konteyner */
+.hk-grouping-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    position: relative;
+    user-select: none;
+    margin: 0 15px;
+}
+
+.hk-grouping-label {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Dropdown Tetikleyici Buton (Kapalı Durum) */
+.hk-grouping-trigger {
+    background: #000000;
+    border: 1px solid #ffffff;
+    color: #ffffff;
+    padding: 4px 10px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 160px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: border-color 0.2s;
+}
+
+.hk-grouping-trigger:hover, .hk-grouping-container.active .hk-grouping-trigger {
+    border-color: #ff9800; /* Görseldeki turuncu vurgu hattı */
+}
+
+.hk-grouping-arrow {
+    font-size: 10px;
+    margin-left: 10px;
+    transition: transform 0.2s;
+}
+
+.hk-grouping-container.active .hk-grouping-arrow {
+    transform: rotate(180deg);
+}
+
+/* Açılır Menü (Açık Durum) */
+.hk-grouping-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 5px;
+    background: #ffffff;
+    border: 1px solid #ccc;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    padding: 6px;
+    min-width: 160px;
+    border-radius: 2px;
+}
+
+.hk-grouping-container.active .hk-grouping-menu {
+    display: block;
+}
+
+/* Her Bir Seçenek Satırı */
+.hk-group-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    background: #ffffff;
+    cursor: grab;
+    transition: background 0.15s;
+}
+
+.hk-group-item.dragging {
+    opacity: 0.4;
+    background: #f0f0f0;
+    cursor: grabbing;
+}
+
+/* Sürükleme Tutamacı (:: İkonu) */
+.hk-drag-handle {
+    color: #888888;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: grab;
+    padding: 0 2px;
+}
+
+/* Custom Checkbox Tasarımı */
+.hk-checkbox-wrapper {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+}
+
+.hk-checkbox-wrapper input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #2a2d32;
+    border: 1px solid #555;
+    border-radius: 2px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s;
+}
+
+.hk-checkbox-wrapper input[type="checkbox"]:checked {
+    background: #007acc; /* Mavi onay rengi */
+    border-color: #007acc;
+}
+
+.hk-checkbox-wrapper input[type="checkbox"]:checked::after {
+    content: '✓';
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.hk-checkbox-wrapper input[type="checkbox"]:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Metin Kutuları kutucuk efekti */
+.hk-item-text-box {
+    border: 1px solid #b0b5bc;
+    border-radius: 4px;
+    padding: 2px 8px;
+    background: #ffffff;
+    color: #000000;
+    font-size: 14px;
+    flex-grow: 1;
+    pointer-events: none; /* Tıklamayı engellemek için */
+}
