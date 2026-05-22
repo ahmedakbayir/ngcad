@@ -1399,6 +1399,39 @@ export const PipeMixin = {
             ctx.fillText(displayText, 0, 0);
 
             ctx.restore();
+
+            // ── SEÇİLİ BORU İÇİN P2 Z ETİKETİ ──────────────────────────────
+            // Hattın p2 ucunda "z:X.XXm" göster (örn z:1.20m).
+            if (pipe.isSelected) {
+                const zVal = (fp2.z || 0); // cm → m
+                const zLabel = `z:${zVal}`;
+
+                ctx.save();
+                ctx.font = `300 ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+
+                // P2 ekran konumundan boru ekseni boyunca dışarı, normal yönde de hafif kaydır
+                const lineLenScreen = Math.hypot(sdx, sdy);
+                const ux = lineLenScreen > 0.01 ? sdx / lineLenScreen : 1;
+                const uy = lineLenScreen > 0.01 ? sdy / lineLenScreen : 0;
+                const padOut = actualFontSize * 1;
+                const padNorm = actualFontSize * 1;
+                const zx = sx2 + ux * padOut + normalX * padNorm;
+                const zy = sy2 + uy * padOut + normalY * padNorm;
+
+                const tw = ctx.measureText(zLabel).width;
+                const padX = actualFontSize * 0.35;
+                const padY = actualFontSize * 0.2;
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+                ctx.fillRect(zx - padX, zy - actualFontSize / 2 - padY,
+                    tw + padX * 2, actualFontSize + padY * 2);
+
+                ctx.fillStyle = '#ffe14a';
+                ctx.fillText(zLabel, zx, zy);
+                ctx.restore();
+            }
         });
     },
 

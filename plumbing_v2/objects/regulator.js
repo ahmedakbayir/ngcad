@@ -45,6 +45,18 @@ export class Regulator {
         this.marka = options.marka !== undefined ? options.marka : 'ESKA';
         this.model = options.model !== undefined ? options.model : 'ERG';
 
+        // Otomatik aksesuarlar (default true)
+        this.girisVana = options.girisVana !== undefined ? !!options.girisVana : true;
+        this.girisManometre = options.girisManometre !== undefined ? !!options.girisManometre : true;
+        this.cikisManometre = options.cikisManometre !== undefined ? !!options.cikisManometre : true;
+        this.cikisVana = options.cikisVana !== undefined ? !!options.cikisVana : true;
+
+        // Aksesuar referansları (ekle/sil için)
+        this.iliskiliGirisVanaId = options.iliskiliGirisVanaId || null;
+        this.iliskiliGirisManometreId = options.iliskiliGirisManometreId || null;
+        this.iliskiliCikisManometreId = options.iliskiliCikisManometreId || null;
+        this.iliskiliCikisVanaId = options.iliskiliCikisVanaId || null;
+
         this.isSelected = false;
     }
 
@@ -256,6 +268,14 @@ export class Regulator {
             shutOff: this.shutOff,
             marka: this.marka,
             model: this.model,
+            girisVana: this.girisVana,
+            girisManometre: this.girisManometre,
+            cikisManometre: this.cikisManometre,
+            cikisVana: this.cikisVana,
+            iliskiliGirisVanaId: this.iliskiliGirisVanaId,
+            iliskiliGirisManometreId: this.iliskiliGirisManometreId,
+            iliskiliCikisManometreId: this.iliskiliCikisManometreId,
+            iliskiliCikisVanaId: this.iliskiliCikisVanaId,
             description: this.description ?? '',
         };
     }
@@ -271,6 +291,14 @@ export class Regulator {
             shutOff: data.shutOff,
             marka: data.marka,
             model: data.model,
+            girisVana: data.girisVana,
+            girisManometre: data.girisManometre,
+            cikisManometre: data.cikisManometre,
+            cikisVana: data.cikisVana,
+            iliskiliGirisVanaId: data.iliskiliGirisVanaId,
+            iliskiliGirisManometreId: data.iliskiliGirisManometreId,
+            iliskiliCikisManometreId: data.iliskiliCikisManometreId,
+            iliskiliCikisVanaId: data.iliskiliCikisVanaId,
         });
         reg.z = data.z || 0;
         reg.id = data.id;

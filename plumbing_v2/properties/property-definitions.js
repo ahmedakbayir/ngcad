@@ -6,6 +6,7 @@ import { getUnitRoomsForRoom, getUnitBoundaryPerimeter, invalidateBirimCache, re
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 import { getHatRowForPipe, getCumulativeLossForHat } from '../utils/pipe-calculations.js';
 import { TOPRAKLAMA_YONTEMLERI } from '../objects/pipe-fitting.js';
+import { ensureRegulatorAccessories } from '../objects/regulator-accessories.js';
 
 /**
  * Sayacın çıkış (iç tesisat) zincirinde bir regülatör var mı?
@@ -1168,6 +1169,42 @@ export const PROPERTY_DEFS = {
         key: 'shutOff',
         default: true,
     },
+    regulatorGirisVana: {
+        label: 'Giriş Vanası',
+        type: 'toggle',
+        key: 'girisVana',
+        default: true,
+        afterChange: (obj, manager) => {
+            if (manager) ensureRegulatorAccessories(manager, obj);
+        },
+    },
+    regulatorGirisManometre: {
+        label: 'Giriş Manometresi',
+        type: 'toggle',
+        key: 'girisManometre',
+        default: true,
+        afterChange: (obj, manager) => {
+            if (manager) ensureRegulatorAccessories(manager, obj);
+        },
+    },
+    regulatorCikisManometre: {
+        label: 'Çıkış Manometresi',
+        type: 'toggle',
+        key: 'cikisManometre',
+        default: true,
+        afterChange: (obj, manager) => {
+            if (manager) ensureRegulatorAccessories(manager, obj);
+        },
+    },
+    regulatorCikisVana: {
+        label: 'Çıkış Vanası',
+        type: 'toggle',
+        key: 'cikisVana',
+        default: true,
+        afterChange: (obj, manager) => {
+            if (manager) ensureRegulatorAccessories(manager, obj);
+        },
+    },
     regulatorMuhafaza: {
         label: 'Muhafaza',
         type: 'toggle',
@@ -2123,6 +2160,10 @@ export const OBJECT_PROPERTIES = {
         'regulator_sec_tanim',
         'regulatorCikisBasinc',
         'regulatorShutOff',
+        'regulatorGirisVana',
+        'regulatorGirisManometre',
+        'regulatorCikisManometre',
+        'regulatorCikisVana',
         'regulatorMuhafaza',
         'regulator_sec_urun',
         'regulatorMarka',

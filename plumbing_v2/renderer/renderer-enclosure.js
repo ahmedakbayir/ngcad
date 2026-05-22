@@ -155,7 +155,7 @@ export const EnclosureMixin = {
             ctx.lineCap     = 'round';
             ctx.lineJoin    = 'round';
             ctx.beginPath();
-            ctx.roundRect(box.minX, box.minY, w, h, r);
+            ctx.roundRect(box.minX-1, box.minY-1, w+1, h+1, r);
             ctx.stroke();
             ctx.setLineDash([]);
 

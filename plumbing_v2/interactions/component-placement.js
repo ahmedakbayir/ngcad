@@ -18,6 +18,7 @@ import { initObjectDefaults } from '../properties/properties-panel.js';
 import { getFloorIdForZ } from '../../floor/floor-handler.js';
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
+import { ensureRegulatorAccessories } from '../objects/regulator-accessories.js';
 
 /**
  * Bileşeni yerleştir
@@ -698,6 +699,9 @@ export function handleRegulatorPlacement(regulatorPreview) {
     // Tüm boruların basıncını zincirden yeniden hesapla
     // (sayaçların basıncı da burada upstream zincirinden senkronlanır)
     recomputeAllPressures(this.manager);
+
+    // Otomatik aksesuarları ekle (giriş/çıkış vana ve manometre — default true)
+    ensureRegulatorAccessories(this.manager, regulator);
 
     this.manager.saveToState();
 

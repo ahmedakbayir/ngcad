@@ -1138,7 +1138,7 @@ export const ComponentMixin = {
             case 'manometre': {
                 // Boruya bağlı küçük daire (saat). Boruya dik kısa bir bağlantı
                 // sapı + daire içinde ibre.
-                const sapUz = 12;
+                const sapUz = 8;
                 const r = 4.2;
 
                 ctx.strokeStyle = baseFill;
@@ -1178,7 +1178,7 @@ export const ComponentMixin = {
             ctx.shadowBlur = 0;
             ctx.strokeStyle = CUSTOM_COLORS.SELECTED;
             ctx.lineWidth = 0.8;
-            ctx.strokeRect(-6, -20, 12, 40);
+            ctx.strokeRect(-8, -10, 16, 20);
         }
     },
 
