@@ -500,12 +500,14 @@ function _buildVanaLinesIso(comp) {
     const lines = [];
     const vt = comp.vanaTipi || '';
     if (vt === 'AKV') lines.push({ text: 'AKV', bold: true });
+    else if (vt === 'SELENOID') lines.push({ text: 'Selenoid Vana', bold: true });
+    else if (vt === 'CIHAZ') lines.push({ text: '', bold: true });
     else if (vt === 'BRANSMAN') {
         getBirimLabelLinesIso(comp.birimTipi || 'KONUT', comp.birimNo || '').forEach(t => { if (t) lines.push({ text: t, bold: true }); });
     } else if (vt === 'YANBINA' || vt === 'YAN_BINA') {
         lines.push({ text: 'Yan Bina Vanası', bold: true });
     } else {
-        lines.push({ text: 'Vana', bold: true });
+        lines.push({ text: 'Emn.V', bold: true });
     }
     return lines;
 }
