@@ -700,6 +700,18 @@ export function computePipeDebileri(manager) {
  *
  * @returns {{ hatMap: Map<pipeId, hatNo>, sectionOf: Map<pipeId, sectionIdx>, hatCount: number }}
  */
+/**
+ * Boru segmentlerini "hat" gruplarına ayırır.
+ *
+ * AŞAMA 1 — Kesim: Şu durumlarda yeni section başlar:
+ *   • Çap değişti  • Debi değişti (dallanma)  • Sayaç sınırı  • Basınç değişti
+ *
+ * AŞAMA 2 — Birleştirme: Aynı özelliklere sahip farklı section'lar aynı hat no'yu paylaşır.
+ *   Eşleşme kriterleri: debi · toplam uzunluk · yükseklik farkı · basınç · dirsek sayısı
+ *                     · önceki hat çapı · sonraki hat çapı · boru tipi (esnek/dişli/kaynaklı)
+ *
+ * @returns {{ hatMap: Map<pipeId, hatNo>, sectionOf: Map<pipeId, sectionIdx>, hatCount: number }}
+ */
 export function computeHatGroups(pipes, components) {
     if (!pipes || pipes.length === 0) return { hatMap: new Map(), sectionOf: new Map(), hatCount: 0 };
 
@@ -940,10 +952,14 @@ export function computeHatGroups(pipes, components) {
             sec.cap
         ].join('|');
 
-        if (!fpToHat.has(fp)) {
-            fpToHat.set(fp, is300 ? ++hatCounter300 : ++hatCounter21);
-        }
-        secHat.set(idx, fpToHat.get(fp));
+        // Aynı özelliklerdeki hatların birleşmesini engellemek için burayı comment'liyoruz
+        // if (!fpToHat.has(fp)) {
+        //     fpToHat.set(fp, is300 ? ++hatCounter300 : ++hatCounter21);
+        // }
+        // secHat.set(idx, fpToHat.get(fp));
+
+        // Her section için benzersiz yeni bir numara atıyoruz:
+        secHat.set(idx, is300 ? ++hatCounter300 : ++hatCounter21);
     });
 
     // ── Boru → hat no eşlemesi ────────────────────────────────────────────────
