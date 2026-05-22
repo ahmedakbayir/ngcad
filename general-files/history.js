@@ -113,7 +113,12 @@ export function saveState() {
         guides: JSON.parse(JSON.stringify(state.guides || [])),
         textAnnotations: JSON.parse(JSON.stringify(state.textAnnotations || [])),
         floors: JSON.parse(JSON.stringify(state.floors || [])),
-        currentFloor: state.currentFloor ? { id: state.currentFloor.id } : null
+        currentFloor: state.currentFloor ? { id: state.currentFloor.id } : null,
+
+        // İzometri görünüm düzenlemeleri
+        isoPipeOffsets: JSON.parse(JSON.stringify(state.isoPipeOffsets || {})),
+        isoComponentOffsets: JSON.parse(JSON.stringify(state.isoComponentOffsets || {})),
+        isoLabelOffsets: JSON.parse(JSON.stringify(state.isoLabelOffsets || {}))
     };
 
     state.history = state.history.slice(0, state.historyIndex + 1);
@@ -275,10 +280,26 @@ export function restoreState(snapshot) {
         textAnnotations: snapshot.textAnnotations ? JSON.parse(JSON.stringify(snapshot.textAnnotations)) : [],
         floors: restoredFloors,
         currentFloor: restoredCurrentFloor,
-        
+
+        // İzometri görünüm düzenlemeleri (snapshot'tan geri yükle)
+        isoPipeOffsets: snapshot.isoPipeOffsets ? JSON.parse(JSON.stringify(snapshot.isoPipeOffsets)) : {},
+        isoComponentOffsets: snapshot.isoComponentOffsets ? JSON.parse(JSON.stringify(snapshot.isoComponentOffsets)) : {},
+        isoLabelOffsets: snapshot.isoLabelOffsets ? JSON.parse(JSON.stringify(snapshot.isoLabelOffsets)) : {},
+
         // Geri yüklenen startPoint'i state'e ata
-        startPoint: restoredStartPoint 
+        startPoint: restoredStartPoint
     });
+}
+
+function _redrawIsoIfOpen() {
+    // İso paneli açıksa undo/redo sonrası anında yeniden çiz (iso offset değişimleri görsün)
+    const dom = (typeof window !== 'undefined') ? window.document : null;
+    if (!dom) return;
+    const main = dom.getElementById('main-container') || dom.querySelector('.show-iso, .main-container');
+    if (main && main.classList && main.classList.contains('show-iso')) {
+        // Geç bağlama: ui.js modülünden dinamik import etmemek için global hook
+        if (typeof window._aangcad_drawIsoView === 'function') window._aangcad_drawIsoView();
+    }
 }
 
 export function undo() {
@@ -288,6 +309,7 @@ export function undo() {
         if (plumbingManager) {
             plumbingManager.loadFromState();
         }
+        _redrawIsoIfOpen();
     }
 }
 
@@ -298,5 +320,6 @@ export function redo() {
         if (plumbingManager) {
             plumbingManager.loadFromState();
         }
+        _redrawIsoIfOpen();
     }
 }

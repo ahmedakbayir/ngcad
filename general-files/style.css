@@ -2008,6 +2008,45 @@ body.light-mode .btn-show-3d-perspective.active {
     box-shadow: 0 0 8px rgba(26, 115, 232, 0.5);
 }
 
+/* HTML'deki gerçek sınıf .btn-show-persp; light mode kuralı eksikti → buton koyu kalıyordu */
+body.light-mode .btn-show-persp {
+    color: #3c4043;
+    background: #e8eaed;
+    border-color: #c8cdd2;
+}
+
+body.light-mode .btn-show-persp.active {
+    background: #1a73e8;
+    color: #ffffff;
+    border-color: #1557b0;
+    box-shadow: 0 0 8px rgba(26, 115, 232, 0.5);
+}
+
+/* İki görünüm panel'i (iso & persp) aynı anda açıkken hangisinin AKTİF
+   etkileşimde olduğunu gösteren ek "canlılık" katmanı.
+   .active olmadan kullanılmaz; .active + .last-active = vurgu. */
+.btn-show-3d.active:not(.last-active),
+.btn-show-iso.active:not(.last-active),
+.btn-show-persp.active:not(.last-active),
+.btn-show-3d-perspective.active:not(.last-active) {
+    opacity: 0.68;
+    box-shadow: none;
+}
+.btn-show-iso.active.last-active,
+.btn-show-persp.active.last-active,
+.btn-show-3d-perspective.active.last-active {
+    opacity: 1;
+    outline: 1.5px solid #87CEEB;
+    outline-offset: -1.5px;
+    box-shadow: 0 0 14px rgba(135, 206, 235, 0.85);
+}
+body.light-mode .btn-show-iso.active.last-active,
+body.light-mode .btn-show-persp.active.last-active,
+body.light-mode .btn-show-3d-perspective.active.last-active {
+    outline-color: #1557b0;
+    box-shadow: 0 0 14px rgba(26, 115, 232, 0.75);
+}
+
 
 
 /* Düşey Panel - Glassmorphism Tasarım */

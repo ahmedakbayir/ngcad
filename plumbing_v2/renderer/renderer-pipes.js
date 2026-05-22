@@ -391,11 +391,13 @@ export const PipeMixin = {
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
 
                 // Boru yönelimine göre renk grubu seçimi
+                // İzometri modunda dikey borular kendi normal hat rengini korur (sarı/turkuaz).
+                const isoNormalVert = state.tempVisibility && state.tempVisibility.isoVerticalNormalColor;
                 let colorGroup;
                 if (isVerticalPipe) {
-                    colorGroup = 'GREEN';          // Düşey borular yeşil
+                    colorGroup = isoNormalVert ? (pipe.colorGroup || 'YELLOW') : 'GREEN';
                 } else if (isInclinedPipe) {
-                    colorGroup = 'INCLINED';       // Eğimli borular turuncu-yeşil
+                    colorGroup = isoNormalVert ? (pipe.colorGroup || 'YELLOW') : 'INCLINED';
                 } else {
                     colorGroup = pipe.colorGroup || 'YELLOW';  // Yatay borular sarı/mavi
                 }
@@ -959,11 +961,14 @@ export const PipeMixin = {
             }
 
             // Boru yönelimine göre renk grubu seçimi (öncelik sırasına göre)
+            // İzometride GREEN/INCLINED dirsek köşesi sarı/turkuaz hatların arasında
+            // çakışan bir renk lekesi oluşturuyor → iso'da normal hat rengini kullan.
+            const isoNormalVert = state.tempVisibility && state.tempVisibility.isoVerticalNormalColor;
             let colorGroup;
             if (hasVerticalPipe) {
-                colorGroup = 'GREEN';
+                colorGroup = isoNormalVert ? (firstPipe?.colorGroup || 'YELLOW') : 'GREEN';
             } else if (hasInclinedPipe) {
-                colorGroup = 'INCLINED';
+                colorGroup = isoNormalVert ? (firstPipe?.colorGroup || 'YELLOW') : 'INCLINED';
             } else {
                 colorGroup = firstPipe?.colorGroup || 'YELLOW';
             }

@@ -313,6 +313,18 @@ export function togglePerspView() {
     dom.mainContainer.classList.toggle('show-persp');
     const isActive = dom.mainContainer.classList.contains('show-persp');
     if (dom.bPersp) dom.bPersp.classList.toggle('active', isActive);
+    // Yeni açılan persp en son aktif olsun; kapandıysa açık olan iso'ya devret
+    if (dom.bPersp) {
+        if (isActive) {
+            dom.bPersp.classList.add('last-active');
+            if (dom.bIso) dom.bIso.classList.remove('last-active');
+        } else {
+            dom.bPersp.classList.remove('last-active');
+            if (dom.bIso && dom.bIso.classList.contains('active')) {
+                dom.bIso.classList.add('last-active');
+            }
+        }
+    }
 
     if (isActive) {
         setMode("select");
@@ -411,6 +423,17 @@ export function toggleIsoView() {
     // --- YENİ EKLENEN KOD: Butonun rengini aktif/pasif yap ---
     const isIsoActive = dom.mainContainer.classList.contains('show-iso');
     dom.bIso.classList.toggle('active', isIsoActive);
+    // İso/persp aktif buton dimming mantığı — yeni açılan en son aktif olsun
+    if (isIsoActive) {
+        dom.bIso.classList.add('last-active');
+        if (dom.bPersp) dom.bPersp.classList.remove('last-active');
+    } else {
+        dom.bIso.classList.remove('last-active');
+        // İso kapandı, persp açıksa onu son aktif yap
+        if (dom.bPersp && dom.bPersp.classList.contains('active')) {
+            dom.bPersp.classList.add('last-active');
+        }
+    }
     if (isIsoActive) {
         setMode("select");
 
@@ -546,6 +569,9 @@ function resizeIsoCanvas() {
     dom.ctxIso.msImageSmoothingEnabled = false;
 }
 
+// history.js gibi modüller çevrimden bağımsız tetikleyebilsin (geç bağlama)
+if (typeof window !== 'undefined') window._aangcad_drawIsoView = () => drawIsoView();
+
 export function drawIsoView() {
     if (!dom.mainContainer.classList.contains('show-iso')) return;
 
@@ -646,6 +672,24 @@ export function setupIsometricControls() {
         };
     };
 
+    // İSO / PERSP arasında "son aktif" izleyici — her iki panel açıkken hangisi
+    // ile etkileşim hâlinde olduğumuzu butonlardan görelim.
+    const _setLastActiveView = (which) => {
+        if (which === 'iso') {
+            dom.bIso && dom.bIso.classList.add('last-active');
+            dom.bPersp && dom.bPersp.classList.remove('last-active');
+        } else if (which === 'persp') {
+            dom.bPersp && dom.bPersp.classList.add('last-active');
+            dom.bIso && dom.bIso.classList.remove('last-active');
+        }
+    };
+    dom.cIso.addEventListener('mousedown', () => _setLastActiveView('iso'), true);
+    dom.cIso.addEventListener('mouseenter', () => _setLastActiveView('iso'));
+    if (dom.cPersp) {
+        dom.cPersp.addEventListener('mousedown', () => _setLastActiveView('persp'), true);
+        dom.cPersp.addEventListener('mouseenter', () => _setLastActiveView('persp'));
+    }
+
     // Mouse down - sürükleme veya pan başlat
     dom.cIso.addEventListener('mousedown', (e) => {
         if (!dom.mainContainer.classList.contains('show-iso')) return;
@@ -655,25 +699,9 @@ export function setupIsometricControls() {
         const mouseY = e.clientY - rect.top;
 
         if (e.button === 0) {
-            // 1) ETİKET sürükleme — boru ucundan önce kontrol et (etiket üstte)
-            const { wx, wy } = isoMouseToWorld(mouseX, mouseY);
-            const labelHit = hitTestIsoLabel(wx, wy);
-            if (labelHit) {
-                e.preventDefault();
-                setState({
-                    isoLabelDragging: true,
-                    isoDraggedLabelId: labelHit.id,
-                    isoDraggedLabelStyle: labelHit.style,
-                    isoDraggedLabelSize: { bw: labelHit.bw, bh: labelHit.bh },
-                    // Tıklama noktası ile kutunun sol-üst köşesi arasındaki ofset
-                    isoLabelGrab: { ox: wx - labelHit.bx, oy: wy - labelHit.by },
-                    // Nesnenin iso pozisyonu — delta hesabı için sabit kalmalı
-                    isoDraggedLabelObjPos: { cx: labelHit.cx, cy: labelHit.cy },
-                });
-                return;
-            }
-
-            // 2) BORU UCU sürükleme
+            // 1) BORU UCU sürükleme — etiketten ÖNCE kontrol et.
+            // Aksi takdirde, kısa hatlarda sayaç/hat etiketi P2'nin üstüne denk
+            // gelince click etiket drag'ine gidiyor ve uç hiç tutulamıyor.
             const endpoint = findPipeEndpointAtMouse(mouseX, mouseY);
             if (endpoint) {
                 e.preventDefault();
@@ -688,6 +716,24 @@ export function setupIsometricControls() {
                     isoDraggedEndpoint: endpoint.type,
                     isoPanStart: { x: e.clientX, y: e.clientY },
                     isoDraggedEndpointWorld: { x: epX, y: epY, z: epZ },
+                });
+                return;
+            }
+
+            // 2) ETİKET sürükleme — endpoint yoksa
+            const { wx, wy } = isoMouseToWorld(mouseX, mouseY);
+            const labelHit = hitTestIsoLabel(wx, wy);
+            if (labelHit) {
+                e.preventDefault();
+                setState({
+                    isoLabelDragging: true,
+                    isoDraggedLabelId: labelHit.id,
+                    isoDraggedLabelStyle: labelHit.style,
+                    isoDraggedLabelSize: { bw: labelHit.bw, bh: labelHit.bh },
+                    // Tıklama noktası ile kutunun sol-üst köşesi arasındaki ofset
+                    isoLabelGrab: { ox: wx - labelHit.bx, oy: wy - labelHit.by },
+                    // Nesnenin iso pozisyonu — delta hesabı için sabit kalmalı
+                    isoDraggedLabelObjPos: { cx: labelHit.cx, cy: labelHit.cy },
                 });
                 return;
             }
@@ -721,6 +767,23 @@ export function setupIsometricControls() {
 
     // Mouse move - sürükleme veya pan
     dom.cIso.addEventListener('mousemove', (e) => {
+        // --- HOVER (endpoint marker belirginleşmesi) ---
+        // Sürükleme veya pan yokken, fareyle endpoint'lere yaklaşılınca işaret olsun.
+        if (!state.isoDragging && !state.isoLabelDragging && !state.isoPanning) {
+            const rect0 = dom.cIso.getBoundingClientRect();
+            const mx = e.clientX - rect0.left;
+            const my = e.clientY - rect0.top;
+            const ep = (typeof window.getIsoEndpointAtMouse === 'function')
+                ? window.getIsoEndpointAtMouse(mx, my, 14) // hover yarıçapı tıklamadan biraz geniş
+                : null;
+            const newHoverId = ep && ep.pipe ? ep.pipe.id : null;
+            if (window._isoHoverEpId !== newHoverId) {
+                window._isoHoverEpId = newHoverId;
+                dom.cIso.style.cursor = newHoverId ? 'pointer' : '';
+                drawIsoView();
+            }
+        }
+
         // --- ETİKET SÜRÜKLEME ---
         if (state.isoLabelDragging && state.isoDraggedLabelId) {
             const rect = dom.cIso.getBoundingClientRect();
@@ -971,6 +1034,7 @@ export function setupIsometricControls() {
                 isoDraggedEndpoint: null,
                 isoDraggedEndpointWorld: null,
             });
+            saveState(); // İso uç sürüklemesi undo'ya dahil olsun
         }
         if (state.isoLabelDragging) {
             setState({
@@ -981,6 +1045,7 @@ export function setupIsometricControls() {
                 isoLabelGrab: null,
                 isoDraggedLabelObjPos: null,
             });
+            saveState(); // İso etiket taşıma da undo'ya dahil
         }
     };
 

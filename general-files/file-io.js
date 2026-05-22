@@ -180,7 +180,12 @@ function saveProject() {
         plumbingNodes: state.plumbingNodes || [],
         plumbingPipes: state.plumbingPipes || [],
         plumbingBlocks: state.plumbingBlocks || [],
-        plumbingLabelOffsets: state.plumbingLabelOffsets || {}
+        plumbingLabelOffsets: state.plumbingLabelOffsets || {},
+
+        // İzometri görünüm düzenlemeleri
+        isoPipeOffsets: state.isoPipeOffsets || {},
+        isoComponentOffsets: state.isoComponentOffsets || {},
+        isoLabelOffsets: state.isoLabelOffsets || {}
     };
 
     const dataStr = JSON.stringify(projectData, null, 2);
@@ -437,7 +442,12 @@ function loadJSONProject(fileContent) {
         plumbingNodes: projectData.plumbingNodes || [],
         plumbingPipes: projectData.plumbingPipes || [],
         plumbingBlocks: projectData.plumbingBlocks || [],
-        plumbingLabelOffsets: projectData.plumbingLabelOffsets || {}
+        plumbingLabelOffsets: projectData.plumbingLabelOffsets || {},
+
+        // İzometri görünüm düzenlemeleri
+        isoPipeOffsets: projectData.isoPipeOffsets || {},
+        isoComponentOffsets: projectData.isoComponentOffsets || {},
+        isoLabelOffsets: projectData.isoLabelOffsets || {}
     });
 
     // Tesisat yöneticisini güncelle
@@ -450,8 +460,11 @@ function loadJSONProject(fileContent) {
         renderMiniPanel();
     }
 
-    // Duvarları işle ve history'ye kaydet - TÜM KATLARI İŞLE
+    // Duvarları işle, sonra history'yi SIFIRLA ve yüklenmiş halini taban (baseline) snapshot yap
     processWalls(false, false, true);
+    // Açılan proje undo baseline'ı: önceki history sıfırlanır → undo, ilk açılış halinden daha geriye gidemez
+    state.history = [];
+    state.historyIndex = -1;
     saveState();
 
     console.log('JSON Proje başarıyla yüklendi!');
