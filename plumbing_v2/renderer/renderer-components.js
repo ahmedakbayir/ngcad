@@ -198,10 +198,12 @@ export const ComponentMixin = {
     },
 
     /**
-     * 3D Perspektif şematik hesabı: cihazı hat doğrultusunda, hattın
-     * (pipe endpoint) tam devamında (fleks + cihaz yarı genişliği kadar
-     * uzakta) ve hattın iso-ekran doğrultusuyla hizalı şekilde konumlar.
-     * Hat sağa/sola/ileri/geri/yukarı/aşağı — hangi yöne olursa olsun.
+     * 3D Perspektif şematik hesabı (TEK YÖN: ÖNDEN, ama HAT DOĞRULTUSUNDA).
+     * - Konum: hat ucunun iso-ekran doğrultusunda, fleks + cihaz yarı genişliği
+     *   kadar ilerisinde. Hat dikey ise cihaz dikey yönde, yatay ise yatay yönde
+     *   uzanır — hangi yön olursa olsun cihaz HATTIN ÖNÜNDE çıkar.
+     * - Z = hat ucunun z'si: cihaz hattın kotunda görünür (z=0'a düşmez).
+     * - rotation = 0: cihaz hat yönüne göre dönmez, hep ön yüzünü gösterir.
      * Dönüş: { x, y, z, rotation } veya null (hesaplanamazsa).
      */
     _computeCihazPerspSchematic(comp, manager, t) {
@@ -217,9 +219,9 @@ export const ComponentMixin = {
         const dz = (endpoint.z || 0) - (otherEnd.z || 0);
         if (Math.hypot(dx, dy, dz) < 0.1) return null;
 
-        // İso-ekran (z-shift uygulanmış) yön: bu yöne göre hem rotasyon
-        // hem de hattın devamındaki ofset hesaplanır — vertical/eğik borularda
-        // da cihaz görsel olarak hat doğrultusunda devam eder.
+        // İso-ekran (z-shift uygulanmış) yönü: cihaz bu yönde uzar.
+        // Hat dikey (kolon) → iso-ekranda dikey eğim; cihaz dikey ilerisinde.
+        // Hat yatay → iso-ekranda yatay; cihaz yatay ilerisinde.
         const su = dx + dz * t;
         const sv = dy - dz * t;
         const sLen = Math.hypot(su, sv);
@@ -230,17 +232,12 @@ export const ComponentMixin = {
         const flexLen = comp.fleksBaglanti.uzunluk || 30;
         const halfW = (comp.config?.width || 30) / 2;
         const dist = flexLen + halfW;
-        const rotation = Math.atan2(sv, su) * 180 / Math.PI;
 
-        // drawZ = endpoint.z → cihaz z-shift'i pipe endpoint'iyle aynı,
-        // böylece (drawX + drawZ*t, drawY - drawZ*t) çıkışı endpoint
-        // iso-ekran koordinatına eşitlenir; halfW + flexLen mesafesi
-        // tam olarak iso-ekranda gözükür.
         return {
             x: endpoint.x + dist * ux,
             y: endpoint.y + dist * uy,
             z: endpoint.z || 0,
-            rotation,
+            rotation: 0,
         };
     },
 

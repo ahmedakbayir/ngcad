@@ -160,14 +160,22 @@ export class PlumbingRenderer {
         }
 
         const showMeasurements = !shouldBeFaded && state.dimensionMode !== 0;
+        const _measDrawnViaToggle = showMeasurements && state.tempVisibility.showPlumbingDimensions;
 
         // 1. Ölçüler Açık İse (Ve Panelden de İzin Verildiyse)
         // Ölçüler sadece aktif katın boruları için yazılır; diğer katlar sadece çizim olarak görünür
-        if (showMeasurements && state.tempVisibility.showPlumbingDimensions) {
+        if (_measDrawnViaToggle) {
             this.drawPipeMeasurements(ctx, _pipesCurrent);
             if (geciciBoru) {
                 this.drawTempPipeMeasurement(ctx, geciciBoru);
             }
+        }
+
+        // SEÇİLİ HAT: ölçü toggle'ından bağımsız, her zaman boyunu göster (2D ve 3D perspektif).
+        // Toggle zaten açıkken hepsi çizildi; burada sadece kapalıyken seçili olanları yaz.
+        if (!shouldBeFaded && !_measDrawnViaToggle) {
+            const _selectedPipes = _pipesCurrent.filter(p => p.isSelected);
+            if (_selectedPipes.length) this.drawPipeMeasurements(ctx, _selectedPipes);
         }
 
 
