@@ -712,6 +712,16 @@ export const PipeMixin = {
         const fill = light ? '#9c5b00' : 'rgb(251, 232, 213)';
         const accent = light ? '#783a00' : 'rgb(75, 75, 75)';
 
+        // Reducer geometrisi her zaman DN-bazlı olmalı — boru görsel kalınlığı
+        // (pipeWidthFromCap) iso modunda sabite kilitlenince huni kayboluyordu.
+        // Yerel referans formül = orijinal pipeWidthFromCap (DN25=4, slope 0.03).
+        const refWidthFromCap = (cap) => {
+            const s = String(cap || 'DN25').replace(/[^0-9]/g, '');
+            const dn = parseInt(s, 10);
+            const dnSafe = isFinite(dn) && dn > 0 ? dn : 25;
+            return 4 + (dnSafe - 25) * 0.03;
+        };
+
         breakPoints.forEach(bp => {
             if (!bp.caps || bp.caps.length < 2) return;
             const unique = new Set(bp.caps);
@@ -727,7 +737,7 @@ export const PipeMixin = {
             // Junction'daki en büyük çap (huni geometrisi referansı)
             let bigVal = 0;
             for (let i = 0; i < bp.pipes.length; i++) {
-                const v = this.pipeWidthFromCap(bp.caps[i]);
+                const v = refWidthFromCap(bp.caps[i]);
                 if (v > bigVal) bigVal = v;
             }
             if (bigVal <= 0) return;
@@ -757,12 +767,12 @@ export const PipeMixin = {
                 }
             } else {
                 for (let i = 0; i < bp.pipes.length; i++) {
-                    if (this.pipeWidthFromCap(bp.caps[i]) < bigVal) childIndices.push(i);
+                    if (refWidthFromCap(bp.caps[i]) < bigVal) childIndices.push(i);
                 }
             }
 
             childIndices.forEach(i => {
-                const childCap = this.pipeWidthFromCap(bp.caps[i]);
+                const childCap = refWidthFromCap(bp.caps[i]);
                 // Bu child'ın ASIL parent'ı: baslangicBaglanti.hedefId ile bağlanan pipe.
                 // TE'de sibling kollar değil, gerçek upstream boru ile kıyasla.
                 const childPipe = bp.pipes[i];
@@ -770,13 +780,13 @@ export const PipeMixin = {
                 let parentCap = 0;
                 if (parentId) {
                     const parentIdx = bp.pipes.findIndex(p => p.id === parentId);
-                    if (parentIdx >= 0) parentCap = this.pipeWidthFromCap(bp.caps[parentIdx]);
+                    if (parentIdx >= 0) parentCap = refWidthFromCap(bp.caps[parentIdx]);
                 }
                 // Fallback: parent referansı yoksa en büyük diğer kolu kullan
                 if (parentCap === 0) {
                     for (let k = 0; k < bp.pipes.length; k++) {
                         if (k === i) continue;
-                        const v = this.pipeWidthFromCap(bp.caps[k]);
+                        const v = refWidthFromCap(bp.caps[k]);
                         if (v > parentCap) parentCap = v;
                     }
                 }
@@ -841,13 +851,21 @@ export const PipeMixin = {
         const fill = light ? '#9c5b00' : 'rgb(233, 233, 224)';
         const accent = light ? '#783a00' : 'rgb(8, 8, 8)';
 
+        // Reducer geometrisi DN-bazlı (iso'da boru kalınlığı sabit olsa bile görünür)
+        const refWidthFromCap = (cap) => {
+            const s = String(cap || 'DN25').replace(/[^0-9]/g, '');
+            const dn = parseInt(s, 10);
+            const dnSafe = isFinite(dn) && dn > 0 ? dn : 25;
+            return 4 + (dnSafe - 25) * 0.03;
+        };
+
         components.forEach(box => {
             if (box.type !== 'servis_kutusu' || !box.bagliBoruId || !box.cikisCap) return;
             const pipe = pipes.find(p => p.id === box.bagliBoruId);
             if (!pipe || !pipe.boruCap) return;
 
-            const parentCap = this.pipeWidthFromCap(box.cikisCap); // junction = kutu
-            const childCap = this.pipeWidthFromCap(pipe.boruCap);  // child = boru
+            const parentCap = refWidthFromCap(box.cikisCap); // junction = kutu
+            const childCap = refWidthFromCap(pipe.boruCap);  // child = boru
             //console.log('parentCap :'+ parentCap);
             //console.log('childCap :'+ childCap);
             if (parentCap === childCap) return;

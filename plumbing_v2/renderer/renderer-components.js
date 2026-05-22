@@ -1105,8 +1105,8 @@ export const ComponentMixin = {
                 // gittikçe kısalan 3 paralel çizgi (klasik toprak sembolü).
                 // direction: +1 → +Y (lokal alt), -1 → -Y (lokal üst).
                 const sign = direction === -1 ? -1 : 1;
-                const STEM = 12;     // boruya dik çıkış
-                const VERT = 5;      // boruya paralel iniş (lokal -X yönünde)
+                const STEM = 15;     // boruya dik çıkış
+                const VERT = 6;      // boruya paralel iniş (lokal -X yönünde)
                 const W1 = 9, W2 = 6, W3 = 3, GAP = 1.8;
 
                 ctx.strokeStyle = baseFill;
@@ -1138,7 +1138,7 @@ export const ComponentMixin = {
             case 'manometre': {
                 // Boruya bağlı küçük daire (saat). Boruya dik kısa bir bağlantı
                 // sapı + daire içinde ibre.
-                const sapUz = 5;
+                const sapUz = 12;
                 const r = 4.2;
 
                 ctx.strokeStyle = baseFill;
@@ -1178,7 +1178,7 @@ export const ComponentMixin = {
             ctx.shadowBlur = 0;
             ctx.strokeStyle = CUSTOM_COLORS.SELECTED;
             ctx.lineWidth = 0.8;
-            ctx.strokeRect(-8, -10, 16, 20);
+            ctx.strokeRect(-6, -20, 12, 40);
         }
     },
 
