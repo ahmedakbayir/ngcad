@@ -5,9 +5,19 @@
 //   • findMeterUpstream(...)   → boru'dan upstream sayaç
 //   • cihazAdSmall(cihazTipi)  → "kombi", "ocak", "şofben" (PDF yazımı)
 //   • hatNosForComponent(...)  → bir comp/pipe'ın bulunduğu kolon hat numaraları
+//   • gri(text)                → mesaj içinde inline gri (silik) parça işaretler
 
 import { state } from '../../general-files/main.js';
 import { computeHatGroups } from '../renderer/renderer-utils.js';
+
+// Mesaj içi inline "gri" işaretleme. Sentinel olarak görünmez kontrol karakterleri
+// kullanılır; HTML escape onları etkilemez, renderer span'e çevirir. Mesajların
+// her yerinde kullanılabilir: `... ${gri('(...)')} ...`
+export const GRI_OPEN  = '';
+export const GRI_CLOSE = '';
+export function gri(text) {
+    return `${GRI_OPEN}${String(text ?? '')}${GRI_CLOSE}`;
+}
 
 // Kat ismini PDF wording'iyle döndürür: "Zemin" → "Zemin Kat", "1." → "1. Kat",
 // "ZEMİN" → "ZEMİN KAT". İsim zaten "kat" ile bitiyorsa olduğu gibi bırakılır.

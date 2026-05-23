@@ -164,6 +164,24 @@ function pathStartLabel(manager, path, byHat, segmentType) {
     return d ? `${d} sayacı` : 'sayaç';
 }
 
+// Bir hattın baş borusundan upstream gidip 300 mbar (>50) segment olup olmadığını
+// kontrol eder. Sayaç sonrası iç tesisat hatları için "kutu çıkışı 300 + sayaç
+// öncesi reglaj 21" senaryosunu ayırt etmek için kullanılır.
+function hasUpstreamHighPressure(manager, startPipeId) {
+    if (!startPipeId) return false;
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    let cursor = pipeMap.get(startPipeId);
+    const seen = new Set();
+    while (cursor && !seen.has(cursor.id)) {
+        seen.add(cursor.id);
+        if (parseFloat(cursor.basinc) > 50) return true;
+        const par = cursor.baslangicBaglanti;
+        if (par?.tip === 'boru' && par.hedefId) cursor = pipeMap.get(par.hedefId);
+        else break;
+    }
+    return false;
+}
+
 function basincKayipChecker({ manager }) {
     if (!manager?.pipes?.length) return [];
 
@@ -196,14 +214,19 @@ function basincKayipChecker({ manager }) {
         if (p.skip || !p.overLimit) return;
 
         const firstHat = byHat.get(p.hatNos[0]);
-        const isHighStart = parseFloat(firstHat?.basinc) > 50;
+        // İç tesisat (sayaç sonrası) hattı 21 mbar başlasa da, üst zincirde
+        // 300 mbar segment varsa "kutu çıkışı 300 + sayaç öncesi reglaj 21"
+        // senaryosudur → 4.3.4 metni kullanılmalı.
+        const isHighStart = parseFloat(firstHat?.basinc) > 50
+            || (segmentType !== 'KOLON' && hasUpstreamHighPressure(manager, firstHat?.headPipeId));
         const desc = limitDescriptor(p.limit, isHighStart);
 
         // Yol etiketi — post-reg parça gösterilir.
         const displayHats = p.hatNos.slice(p.evalFromIdx || 0);
         const pathLabel = displayHats.join('-');
         const limitStr  = NF4.format(p.limit);
-        const valueStr  = NF4.format(p.evalTotal ?? p.total ?? 0);
+        const evalVal   = p.evalTotal ?? p.total ?? 0;
+        const valueStr  = isFinite(evalVal) ? NF4.format(evalVal) : 'kapasite dışı';
 
         const segLabel = segmentType === 'KOLON' ? 'kolon' : 'iç tesisat';
         const startLbl = pathStartLabel(manager, p, byHat, segmentType);

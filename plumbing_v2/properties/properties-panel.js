@@ -23,7 +23,7 @@ export const PANEL_MODES = {
     AUTO: 1,   // 🎯 Nesne seçince açılır, seçimi bırakınca kapanır
     ALWAYS: 2  // 📌 Her zaman açık kalır, boşta "Nesne Seçilmedi" yazar
 };
-export let currentPanelMode = PANEL_MODES.MANUAL; // Varsayılan mod Daima olsun
+export let currentPanelMode = PANEL_MODES.AUTO; // Varsayılan mod Daima olsun
 
 // ─── DURUM ───────────────────────────────────────────────────────────────────
 

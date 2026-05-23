@@ -22,6 +22,7 @@ import {
     hatPrefix,
     hatNoForComp,
     floorNameById,
+    gri,
 } from '../../checker-utils.js';
 
 const NF2 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -162,7 +163,7 @@ function sayacAltDebiKurali(manager, out) {
             if (!isFinite(d) || d <= 0) continue;
             if (d >= lim.Qmin) continue;
             const ad = cihazAdBig(c.cihazTipi);
-            const bi = birimindekiPrefix(s);
+            const bi = birimindePrefix(s);
             // Cihazın hat no'su inline: "D2 birimindeki X nolu hattaki Ocak debisi, ..."
             const cihazHatNo = hatNoForComp(manager, c);
             const cihazPart = cihazHatNo != null
@@ -171,7 +172,7 @@ function sayacAltDebiKurali(manager, out) {
             out.push({
                 group:   ERROR_GROUP_IDS.SAYAC_HATA,
                 errorId: `sayac-altdebi-${s.id}-${c.id}`,
-                message: `${bi} ${cihazPart} debisi, ${lim.tipi} Sayacın okuyabileceği en düşük debiden bile daha aşağıda olduğundan, ${ad}, bu sayaçla kullanılamaz. (${ad} debi: ${fmt(d)} m3/h < Sayaç alt okuma sınırı: ${fmt(lim.Qmin)} m3/h)`,
+                message: `${bi} ${ad} debisi ${gri(`(${fmt(d)} m³/h)`)} ${lim.tipi} Sayacın okuyabileceği en düşük debiden ${gri(`(${fmt(lim.Qmin)} m³/h)`)} daha aşağıda olduğu için, bu cihaz ve sayaç birlikte kullanılamaz`,
                 floorName: floorNameById(s.floorId),
                 source:  'TS7363 Md:5.2.12',
                 detail:  'Tesisat üzerine takılacak cihaz seçilirken, her cihazın projedeki tüketim debileri sayaçların asgari okuma debisinden az olmamalıdır.',
@@ -180,6 +181,30 @@ function sayacAltDebiKurali(manager, out) {
             });
         }
     });
+}
+
+// Birime bağlı en küçük cihaz debisini bul (Qmin uygunluğu için).
+function enKucukCihazDebi(manager, sayac) {
+    const cihazlar = cihazlarAfterMeter(manager, sayac);
+    let min = Infinity;
+    cihazlar.forEach(c => {
+        const d = cihazDebi(c);
+        if (isFinite(d) && d > 0) min = Math.min(min, d);
+    });
+    return isFinite(min) ? min : 0;
+}
+
+// Verilen toplam debi + basınç için Qmax yetecek en küçük sayaç satırı.
+// Opsiyonel: cihazMinDebi geçilirse Qmin ≤ cihazMinDebi koşulu da aranır.
+function findSuitableSayac(toplam, basinc, cihazMinDebi) {
+    const is300 = String(basinc) === '300';
+    for (const row of SAYAC_DEBI_TABLOSU) {
+        const qmax = is300 ? row.Qmax300 : row.Qmax21;
+        if (qmax < toplam) continue;
+        if (cihazMinDebi > 0 && row.Qmin > cihazMinDebi) continue;
+        return row;
+    }
+    return null;
 }
 
 // ─── Kural 3 — Sayaç üst okuma sınırı ────────────────────────────────────
@@ -193,16 +218,75 @@ function sayacUstDebiKurali(manager, out) {
         if (toplam <= lim.Qmax) return;
 
         const bi = birimindekiPrefix(s);
-        // "D2 birimindeki toplam debi sayacın okuyabileceği..."
+        // Öneri: toplam debiyi karşılayan en küçük sayaç tipi.
+        const suggested = findSuitableSayac(toplam, s.basinc, 0);
+        const oneri = suggested
+            ? ` (${s.basinc} mbar-${fmt(toplam)} m³/h debi için ${suggested.Tip} sayaç kullanılabilir)`
+            : '';
+        // Ana metin önerinin sayacın yeterli olmadığını söyler, alt satırda
+        // Qmax karşılaştırması paranteziyle gri olarak gösterilir.
         out.push({
             group:   ERROR_GROUP_IDS.SAYAC_HATA,
             errorId: `sayac-ustdebi-${s.id}`,
-            message: `${bi} toplam debi sayacın okuyabileceği en yüksek debiden bile daha yukarda olduğundan sayaç, bu birimde kullanılamaz (Sayaç üst okuma: ${fmt(lim.Qmax)} m3/h < birim toplam debisi: ${fmt(toplam)} m3/h)`,
+            message: `${bi} toplam debi ${gri(`(${fmt(toplam)} m³/h)`)} ${lim.tipi} Sayacın okuyabileceği en yüksek debiden ${gri(`(${fmt(lim.Qmax)} m³/h)`)} daha yukarıda olduğu için ${lim.tipi} yerine ${suggested.Tip} seçebilirsiniz.`,
             floorName: floorNameById(s.floorId),
             source:  'TS7363 Md:5.2.12',
             detail:  'Birim toplam tüketim debisi seçilen sayacın okuyabileceği en yüksek debiden büyük olamaz. Daha büyük sayaç seçilmelidir.',
             targets: [{ type: 'comp', id: s.id }],
-            fix: null,
+            fix: suggested ? {
+                description: `Sayaç tipi ${suggested.Tip} yapılacak`,
+                apply: () => {
+                    s.sayacTipi = suggested.Tip;
+                    manager.saveToState?.();
+                    try { draw2D(); } catch (_) {}
+                    return true;
+                },
+            } : null,
+        });
+    });
+}
+
+// ─── Kural 3b — Sayaç fazla büyük (UYARI/mavi) ───────────────────────────
+// Mevcut sayaç toplam debiyi karşılıyor ama daha küçük bir sayaç da yeterli.
+function sayacBuyukUyariKurali(manager, out) {
+    (manager.components || []).forEach(s => {
+        if (s.type !== 'sayac') return;
+        const lim = sayacLimits(s);
+        if (!lim) return;
+        const toplam = sayacToplamDebi(manager, s);
+        if (!isFinite(toplam) || toplam <= 0) return;
+        if (toplam > lim.Qmax) return; // üst-debi hatası ayrı tetiklenir
+
+        const cihazMin = enKucukCihazDebi(manager, s);
+        const suggested = findSuitableSayac(toplam, s.basinc, cihazMin);
+        if (!suggested) return;
+        if (suggested.Tip === s.sayacTipi) return; // zaten en küçüğü
+
+        const currIdx = SAYAC_DEBI_TABLOSU.findIndex(r => r.Tip === s.sayacTipi);
+        const newIdx  = SAYAC_DEBI_TABLOSU.indexOf(suggested);
+        if (currIdx < 0 || newIdx >= currIdx) return; // mevcuttan küçük değil
+
+        const bi = birimindePrefix(s);
+        // "UYARI: D436 biriminde kullanılan G10 Sayacı yerine daha düşük bir
+        //  sayaç kullanılabilir. (21 mbar - 9 m³ için G6 sayaç yeterlidir)"
+        out.push({
+            severity: 'warning',
+            group:    ERROR_GROUP_IDS.SAYAC_HATA,
+            errorId:  `sayac-buyuk-uyari-${s.id}`,
+            message:  `UYARI: ${bi} kullanılan ${s.sayacTipi} Sayacı yerine ${gri(`(${s.basinc} mbar - ${fmt(toplam)} m³/h için)` ) } ${suggested.Tip} kullanılabilir.`,
+            floorName: floorNameById(s.floorId),
+            source:   'TS7363 Çizelge 15',
+            detail:   'Birim toplam tüketim debisine uygun en küçük sayaç seçilmesi maliyet ve doğru ölçüm açısından önerilir.',
+            targets:  [{ type: 'comp', id: s.id }],
+            fix: {
+                description: `Sayaç tipi ${suggested.Tip} yapılacak`,
+                apply: () => {
+                    s.sayacTipi = suggested.Tip;
+                    manager.saveToState?.();
+                    try { draw2D(); } catch (_) {}
+                    return true;
+                },
+            },
         });
     });
 }
@@ -237,6 +321,7 @@ function sayacHatasiChecker({ manager }) {
     sayacTipUyumKurali(manager, out);
     sayacAltDebiKurali(manager, out);
     sayacUstDebiKurali(manager, out);
+    sayacBuyukUyariKurali(manager, out);
     esnekMarkaKurali(manager, out);
     return out;
 }

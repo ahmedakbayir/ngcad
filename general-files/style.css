@@ -5471,6 +5471,11 @@ body {
     font-weight: 500;
     letter-spacing: 0.1px;
 }
+/* Uyarı satırı — kullanılabilir ama önerilmeyen durumlar (mavi). */
+.hk-row--warning .hk-row-msg { color: #93c5fd; }
+.hk-row--warning:hover { background: rgba(110, 168, 255, 0.06); }
+/* Uyarı satırında limit parantezi de aynı tonun silik versiyonu. */
+.hk-row--warning .hk-row-dim { color: rgba(147, 197, 253, 0.55); }
 /* Mesaj içindeki yardımcı parçalar (kat/daire ve limit kriterleri) silik. */
 .hk-row-dim {
     color: rgba(230, 232, 235, 0.40);

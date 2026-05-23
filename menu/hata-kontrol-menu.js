@@ -6,11 +6,12 @@
 // satır buton akışları ve toast gösterimi ile ilgilenir.
 
 import { errorCheckManager } from '../plumbing_v2/error-check/error-check-manager.js';
-import { ERROR_GROUPS, getGroupLabel, getGroupOrder } from '../plumbing_v2/error-check/error-types.js';
+import { ERROR_GROUPS, ERROR_GROUP_IDS, getGroupLabel, getGroupOrder } from '../plumbing_v2/error-check/error-types.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { draw2D } from '../draw/draw2d.js';
 import { state, setState, dom } from '../general-files/main.js';
 import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
+import { runAutoCapForErrors } from './auto-cap-menu.js';
 
 const MODAL_ID    = 'hata-kontrol-modal-overlay';
 const BODY_ID     = 'hata-kontrol-modal-body';
@@ -612,7 +613,7 @@ function splitLimitSuffix(message) {
     // PDF örnekleri:
     //   "...basınç kaybı yüksek (1.246 mbar > 1.0 mbar)"
     //   "...hız yüksek. (18 m/s > 15 m/s)"
-    //   "...kullanılamaz. (Ocak debi: 1.6 m3/h < Sayaç alt okuma sınırı: 1.8 m3/h)"
+    //   "...kullanılamaz. (Ocak debi: 1.6 m³/h < Sayaç alt okuma sınırı: 1.8 m³/h)"
     const re = /\s*(\([^()]+\))\s*\.?\s*$/;
     const m = String(message || '').match(re);
     if (!m) return { main: String(message || ''), limit: '' };
@@ -785,14 +786,20 @@ function renderResults() {
         const rows = items.map((it) => {
             const hasFix = !!(it.fix && typeof it.fix.apply === 'function');
             const { main, limit } = splitLimitSuffix(String(it.message || ''));
-            const mainHtml  = `<span class="hk-row-main">${escapeHtml(main)}</span>`;
-            const limitHtml = limit ? ` <span class="hk-row-dim hk-row-limit">${escapeHtml(limit)}</span>` : '';
+            // Mesaj içinde checker-utils.gri(...) ile işaretlenmiş parçalar
+            // (\x01 ... \x02 sentinel'ları) gri span'lere dönüşür.
+            const applyInlineGri = (escaped) => escaped
+                .replace(//g, '<span class="hk-row-dim">')
+                .replace(//g, '</span>');
+            const mainHtml  = `<span class="hk-row-main">${applyInlineGri(escapeHtml(main))}</span>`;
+            const limitHtml = limit ? ` <span class="hk-row-dim hk-row-limit">${applyInlineGri(escapeHtml(limit))}</span>` : '';
             // Kat ismi mesaj sonunda gri olarak gösterilir (ErrorItem.floorName)
             const floorHtml = it.floorName
                 ? ` <span class="hk-row-dim hk-row-floor">${escapeHtml(it.floorName)}</span>`
                 : '';
+            const sevClass = it.severity === 'warning' ? ' hk-row--warning' : '';
             return `
-                <div class="hk-row" data-error-id="${escapeHtml(it.errorId)}">
+                <div class="hk-row${sevClass}" data-error-id="${escapeHtml(it.errorId)}">
                     <div class="hk-row-msg">${mainHtml}${limitHtml}${floorHtml}</div>
                     <div class="hk-row-actions">
                         <button class="hk-icon-btn hk-goto-btn"   title="Hataya Git">⊙</button>
@@ -840,14 +847,39 @@ function attachRowHandlers() {
             const groupEl = btn.closest('.hk-group');
             const idsAttr = groupEl?.dataset.fixIds || '';
             const ids = idsAttr.split(',').filter(Boolean);
-            if (!ids.length) { showToast('Bu grupta uygulanabilir çözüm yok'); return; }
+
+            // BASINÇ ve HIZ hataları toplu çözümde otomatik boru çapı hesabını
+            // çağırır — tek tek fix iterasyonu yerine bir kez autoSize yeterli.
+            const results = errorCheckManager.getResults();
+            const idSet = new Set(ids);
+            const groupItems = results.filter(r => idSet.has(r.errorId));
+            const autoCapGroups = new Set([
+                ERROR_GROUP_IDS.BASINC_KAYIP,
+                ERROR_GROUP_IDS.TESISAT_HIZ,
+            ]);
+            const autoCapItems = groupItems.filter(it => autoCapGroups.has(it.group));
+            const otherFixIds  = groupItems
+                .filter(it => !autoCapGroups.has(it.group))
+                .map(it => it.errorId);
+
+            if (!ids.length && autoCapItems.length === 0) {
+                showToast('Bu grupta uygulanabilir çözüm yok');
+                return;
+            }
+
             let applied = 0;
-            for (const id of ids) {
+            if (autoCapItems.length > 0) {
+                try { runAutoCapForErrors(); applied += autoCapItems.length; }
+                catch (_) { /* yoksay */ }
+            }
+            for (const id of otherFixIds) {
                 const res = errorCheckManager.applyFix(id);
                 if (res.ok) applied++;
             }
+
             if (applied > 0) {
-                showToast(`✓ ${applied}/${ids.length} çözüm uygulandı`);
+                const total = autoCapItems.length + otherFixIds.length;
+                showToast(`✓ ${applied}/${total} çözüm uygulandı`);
                 runAndRender();
             } else {
                 showToast('Bu grupta uygulanabilir çözüm yok');

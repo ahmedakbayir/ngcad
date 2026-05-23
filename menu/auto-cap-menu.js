@@ -1,11 +1,10 @@
 // auto-cap-menu.js
-// "Hesap ► Otomatik Çap Belirle" — boru çaplarını projedeki Q debilerine göre
-// otomatik olarak belirler ve iteratif olarak kritik kayıp / hız limitlerine
-// göre rafine eder.
+// "Hesap ► Otomatik Çap" — borular tek tıkla projedeki Q debilerine göre
+// otomatik ölçülendirilir; iteratif olarak kritik kayıp / hız limitlerine göre
+// rafine edilir. Hata Kontrol > BASINÇ/HIZ "Hepsini Çöz" aksiyonu da aynı
+// işlemi çağırır.
 //
-// İki mod:
-//   • SİNEĞİN YAĞINI ÇIKAR (AGGRESSIVE) → kritik yol oranı %90–%99 arası
-//   • ABARTMADAN          (CONSERVATIVE) → kritik yol oranı %50–%75 arası
+// Hedef: kritik yol oranı %90–%99 bandı (sıkı çap).
 //
 // Kurallar:
 //   • Q (m³/h) → varsayılan DN (TS 7363 Çizelge 1):
@@ -49,10 +48,8 @@ function kolonMinIdxFor(_pipe) {
     return KOLON_MIN_IDX;
 }
 
-const TARGET_RANGES = {
-    AGGRESSIVE:   { min: 0.90, max: 0.99, label: 'Sineğin Yağını Çıkar' },
-    CONSERVATIVE: { min: 0.50, max: 0.75, label: 'Abartmadan' },
-};
+// Tek mod: sıkı çap (eski AGGRESSIVE). UI'da "Otomatik Çap" olarak görünür.
+const AUTO_CAP_TARGET = { min: 0.90, max: 0.99, label: 'Otomatik Çap' };
 
 const MAX_ITER = 400;
 
@@ -383,10 +380,9 @@ function collectDownstreamSameDn(manager, startPipeId, sameDn) {
 //
 // Kurallar:
 //   • Yeni DN = DN15 ise yalnızca tek cihaz hatlarına uygulanır.
-//   • Boru section'ın başında değilse (parent aynı çaptaysa) bu bir "split":
-//       - Yalnızca AGGRESSIVE modda izin verilir.
-//       - Hat uzunluğu (L_m) en az 8 m olmalı.
-function tryReducePipe(manager, state, pipeId, target, mode) {
+//   • Boru section'ın başında değilse (parent aynı çaptaysa) bu bir "split";
+//     hat uzunluğu (L_m) en az 4 m olmalı.
+function tryReducePipe(manager, state, pipeId, target) {
     const pipe = manager.pipes.find(p => p.id === pipeId);
     if (!pipe) return false;
 
@@ -413,10 +409,9 @@ function tryReducePipe(manager, state, pipeId, target, mode) {
     if (newDn === 'DN15' && pipeQ > DN15_MAX_Q) return false;
     if (newDn === 'DN15' && !isSingleDeviceLine(pipe.id, ctx)) return false;
 
-    // Split (hat-içi redüksiyon) sadece AGGRESSIVE modda ve ≥8m hatta
+    // Split (hat-içi redüksiyon) yalnızca ≥4m hatta uygulanır.
     const isSplit = !isSectionHead(pipe, manager);
     if (isSplit) {
-        if (mode !== 'AGGRESSIVE') return false;
         const hatRow = getHatRowForPipe(state, pipe.id);
         if (!hatRow || (hatRow.L_m || 0) < 4) return false;
     }
@@ -450,9 +445,7 @@ function tryReducePipe(manager, state, pipeId, target, mode) {
 
 // Bir yol üzerindeki boruları büyükten küçüğe sırala, sırayla
 // tryReducePipe denemesi yap. İlk başarılı denemede true döner.
-// CONSERVATIVE modda yalnızca section başındaki borular geçerli olur
-// (split yapılamaz → sadece tüm-hat redüksiyonu).
-function tryReduceOnPath(manager, state, path, target, mode) {
+function tryReduceOnPath(manager, state, path, target) {
     const pipeIds = [];
     path.hatNos.forEach(hn => {
         const r = state.rows.find(x => x.hatNo === hn);
@@ -470,16 +463,15 @@ function tryReduceOnPath(manager, state, path, target, mode) {
         .sort((a, b) => dnIdx(b.boruCap) - dnIdx(a.boruCap));
 
     for (const pipe of candidates) {
-        if (tryReducePipe(manager, state, pipe.id, target, mode)) return true;
+        if (tryReducePipe(manager, state, pipe.id, target)) return true;
     }
     return false;
 }
 
 // ─── 6) Ana algoritma ─────────────────────────────────────────────────────────
-function autoSize(manager, mode) {
+function autoSize(manager) {
     if (!manager?.pipes?.length) return;
-    const target = TARGET_RANGES[mode];
-    if (!target) return;
+    const target = AUTO_CAP_TARGET;
 
     // Boru basınçlarını upstream zincirinden senkronize et — chartDN doğru tabloyu seçsin
     recomputeAllPressures(manager);
@@ -544,7 +536,7 @@ function autoSize(manager, mode) {
 
         let progress = false;
         for (const ub of underBand) {
-            if (tryReduceOnPath(manager, state, ub, target, mode)) {
+            if (tryReduceOnPath(manager, state, ub, target)) {
                 progress = true;
                 break;
             }
@@ -662,75 +654,38 @@ function hideConfirm() {
 }
 
 // ─── 8) Menü bağlama ──────────────────────────────────────────────────────────
-async function runMode(mode) {
-    const target = TARGET_RANGES[mode];
-    if (!target) return;
-    const ok = await showConfirm(target.label);
-    if (!ok) return;
-    autoSize(plumbingManager, mode);
+async function runAutoCap({ skipConfirm = false } = {}) {
+    if (!skipConfirm) {
+        const ok = await showConfirm(AUTO_CAP_TARGET.label);
+        if (!ok) return;
+    }
+    autoSize(plumbingManager);
+}
+
+// Programatik tetikleyici (örn. Hata Kontrol "Hepsini Çöz") onay sormadan
+// doğrudan çalıştırır — kullanıcı zaten Hepsini Çöz'e tıklayarak rıza gösterdi.
+export function runAutoCapForErrors() {
+    autoSize(plumbingManager);
 }
 
 export function initAutoCapMenu() {
     const mainMenu = document.getElementById('mainMenuContent');
-    const trigger  = document.getElementById('menuHesapAutoCap');
-    const optAggr  = document.getElementById('menuAutoCapAggressive');
-    const optCons  = document.getElementById('menuAutoCapConservative');
+    const menuCap  = document.getElementById('menuHesapAutoCap');
 
-    // Trigger ana menüde sadece submenu açıyor — varsayılan link davranışını engelle
-    if (trigger) {
-        trigger.addEventListener('click', (e) => e.preventDefault());
-    }
-    if (optAggr) {
-        optAggr.addEventListener('click', (e) => {
+    if (menuCap) {
+        menuCap.addEventListener('click', (e) => {
             e.preventDefault();
             mainMenu?.parentElement?.classList.remove('show');
-            runMode('AGGRESSIVE');
-        });
-    }
-    if (optCons) {
-        optCons.addEventListener('click', (e) => {
-            e.preventDefault();
-            mainMenu?.parentElement?.classList.remove('show');
-            runMode('CONSERVATIVE');
+            runAutoCap();
         });
     }
 
-    // HESAP ikon paneli: Otomatik Çap butonu + flyout
-    const wrapBtn   = document.getElementById('bHesapAutoCap');
-    const flyout    = document.getElementById('hesap-autocap-flyout');
-    const iconAggr  = document.getElementById('bHesapAutoCapAggr');
-    const iconCons  = document.getElementById('bHesapAutoCapCons');
-
-    function closeFlyout() {
-        if (flyout) flyout.classList.remove('open');
-        if (wrapBtn) wrapBtn.classList.remove('flyout-open');
-    }
-
-    if (wrapBtn && flyout) {
-        wrapBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const open = flyout.classList.toggle('open');
-            wrapBtn.classList.toggle('flyout-open', open);
-        });
-        document.addEventListener('click', (e) => {
-            if (!flyout.classList.contains('open')) return;
-            if (flyout.contains(e.target)) return;
-            if (wrapBtn.contains(e.target)) return;
-            closeFlyout();
-        });
-    }
-    if (iconAggr) {
-        iconAggr.addEventListener('click', (e) => {
+    // HESAP ikon paneli: tek buton — Otomatik Çap
+    const capBtn = document.getElementById('bHesapAutoCap');
+    if (capBtn) {
+        capBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            closeFlyout();
-            runMode('AGGRESSIVE');
-        });
-    }
-    if (iconCons) {
-        iconCons.addEventListener('click', (e) => {
-            e.preventDefault();
-            closeFlyout();
-            runMode('CONSERVATIVE');
+            runAutoCap();
         });
     }
 }

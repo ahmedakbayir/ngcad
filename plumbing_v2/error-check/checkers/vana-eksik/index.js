@@ -190,6 +190,11 @@ function kolonAkvKuralı(manager, out) {
         );
         if (hasAkv) return;
 
+        // Hedef: servis kutusu sonrası ilk hat (yoksa kutu)
+        const firstPipeId = roots[0]?.id;
+        const targets = firstPipeId
+            ? [{ type: 'pipe', id: firstPipeId }]
+            : [{ type: 'comp', id: box.id }];
         out.push({
             group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
             errorId: `vana-akv-${box.id}`,
@@ -197,7 +202,7 @@ function kolonAkvKuralı(manager, out) {
             floorName: floorNameById(box.floorId),
             source:  'TS7363 Md:5.1.9',
             detail:  'Doğalgaz bina bağlantı hattı üzerinde, rahatça ulaşılabilecek 1,90 – 2,10 m yükseklikte, tüm tesisatın gaz akışını gerektiğinde kesip açma işlevini yerine getirecek ana kapatma vanası (AKV) konulmalıdır.',
-            targets: [{ type: 'comp', id: box.id }],
+            targets,
             fix: {
                 description: 'Kolonda servis kutusu sonrası ilk borunun sonuna AKV eklenecek',
                 apply: () => addKolonAkv(manager, box.id),
@@ -314,6 +319,10 @@ function ticariSelenoidKuralı(manager, out) {
         if (hasVanaDownstreamWithin(manager, sayac.cikisBagliBoruId, 'SELENOID', 200)) return;
 
         const d = daireLabel(sayac) || BIRIM_PLACEHOLDER;
+        // Hedef: sayaç çıkışı ilk hat (yoksa sayaç)
+        const targets = sayac.cikisBagliBoruId
+            ? [{ type: 'pipe', id: sayac.cikisBagliBoruId }]
+            : [{ type: 'comp', id: sayac.id }];
         // Daire referansı — hat no eklenmez. "D2 Sayacı sonrası selenoid vana gerekli"
         out.push({
             group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
@@ -322,7 +331,7 @@ function ticariSelenoidKuralı(manager, out) {
             floorName: floorNameById(sayac.floorId),
             source:  'TS7363 Md:5.1.31',
             detail:  'Ticari yerler için yapılan tesisatlarda, solenoid vana ve gaz alarm cihazı bulundurulmak zorundadır. Daire dışında daireye ait ana hat üzerine monte edilecek solenoid vana ile irtibatlandırılmalıdır.',
-            targets: [{ type: 'comp', id: sayac.id }],
+            targets,
             fix: {
                 description: 'Sayaç çıkışına yakın bir noktaya selenoid vana eklenecek',
                 apply: () => addTicariSelenoid(manager, sayac.id),
@@ -341,14 +350,14 @@ function depremSelenoidKuralı(manager, out) {
 
     boxes.forEach(box => {
         // Zincirde AKV yoksa atla (akv-eksik kuralı ayrıca yakalar)
+        const roots = (manager.pipes || []).filter(p =>
+            p.baslangicBaglanti?.tip === 'servis_kutusu' &&
+            p.baslangicBaglanti.hedefId === box.id
+        );
         const chainIds = (() => {
             const ids = new Set();
             const childrenOf = buildChildrenMap(manager.pipes);
-            const roots = (manager.pipes || []).filter(p =>
-                p.baslangicBaglanti?.tip === 'servis_kutusu' &&
-                p.baslangicBaglanti.hedefId === box.id
-            ).map(r => r.id);
-            const queue = [...roots];
+            const queue = roots.map(r => r.id);
             while (queue.length) {
                 const id = queue.shift();
                 if (ids.has(id)) continue;
@@ -366,6 +375,11 @@ function depremSelenoidKuralı(manager, out) {
 
         if (hasSelenoidInChain(manager, box.id)) return;
 
+        // Hedef: servis kutusu sonrası ilk hat (yoksa kutu)
+        const firstPipeId = roots[0]?.id;
+        const targets = firstPipeId
+            ? [{ type: 'pipe', id: firstPipeId }]
+            : [{ type: 'comp', id: box.id }];
         out.push({
             group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
             errorId: `vana-deprem-selenoid-${box.id}`,
@@ -373,7 +387,7 @@ function depremSelenoidKuralı(manager, out) {
             floorName: floorNameById(box.floorId),
             source:  'TS7363 Md:5.1.9',
             detail:  'Binaların Yangından Korunması Hakkında Yönetmelik hükümlerinde belirtilen deprem bölgelerinde binaların ana girişinde ana kapama vanasından sonra, sarsıntı olduğunda gaz akışını kesen tertibat olması gerekmektedir.',
-            targets: [{ type: 'comp', id: box.id }],
+            targets,
             fix: {
                 description: 'AKV\'nin 30 cm sonrasına selenoid vana eklenecek',
                 apply: () => addDepremSelenoid(manager, box.id),

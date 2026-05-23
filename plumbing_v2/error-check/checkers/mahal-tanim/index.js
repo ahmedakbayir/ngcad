@@ -22,8 +22,8 @@ function mahalTanimChecker() {
         return {
             group:   ERROR_GROUP_IDS.MAHAL_TANIM,
             errorId: `mahal-tanim-${b.floorId ?? 'na'}`,
-            // "Birim içinde olmayan 5 mahalin tanımlaması yapılmamış."  (kat → floorName sonda gri)
-            message: `Birim içinde olmayan ${b.count} mahalin tanımlaması yapılmamış.`,
+            // "5 mahalin tanımlaması yapılmamış." — kat adı floorName ile sonda gri gösterilir.
+            message: `${b.count} mahalin tanımlaması yapılmamış.`,
             floorName: fn,
             source:  'proje gereği',
             detail:  'Tüm mahaller için mahal isimleri listeden seçilmeli (MUTFAK, SALON, ANTRE, YATAK ODASI vb.) atanmalıdır.',

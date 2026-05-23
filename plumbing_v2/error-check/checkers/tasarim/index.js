@@ -210,16 +210,22 @@ function esnekReduksiyonKurali(manager, out) {
                 child.baslangicBaglanti.hedefId === pid
             );
 
+            // Parent ucunda (p2) kaç çocuk başlıyor? 2+ ise TE rakoru (3 yönlü
+            // birleşim), her çocuk T-ayrım sayılır → redüksiyona izin var.
+            const endChildrenCount = children.filter(c => isAtPipeEnd(c.p1, parent.p2)).length;
+            const isEndJunction = endChildrenCount >= 2;
+
             for (const child of children) {
                 // T-ayrım tespiti:
-                //   1) parent.tBaglantilar listesinde child.id varsa → T
-                //   2) Geometrik fallback: child.p1, parent.p2 (akış sonu) yakınında DEĞİLSE
-                //      child parent'ın ortasından çıkıyor demektir → T
-                //   Sadece düz devam (child.p1 ≈ parent.p2) durumunda redüksiyon yasaktır.
+                //   1) parent.tBaglantilar listesinde child.id varsa → T (mid-pipe T)
+                //   2) child.p1, parent.p2 (akış sonu) yakınında DEĞİLSE → T (mid-pipe çıkış)
+                //   3) parent.p2'de birden fazla çocuk başlıyorsa → TE rakoru (endpoint T)
+                //   Sadece düz devam (parent ucunda tek çocuk + p1 ≈ p2) durumunda
+                //   redüksiyon yasaktır.
                 const inTList = Array.isArray(parent.tBaglantilar)
                     && parent.tBaglantilar.some(tb => tb.boruId === child.id);
                 const isStraightContinuation = isAtPipeEnd(child.p1, parent.p2);
-                const isTBranch = inTList || !isStraightContinuation;
+                const isTBranch = inTList || !isStraightContinuation || isEndJunction;
                 const pCap = parent.boruCap;
                 const cCap = child.boruCap;
                 if (pCap && cCap && pCap !== cCap && !isTBranch) {

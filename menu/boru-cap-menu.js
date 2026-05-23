@@ -410,13 +410,14 @@ function computeHatRow(hat, sigmaXi, P1_bar) {
     const isHigh = isHighPressure(hat.basinc);
     const vLimit = isHigh ? V_LIMIT_HIGH : V_LIMIT;
     if (!D_mm || D_mm <= 0) {
-        return { ...hat, error: `Bilinmeyen çap: ${hat.dn}`, P1_bar };
+        // Hesaplanamayan satırlar sessizce 0 katkı vermesin; path limit testi tetiklensin.
+        return { ...hat, error: `Bilinmeyen çap: ${hat.dn}`, sumDP: Infinity, P1_bar };
     }
 
     // ESNEK TESİSAT — sadece DN15..DN32 geçerli; ΔPR tablodan, ΔPF/ΔPA aynı.
     if (hat.boruTipi === 'ESNEK') {
         if (!ESNEK_TABLE[hat.dn]) {
-            return { ...hat, error: `Esnek tesisatta ${hat.dn} tanımlı değil (sadece DN15–DN32)`, P1_bar };
+            return { ...hat, error: `Esnek tesisatta ${hat.dn} tanımlı değil (sadece DN15–DN32)`, sumDP: Infinity, P1_bar };
         }
         if (hat.Q <= 0 || hat.L_m <= 0) {
             const dPA0 = 0.049 * (hat.H_m || 0);
@@ -431,7 +432,7 @@ function computeHatRow(hat, sigmaXi, P1_bar) {
         }
         const interp = interpolateEsnek(hat.dn, hat.Q);
         if (!interp) {
-            return { ...hat, error: `Q = ${hat.Q} m³/h, ${hat.dn} esnek tablosu kapsamı dışında`, P1_bar };
+            return { ...hat, error: `Q = ${hat.Q} m³/h, ${hat.dn} esnek tablosu kapsamı dışında`, sumDP: Infinity, P1_bar };
         }
         const v = interp.v;
         const dPR_L = interp.dPR_L;
@@ -471,9 +472,18 @@ function computeHatRow(hat, sigmaXi, P1_bar) {
     }
 
     // P1 - P2 = 23,2 × R × Q^1.82 / D^4.82 × L  (bar)
-    const P2_bar = isHigh?
-        Math.sqrt( Math.pow(P1_bar,2)-(29.16 * Math.pow(hat.Q, 1.82) / Math.pow(D_mm, 4.82) * hat.L_m)):
-        Math.max(0.001, P1_bar - 23.2 * R_GAS * Math.pow(hat.Q, 1.82) / Math.pow(D_mm, 4.82) * hat.L_m);
+    // Yüksek basınçta P2² hesabı negatife düşerse → boru kapasitesi yetmiyor,
+    // hatayı silikleştirmeden gerçek-büyük bir sumDP raporla.
+    let P2_bar;
+    if (isHigh) {
+        const P2sq = Math.pow(P1_bar, 2) - (29.16 * Math.pow(hat.Q, 1.82) / Math.pow(D_mm, 4.82) * hat.L_m);
+        if (!(P2sq > 0)) {
+            return { ...hat, error: `Q = ${hat.Q} m³/h, ${hat.dn} kapasitesi aşıldı`, sumDP: Infinity, P1_bar };
+        }
+        P2_bar = Math.sqrt(P2sq);
+    } else {
+        P2_bar = Math.max(0.001, P1_bar - 23.2 * R_GAS * Math.pow(hat.Q, 1.82) / Math.pow(D_mm, 4.82) * hat.L_m);
+    }
 
     const dPR = (P1_bar-P2_bar) * 1000; // mbar
     const dPR_L = hat.L_m > 0 ? dPR / hat.L_m : 0;

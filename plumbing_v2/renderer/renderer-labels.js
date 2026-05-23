@@ -177,7 +177,7 @@ export const LabelMixin = {
         const lineH = fontSize * 1.6;
 
         const opts = {
-            zoom, t, fontSize, lineH,
+            zoom, t, fontSize, lineH, manager,
             textColor: light ? '#0a0e16' : '#f3f4f8',
             subColor: light ? '#25272c' : '#c8ced8',
             accentColor: light ? '#153692' : '#a2cbfc',
@@ -336,6 +336,48 @@ export const LabelMixin = {
     _scrPos(obj, t) {
         const z = (obj.z || 0) * t;
         return { x: obj.x + z, y: obj.y - z };
+    },
+
+    // İzometride (3D perspektif aktif) cihaz, renderer-components.js'deki
+    // _computeCihazPerspSchematic ile fleks doğrultusunda kaydırılıyor.
+    // Etiket leader'ı ve layout anchor'ı görünen ikon merkezine bakmalı —
+    // bu yüzden aynı kaydırmayı burada da hesaplıyoruz.
+    _scrPosForCihazPersp(comp, manager, t) {
+        if (!manager || !comp.fleksBaglanti?.boruId || !comp.fleksBaglanti.endpoint) return null;
+        const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
+        if (!pipe) return null;
+        const ep = comp.fleksBaglanti.endpoint;
+        const endpoint = ep === 'p1' ? pipe.p1 : pipe.p2;
+        const otherEnd = ep === 'p1' ? pipe.p2 : pipe.p1;
+        const dx = endpoint.x - otherEnd.x;
+        const dy = endpoint.y - otherEnd.y;
+        const dz = (endpoint.z || 0) - (otherEnd.z || 0);
+        if (Math.hypot(dx, dy, dz) < 0.1) return null;
+        const su = dx + dz * t;
+        const sv = dy - dz * t;
+        const sLen = Math.hypot(su, sv);
+        if (sLen < 0.1) return null;
+        const ux = su / sLen;
+        const uy = sv / sLen;
+        const flexLen = comp.fleksBaglanti.uzunluk || 30;
+        const halfW = (comp.config?.width || 30) / 2;
+        const dist = flexLen + halfW;
+        const persp = {
+            x: endpoint.x + dist * ux,
+            y: endpoint.y + dist * uy,
+            z: endpoint.z || 0,
+        };
+        const z = persp.z * t;
+        return { x: persp.x + z, y: persp.y - z };
+    },
+
+    // Cihaz dahil tüm objelerin "ekrandaki gerçek" merkezini döndürür.
+    _scrPosEffective(obj, t, manager) {
+        if (obj?.type === 'cihaz' && state.is3DPerspectiveActive) {
+            const persp = this._scrPosForCihazPersp(obj, manager, t);
+            if (persp) return persp;
+        }
+        return this._scrPos(obj, t);
     },
 
     // ─── Etiket kutusu çiz ve bbox kaydet ───────────────────────────────────
@@ -1101,8 +1143,10 @@ export const LabelMixin = {
 
     // ─── CİHAZ (KOMBİ / OCAK) ───────────────────────────────────────────────
     _drawCihazObjLabel(ctx, comp, opts) {
-        const { t } = opts;
-        const sc = this._scrPos(comp, t);
+        const { t, manager } = opts;
+        // İzometride cihaz fleks doğrultusunda kaydırılıyor; leader endpoint
+        // gerçek ikon merkezine baksın.
+        const sc = this._scrPosEffective(comp, t, manager);
         const off = _getOffset(comp.id);
 
         const lines = [];
@@ -1159,12 +1203,19 @@ function _rectsOverlap(a, b, pad) {
         b.by + b.bh + pad <= a.by);
 }
 
-function _getLabelAnchor(obj, t) {
+function _getLabelAnchor(obj, t, manager) {
     if (obj.type === 'boru' || (obj.p1 && obj.p2)) {
         const z1 = (obj.p1?.z || 0) * t, z2 = (obj.p2?.z || 0) * t;
         const sx1 = obj.p1.x + z1, sy1 = obj.p1.y - z1;
         const sx2 = obj.p2.x + z2, sy2 = obj.p2.y - z2;
         return { x: (sx1 + sx2) / 2, y: (sy1 + sy2) / 2 };
+    }
+    // İzometride cihaz fleks doğrultusunda kaydırılıyor — layout anchor'ı
+    // gerçek çizim merkezine baksın ki etiket yakınına yerleşsin.
+    if (obj.type === 'cihaz' && state.is3DPerspectiveActive && manager
+        && LabelMixin?._scrPosForCihazPersp) {
+        const persp = LabelMixin._scrPosForCihazPersp(obj, manager, t);
+        if (persp) return persp;
     }
     const zOff = (obj.z || 0) * t;
     return { x: (obj.x || 0) + zOff, y: (obj.y || 0) - zOff };
@@ -1706,7 +1757,7 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
     const sceneCenter = _computeSceneCenter(manager, t);
 
     cands.forEach(c => {
-        c.anchor = _getLabelAnchor(c.obj, t);
+        c.anchor = _getLabelAnchor(c.obj, t, manager);
         const sz = _estimateBoxSize(c.obj.id, 80, 40);
         c.bw = sz.bw; c.bh = sz.bh; c.style = sz.style;
         c.hostPipeDir = _getHostPipeDir(c.obj, manager, t);
@@ -1731,7 +1782,7 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
             for (let i = 0; i < c.pipeGroup.length; i++) {
                 const p = c.pipeGroup[i];
                 c.obj = p;
-                c.anchor = _getLabelAnchor(p, t);
+                c.anchor = _getLabelAnchor(p, t, manager);
                 c.hostPipeDir = _getHostPipeDir(p, manager, t);
                 const spot = _findBestLocalPosition(c, runningObstacles, pipeSegments, neighborAnchors);
 
@@ -1747,7 +1798,7 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
             }
 
             c.obj = bestPipe;
-            c.anchor = _getLabelAnchor(bestPipe, t);
+            c.anchor = _getLabelAnchor(bestPipe, t, manager);
             c.hostPipeDir = _getHostPipeDir(bestPipe, manager, t);
             c.align = bestSpot.align;
             c.idealCX = bestSpot.cx;
