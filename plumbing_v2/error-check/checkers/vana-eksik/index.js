@@ -16,11 +16,21 @@
 
 import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
-import { addKolonAkv, addCihazValve, addSayacEmniyet, addTicariSelenoid } from './fix.js';
+import { addKolonAkv, addCihazValve, addSayacEmniyet, addTicariSelenoid, addDepremSelenoid, hasSelenoidInChain } from './fix.js';
+import { daireLabel, cihazAdBig, locInBirim, locKatBirim } from '../../checker-utils.js';
 
 const CIHAZ_VANA_MAX_CM = 50;
 const SAYAC_EMNIYET_MAX_CM = 100;
 const TICARI_SELENOID_MIN_CM = 20;
+
+const CIHAZ_AD = {
+    KOMBI:  'Kombi',
+    OCAK:   'Ocak',
+    SOFBEN: 'Şofben',
+    SOBA:   'Soba',
+    KAZAN:  'Kazan',
+    TICARI: 'Ticari cihaz',
+};
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────
 
@@ -141,30 +151,6 @@ function meterCikisHasMinLength(manager, meter, minCm) {
     return pipe ? pipeLengthCm(pipe) >= minCm : false;
 }
 
-// Etiket yardımcıları
-function dairePrefix(comp) {
-    if (!comp) return '';
-    const no = comp.birimNo;
-    if (no == null || String(no).trim() === '') return '';
-    const tipi = comp.birimTipi || 'KONUT';
-    switch (tipi) {
-        case 'KONUT': return `D${no}`;
-        case 'OFİS': return `(Ofis) Dük${no}`;
-        case 'TİCARİ': return `(Ticari) Dük${no}`;
-        case 'KAZAN DAİRESİ': return `KD${no}`;
-        default: return `D${no}`;
-    }
-}
-
-const CIHAZ_AD = {
-    KOMBI:  'Kombi',
-    OCAK:   'Ocak',
-    SOFBEN: 'Şofben',
-    SOBA:   'Soba',
-    KAZAN:  'Kazan',
-    TICARI: 'Ticari cihaz',
-};
-
 // ─── Kurallar ─────────────────────────────────────────────────────────────
 
 // 1. Kolonda AKV gerekli — her servis kutusu için.
@@ -200,9 +186,9 @@ function kolonAkvKuralı(manager, out) {
         if (hasAkv) return;
 
         out.push({
-            group:   ERROR_GROUP_IDS.VANA_EKSIK,
+            group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
             errorId: `vana-akv-${box.id}`,
-            message: 'Kolonda AKV gerekli',
+            message: 'Kolonda AKV gerekmektedir.',
             source:  'TS7363 Md:5.1.9',
             detail:  'Doğalgaz bina bağlantı hattı üzerinde, rahatça ulaşılabilecek 1,90 – 2,10 m yükseklikte, tüm tesisatın gaz akışını gerektiğinde kesip açma işlevini yerine getirecek ana kapatma vanası (AKV) konulmalıdır.',
             targets: [{ type: 'comp', id: box.id }],
@@ -236,11 +222,14 @@ function cihazVanaKuralı(manager, out) {
 
         if (hasVanaAtComponentEnd(manager, pipe, endpoint, 'CIHAZ', CIHAZ_VANA_MAX_CM)) return;
 
-        const ad = CIHAZ_AD[cihaz.cihazTipi] || 'Cihaz';
+        const ad = cihazAdBig(cihaz.cihazTipi);
+        const sayac = findMeterUpstreamLocal(manager, cihaz.fleksBaglanti?.boruId);
+        const dare = daireLabel(sayac);
+        const loc = locInBirim(cihaz.floorId, dare);
         out.push({
-            group:   ERROR_GROUP_IDS.VANA_EKSIK,
+            group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
             errorId: `vana-cihaz-${cihaz.id}`,
-            message: `${ad} için cihaz vanası gerekli`,
+            message: `${loc ? loc + ' ' : ''}${ad} için cihaz vanası gerekli`,
             source:  'TS7363 Md:6',
             detail:  'Her cihazın girişine bir adet kesme vanası mutlaka konulmalıdır.',
             targets: [{ type: 'comp', id: cihaz.id }],
@@ -250,6 +239,29 @@ function cihazVanaKuralı(manager, out) {
             },
         });
     });
+}
+
+// Yardımcı: cihaz'ın bağlı olduğu fleks borudan upstream sayaç bul.
+function findMeterUpstreamLocal(manager, pipeId) {
+    if (!pipeId || !manager?.pipes) return null;
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    const metersByExit = new Map();
+    (manager.components || []).forEach(c => {
+        if (c.type === 'sayac' && c.cikisBagliBoruId) {
+            metersByExit.set(c.cikisBagliBoruId, c);
+        }
+    });
+    let cursor = pipeMap.get(pipeId);
+    const seen = new Set();
+    while (cursor && !seen.has(cursor.id)) {
+        seen.add(cursor.id);
+        const m = metersByExit.get(cursor.id);
+        if (m) return m;
+        const par = cursor.baslangicBaglanti;
+        if (par?.tip === 'boru' && par.hedefId) cursor = pipeMap.get(par.hedefId);
+        else break;
+    }
+    return null;
 }
 
 // 3. Sayaç öncesi emniyet vanası — her sayacın bağlandığı borunun sayaç
@@ -265,11 +277,13 @@ function sayacEmniyetKuralı(manager, out) {
 
         if (hasVanaAtComponentEnd(manager, pipe, endpoint, 'EMNIYET', SAYAC_EMNIYET_MAX_CM)) return;
 
-        const pre = dairePrefix(sayac);
+        const dare = daireLabel(sayac);
+        const kb = locKatBirim(sayac.floorId, dare);
+        // PDF: "Zemin kat, D2 Sayacı öncesi emniyet vanası gerekli"
         out.push({
-            group:   ERROR_GROUP_IDS.VANA_EKSIK,
+            group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
             errorId: `vana-sayac-emniyet-${sayac.id}`,
-            message: `${pre ? pre + ' s' : 'S'}ayaç öncesi emniyet vanası gerekli`,
+            message: `${kb ? kb + ' Sayacı' : 'Sayaç'} öncesi emniyet vanası gerekli`,
             source:  'TS7363 Md:5.2.6',
             detail:  'Her sayaçtan önce bir kapama vanası bulunmalıdır.',
             targets: [{ type: 'comp', id: sayac.id }],
@@ -293,17 +307,69 @@ function ticariSelenoidKuralı(manager, out) {
         // Sayaç çıkışından itibaren makul mesafede (örn 200 cm) selenoid ara
         if (hasVanaDownstreamWithin(manager, sayac.cikisBagliBoruId, 'SELENOID', 200)) return;
 
-        const pre = dairePrefix(sayac);
+        const dare = daireLabel(sayac);
+        const kb = locKatBirim(sayac.floorId, dare);
+        // PDF: "Zemin kat, D2 Sayacı sonrası selenoid vana gerekli"
         out.push({
-            group:   ERROR_GROUP_IDS.VANA_EKSIK,
+            group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
             errorId: `vana-ticari-selenoid-${sayac.id}`,
-            message: `${pre ? pre + ' s' : 'S'}ayaç sonrası selenoid vana gerekli`,
+            message: `${kb ? kb + ' Sayacı' : 'Sayaç'} sonrası selenoid vana gerekli`,
             source:  'TS7363 Md:5.1.31',
             detail:  'Ticari yerler için yapılan tesisatlarda, solenoid vana ve gaz alarm cihazı bulundurulmak zorundadır. Daire dışında daireye ait ana hat üzerine monte edilecek solenoid vana ile irtibatlandırılmalıdır.',
             targets: [{ type: 'comp', id: sayac.id }],
             fix: {
                 description: 'Sayaç çıkışına yakın bir noktaya selenoid vana eklenecek',
                 apply: () => addTicariSelenoid(manager, sayac.id),
+            },
+        });
+    });
+}
+
+// 5. Deprem amaçlı selenoid — TS7363 Md:5.1.9
+//    Servis kutusu zincirinde AKV varsa, AKV sonrasında bir SELENOID vana
+//    bulunmalıdır (deprem bölgesi varsayımı). Zincirde hiç AKV yoksa kontrol
+//    edilmez (önce AKV eksik hatası tetiklenir).
+function depremSelenoidKuralı(manager, out) {
+    const boxes = (manager.components || []).filter(c => c.type === 'servis_kutusu');
+    if (!boxes.length) return;
+
+    boxes.forEach(box => {
+        // Zincirde AKV yoksa atla (akv-eksik kuralı ayrıca yakalar)
+        const chainIds = (() => {
+            const ids = new Set();
+            const childrenOf = buildChildrenMap(manager.pipes);
+            const roots = (manager.pipes || []).filter(p =>
+                p.baslangicBaglanti?.tip === 'servis_kutusu' &&
+                p.baslangicBaglanti.hedefId === box.id
+            ).map(r => r.id);
+            const queue = [...roots];
+            while (queue.length) {
+                const id = queue.shift();
+                if (ids.has(id)) continue;
+                ids.add(id);
+                (childrenOf.get(id) || []).forEach(cid => queue.push(cid));
+            }
+            return ids;
+        })();
+        if (!chainIds.size) return;
+
+        const hasAkv = (manager.components || []).some(c =>
+            c.type === 'vana' && c.vanaTipi === 'AKV' && chainIds.has(c.bagliBoruId)
+        );
+        if (!hasAkv) return;
+
+        if (hasSelenoidInChain(manager, box.id)) return;
+
+        out.push({
+            group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
+            errorId: `vana-deprem-selenoid-${box.id}`,
+            message: 'Kolonda Deprem amaçlı selenoid vana gerekli',
+            source:  'TS7363 Md:5.1.9',
+            detail:  'Binaların Yangından Korunması Hakkında Yönetmelik hükümlerinde belirtilen deprem bölgelerinde binaların ana girişinde ana kapama vanasından sonra, sarsıntı olduğunda gaz akışını kesen tertibat olması gerekmektedir.',
+            targets: [{ type: 'comp', id: box.id }],
+            fix: {
+                description: 'AKV\'nin 30 cm sonrasına selenoid vana eklenecek',
+                apply: () => addDepremSelenoid(manager, box.id),
             },
         });
     });
@@ -318,6 +384,7 @@ function vanaEksikChecker({ manager }) {
     cihazVanaKuralı(manager, out);
     sayacEmniyetKuralı(manager, out);
     ticariSelenoidKuralı(manager, out);
+    depremSelenoidKuralı(manager, out);
     return out;
 }
 

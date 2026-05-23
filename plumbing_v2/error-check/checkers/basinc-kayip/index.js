@@ -21,6 +21,7 @@ import {
 } from '../../../../menu/boru-cap-menu.js';
 import { computeFittings } from '../../../../menu/fittings-menu.js';
 import { upgradeBottleneckInHats } from './fix.js';
+import { daireLabel, cihazAdSmall, findMeterUpstream } from '../../checker-utils.js';
 
 const NF4 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
@@ -99,6 +100,70 @@ function limitDescriptor(limit, isHighStart) {
     };
 }
 
+// Path bitiş etiketi — PDF wording'i:
+//   SAYAC          → "D2 sayacı"
+//   CIHAZ          → "kombi"
+//   BRANSMAN       → "D2 branşmanı"
+//   BRANSMAN_ILERDE → "2 birimlik ileride kullanım vanası"
+//   YANBINA        → "yan bina vanası"
+function pathEndLabel(manager, path, byHat) {
+    const lastHatNo = path.hatNos[path.hatNos.length - 1];
+    const lastHat = byHat.get(lastHatNo);
+    const tailPipeId = lastHat?.tailPipeId;
+    const type = path.endpointType;
+    if (!type) return '';
+
+    if (type === 'YANBINA') return 'yan bina vanası';
+
+    // tail pipe'a bağlı componentleri bul
+    const compsOnTail = (manager.components || []).filter(c =>
+        c.bagliBoruId === tailPipeId ||
+        c.fleksBaglanti?.boruId === tailPipeId
+    );
+
+    if (type === 'SAYAC') {
+        const sayac = compsOnTail.find(c => c.type === 'sayac');
+        const d = daireLabel(sayac);
+        return d ? `${d} sayacı` : 'sayaç';
+    }
+    if (type === 'CIHAZ') {
+        const cihaz = compsOnTail.find(c => c.type === 'cihaz');
+        return cihazAdSmall(cihaz?.cihazTipi);
+    }
+    if (type === 'BRANSMAN') {
+        const bran = compsOnTail.find(c => c.type === 'vana' && c.vanaTipi === 'BRANSMAN');
+        const d = daireLabel(bran);
+        return d ? `${d} branşmanı` : 'branşman';
+    }
+    if (type === 'BRANSMAN_ILERDE') {
+        const bran = compsOnTail.find(c => c.type === 'vana' && c.vanaTipi === 'BRANSMAN' && c.ilerdeKullanim);
+        const n = parseInt(bran?.birimSayisi, 10) || 0;
+        return n > 0
+            ? `${n} birimlik ileride kullanım vanası`
+            : 'ileride kullanım vanası';
+    }
+    return '';
+}
+
+// Path başlangıç etiketi:
+//   KOLON  + !reg → "Servis kutusu"
+//   KOLON  + reg  → "Regülatör"
+//   TUKETIM + !reg → "{daire} sayacı"   (sayaç sonrası iç tesisat)
+//   TUKETIM + reg  → "Regülatör"        (sayaç sonrası reg → cihaz)
+function pathStartLabel(manager, path, byHat, segmentType) {
+    if (segmentType === 'KOLON') {
+        return path.hasRegulator ? 'Regülatör' : 'Servis kutusu';
+    }
+    // TUKETIM
+    if (path.hasRegulator) return 'Regülatör';
+    // İlk hat'ın head pipe'ından upstream sayaç
+    const firstHat = byHat.get(path.hatNos[0]);
+    const headPipeId = firstHat?.headPipeId;
+    const sayac = headPipeId ? findMeterUpstream(manager, headPipeId) : null;
+    const d = daireLabel(sayac);
+    return d ? `${d} sayacı` : 'sayaç';
+}
+
 function basincKayipChecker({ manager }) {
     if (!manager?.pipes?.length) return [];
 
@@ -123,7 +188,11 @@ function basincKayipChecker({ manager }) {
 
     // 4) overLimit + skip değil olanları hataya çevir
     const errors = [];
-    [...kolonPaths, ...tukPaths].forEach(p => {
+    const allPaths = [
+        ...kolonPaths.map(p => ({ p, segmentType: 'KOLON' })),
+        ...tukPaths.map(p => ({ p, segmentType: 'TUKETIM' })),
+    ];
+    allPaths.forEach(({ p, segmentType }) => {
         if (p.skip || !p.overLimit) return;
 
         const firstHat = byHat.get(p.hatNos[0]);
@@ -136,10 +205,18 @@ function basincKayipChecker({ manager }) {
         const limitStr  = NF4.format(p.limit);
         const valueStr  = NF4.format(p.evalTotal ?? p.total ?? 0);
 
+        const segLabel = segmentType === 'KOLON' ? 'kolon' : 'iç tesisat';
+        const startLbl = pathStartLabel(manager, p, byHat, segmentType);
+        const endLbl   = pathEndLabel(manager, p, byHat);
+
+        // PDF: "{hatler} nolu {kolon|iç tesisat} hatlarında {start} ile {end}
+        //       arasında toplam basınç kaybı yüksek ({valueStr} mbar > {limitStr} mbar)"
+        const message = `${pathLabel} nolu ${segLabel} hatlarında ${startLbl} ile ${endLbl} arasında toplam basınç kaybı yüksek (${valueStr} mbar > ${limitStr} mbar)`;
+
         errors.push({
             group:   ERROR_GROUP_IDS.BASINC_KAYIP,
             errorId: `pl-${p.hatNos.join('_')}-${p.limit.toFixed(4)}`,
-            message: `${pathLabel} : ${valueStr} mbar (≤ ${limitStr} mbar olmalıdır)`,
+            message,
             source:  desc.source,
             detail:  desc.detail,
             targets: [{ type: 'path', hatNos: p.hatNos.slice() }],

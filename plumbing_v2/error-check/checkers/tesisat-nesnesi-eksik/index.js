@@ -11,6 +11,7 @@
 import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
 import { ensureTopraklama, ensureAkvMuhafaza } from './fix.js';
+import { hatNoForComp } from '../../checker-utils.js';
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────
 function buildChildrenMap(pipes) {
@@ -85,7 +86,7 @@ function topraklamaKurali(manager, out) {
         out.push({
             group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
             errorId: `topraklama-${box.id}`,
-            message: 'Topraklama çubuğu gerekli',
+            message: 'Kolonda topraklama çubuğu gerekmektedir.',
             source:  'TS7363 Md:5.1.20',
             detail:  'Topraklama en az 16 mm çapında ve 1,5 m uzunlukta som bakır çubuk elektrotlar, en az 20 mm çapında ve 1,25 m uzunluğunda som bakır çubuk elektrotlar veya 0,5 m² ve 2 mm kalınlığında bakır levha ile yapılmalıdır.',
             targets: [{ type: 'pipe', id: firstRoot.id }],
@@ -101,10 +102,15 @@ function akvMuhafazaKurali(manager, out) {
     (manager.components || []).forEach(c => {
         if (c.type !== 'vana' || c.vanaTipi !== 'AKV') return;
         if (c.muhafaza === true) return;
+        const hatNo = hatNoForComp(manager, c);
+        // PDF: "1 nolu kolon hattında bulunan AKV muhafazalı olmalıdır"
+        const prefix = hatNo != null
+            ? `${hatNo} nolu kolon hattında bulunan AKV`
+            : 'AKV';
         out.push({
-            group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
+            group:   ERROR_GROUP_IDS.MUHAFAZA,
             errorId: `akv-muhafaza-${c.id}`,
-            message: 'AKV muhafazalı olmalıdır',
+            message: `${prefix} muhafazalı olmalıdır`,
             source:  'TS7363 Md:5.1.9',
             detail:  'Ana kapatma vanası (dişli bağlantılı) bina dışında bir noktaya konulacak ise havalandırılmış bir kutu içine alınmalıdır.',
             targets: [{ type: 'comp', id: c.id }],

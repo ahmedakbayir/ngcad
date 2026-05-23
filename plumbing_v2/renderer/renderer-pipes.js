@@ -1404,7 +1404,7 @@ export const PipeMixin = {
             // Hattın p2 ucunda "z:X.XXm" göster (örn z:1.20m).
             if (pipe.isSelected) {
                 const zVal = (fp2.z || 0); // cm → m
-                const zLabel = `z:${zVal}`;
+                const zLabel = `z:${zVal.toFixed(0)}`;
 
                 ctx.save();
                 ctx.font = `300 ${actualFontSize}px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif`;

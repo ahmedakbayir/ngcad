@@ -6,13 +6,13 @@
 // Yeni grup eklemek: aşağıya bir GROUPS girişi + ERROR_GROUP_IDS'e id ekle.
 
 export const ERROR_GROUP_IDS = Object.freeze({
-    BASINC_KAYIP:        'BASINC_KAYIP',
-    TESISAT_HIZ:         'TESISAT_HIZ',
-    TASARIM:             'TASARIM',
-    CIHAZ_KONUM:         'CIHAZ_KONUM',
+    BASINC_KAYIP:          'BASINC_KAYIP',
+    TESISAT_HIZ:           'TESISAT_HIZ',
+    MUHAFAZA:              'MUHAFAZA',
     TESISAT_NESNESI_EKSIK: 'TESISAT_NESNESI_EKSIK',
-    VANA_EKSIK:          'VANA_EKSIK',
-    MAHAL_TANIM:         'MAHAL_TANIM',
+    TASARIM:               'TASARIM',
+    SAYAC_HATA:            'SAYAC_HATA',
+    MAHAL_TANIM:           'MAHAL_TANIM',
 });
 
 export const ERROR_GROUPS = Object.freeze({
@@ -23,17 +23,12 @@ export const ERROR_GROUPS = Object.freeze({
     },
     [ERROR_GROUP_IDS.TESISAT_HIZ]: {
         id:    ERROR_GROUP_IDS.TESISAT_HIZ,
-        label: 'Tesisat Hız Hatası',
+        label: 'Boru Hız Hatası',
         order: 20,
     },
-    [ERROR_GROUP_IDS.TASARIM]: {
-        id:    ERROR_GROUP_IDS.TASARIM,
-        label: 'Tasarım Hatası',
-        order: 30,
-    },
-    [ERROR_GROUP_IDS.CIHAZ_KONUM]: {
-        id:    ERROR_GROUP_IDS.CIHAZ_KONUM,
-        label: 'Cihaz Konum Hatası',
+    [ERROR_GROUP_IDS.MUHAFAZA]: {
+        id:    ERROR_GROUP_IDS.MUHAFAZA,
+        label: 'Muhafaza Hatası',
         order: 40,
     },
     [ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK]: {
@@ -41,15 +36,20 @@ export const ERROR_GROUPS = Object.freeze({
         label: 'Tesisat nesnesi eksik',
         order: 50,
     },
-    [ERROR_GROUP_IDS.VANA_EKSIK]: {
-        id:    ERROR_GROUP_IDS.VANA_EKSIK,
-        label: 'Vana Eksik',
+    [ERROR_GROUP_IDS.TASARIM]: {
+        id:    ERROR_GROUP_IDS.TASARIM,
+        label: 'Tasarım Hatası',
         order: 60,
+    },
+    [ERROR_GROUP_IDS.SAYAC_HATA]: {
+        id:    ERROR_GROUP_IDS.SAYAC_HATA,
+        label: 'Sayaç Hatası',
+        order: 70,
     },
     [ERROR_GROUP_IDS.MAHAL_TANIM]: {
         id:    ERROR_GROUP_IDS.MAHAL_TANIM,
         label: 'Mahal Tanım Hatası',
-        order: 70,
+        order: 80,
     },
 });
 

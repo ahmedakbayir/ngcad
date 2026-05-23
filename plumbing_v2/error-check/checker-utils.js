@@ -1,0 +1,144 @@
+// checker-utils.js
+// Hata kontrol checker'ları için ortak yardımcılar:
+//   • floorNameById(id)        → state.floors'tan kat adı
+//   • daireLabel(comp)         → "D2" / "Ofis 1" / "Dük 1" / "KD1"
+//   • findMeterUpstream(...)   → boru'dan upstream sayaç
+//   • cihazAdSmall(cihazTipi)  → "kombi", "ocak", "şofben" (PDF yazımı)
+//   • hatNosForComponent(...)  → bir comp/pipe'ın bulunduğu kolon hat numaraları
+
+import { state } from '../../general-files/main.js';
+import { computeHatGroups } from '../renderer/renderer-utils.js';
+
+// Kat ismini PDF wording'iyle döndürür: "Zemin" → "Zemin Kat", "1." → "1. Kat",
+// "ZEMİN" → "ZEMİN KAT". İsim zaten "kat" ile bitiyorsa olduğu gibi bırakılır.
+// Suffix case'i, ismin kendi case'ine göre uyarlanır (tamamı büyük harfse "KAT").
+export function floorNameById(floorId) {
+    if (floorId == null) return '';
+    const f = (state.floors || []).find(x => x.id === floorId);
+    const raw = String(f?.name || '').trim();
+    if (!raw) return '';
+    if (/kat\.?$/i.test(raw)) return raw;
+    // İsim büyük harf ağırlıklı mı? (en az bir harf büyük ve hiç küçük harf yok)
+    const isUpper = /[A-ZÇĞİÖŞÜ]/.test(raw) && !/[a-zçğıöşü]/.test(raw);
+    return `${raw} ${isUpper ? 'KAT' : 'Kat'}`;
+}
+
+export function daireLabel(comp) {
+    if (!comp) return '';
+    const no = comp.birimNo;
+    if (no == null || String(no).trim() === '') return '';
+    const tipi = comp.birimTipi || 'KONUT';
+    switch (tipi) {
+        case 'KONUT':         return `D${no}`;
+        case 'OFİS':          return `Ofis ${no}`;
+        case 'TİCARİ':        return `Dük ${no}`;
+        case 'KAZAN DAİRESİ': return `KD${no}`;
+        default:              return `D${no}`;
+    }
+}
+
+// PDF'te cihaz adı küçük harfle geçiyor: "Kombi için cihaz vanası gerekli"
+// (cihaz vanası satırı) ile karışmaması için sadece bu fonksiyon küçük harf
+// gerektirenlerde kullanılır.
+const CIHAZ_KUCUK = {
+    KOMBI:  'kombi',
+    OCAK:   'ocak',
+    SOFBEN: 'şofben',
+    SOBA:   'soba',
+    KAZAN:  'kazan',
+};
+const CIHAZ_BUYUK = {
+    KOMBI:  'Kombi',
+    OCAK:   'Ocak',
+    SOFBEN: 'Şofben',
+    SOBA:   'Soba',
+    KAZAN:  'Kazan',
+};
+export function cihazAdSmall(cihazTipi) {
+    return CIHAZ_KUCUK[(cihazTipi || '').toUpperCase()] || 'cihaz';
+}
+export function cihazAdBig(cihazTipi) {
+    return CIHAZ_BUYUK[(cihazTipi || '').toUpperCase()] || 'Cihaz';
+}
+
+export function findMeterUpstream(manager, pipeId) {
+    if (!pipeId || !manager?.pipes) return null;
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    const metersByExit = new Map();
+    (manager.components || []).forEach(c => {
+        if (c.type === 'sayac' && c.cikisBagliBoruId) {
+            metersByExit.set(c.cikisBagliBoruId, c);
+        }
+    });
+    let cursor = pipeMap.get(pipeId);
+    const seen = new Set();
+    while (cursor && !seen.has(cursor.id)) {
+        seen.add(cursor.id);
+        const m = metersByExit.get(cursor.id);
+        if (m) return m;
+        const par = cursor.baslangicBaglanti;
+        if (par?.tip === 'boru' && par.hedefId) cursor = pipeMap.get(par.hedefId);
+        else break;
+    }
+    return null;
+}
+
+// Bir bileşenin (vana/sayaç/cihaz) bulunduğu kolon hat numarası.
+// Birden fazla pipe etrafına yayılmış vana/sayaç için bağlı boru üzerinden
+// hat eşlemesi yapılır.
+let _hatMapCache = null;
+let _hatMapCacheKey = null;
+
+function getHatMap(manager) {
+    if (!manager?.pipes?.length) return new Map();
+    const key = manager.pipes.length + '|' + (manager.components?.length || 0);
+    if (_hatMapCache && _hatMapCacheKey === key) return _hatMapCache;
+    try {
+        const { hatMap } = computeHatGroups(manager.pipes, manager.components || []);
+        _hatMapCache = hatMap;
+        _hatMapCacheKey = key;
+        return hatMap;
+    } catch {
+        return new Map();
+    }
+}
+
+export function hatNoForPipe(manager, pipeId) {
+    const hatMap = getHatMap(manager);
+    return hatMap.get(pipeId) ?? null;
+}
+
+export function hatNoForComp(manager, comp) {
+    if (!comp) return null;
+    const pid = comp.bagliBoruId || comp.fleksBaglanti?.boruId;
+    return pid ? hatNoForPipe(manager, pid) : null;
+}
+
+// Birim adı tespit edilemeyen yerler için yer tutucu — PDF: "××× biriminde"
+export const BIRIM_PLACEHOLDER = '×××';
+
+// PDF lokasyon prefix yardımcıları. Floor varsa birim boş bile olsa "×××" ile
+// yer tutucu kullanılır ki cümle ("…, ××× biriminde …") anlamlı kalsın.
+//   katAdi + ", " + (birimAdi|×××) + " biriminde"   →   "Zemin Kat, D2 biriminde"
+//   katAdi + ", " + (birimAdi|×××)                  →   "Zemin Kat, D2"
+export function locInBirim(floorId, birimLabelStr) {
+    const fn = floorNameById(floorId);
+    const birim = birimLabelStr || (fn ? BIRIM_PLACEHOLDER : '');
+    if (fn && birim) return `${fn}, ${birim} biriminde`;
+    if (fn) return fn;
+    if (birim) return birim;
+    return '';
+}
+
+export function locKatBirim(floorId, birimLabelStr) {
+    const fn = floorNameById(floorId);
+    const birim = birimLabelStr || (fn ? BIRIM_PLACEHOLDER : '');
+    const parts = [];
+    if (fn) parts.push(fn);
+    if (birim) parts.push(birim);
+    return parts.join(', ');
+}
+
+export function locKat(floorId) {
+    return floorNameById(floorId);
+}

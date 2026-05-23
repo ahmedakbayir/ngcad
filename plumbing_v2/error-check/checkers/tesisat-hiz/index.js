@@ -46,11 +46,13 @@ function computeRowsWithRoot(manager) {
 }
 
 // Üç farklı kural için ortak hata yapıcısı.
+// PDF: "7 nolu kolon hattında hız yüksek. (7 m/s > 6 m/s)"
 function makeErr(manager, r, vLim, source, detail, idPrefix) {
+    const segLabel = r.segmentType === 'KOLON' ? 'kolon' : 'iç tesisat';
     return {
         group:   ERROR_GROUP_IDS.TESISAT_HIZ,
         errorId: `${idPrefix}-${r.hatNo}`,
-        message: `${r.hatNo} nolu hat: ${f2(r.v)} m/s (≤ ${vLim} m/s olmalıdır)`,
+        message: `${r.hatNo} nolu ${segLabel} hattında hız yüksek. (${f2(r.v)} m/s > ${vLim} m/s)`,
         source,
         detail,
         targets: [{ type: 'hat', no: r.hatNo }],

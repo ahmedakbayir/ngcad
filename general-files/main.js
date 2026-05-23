@@ -19,6 +19,10 @@ import '../plumbing_v2/error-check/checkers/tasarim/index.js';
 import '../plumbing_v2/error-check/checkers/vana-eksik/index.js';
 import '../plumbing_v2/error-check/checkers/mahal-tanim/index.js';
 import '../plumbing_v2/error-check/checkers/tesisat-nesnesi-eksik/index.js';
+import '../plumbing_v2/error-check/checkers/sayac-hatasi/index.js';
+import '../plumbing_v2/error-check/checkers/birim-no/index.js';
+import '../plumbing_v2/error-check/checkers/vana-flans/index.js';
+import '../plumbing_v2/error-check/checkers/mahal-hacim-menfez/index.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
 // --- DEĞİŞİKLİK BURADA ---
 import { updateFirstPersonCamera, setupFirstPersonMouseControls, isFPSMode } from '../scene3d/scene3d-camera.js';

@@ -9,6 +9,13 @@ import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
 import { recomputeAllPressures } from '../../../utils/pressure-recompute.js';
 import { draw2D } from '../../../../draw/draw2d.js';
+import {
+    daireLabel,
+    cihazAdBig,
+    findMeterUpstream,
+    locInBirim,
+    hatNoForComp,
+} from '../../checker-utils.js';
 
 const OCAK_FLEKS_MAX_CM = 150;
 const KOMBI_FLEKS_MAX_CM = 60;
@@ -88,10 +95,15 @@ function regCikisBasinc50(manager, out) {
         if (c.type !== 'regulator') return;
         if (c.cikisBasinc !== '50') return;
         if (!isUpstreamOfAnyMeter(manager, c)) return;
+        const hatNo = hatNoForComp(manager, c);
+        // PDF: "7 nolu kolon hattında regülatör çıkış basıncı 50 mbar olamaz"
+        const msg = hatNo != null
+            ? `${hatNo} nolu kolon hattında regülatör çıkış basıncı 50 mbar olamaz`
+            : 'Regülatör çıkış basıncı 50 mbar olamaz';
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `tasarim-reg50-${c.id}`,
-            message: `${regLabel(c)}: çıkış basıncı 50 mbar olamaz`,
+            message: msg,
             source:  'TS7363 Md:4.3.4',
             detail:  'Servis kutusu çıkışı 300 mbar tesisatta, reglaj grubu sayaçtan önce tesis ediliyor ise regülatör çıkış basıncı sadece 21 mbar olabilir.',
             targets: [{ type: 'comp', id: c.id }],
@@ -109,16 +121,23 @@ function regCikisBasinc50(manager, out) {
     });
 }
 
+function _locPrefixForCihaz(manager, c) {
+    const sayac = findMeterUpstream(manager, c.fleksBaglanti?.boruId);
+    return locInBirim(c.floorId, daireLabel(sayac));
+}
+
 function ocakFleksUzunluk(manager, out) {
     (manager.components || []).forEach(c => {
         if (c.type !== 'cihaz' || c.cihazTipi !== 'OCAK') return;
         if (!c.fleksBaglanti?.boruId) return;
         const len = gercekFleksUzunlukCm(c, manager);
         if (!isFinite(len) || len <= OCAK_FLEKS_MAX_CM) return;
+        const loc = _locPrefixForCihaz(manager, c);
+        // PDF: "Zemin Kat, D2 biriminde Ocak fleksi 150 cm'den uzun olamaz"
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `tasarim-ocak-fleks-${c.id}`,
-            message: `${cihazLabel(c, 'Ocak')} fleksi ${Math.round(len)} cm — ${OCAK_FLEKS_MAX_CM} cm'den uzun olamaz`,
+            message: `${loc ? loc + ' ' : ''}Ocak fleksi ${OCAK_FLEKS_MAX_CM} cm'den uzun olamaz`,
             source:  'TS7363 Md:6',
             detail:  'Mutfak cihazlarının gaz hattı bağlantılarında kullanılacak olan esnek bağlantı hortumunun uzunluğu en fazla 150 cm olmalıdır.',
             targets: [{ type: 'comp', id: c.id }],
@@ -133,16 +152,35 @@ function kombiFleksUzunluk(manager, out) {
         if (!c.fleksBaglanti?.boruId) return;
         const len = gercekFleksUzunlukCm(c, manager);
         if (!isFinite(len) || len <= KOMBI_FLEKS_MAX_CM) return;
+        const loc = _locPrefixForCihaz(manager, c);
+        const ad = cihazAdBig(c.cihazTipi);
+        // PDF: "Zemin Kat, D2 biriminde Kombi fleksi 60 cm'den uzun olamaz"
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `tasarim-kombi-fleks-${c.id}`,
-            message: `${cihazLabel(c, 'Kombi')} fleksi ${Math.round(len)} cm — ${KOMBI_FLEKS_MAX_CM} cm'den uzun olamaz`,
+            message: `${loc ? loc + ' ' : ''}${ad} fleksi ${KOMBI_FLEKS_MAX_CM} cm'den uzun olamaz`,
             source:  'TS7363 Md:6',
             detail:  'Kombi, şofben, soba vb. cihazlar için esnek bağlantı hortumunun uzunluğu en fazla 60 cm olmalıdır.',
             targets: [{ type: 'comp', id: c.id }],
             fix: null,
         });
     });
+}
+
+// İki nokta arasında 3D mesafe (cm) — uç eşleştirme için
+function _dist3D(a, b) {
+    if (!a || !b) return Infinity;
+    return Math.hypot(
+        (a.x ?? 0) - (b.x ?? 0),
+        (a.y ?? 0) - (b.y ?? 0),
+        (a.z ?? 0) - (b.z ?? 0),
+    );
+}
+// Child'in başlangıç noktası, parent borusunun akış sonu ucuyla çakışıyor mu?
+// Çakışıyorsa "düz devam" (T DEĞİL). 1 cm tolerans, snap işlemlerinden gelen
+// yarım cm farklarını yutmak için yeterli.
+function isAtPipeEnd(childStart, parentEnd) {
+    return _dist3D(childStart, parentEnd) < 1;
 }
 
 // ─── Md:4.1.3 — Esnek (ondüleli) boruda T dışında redüksiyon yapılamaz ───
@@ -174,15 +212,25 @@ function esnekReduksiyonKurali(manager, out) {
             );
 
             for (const child of children) {
-                const isTBranch = Array.isArray(parent.tBaglantilar)
+                // T-ayrım tespiti:
+                //   1) parent.tBaglantilar listesinde child.id varsa → T
+                //   2) Geometrik fallback: child.p1, parent.p2 (akış sonu) yakınında DEĞİLSE
+                //      child parent'ın ortasından çıkıyor demektir → T
+                //   Sadece düz devam (child.p1 ≈ parent.p2) durumunda redüksiyon yasaktır.
+                const inTList = Array.isArray(parent.tBaglantilar)
                     && parent.tBaglantilar.some(tb => tb.boruId === child.id);
+                const isStraightContinuation = isAtPipeEnd(child.p1, parent.p2);
+                const isTBranch = inTList || !isStraightContinuation;
                 const pCap = parent.boruCap;
                 const cCap = child.boruCap;
                 if (pCap && cCap && pCap !== cCap && !isTBranch) {
+                    const dare = daireLabel(sayac);
+                    const loc = locInBirim(child.floorId || sayac.floorId, dare);
+                    // PDF: "Zemin Kat, D2 biriminde Esnek boruda sadece TE ayrımında redüksiyon kullanılabilir"
                     out.push({
                         group:   ERROR_GROUP_IDS.TASARIM,
                         errorId: `tasarim-esnek-reduksiyon-${child.id}`,
-                        message: 'Esnek boruda, sadece T ayrımında redüksiyon kullanılabilir',
+                        message: `${loc ? loc + ' ' : ''}Esnek boruda sadece TE ayrımında redüksiyon kullanılabilir`,
                         source:  'TS7363 Md:4.1.3',
                         detail:  'Ondüleli boruda ek ve/veya redüksiyon ile çap değişimi yapılmamalıdır. T ayrımına kadar tesisat tek parça olmalı, T ayrımında redüksiyon ile çap değişimi yapılmalıdır.',
                         targets: [{ type: 'pipe', id: child.id }],

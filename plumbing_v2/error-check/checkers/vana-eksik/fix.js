@@ -273,6 +273,61 @@ export function addSayacEmniyet(manager, sayacId) {
     return true;
 }
 
+// ─── 5) Deprem amaçlı selenoid ───────────────────────────────────────────
+// Kolonda AKV varsa, AKV'nin 30 cm sonrasına SELENOID vana ekler. AKV
+// pipe'ında yer kalmazsa AKV'nin bağlı borusunun child'ına geçer.
+export function addDepremSelenoid(manager, serviceBoxId) {
+    if (!manager || !serviceBoxId) return false;
+    const akv = findAkvInChain(manager, serviceBoxId);
+    if (!akv) return false;
+    if (hasSelenoidInChain(manager, serviceBoxId)) return true;
+
+    const akvPipe = (manager.pipes || []).find(p => p.id === akv.bagliBoruId);
+    if (!akvPipe) return false;
+
+    const len = pipeLength3D(akvPipe);
+    if (len <= 0) return false;
+
+    const akvT = Number(akv.boruPozisyonu);
+    if (!isFinite(akvT)) return false;
+
+    const akvDistFromP1 = akvT * len;
+    const targetDistFromP1 = akvDistFromP1 + 30; // 30 cm akış yönünde
+
+    if (targetDistFromP1 + VANA_GENISLIGI < len) {
+        // AKV ile aynı boruda yer var
+        const vana = placeValveOnPipe(manager, akvPipe, 'SELENOID', {
+            fromEnd: 'p1',
+            fixedDistance: targetDistFromP1,
+        });
+        if (!vana) return false;
+        commit(manager);
+        return true;
+    }
+
+    // AKV'nin pipe'ında yer yok → child boruya geç
+    const child = (manager.pipes || []).find(p =>
+        p.baslangicBaglanti?.tip === 'boru' &&
+        p.baslangicBaglanti.hedefId === akvPipe.id
+    );
+    if (!child) return false;
+    const vana = placeValveOnPipe(manager, child, 'SELENOID', {
+        fromEnd: 'p1',
+        fixedDistance: 5,
+    });
+    if (!vana) return false;
+    commit(manager);
+    return true;
+}
+
+// Zincirde herhangi bir SELENOID vanası var mı?
+export function hasSelenoidInChain(manager, serviceBoxId) {
+    const ids = collectChainPipeIds(manager, serviceBoxId);
+    return (manager.components || []).some(c =>
+        c.type === 'vana' && c.vanaTipi === 'SELENOID' && ids.has(c.bagliBoruId)
+    );
+}
+
 // ─── 4) Ticari sayaç sonrası selenoid ────────────────────────────────────
 // Sayaç çıkış borusunun başına (p1 tarafı = sayaç çıkışı) SELENOID vana ekle.
 export function addTicariSelenoid(manager, sayacId) {

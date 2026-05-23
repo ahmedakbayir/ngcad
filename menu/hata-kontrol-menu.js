@@ -20,13 +20,19 @@ const RUN_BTN_ID  = 'hk-run-btn';
 const CLOSE_ID    = 'hata-kontrol-modal-close';
 const TRIGGER_ID  = 'menuHesapHataKontrol';
 const DETAIL_POPUP_ID = 'hk-detail-popup';
+const FILTER_BAR_ID   = 'hk-filter-bar';
+const FILTER_INPUT_ID = 'hk-filter-input';
+
+// Aktif seçili row (errorId) — CTRL+C ile kopyalama için
+let hkSelectedErrorId = null;
+// Aktif metin filtresi (lower-case)
+let hkFilterText = '';
 
 // ─── Gruplandırma Dropdown State ve Mantığı (Yalnızca Düz Tekli Metin Seçimi) ───
 let hkGroupingState = [
     { id: 'Genel', label: 'Genel', checked: true },
     { id: 'Kat', label: 'Kat', checked: false },
     { id: 'Birim', label: 'Birim', checked: false },
-    { id: 'Cihaz', label: 'Cihaz', checked: false }
 ];
 
 function injectHataKontrolGrouping() {
@@ -158,6 +164,21 @@ function hideHataKontrolModal() {
     const overlay = getOverlay();
     if (overlay) overlay.style.display = 'none';
     hideDetailPopup();
+    closeFilterBar(true);
+    hkSelectedErrorId = null;
+}
+
+function fallbackCopy(text) {
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+    } catch (_) { /* yoksay */ }
 }
 
 function makeDraggable() {
@@ -205,23 +226,29 @@ function showToast(msg, duration = 1400) {
 }
 
 // ─── "Hataya git" yönlendiricisi ──────────────────────────────────────────
+// PDF "Tıklandığında Gidilecek" sütunu: hedef nesne seçilir ve modal kapanır.
 function navigateToTargets(targets) {
     if (!Array.isArray(targets) || targets.length === 0) {
         showToast('Bu hata için bir konum tanımlanmamış');
         return;
     }
+    let navigated = false;
     const path = targets.find(t => t && t.type === 'path' && Array.isArray(t.hatNos) && t.hatNos.length);
-    if (path) { selectPathInProject(path.hatNos); return; }
-
-    const hat = targets.find(t => t && t.type === 'hat' && Number.isFinite(Number(t.no)));
-    if (hat) { selectHatInProject(Number(hat.no)); return; }
-
-    const compOrPipe = targets.find(t => t && (t.type === 'comp' || t.type === 'pipe') && t.id);
-    if (compOrPipe) {
-        selectByObjectId(compOrPipe.type, compOrPipe.id);
+    if (path) { selectPathInProject(path.hatNos); navigated = true; }
+    else {
+        const hat = targets.find(t => t && t.type === 'hat' && Number.isFinite(Number(t.no)));
+        if (hat) { selectHatInProject(Number(hat.no)); navigated = true; }
+        else {
+            const compOrPipe = targets.find(t => t && (t.type === 'comp' || t.type === 'pipe') && t.id);
+            if (compOrPipe) { selectByObjectId(compOrPipe.type, compOrPipe.id); navigated = true; }
+        }
+    }
+    if (!navigated) {
+        showToast('Hedef nesne çözümlenemedi');
         return;
     }
-    showToast('Hedef nesne çözümlenemedi');
+    // Hataya gidildiğinde panel kapanır
+    hideHataKontrolModal();
 }
 
 function selectByObjectId(type, id) {
@@ -352,14 +379,28 @@ function buildHatPipesMap(manager) {
     return out;
 }
 
-function getLocationInfo(item) {
-    if (!Array.isArray(item.targets) || item.targets.length === 0) return '';
+// Birim no'su girilmemiş ama bir birime ait olan hatalar için yer tutucu.
+// (UI gruplamasında "××× birimi" grubu altında toplanır.)
+const BIRIM_PLACEHOLDER = '×××';
+
+// Bir comp sayaç buldu ise birim sahibi sayılır; daire no boşsa placeholder ile
+// doldurulur. Sayaç bulunamadıysa "" döner (kolon kabul edilir).
+function birimFromMeter(meter) {
+    if (!meter) return '';
+    return dairePrefixFromComp(meter) || BIRIM_PLACEHOLDER;
+}
+
+// Item için ham konum bilgisi: floorId/birim raw. Hem getLocationInfo() hem de
+// Kat/Birim gruplaması ortak kullanır.
+function computeRowDescriptor(item) {
+    if (!Array.isArray(item.targets) || item.targets.length === 0) {
+        return { floorId: null, floorName: '', birim: '' };
+    }
     const manager = getManager();
-    if (!manager) return '';
+    if (!manager) return { floorId: null, floorName: '', birim: '' };
 
     let floorId = null;
     let birim = '';
-
     const t = item.targets[0];
 
     if (t.type === 'comp' && t.id) {
@@ -367,10 +408,14 @@ function getLocationInfo(item) {
         if (comp) {
             floorId = comp.floorId || null;
             if (comp.type === 'sayac') {
-                birim = dairePrefixFromComp(comp);
+                // Sayaç her zaman bir birime aittir; daire no boşsa placeholder
+                birim = dairePrefixFromComp(comp) || BIRIM_PLACEHOLDER;
+            } else if (comp.type === 'vana' && comp.vanaTipi === 'BRANSMAN') {
+                // Branşman vanası birim çapasıdır
+                birim = dairePrefixFromComp(comp) || BIRIM_PLACEHOLDER;
             } else if (comp.type === 'cihaz' || comp.type === 'vana' || comp.type === 'regulator') {
                 const m = findMeterUpstream(manager, comp.fleksBaglanti?.boruId || comp.bagliBoruId);
-                birim = dairePrefixFromComp(m);
+                birim = birimFromMeter(m);
             }
         }
     } else if (t.type === 'pipe' && t.id) {
@@ -378,14 +423,14 @@ function getLocationInfo(item) {
         if (pipe) {
             floorId = pipe.floorId || null;
             const m = findMeterUpstream(manager, pipe.id);
-            birim = dairePrefixFromComp(m);
+            birim = birimFromMeter(m);
         }
     } else if (t.type === 'hat' && Number.isFinite(Number(t.no))) {
         const hatPipes = buildHatPipesMap(manager).get(Number(t.no)) || [];
         if (hatPipes.length) {
             floorId = hatPipes[0].floorId || null;
             const m = findMeterUpstream(manager, hatPipes[0].id);
-            birim = dairePrefixFromComp(m);
+            birim = birimFromMeter(m);
         }
     } else if (t.type === 'path' && Array.isArray(t.hatNos) && t.hatNos.length) {
         const lastHat = t.hatNos[t.hatNos.length - 1];
@@ -393,40 +438,31 @@ function getLocationInfo(item) {
         if (hatPipes.length) {
             floorId = hatPipes[0].floorId || null;
             const m = findMeterUpstream(manager, hatPipes[0].id);
-            birim = dairePrefixFromComp(m);
+            birim = birimFromMeter(m);
         }
+    } else if (t.type === 'floor') {
+        floorId = t.id ?? null;
+    } else if (t.type === 'room' && t.id) {
+        const room = (state.rooms || []).find(r => r.id === t.id);
+        if (room) floorId = room.floorId ?? null;
     }
 
-    const onlyWithBirim = (item.group === 'BASINC_KAYIP' || item.group === 'TESISAT_HIZ');
-    const fn = floorNameById(floorId);
-    const parts = [];
-    if (onlyWithBirim) {
-        if (birim) {
-            if (fn) parts.push(fn);
-            parts.push(birim);
-        }
-    } else {
-        if (fn) parts.push(fn);
-        if (birim) parts.push(birim);
-    }
-    return parts.join(' • ');
+    return { floorId, floorName: floorNameById(floorId), birim };
 }
 
 function splitLimitSuffix(message) {
-    const re = /\s*(\(\s*[≤≥<>=].*?olmalıdır\s*\))\s*$/;
+    // Mesaj sonundaki parantez içi (varsa) — opsiyonel nokta ile birlikte.
+    // PDF örnekleri:
+    //   "...basınç kaybı yüksek (1.246 mbar > 1.0 mbar)"
+    //   "...hız yüksek. (18 m/s > 15 m/s)"
+    //   "...kullanılamaz. (Ocak debi: 1.6 m3/h < Sayaç alt okuma sınırı: 1.8 m3/h)"
+    const re = /\s*(\([^()]+\))\s*\.?\s*$/;
     const m = String(message || '').match(re);
     if (!m) return { main: String(message || ''), limit: '' };
     return {
         main: String(message).slice(0, m.index).trimEnd(),
         limit: m[1],
     };
-}
-
-function splitFloorPrefix(item) {
-    if (item.group !== 'MAHAL_TANIM') return { prefix: '', rest: String(item.message || '') };
-    const m = String(item.message || '').match(/^([^:]+):\s*(.+)$/);
-    if (!m) return { prefix: '', rest: String(item.message || '') };
-    return { prefix: m[1].trim(), rest: m[2] };
 }
 
 function updateSummary(total) {
@@ -442,15 +478,137 @@ function updateSummary(total) {
     }
 }
 
+// ─── Row selection ───────────────────────────────────────────────────────
+function selectRow(errorId) {
+    hkSelectedErrorId = errorId || null;
+    applySelectionToDom();
+}
+function applySelectionToDom() {
+    const body = getBody();
+    if (!body) return;
+    body.querySelectorAll('.hk-row.selected').forEach(r => r.classList.remove('selected'));
+    if (!hkSelectedErrorId) return;
+    const target = body.querySelector(`.hk-row[data-error-id="${CSS.escape(hkSelectedErrorId)}"]`);
+    if (target) target.classList.add('selected');
+}
+
+// ─── Filtre ──────────────────────────────────────────────────────────────
+function openFilterBar() {
+    const bar = document.getElementById(FILTER_BAR_ID);
+    if (!bar) return;
+    bar.classList.add('open');
+    const input = document.getElementById(FILTER_INPUT_ID);
+    if (input) {
+        input.value = hkFilterText;
+        input.focus();
+        input.select();
+    }
+}
+function closeFilterBar(reset = true) {
+    const bar = document.getElementById(FILTER_BAR_ID);
+    if (!bar) return;
+    bar.classList.remove('open');
+    if (reset && hkFilterText) {
+        hkFilterText = '';
+        renderResults();
+    }
+}
+
+function getActiveGroupingMode() {
+    return hkGroupingState.find(x => x.checked)?.id || 'Genel';
+}
+
+// Floor sıralama indeksi — state.floors içindeki bottomElevation tabanlı sıra
+function floorOrderIndex(floorId) {
+    const floors = state.floors || [];
+    const sorted = [...floors]
+        .filter(f => !f.isPlaceholder)
+        .sort((a, b) => (a.bottomElevation || 0) - (b.bottomElevation || 0));
+    const i = sorted.findIndex(f => f.id === floorId);
+    return i === -1 ? 9999 : i;
+}
+
+// Birim için sıralama: D1, D2, ... Ofis1, Dük1 vs. Önce tipi sonra numarayı kullan
+function birimOrderKey(label) {
+    if (!label) return [99, 9999];
+    const m = String(label).match(/^([A-Za-zÇĞİÖŞÜçğıöşü\s]+)\s*(\d+)?/);
+    const kind = m ? m[1].trim().toUpperCase() : label.toUpperCase();
+    const num  = m && m[2] ? Number(m[2]) : 0;
+    const kindOrder = { 'D': 1, 'KD': 2, 'OFİS': 3, 'DÜK': 4 };
+    return [kindOrder[kind] || 50, num];
+}
+
+function compareBirim(a, b) {
+    const [ka, na] = birimOrderKey(a);
+    const [kb, nb] = birimOrderKey(b);
+    return (ka - kb) || (na - nb);
+}
+
+// Hata listesini seçili moda göre gruplandırır.
+// Dönüş: [{ key, label, order, items }]
+function buildGroupsForMode(items, mode) {
+    if (mode === 'Kat') {
+        const map = new Map();
+        items.forEach(it => {
+            const d = computeRowDescriptor(it);
+            const key = d.floorId ?? '__nofloor__';
+            const label = d.floorName || '(Kat belirsiz)';
+            if (!map.has(key)) map.set(key, { key, label, order: floorOrderIndex(d.floorId), items: [] });
+            map.get(key).items.push(it);
+        });
+        return [...map.values()].sort((a, b) => a.order - b.order);
+    }
+    if (mode === 'Birim') {
+        const map = new Map();
+        items.forEach(it => {
+            const d = computeRowDescriptor(it);
+            const key = d.birim || '__kolon__';
+            // Birim no girilmemiş ama bir birime ait → "××× birimi"
+            // Hiç birim sahibi olmayan (kolon nesneleri) → "(Kolon)"
+            let label;
+            if (d.birim === BIRIM_PLACEHOLDER) label = '××× birimi';
+            else if (d.birim) label = d.birim;
+            else label = '(Kolon)';
+            if (!map.has(key)) map.set(key, { key, label, items: [] });
+            map.get(key).items.push(it);
+        });
+        const arr = [...map.values()];
+        arr.sort((a, b) => {
+            if (a.key === '__kolon__') return 1;
+            if (b.key === '__kolon__') return -1;
+            // ××× birimi en sona (gerçek birim no'lardan sonra)
+            if (a.key === BIRIM_PLACEHOLDER) return 1;
+            if (b.key === BIRIM_PLACEHOLDER) return -1;
+            return compareBirim(a.label, b.label);
+        });
+        return arr;
+    }
+    // Genel
+    const map = new Map();
+    items.forEach(it => {
+        const gid = it.group || 'OTHER';
+        if (!map.has(gid)) map.set(gid, { key: gid, label: getGroupLabel(gid), order: getGroupOrder(gid), items: [] });
+        map.get(gid).items.push(it);
+    });
+    return [...map.values()].sort((a, b) => a.order - b.order);
+}
+
 function renderResults() {
     const body = getBody();
     if (!body) return;
 
     _hatPipesCache = null;
 
-    const grouped = errorCheckManager.getGroupedResults();
-    const groupIds = Object.keys(grouped).sort((a, b) => getGroupOrder(a) - getGroupOrder(b));
-    const total = errorCheckManager.getResults().length;
+    const mode = getActiveGroupingMode();
+    let allItems = errorCheckManager.getResults();
+    const total = allItems.length;
+
+    // CTRL+F filtresi — mesajda case-insensitive substring eşleşmesi
+    if (hkFilterText) {
+        const q = hkFilterText;
+        allItems = allItems.filter(it => String(it.message || '').toLowerCase().includes(q));
+    }
+    const groups = buildGroupsForMode(allItems, mode);
 
     updateSummary(total);
 
@@ -458,22 +616,23 @@ function renderResults() {
         body.innerHTML = `<div class="hk-empty hk-empty-clean">Tüm kontroller temiz ✓</div>`;
         return;
     }
+    if (allItems.length === 0) {
+        body.innerHTML = `<div class="hk-empty">Filtreyle eşleşen hata yok</div>`;
+        return;
+    }
 
-    const html = groupIds.map(gid => {
-        const items = grouped[gid];
+    const html = groups.map(g => {
+        const gid = g.key;
+        const items = g.items;
         const fixable = items.some(it => it.fix && typeof it.fix.apply === 'function');
         const rows = items.map((it) => {
             const hasFix = !!(it.fix && typeof it.fix.apply === 'function');
-            const loc = getLocationInfo(it);
-            const { prefix: floorPrefix, rest: msgRest } = splitFloorPrefix(it);
-            const { main, limit } = splitLimitSuffix(msgRest);
-            const dimPrefix = loc || floorPrefix;
-            const locHtml   = dimPrefix ? `<span class="hk-row-dim hk-row-loc">${escapeHtml(dimPrefix)}</span> ` : '';
+            const { main, limit } = splitLimitSuffix(String(it.message || ''));
             const mainHtml  = `<span class="hk-row-main">${escapeHtml(main)}</span>`;
             const limitHtml = limit ? ` <span class="hk-row-dim hk-row-limit">${escapeHtml(limit)}</span>` : '';
             return `
                 <div class="hk-row" data-error-id="${escapeHtml(it.errorId)}">
-                    <div class="hk-row-msg">${locHtml}${mainHtml}${limitHtml}</div>
+                    <div class="hk-row-msg">${mainHtml}${limitHtml}</div>
                     <div class="hk-row-actions">
                         <button class="hk-icon-btn hk-goto-btn"   title="Hataya Git">⊙</button>
                         <button class="hk-icon-btn hk-fix-btn"    title="Çözüm Öner" ${hasFix ? '' : 'disabled'}>💡</button>
@@ -482,11 +641,15 @@ function renderResults() {
                 </div>
             `;
         }).join('');
+        const fixableIds = items
+            .filter(it => it.fix && typeof it.fix.apply === 'function')
+            .map(it => it.errorId)
+            .join(',');
         return `
-            <div class="hk-group" data-group="${escapeHtml(gid)}">
+            <div class="hk-group" data-group="${escapeHtml(gid)}" data-fix-ids="${escapeHtml(fixableIds)}">
                 <div class="hk-group-header">
                     <span class="hk-group-caret">▾</span>
-                    <span class="hk-group-title">${escapeHtml(getGroupLabel(gid))}</span>
+                    <span class="hk-group-title">${escapeHtml(g.label)}</span>
                     <span class="hk-group-count">${items.length}</span>
                     <button class="hk-group-fix-btn" title="Grup için tüm çözümleri uygula" ${fixable ? '' : 'disabled'}>⚡ Hepsini Çöz</button>
                 </div>
@@ -514,11 +677,16 @@ function attachRowHandlers() {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const groupEl = btn.closest('.hk-group');
-            const gid = groupEl?.dataset.group;
-            if (!gid) return;
-            const { applied, total } = errorCheckManager.applyGroupFixes(gid);
+            const idsAttr = groupEl?.dataset.fixIds || '';
+            const ids = idsAttr.split(',').filter(Boolean);
+            if (!ids.length) { showToast('Bu grupta uygulanabilir çözüm yok'); return; }
+            let applied = 0;
+            for (const id of ids) {
+                const res = errorCheckManager.applyFix(id);
+                if (res.ok) applied++;
+            }
             if (applied > 0) {
-                showToast(`✓ ${applied}/${total} çözüm uygulandı`);
+                showToast(`✓ ${applied}/${ids.length} çözüm uygulandı`);
                 runAndRender();
             } else {
                 showToast('Bu grupta uygulanabilir çözüm yok');
@@ -527,6 +695,10 @@ function attachRowHandlers() {
     });
 
     body.querySelectorAll('.hk-row').forEach(row => {
+        row.addEventListener('click', (e) => {
+            if (e.target.closest('.hk-row-actions')) return;
+            selectRow(row.dataset.errorId);
+        });
         row.addEventListener('dblclick', (e) => {
             if (e.target.closest('.hk-row-actions')) return;
             const id = row.dataset.errorId;
@@ -534,6 +706,9 @@ function attachRowHandlers() {
             if (item) navigateToTargets(item.targets);
         });
     });
+
+    // Selection state'i DOM'a yansıt
+    applySelectionToDom();
 
     body.querySelectorAll('.hk-goto-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -610,11 +785,64 @@ export function initHataKontrolMenu() {
     if (runBtn) {
         runBtn.addEventListener('click', () => runAndRender());
     }
+    // Filtre — input handler + kapat butonu
+    const fInput = document.getElementById(FILTER_INPUT_ID);
+    if (fInput) {
+        fInput.addEventListener('input', (e) => {
+            hkFilterText = String(e.target.value || '').toLowerCase();
+            renderResults();
+        });
+        fInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { e.stopPropagation(); closeFilterBar(true); }
+        });
+    }
+    const fClose = document.getElementById('hk-filter-close');
+    if (fClose) {
+        fClose.addEventListener('click', () => closeFilterBar(true));
+    }
+
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && overlay && overlay.style.display !== 'none') {
+        // Modal kapalıyken klavye kısayolu çalışmaz
+        if (!overlay || overlay.style.display === 'none') return;
+
+        // ESC: önce detay popup, sonra filtre çubuğu, sonra modal
+        if (e.key === 'Escape') {
             const dp = document.getElementById(DETAIL_POPUP_ID);
             if (dp && dp.style.display !== 'none') { hideDetailPopup(); return; }
+            const bar = document.getElementById(FILTER_BAR_ID);
+            if (bar && bar.classList.contains('open')) { closeFilterBar(true); return; }
             hideHataKontrolModal();
+            return;
+        }
+
+        // CTRL+F → filtre çubuğunu aç + odakla
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+            e.preventDefault();
+            openFilterBar();
+            return;
+        }
+
+        // CTRL+C → seçili row mesajını panoya kopyala
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+            // Eğer kullanıcı zaten metin seçmişse (selection) tarayıcının default
+            // kopyalamasını engelleme.
+            const sel = window.getSelection?.();
+            if (sel && String(sel).trim().length > 0) return;
+            if (!hkSelectedErrorId) return;
+            const item = errorCheckManager.getResults().find(x => x.errorId === hkSelectedErrorId);
+            if (!item) return;
+            e.preventDefault();
+            const text = String(item.message || '');
+            const done = () => showToast('✓ Hata metni kopyalandı');
+            if (navigator.clipboard?.writeText) {
+                navigator.clipboard.writeText(text).then(done).catch(() => {
+                    // Fallback
+                    fallbackCopy(text); done();
+                });
+            } else {
+                fallbackCopy(text); done();
+            }
+            return;
         }
     });
 
