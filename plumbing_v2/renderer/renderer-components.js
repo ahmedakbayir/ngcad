@@ -911,10 +911,27 @@ export const ComponentMixin = {
 
 // --- 5. SAYAÇ GÖVDESİ (GERÇEKÇİ KÖRÜKLÜ SAYAÇ TASARIMI) ---
         ctx.save();
-        
-        // 1. Dış Gövde Metalik Görünüm (Açık Gri / Beyaz Çelik Gövde)
-        ctx.fillStyle = comp.isSelected ? '#808080' : '#f5f6fa';
-        ctx.strokeStyle = comp.isSelected ? '#505050' : '#718093';
+
+        // Sayaç türüne göre gövde rengi:
+        //   KÖRÜKLÜ → açık gri/beyaz (metalik)
+        //   ROTARY  → pembemsi (kırmızıya yakın)
+        //   TÜRBİN  → kırmızı
+        const tur = comp.sayacTuru || 'KÖRÜKLÜ';
+        let bodyFill, bodyStroke;
+        if (tur === 'ROTARY') {
+            bodyFill   = comp.isSelected ? '#c97583' : '#f9c4cd';
+            bodyStroke = comp.isSelected ? '#7a3c4a' : '#a85565';
+        } else if (tur === 'TÜRBİN') {
+            bodyFill   = comp.isSelected ? '#a83838' : '#ff7373';
+            bodyStroke = comp.isSelected ? '#5a1e1e' : '#8b2828';
+        } else {
+            bodyFill   = comp.isSelected ? '#808080' : '#f5f6fa';
+            bodyStroke = comp.isSelected ? '#505050' : '#718093';
+        }
+
+        // 1. Dış Gövde
+        ctx.fillStyle = bodyFill;
+        ctx.strokeStyle = bodyStroke;
         ctx.lineWidth = (comp.isSelected ? 2.5 : 1.5) / zoom;
         ctx.lineJoin = 'round';
 
@@ -924,8 +941,8 @@ export const ComponentMixin = {
         else ctx.rect(-width / 2, -height / 2, width, height);
         ctx.fill(); ctx.stroke();
 
-        // 2. Alt Gövde Kıvrımı (Körüklü sayacın iki sac birleşim bombesi çizgisi)
-        if (!comp.isSelected) {
+        // 2. Alt Gövde Kıvrımı (sadece körüklü sayacın iki sac birleşim çizgisi)
+        if (!comp.isSelected && tur === 'KÖRÜKLÜ') {
             ctx.strokeStyle = '#b5b8c0';
             ctx.lineWidth = 1 / zoom;
             ctx.beginPath();

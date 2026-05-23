@@ -12,9 +12,12 @@ import { computeHatGroups } from '../renderer/renderer-utils.js';
 // Kat ismini PDF wording'iyle döndürür: "Zemin" → "Zemin Kat", "1." → "1. Kat",
 // "ZEMİN" → "ZEMİN KAT". İsim zaten "kat" ile bitiyorsa olduğu gibi bırakılır.
 // Suffix case'i, ismin kendi case'ine göre uyarlanır (tamamı büyük harfse "KAT").
+// Proje tek kat ise (placeholder hariç) kat bilgisi gerekmez → "" döner.
 export function floorNameById(floorId) {
     if (floorId == null) return '';
-    const f = (state.floors || []).find(x => x.id === floorId);
+    const realFloors = (state.floors || []).filter(f => !f.isPlaceholder);
+    if (realFloors.length <= 1) return '';
+    const f = realFloors.find(x => x.id === floorId);
     const raw = String(f?.name || '').trim();
     if (!raw) return '';
     if (/kat\.?$/i.test(raw)) return raw;
@@ -141,4 +144,89 @@ export function locKatBirim(floorId, birimLabelStr) {
 
 export function locKat(floorId) {
     return floorNameById(floorId);
+}
+
+// ─── HAT-BAZLI PREFIX YARDIMCILARI ───────────────────────────────────────
+// PDF wording'inden vazgeçildi (kullanıcı revize): kat ismi mesajdan çıkarılır
+// (ErrorItem.floorName olarak ayrıca taşınır), mesaj gövdesinde lokasyon olarak
+// hedefin hat numarası kullanılır: "X nolu hattaki Kombi", "X nolu hattaki D2
+// Sayacı", "X nolu hattaki branşman vanası" vb.
+
+// "2 nolu hattaki" prefix'i. Hat tespit edilemediyse boş.
+export function hatPrefix(hatNo) {
+    return hatNo != null ? `${hatNo} nolu hattaki` : '';
+}
+
+// "D2 Sayacı" / "Sayaç"  veya genitive: "D2 Sayacının" / "Sayacın"
+function sayacAdInternal(sayac, { genitive = false } = {}) {
+    const d = daireLabel(sayac);
+    if (genitive) return d ? `${d} Sayacının` : 'Sayacın';
+    return d ? `${d} Sayacı` : 'Sayaç';
+}
+
+export function sayacHatLabel(manager, sayac, opts = {}) {
+    const hatNo = hatNoForComp(manager, sayac);
+    const pre = hatPrefix(hatNo);
+    const ad = sayacAdInternal(sayac, opts);
+    return pre ? `${pre} ${ad}` : ad;
+}
+
+// Cihaz-odaklı hatalar için ortak prefix (birim önce, hat sonra).
+//   D2 biriminde 2 nolu hattaki     → birim + hat
+//   ××× biriminde 2 nolu hattaki    → birim no eksik (sayaç var)
+//   2 nolu hattaki                  → sayaç yok (kolon vb.)
+//   ""                              → ne hat ne sayaç
+//
+// `sayac` parametresi ile cihazın bağlı olduğu birim (sayaç) verilir; null ise
+// "biriminde" kısmı atlanır.
+export function birimHatPrefix(manager, { sayac, hatNo }) {
+    const dare = sayac ? daireLabel(sayac) : '';
+    const birimPart = sayac ? `${dare || BIRIM_PLACEHOLDER} biriminde` : '';
+    const hatPart = hatNo != null ? `${hatNo} nolu hattaki` : '';
+    if (birimPart && hatPart) return `${birimPart} ${hatPart}`;
+    return birimPart || hatPart;
+}
+
+// "D2 biriminde 2 nolu hattaki Kombi" gibi cihaz etiketi.
+export function cihazHatLabel(manager, cihaz) {
+    const sayac = findMeterUpstream(
+        manager,
+        cihaz?.fleksBaglanti?.boruId || cihaz?.bagliBoruId
+    );
+    const hatNo = hatNoForComp(manager, cihaz);
+    const ad = cihazAdBig(cihaz?.cihazTipi);
+    const pre = birimHatPrefix(manager, { sayac, hatNo });
+    return pre ? `${pre} ${ad}` : ad;
+}
+
+const VANA_DISPLAY = {
+    AKV: 'AKV',
+    EMNIYET: 'Emn.V',
+    CIHAZ: 'Cihaz vanası',
+    SELENOID: 'Selenoid',
+    YANBINA: 'Yan bina vanası',
+    BRANSMAN: 'Branşman vanası',
+};
+export function vanaDisplayName(vana) {
+    return VANA_DISPLAY[vana?.vanaTipi] || 'Vana';
+}
+
+// Branşmanlar için: "X nolu hattaki D2 branşmanı" / "branşman vanası"
+// Diğer vanalar: "X nolu hattaki AKV"
+export function vanaHatLabel(manager, vana) {
+    const hatNo = hatNoForComp(manager, vana);
+    const pre = hatPrefix(hatNo);
+    let ad;
+    if (vana?.vanaTipi === 'BRANSMAN') {
+        const d = daireLabel(vana);
+        ad = d ? `${d} branşmanı` : 'branşman vanası';
+    } else {
+        ad = vanaDisplayName(vana);
+    }
+    return pre ? `${pre} ${ad}` : ad;
+}
+
+// Bir borunun ait olduğu kolon hat numarası (basit alias)
+export function hatNoForPipeId(manager, pipeId) {
+    return hatNoForPipe(manager, pipeId);
 }

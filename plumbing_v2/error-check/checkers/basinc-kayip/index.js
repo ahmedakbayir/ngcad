@@ -21,7 +21,7 @@ import {
 } from '../../../../menu/boru-cap-menu.js';
 import { computeFittings } from '../../../../menu/fittings-menu.js';
 import { upgradeBottleneckInHats } from './fix.js';
-import { daireLabel, cihazAdSmall, findMeterUpstream } from '../../checker-utils.js';
+import { daireLabel, cihazAdSmall, findMeterUpstream, floorNameById } from '../../checker-utils.js';
 
 const NF4 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 
@@ -212,14 +212,23 @@ function basincKayipChecker({ manager }) {
         // PDF: "{hatler} nolu {kolon|iç tesisat} hatlarında {start} ile {end}
         //       arasında toplam basınç kaybı yüksek ({valueStr} mbar > {limitStr} mbar)"
         const message = `${pathLabel} nolu ${segLabel} hatlarında ${startLbl} ile ${endLbl} arasında toplam basınç kaybı yüksek (${valueStr} mbar > ${limitStr} mbar)`;
+        // floorName: yolun son hattının katı (en spesifik konum)
+        const lastHat = byHat.get(p.hatNos[p.hatNos.length - 1]);
+        const tailPipe = lastHat?.tailPipeId
+            ? manager.pipes.find(pp => pp.id === lastHat.tailPipeId)
+            : null;
+        const floorName = floorNameById(tailPipe?.floorId);
 
         errors.push({
             group:   ERROR_GROUP_IDS.BASINC_KAYIP,
             errorId: `pl-${p.hatNos.join('_')}-${p.limit.toFixed(4)}`,
             message,
+            floorName,
             source:  desc.source,
             detail:  desc.detail,
-            targets: [{ type: 'path', hatNos: p.hatNos.slice() }],
+            // Mesajda gösterilen post-reg parça seçilsin (regülatör öncesi hatlar
+            // mesaja dahil değil, seçimde de olmasın).
+            targets: [{ type: 'path', hatNos: displayHats.slice() }],
             fix: {
                 description: 'Yoldaki en küçük çaplı boruları bir kademe yükselt',
                 apply: () => upgradeBottleneckInHats(manager, p.hatNos),

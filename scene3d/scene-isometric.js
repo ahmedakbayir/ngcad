@@ -225,10 +225,17 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     const oldDim = state.dimensionMode;
     const oldVis = state.tempVisibility ? { ...state.tempVisibility } : {};
     const oldPerspActive = state.is3DPerspectiveActive;
+    const oldZoom = state.zoom;
 
     state.viewBlendFactor = 1; // Full 3D Modu
     state.dimensionMode = 0; // 2D ölçüleri gizle
     state.is3DPerspectiveActive = true; // Cihaz "persp şematiği" (hat doğrultusunda) aktif
+    // İzometri zoom'unu state.zoom'a yansıt — böylece motor içindeki
+    // "lineWidth = X / state.zoom" hesapları setTransform(zoom*cos30, …) ile
+    // birleşip ekran pixelinde sabit kalınlık üretir. (Büyük projelerde
+    // izoZoom küçülünce, state.zoom=1 olduğu için çizgiler abartılı kalın
+    // görünüyordu — bu satır sorunu çözüyor.)
+    state.zoom = zoom;
     if (!state.tempVisibility) state.tempVisibility = {};
     state.tempVisibility.showPlumbingDimensions = false; // 3D ölçüleri gizle
     state.tempVisibility.showObjectLabels = false; // Normal etiketleri gizle
@@ -260,6 +267,7 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     state.viewBlendFactor = oldBlend;
     state.dimensionMode = oldDim;
     state.is3DPerspectiveActive = oldPerspActive;
+    state.zoom = oldZoom;
     if (oldVis) state.tempVisibility = oldVis;
     ctx.restore();
 

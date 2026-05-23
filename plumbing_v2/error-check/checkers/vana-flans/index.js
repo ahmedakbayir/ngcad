@@ -13,10 +13,12 @@ import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
 import { draw2D } from '../../../../draw/draw2d.js';
 import {
+    hatNoForComp,
+    floorNameById,
+    hatPrefix,
     daireLabel,
     findMeterUpstream,
-    locInBirim,
-    hatNoForComp,
+    BIRIM_PLACEHOLDER,
 } from '../../checker-utils.js';
 
 const VANA_AD = {
@@ -41,26 +43,24 @@ function vanaFlansChecker({ manager }) {
         if (v.flans === true) return;
 
         const ad = VANA_AD[v.vanaTipi] || 'Vana';
-        // Vana kolonda ise hat numarasıyla, birimde ise kat+birim ile prefix oluştur
-        // PDF:
-        //   "1 nolu kolon hattında bulunan DN65 çaplı AKV flanşlı olmalıdır."
-        //   "Zemin Kat, D2 biriminde bulunan DN65 çaplı Emn.V flanşlı olmalıdır"
+        // AKV/BRANSMAN kolon vanası → "X nolu hattaki DN65 çaplı AKV …"
+        // EMNIYET/SELENOID/CIHAZ birim içi vana (daire referansı) → "D2 biriminde DN65 çaplı Emn.V …"
         const isKolonVana = v.vanaTipi === 'AKV' || v.vanaTipi === 'BRANSMAN';
         let prefix;
         if (isKolonVana) {
             const hatNo = hatNoForComp(manager, v);
-            prefix = hatNo != null
-                ? `${hatNo} nolu kolon hattında bulunan`
-                : '';
+            const pre = hatPrefix(hatNo);
+            prefix = pre ? `${pre} ` : '';
         } else {
             const sayac = findMeterUpstream(manager, v.bagliBoruId);
-            const loc = locInBirim(v.floorId, daireLabel(sayac));
-            prefix = loc ? `${loc} bulunan` : '';
+            const d = daireLabel(sayac) || BIRIM_PLACEHOLDER;
+            prefix = `${d} biriminde `;
         }
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `vana-flans-${v.id}`,
-            message: `${prefix ? prefix + ' ' : ''}${v.vanaCap} çaplı ${ad} flanşlı olmalıdır`,
+            message: `${prefix}${v.vanaCap} çaplı ${ad} flanşlı olmalıdır`,
+            floorName: floorNameById(v.floorId),
             source:  'TS7363 Md:5.1.27',
             detail:  'Anma çapı 50 mm\'ye kadar (50 mm dahil) TS EN 331\'e uygun küresel, anma çapı 50 mm\'den büyük çaplarda TS 9809\'a uygun flanşlı ve tam geçişli vanalar kullanılmalıdır.',
             targets: [{ type: 'comp', id: v.id }],

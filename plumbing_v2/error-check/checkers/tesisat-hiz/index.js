@@ -12,6 +12,7 @@ import {
 } from '../../../../menu/boru-cap-menu.js';
 import { computeFittings } from '../../../../menu/fittings-menu.js';
 import { upgradeHat } from './fix.js';
+import { floorNameById } from '../../checker-utils.js';
 
 const NF2 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const f2  = (n) => (n == null || !isFinite(n)) ? '–' : NF2.format(n);
@@ -46,13 +47,18 @@ function computeRowsWithRoot(manager) {
 }
 
 // Üç farklı kural için ortak hata yapıcısı.
-// PDF: "7 nolu kolon hattında hız yüksek. (7 m/s > 6 m/s)"
+// "7 nolu kolon hattında hız yüksek. (7 m/s > 6 m/s)" + floorName: "Zemin Kat"
 function makeErr(manager, r, vLim, source, detail, idPrefix) {
     const segLabel = r.segmentType === 'KOLON' ? 'kolon' : 'iç tesisat';
+    // Hattın head pipe'ından kat bilgisi
+    const headPipe = r.headPipeId
+        ? manager.pipes.find(p => p.id === r.headPipeId)
+        : null;
     return {
         group:   ERROR_GROUP_IDS.TESISAT_HIZ,
         errorId: `${idPrefix}-${r.hatNo}`,
         message: `${r.hatNo} nolu ${segLabel} hattında hız yüksek. (${f2(r.v)} m/s > ${vLim} m/s)`,
+        floorName: floorNameById(headPipe?.floorId),
         source,
         detail,
         targets: [{ type: 'hat', no: r.hatNo }],

@@ -11,10 +11,13 @@ import { recomputeAllPressures } from '../../../utils/pressure-recompute.js';
 import { draw2D } from '../../../../draw/draw2d.js';
 import {
     daireLabel,
-    cihazAdBig,
+    cihazHatLabel,
     findMeterUpstream,
-    locInBirim,
+    floorNameById,
     hatNoForComp,
+    hatNoForPipe,
+    hatPrefix,
+    birimHatPrefix,
 } from '../../checker-utils.js';
 
 const OCAK_FLEKS_MAX_CM = 150;
@@ -96,14 +99,14 @@ function regCikisBasinc50(manager, out) {
         if (c.cikisBasinc !== '50') return;
         if (!isUpstreamOfAnyMeter(manager, c)) return;
         const hatNo = hatNoForComp(manager, c);
-        // PDF: "7 nolu kolon hattında regülatör çıkış basıncı 50 mbar olamaz"
         const msg = hatNo != null
-            ? `${hatNo} nolu kolon hattında regülatör çıkış basıncı 50 mbar olamaz`
+            ? `${hatNo} nolu hattaki Regülatör çıkış basıncı 50 mbar olamaz`
             : 'Regülatör çıkış basıncı 50 mbar olamaz';
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `tasarim-reg50-${c.id}`,
             message: msg,
+            floorName: floorNameById(c.floorId),
             source:  'TS7363 Md:4.3.4',
             detail:  'Servis kutusu çıkışı 300 mbar tesisatta, reglaj grubu sayaçtan önce tesis ediliyor ise regülatör çıkış basıncı sadece 21 mbar olabilir.',
             targets: [{ type: 'comp', id: c.id }],
@@ -121,23 +124,19 @@ function regCikisBasinc50(manager, out) {
     });
 }
 
-function _locPrefixForCihaz(manager, c) {
-    const sayac = findMeterUpstream(manager, c.fleksBaglanti?.boruId);
-    return locInBirim(c.floorId, daireLabel(sayac));
-}
-
 function ocakFleksUzunluk(manager, out) {
     (manager.components || []).forEach(c => {
         if (c.type !== 'cihaz' || c.cihazTipi !== 'OCAK') return;
         if (!c.fleksBaglanti?.boruId) return;
         const len = gercekFleksUzunlukCm(c, manager);
         if (!isFinite(len) || len <= OCAK_FLEKS_MAX_CM) return;
-        const loc = _locPrefixForCihaz(manager, c);
-        // PDF: "Zemin Kat, D2 biriminde Ocak fleksi 150 cm'den uzun olamaz"
+        const label = cihazHatLabel(manager, c);
+        // "X nolu hattaki Ocak fleksi 150 cm'den uzun olamaz"
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `tasarim-ocak-fleks-${c.id}`,
-            message: `${loc ? loc + ' ' : ''}Ocak fleksi ${OCAK_FLEKS_MAX_CM} cm'den uzun olamaz`,
+            message: `${label} fleksi ${OCAK_FLEKS_MAX_CM} cm'den uzun olamaz`,
+            floorName: floorNameById(c.floorId),
             source:  'TS7363 Md:6',
             detail:  'Mutfak cihazlarının gaz hattı bağlantılarında kullanılacak olan esnek bağlantı hortumunun uzunluğu en fazla 150 cm olmalıdır.',
             targets: [{ type: 'comp', id: c.id }],
@@ -152,13 +151,13 @@ function kombiFleksUzunluk(manager, out) {
         if (!c.fleksBaglanti?.boruId) return;
         const len = gercekFleksUzunlukCm(c, manager);
         if (!isFinite(len) || len <= KOMBI_FLEKS_MAX_CM) return;
-        const loc = _locPrefixForCihaz(manager, c);
-        const ad = cihazAdBig(c.cihazTipi);
-        // PDF: "Zemin Kat, D2 biriminde Kombi fleksi 60 cm'den uzun olamaz"
+        const label = cihazHatLabel(manager, c);
+        // "X nolu hattaki Kombi fleksi 60 cm'den uzun olamaz"
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `tasarim-kombi-fleks-${c.id}`,
-            message: `${loc ? loc + ' ' : ''}${ad} fleksi ${KOMBI_FLEKS_MAX_CM} cm'den uzun olamaz`,
+            message: `${label} fleksi ${KOMBI_FLEKS_MAX_CM} cm'den uzun olamaz`,
+            floorName: floorNameById(c.floorId),
             source:  'TS7363 Md:6',
             detail:  'Kombi, şofben, soba vb. cihazlar için esnek bağlantı hortumunun uzunluğu en fazla 60 cm olmalıdır.',
             targets: [{ type: 'comp', id: c.id }],
@@ -224,13 +223,14 @@ function esnekReduksiyonKurali(manager, out) {
                 const pCap = parent.boruCap;
                 const cCap = child.boruCap;
                 if (pCap && cCap && pCap !== cCap && !isTBranch) {
-                    const dare = daireLabel(sayac);
-                    const loc = locInBirim(child.floorId || sayac.floorId, dare);
-                    // PDF: "Zemin Kat, D2 biriminde Esnek boruda sadece TE ayrımında redüksiyon kullanılabilir"
+                    const hatNo = hatNoForPipe(manager, child.id);
+                    const pre = birimHatPrefix(manager, { sayac, hatNo });
+                    // "D2 biriminde X nolu hattaki Esnek boruda sadece TE ayrımında redüksiyon kullanılabilir"
                     out.push({
                         group:   ERROR_GROUP_IDS.TASARIM,
                         errorId: `tasarim-esnek-reduksiyon-${child.id}`,
-                        message: `${loc ? loc + ' ' : ''}Esnek boruda sadece TE ayrımında redüksiyon kullanılabilir`,
+                        message: `${pre ? pre + ' ' : ''}Esnek boruda sadece TE ayrımında redüksiyon kullanılabilir`,
+                        floorName: floorNameById(child.floorId || sayac.floorId),
                         source:  'TS7363 Md:4.1.3',
                         detail:  'Ondüleli boruda ek ve/veya redüksiyon ile çap değişimi yapılmamalıdır. T ayrımına kadar tesisat tek parça olmalı, T ayrımında redüksiyon ile çap değişimi yapılmalıdır.',
                         targets: [{ type: 'pipe', id: child.id }],

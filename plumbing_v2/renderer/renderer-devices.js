@@ -675,13 +675,16 @@ export const DeviceMixin = {
             const fleksRenk = this.getRenkByGroup(colorGroup, 'fleks', 1);
             const adjustedColor = getAdjustedColor(fleksRenk, 'cihaz');
             ctx.strokeStyle = adjustedColor;
-            ctx.lineWidth = 1;  // Daha kalın
+            // Zoom-bağımsız: setTransform scale ile çarpılınca ekranda sabit
+            // kalınlık verir. Eski sabit "1" izometride state.zoom düşünce
+            // abartılı kalınlaşıyordu.
+            ctx.lineWidth = 1 / (zoom || 1);
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
 
             // Gölge efekti
             ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-            ctx.shadowBlur = 4;
+            ctx.shadowBlur = 4 / (zoom || 1);
 
             ctx.beginPath();
             ctx.moveTo(adjustedConnectionPoint.x, adjustedConnectionPoint.y);

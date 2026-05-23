@@ -879,6 +879,8 @@ export const LabelMixin = {
 
         } else if (vt === 'AKV') {
             lines.push({ text: 'AKV', bold: true });
+            if (comp.vanaCap) lines.push({ text: comp.vanaCap, sub: true });
+            lines.push({ text: 'h:1.9-2.1m', sub: true });
 
         } else if (vt === 'BRANSMAN') {
             if (comp.ilerdeKullanim) {
@@ -907,6 +909,7 @@ export const LabelMixin = {
 
         } else if (vt === 'EMNIYET') {
             lines.push({ text: 'Emn.V', sub: true });
+            if (comp.vanaCap) lines.push({ text: comp.vanaCap, sub: true });
 
         } else if (vt === 'SELENOID') {
             lines.push({ text: 'Selenoid Vana', sub: true });

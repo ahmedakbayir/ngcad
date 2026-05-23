@@ -7,10 +7,9 @@
 
 import { errorCheckManager } from '../plumbing_v2/error-check/error-check-manager.js';
 import { ERROR_GROUPS, getGroupLabel, getGroupOrder } from '../plumbing_v2/error-check/error-types.js';
-import { selectHatInProject, selectPathInProject } from './calc-table-helpers.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { draw2D } from '../draw/draw2d.js';
-import { state } from '../general-files/main.js';
+import { state, setState, dom } from '../general-files/main.js';
 import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
 
 const MODAL_ID    = 'hata-kontrol-modal-overlay';
@@ -226,45 +225,203 @@ function showToast(msg, duration = 1400) {
 }
 
 // ─── "Hataya git" yönlendiricisi ──────────────────────────────────────────
-// PDF "Tıklandığında Gidilecek" sütunu: hedef nesne seçilir ve modal kapanır.
+// "Tıklandığında Gidilecek": hedef nesneleri çöz → katına geç → ekrana
+// odakla (~%50 alan kapla) → seç → paneli kapat.
 function navigateToTargets(targets) {
     if (!Array.isArray(targets) || targets.length === 0) {
         showToast('Bu hata için bir konum tanımlanmamış');
         return;
     }
-    let navigated = false;
-    const path = targets.find(t => t && t.type === 'path' && Array.isArray(t.hatNos) && t.hatNos.length);
-    if (path) { selectPathInProject(path.hatNos); navigated = true; }
-    else {
-        const hat = targets.find(t => t && t.type === 'hat' && Number.isFinite(Number(t.no)));
-        if (hat) { selectHatInProject(Number(hat.no)); navigated = true; }
-        else {
-            const compOrPipe = targets.find(t => t && (t.type === 'comp' || t.type === 'pipe') && t.id);
-            if (compOrPipe) { selectByObjectId(compOrPipe.type, compOrPipe.id); navigated = true; }
+    const { manager } = getInteractionManager();
+    if (!manager) return;
+
+    // Hedef nesneleri (pipes + components) topla
+    const pipes = [];
+    const comps = [];
+    let floorId = null;
+
+    for (const t of targets) {
+        if (!t) continue;
+        if (t.type === 'path' && Array.isArray(t.hatNos) && t.hatNos.length) {
+            const { hatMap } = computeHatGroups(manager.pipes, manager.components || []);
+            const set = new Set(t.hatNos.map(n => Number(n)));
+            (manager.pipes || []).forEach(p => {
+                if (set.has(hatMap.get(p.id))) pipes.push(p);
+            });
+        } else if (t.type === 'hat' && Number.isFinite(Number(t.no))) {
+            const { hatMap } = computeHatGroups(manager.pipes, manager.components || []);
+            const no = Number(t.no);
+            (manager.pipes || []).forEach(p => {
+                if (hatMap.get(p.id) === no) pipes.push(p);
+            });
+        } else if (t.type === 'pipe' && t.id) {
+            const p = (manager.pipes || []).find(x => x.id === t.id);
+            if (p) pipes.push(p);
+        } else if (t.type === 'comp' && t.id) {
+            const c = (manager.components || []).find(x => x.id === t.id);
+            if (c) comps.push(c);
+        } else if (t.type === 'floor' && t.id) {
+            floorId = t.id;
+        } else if (t.type === 'room' && t.id) {
+            const room = (state.rooms || []).find(r => r.id === t.id);
+            if (room) floorId = room.floorId ?? null;
         }
     }
-    if (!navigated) {
+
+    // Hedef katı belirle — pipes/comps ile aynı katlardan ilki, yoksa floorId
+    if (floorId == null) {
+        const allFloorIds = [
+            ...pipes.map(p => p.floorId),
+            ...comps.map(c => c.floorId),
+        ].filter(Boolean);
+        if (allFloorIds.length) floorId = allFloorIds[0];
+    }
+
+    // 1) Kat geçişi (gerekiyorsa)
+    if (floorId && state.currentFloor?.id !== floorId) {
+        switchToFloor(floorId);
+    }
+
+    // 2) Nesneleri seç
+    selectObjects(pipes, comps);
+
+    // 3) Ekrana odakla — bbox merkezi ekranın ortasına, %50 oran
+    if (pipes.length || comps.length) {
+        fitObjectsToScreen(pipes, comps);
+    } else if (floorId) {
+        // Floor target için sadece kat geçişi yeterli
+    } else {
         showToast('Hedef nesne çözümlenemedi');
         return;
     }
-    // Hataya gidildiğinde panel kapanır
+
+    // 4) Panel kapanır
     hideHataKontrolModal();
 }
 
-function selectByObjectId(type, id) {
-    const manager = window.plumbingManager?.interactionManager?.manager || window.plumbingManager || plumbingManager;
-    if (!manager) return;
-    const im = manager.interactionManager;
-    if (!im) return;
-    let obj = null;
-    if (type === 'pipe') obj = (manager.pipes || []).find(p => p.id === id);
-    else if (type === 'comp') obj = (manager.components || []).find(c => c.id === id);
-    if (!obj) { showToast('Hedef bulunamadı'); return; }
+function getInteractionManager() {
+    const manager = window.plumbingManager?.interactionManager?.manager
+        || window.plumbingManager
+        || plumbingManager;
+    return { manager, im: manager?.interactionManager || null };
+}
+
+function switchToFloor(floorId) {
+    const floor = (state.floors || []).find(f => f.id === floorId);
+    if (!floor) return;
+    setState({ currentFloor: floor });
+    // Mini panel + 3D sahne update
     try {
-        im.selectedObjects = [obj];
-        im.lastSelectedObject = obj;
-        draw2D();
-    } catch (e) { console.warn('selectByObjectId failed:', e); }
+        import('../floor/floor-panel.js').then(mod => mod.renderMiniPanel?.()).catch(() => {});
+    } catch (_) {}
+    try {
+        import('../scene3d/scene3d-update.js').then(mod => mod.update3DScene?.()).catch(() => {});
+    } catch (_) {}
+}
+
+function selectObjects(pipes, comps) {
+    const { manager, im } = getInteractionManager();
+    if (!manager || !im) return;
+    const all = [...pipes, ...comps];
+    if (!all.length) return;
+    try {
+        // isSelected flag (renderer'lar bunu kullanır)
+        (manager.pipes || []).forEach(p => { p.isSelected = false; });
+        (manager.components || []).forEach(c => { c.isSelected = false; });
+        all.forEach(o => { o.isSelected = true; });
+        im.selectedObjects = all;
+        im.lastSelectedObject = all[all.length - 1];
+        // Path için renderer extra seçim
+        if (pipes.length) {
+            im.selectedHatPipes = pipes;
+            window._selectedPipePath = null;
+        }
+    } catch (e) { console.warn('selectObjects failed:', e); }
+}
+
+// Backwards compat — eski fix.js çağrıları için
+function selectByObjectId(type, id) {
+    const { manager } = getInteractionManager();
+    if (!manager) return;
+    if (type === 'pipe') {
+        const p = (manager.pipes || []).find(x => x.id === id);
+        if (p) selectObjects([p], []);
+    } else if (type === 'comp') {
+        const c = (manager.components || []).find(x => x.id === id);
+        if (c) selectObjects([], [c]);
+    }
+    draw2D();
+}
+
+// Hedef nesneleri ekranın ~%50'sini kaplayacak şekilde odakla.
+// İzometri/Persp aktifse iso koordinatlarına dönüştürür.
+function fitObjectsToScreen(pipes, comps) {
+    const c = dom?.c2d;
+    if (!c) { draw2D(); return; }
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    const pad = 50; // küçük nesneler için minimum boyut (cm)
+
+    for (const p of pipes) {
+        if (!p?.p1 || !p?.p2) continue;
+        minX = Math.min(minX, p.p1.x, p.p2.x);
+        minY = Math.min(minY, p.p1.y, p.p2.y);
+        maxX = Math.max(maxX, p.p1.x, p.p2.x);
+        maxY = Math.max(maxY, p.p1.y, p.p2.y);
+    }
+    for (const co of comps) {
+        if (co?.x == null || co?.y == null) continue;
+        minX = Math.min(minX, co.x - pad);
+        minY = Math.min(minY, co.y - pad);
+        maxX = Math.max(maxX, co.x + pad);
+        maxY = Math.max(maxY, co.y + pad);
+    }
+
+    if (!isFinite(minX) || !isFinite(maxX)) { draw2D(); return; }
+
+    // Minimum bbox — tek nokta için 200 cm
+    const MIN_SIZE = 200;
+    let w = Math.max(maxX - minX, MIN_SIZE);
+    let h = Math.max(maxY - minY, MIN_SIZE);
+    let cx = (minX + maxX) / 2;
+    let cy = (minY + maxY) / 2;
+
+    // İzometri/Persp aktifse merkezi izo koordinatlarına dönüştür
+    let centerX = cx, centerY = cy;
+    if (state.is3DPerspectiveActive) {
+        const ang = Math.PI / 6;
+        const cos30 = Math.cos(ang);
+        const sin30 = Math.sin(ang);
+        centerX = (cx + cy) * cos30;
+        centerY = (cy - cx) * sin30;
+        // izometride bbox açılı projeksiyonda
+        const x1 = (minX + minY) * cos30, y1 = (minY - minX) * sin30;
+        const x2 = (maxX + maxY) * cos30, y2 = (maxY - maxX) * sin30;
+        const x3 = (minX + maxY) * cos30, y3 = (maxY - minX) * sin30;
+        const x4 = (maxX + minY) * cos30, y4 = (minY - maxX) * sin30;
+        const ixs = [x1, x2, x3, x4];
+        const iys = [y1, y2, y3, y4];
+        w = Math.max(...ixs) - Math.min(...ixs);
+        h = Math.max(...iys) - Math.min(...iys);
+    }
+
+    // ~%50 oran: nesne ekranın yarısını kaplasın → kullanılabilir alan = ekran/2
+    const targetW = c.width / 2;
+    const targetH = c.height / 2;
+    const zoomX = w > 0 ? targetW / w : 1;
+    const zoomY = h > 0 ? targetH / h : 1;
+    const newZoom = Math.max(0.05, Math.min(zoomX, zoomY, 5));
+
+    const newPanX = c.width / 2 - centerX * newZoom;
+    const newPanY = c.height / 2 - centerY * newZoom;
+
+    // İzometri/persp aktifse iso state'ini, aksi halde 2D state'ini güncelle
+    if (state.is3DPerspectiveActive) {
+        setState({ isoZoom: newZoom, isoPanOffset: { x: newPanX, y: newPanY } });
+    } else {
+        setState({ zoom: newZoom, panOffset: { x: newPanX, y: newPanY } });
+    }
+    draw2D();
 }
 
 // ─── Detay popup ──────────────────────────────────────────────────────────
@@ -630,9 +787,13 @@ function renderResults() {
             const { main, limit } = splitLimitSuffix(String(it.message || ''));
             const mainHtml  = `<span class="hk-row-main">${escapeHtml(main)}</span>`;
             const limitHtml = limit ? ` <span class="hk-row-dim hk-row-limit">${escapeHtml(limit)}</span>` : '';
+            // Kat ismi mesaj sonunda gri olarak gösterilir (ErrorItem.floorName)
+            const floorHtml = it.floorName
+                ? ` <span class="hk-row-dim hk-row-floor">${escapeHtml(it.floorName)}</span>`
+                : '';
             return `
                 <div class="hk-row" data-error-id="${escapeHtml(it.errorId)}">
-                    <div class="hk-row-msg">${mainHtml}${limitHtml}</div>
+                    <div class="hk-row-msg">${mainHtml}${limitHtml}${floorHtml}</div>
                     <div class="hk-row-actions">
                         <button class="hk-icon-btn hk-goto-btn"   title="Hataya Git">⊙</button>
                         <button class="hk-icon-btn hk-fix-btn"    title="Çözüm Öner" ${hasFix ? '' : 'disabled'}>💡</button>

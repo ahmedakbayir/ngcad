@@ -5478,6 +5478,9 @@ body {
 }
 .hk-row-loc::after { content: ""; }
 .hk-row-main { color: inherit; }
+/* Kat ismi suffix — mesajın sonunda, hafif silik */
+.hk-row-floor { font-style: italic; }
+.hk-row-floor::before { content: " — "; opacity: 0.6; }
 .hk-row-actions {
     display: inline-flex;
     align-items: center;

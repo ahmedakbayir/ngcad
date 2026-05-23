@@ -12,7 +12,7 @@
 
 import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
-import { floorNameById } from '../../checker-utils.js';
+import { floorNameById, vanaHatLabel } from '../../checker-utils.js';
 
 function birimLabel(tipi, no) {
     switch (tipi) {
@@ -56,19 +56,15 @@ function cogulBirimNoKurali(manager, out) {
         const [tipi, no] = key.split('|');
         const label = birimLabel(tipi, no);
 
-        // Hangi katlarda görülüyor?
+        // Hangi katlarda görülüyor? (sonda gri olarak gösterilir)
         const floorNames = [...new Set(list.map(a => floorNameById(a.floorId) || '(?)'))];
-        // PDF: "Zemin katta D2 birim no birden fazla girilmiş."
-        //      "Zemin ve 2. Katta D2 birim no birden fazla girilmiş."
-        //      "Zemin kat, 2.Kat, 3. Kat ve 4. Katta D2 birim no birden fazla girilmiş."
-        const floorsStr = floorNames.length === 1
-            ? `${floorNames[0]}ta`
-            : floorNames.slice(0, -1).join(', ') + ' ve ' + floorNames[floorNames.length - 1] + 'ta';
+        const floorSuffix = floorNames.join(', ');
 
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `birimno-cogul-${key}`,
-            message: `${floorsStr} ${label} birim no birden fazla girilmiş.`,
+            message: `${label} birim no birden fazla girilmiş.`,
+            floorName: floorSuffix,
             source:  'proje gereği',
             detail:  'Aynı birim numarası birden fazla yere girilemez. Her birim (daire, ofis, dükkan vb.) benzersiz bir numara almalıdır.',
             targets: list.map(a => ({ type: 'comp', id: a.id })),
@@ -85,12 +81,13 @@ function bransmanBirimNoBosKurali(manager, out) {
         const no = String(v.birimNo ?? '').trim();
         if (no) return;
 
-        const fn = floorNameById(v.floorId);
-        // PDF: "Zemin katta birim no girilmemiş branşman olmamalıdır"
+        // "X nolu hattaki branşman vanasının birim no'su girilmemiş"
+        const label = vanaHatLabel(manager, v);
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `birimno-eksik-${v.id}`,
-            message: `${fn ? fn + 'ta b' : 'B'}irim no girilmemiş branşman olmamalıdır`,
+            message: `${label} birim no'su girilmemiş`,
+            floorName: floorNameById(v.floorId),
             source:  'proje gereği',
             detail:  'Branşman vanasına bağlı her birim için birim numarası girilmelidir.',
             targets: [{ type: 'comp', id: v.id }],

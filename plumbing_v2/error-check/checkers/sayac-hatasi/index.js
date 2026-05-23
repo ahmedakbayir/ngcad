@@ -14,7 +14,15 @@ import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
 import { SAYAC_DEBI_TABLOSU } from '../../../properties/property-definitions.js';
 import { draw2D } from '../../../../draw/draw2d.js';
-import { daireLabel, cihazAdBig, locKatBirim, locKat, BIRIM_PLACEHOLDER } from '../../checker-utils.js';
+import {
+    daireLabel,
+    cihazAdBig,
+    BIRIM_PLACEHOLDER,
+    sayacHatLabel,
+    hatPrefix,
+    hatNoForComp,
+    floorNameById,
+} from '../../checker-utils.js';
 
 const NF2 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmt = (n) => (n == null || !isFinite(n)) ? '–' : NF2.format(n);
@@ -66,42 +74,22 @@ function sayacToplamDebi(manager, sayac) {
     return Number(pipe?.debi) || 0;
 }
 
-// Birim no yoksa "×××" placeholder kullan (PDF: "Zemin Kat, ××× biriminde…")
-function _birimOrPlaceholder(sayac, hasKat) {
-    return daireLabel(sayac) || (hasKat ? BIRIM_PLACEHOLDER : '');
+// Birim/daire referansında hat no eklenmez (kullanıcı kuralı):
+//   "D2 biriminde" / "××× biriminde"
+//   "D2 birimindeki" / "××× birimindeki"
+//   "D2 Sayacında" / "××× Sayacında"
+// Cihaz referansı varsa, cihazın hat no'su mesaja inline gömülür.
+function birimindePrefix(sayac) {
+    const d = daireLabel(sayac) || BIRIM_PLACEHOLDER;
+    return `${d} biriminde`;
 }
-
-// "Zemin Kat, D2 Sayacı"
-function sayacKatBirimLabel(sayac) {
-    const kb = locKatBirim(sayac.floorId, daireLabel(sayac));
-    return kb ? `${kb} Sayacı` : 'Sayaç';
+function birimindekiPrefix(sayac) {
+    const d = daireLabel(sayac) || BIRIM_PLACEHOLDER;
+    return `${d} birimindeki`;
 }
-// "Zemin Kat, D2 birimindeki" / "Zemin Kat, ××× birimindeki"
-function sayacBirimindekiLabel(sayac) {
-    const kat = locKat(sayac.floorId);
-    const dare = _birimOrPlaceholder(sayac, !!kat);
-    if (kat && dare) return `${kat}, ${dare} birimindeki`;
-    if (kat) return kat;
-    if (dare) return `${dare} birimindeki`;
-    return '';
-}
-// "Zemin Kat, D2 Sayacında" / "Zemin Kat, ××× Sayacında"
-function sayacindaLabel(sayac) {
-    const kat = locKat(sayac.floorId);
-    const dare = _birimOrPlaceholder(sayac, !!kat);
-    if (kat && dare) return `${kat}, ${dare} Sayacında`;
-    if (kat) return kat;
-    if (dare) return `${dare} Sayacında`;
-    return 'Sayaçta';
-}
-// "Zemin Kat, D2 biriminde" / "Zemin Kat, ××× biriminde"
-function birimindeLabel(sayac) {
-    const kat = locKat(sayac.floorId);
-    const dare = _birimOrPlaceholder(sayac, !!kat);
-    if (kat && dare) return `${kat}, ${dare} biriminde`;
-    if (kat) return kat;
-    if (dare) return `${dare} biriminde`;
-    return '';
+function sayacindaPrefix(sayac) {
+    const d = daireLabel(sayac) || BIRIM_PLACEHOLDER;
+    return `${d} Sayacında`;
 }
 
 function sayacLimits(sayac) {
@@ -137,12 +125,13 @@ function sayacTipUyumKurali(manager, out) {
         if (!invalid) return;
 
         const turLower = tur.charAt(0) + tur.slice(1).toLowerCase();
-        const kb = birimindeLabel(s);
-        // PDF: "Zemin kat, D2 biriminde kullanılan G16 sayacı Rotary olamaz"
+        const kb = birimindePrefix(s);
+        // "D2 biriminde kullanılan G16 sayacı Rotary olamaz"
         out.push({
             group:   ERROR_GROUP_IDS.SAYAC_HATA,
             errorId: `sayac-tur-${s.id}`,
-            message: `${kb ? kb + ' ' : ''}kullanılan ${tip} sayacı ${turLower} olamaz`,
+            message: `${kb} kullanılan ${tip} sayacı ${turLower} olamaz`,
+            floorName: floorNameById(s.floorId),
             source:  'TS7363 Çizelge 15',
             detail:  'Doğal gaz tesisatında; G4–G10 için körüklü tip, G16–G25 için körüklü ya da rotary, G40 ve üstü için rotary ya da türbin tip sayaçlar kullanılmalıdır.',
             targets: [{ type: 'comp', id: s.id }],
@@ -173,14 +162,17 @@ function sayacAltDebiKurali(manager, out) {
             if (!isFinite(d) || d <= 0) continue;
             if (d >= lim.Qmin) continue;
             const ad = cihazAdBig(c.cihazTipi);
-            const bi = sayacBirimindekiLabel(s);
-            // PDF: "Zemin kat, D2 birimindeki Ocak debisi, G40 Sayacın okuyabileceği
-            //       en düşük debiden bile daha aşağıda olduğundan, Ocak, bu sayaçla
-            //       kullanılamaz. (Ocak debi: 1.6 m3/h < Sayaç alt okuma sınırı: 1.8 m3/h)"
+            const bi = birimindekiPrefix(s);
+            // Cihazın hat no'su inline: "D2 birimindeki X nolu hattaki Ocak debisi, ..."
+            const cihazHatNo = hatNoForComp(manager, c);
+            const cihazPart = cihazHatNo != null
+                ? `${cihazHatNo} nolu hattaki ${ad}`
+                : ad;
             out.push({
                 group:   ERROR_GROUP_IDS.SAYAC_HATA,
                 errorId: `sayac-altdebi-${s.id}-${c.id}`,
-                message: `${bi ? bi + ' ' : ''}${ad} debisi, ${lim.tipi} Sayacın okuyabileceği en düşük debiden bile daha aşağıda olduğundan, ${ad}, bu sayaçla kullanılamaz. (${ad} debi: ${fmt(d)} m3/h < Sayaç alt okuma sınırı: ${fmt(lim.Qmin)} m3/h)`,
+                message: `${bi} ${cihazPart} debisi, ${lim.tipi} Sayacın okuyabileceği en düşük debiden bile daha aşağıda olduğundan, ${ad}, bu sayaçla kullanılamaz. (${ad} debi: ${fmt(d)} m3/h < Sayaç alt okuma sınırı: ${fmt(lim.Qmin)} m3/h)`,
+                floorName: floorNameById(s.floorId),
                 source:  'TS7363 Md:5.2.12',
                 detail:  'Tesisat üzerine takılacak cihaz seçilirken, her cihazın projedeki tüketim debileri sayaçların asgari okuma debisinden az olmamalıdır.',
                 targets: [{ type: 'comp', id: s.id }],
@@ -200,16 +192,15 @@ function sayacUstDebiKurali(manager, out) {
         if (!isFinite(toplam) || toplam <= 0) return;
         if (toplam <= lim.Qmax) return;
 
-        const bi = sayacBirimindekiLabel(s);
-        // PDF: "Zemin kat, D2 birimindeki toplam kapasite sayacın okuyabileceği
-        //       en yüksek debiden bile daha yukarda olduğundan sayaç, bu birimde
-        //       kullanılamaz (Sayaç üst okuma: 6.0 m3/h < birim toplam debisi: 6.4 m3/h)"
+        const bi = birimindekiPrefix(s);
+        // "D2 birimindeki toplam debi sayacın okuyabileceği..."
         out.push({
             group:   ERROR_GROUP_IDS.SAYAC_HATA,
             errorId: `sayac-ustdebi-${s.id}`,
-            message: `${bi ? bi + ' ' : ''}toplam kapasite sayacın okuyabileceği en yüksek debiden bile daha yukarda olduğundan sayaç, bu birimde kullanılamaz (Sayaç üst okuma: ${fmt(lim.Qmax)} m3/h < birim toplam debisi: ${fmt(toplam)} m3/h)`,
+            message: `${bi} toplam debi sayacın okuyabileceği en yüksek debiden bile daha yukarda olduğundan sayaç, bu birimde kullanılamaz (Sayaç üst okuma: ${fmt(lim.Qmax)} m3/h < birim toplam debisi: ${fmt(toplam)} m3/h)`,
+            floorName: floorNameById(s.floorId),
             source:  'TS7363 Md:5.2.12',
-            detail:  'Birim toplam tüketim debisi seçilen sayacın okuyabileceği en yüksek debiden büyük olamaz. Daha büyük kapasiteli sayaç seçilmelidir.',
+            detail:  'Birim toplam tüketim debisi seçilen sayacın okuyabileceği en yüksek debiden büyük olamaz. Daha büyük sayaç seçilmelidir.',
             targets: [{ type: 'comp', id: s.id }],
             fix: null,
         });
@@ -224,12 +215,13 @@ function esnekMarkaKurali(manager, out) {
         const marka = String(s.esnekMarka || '').trim();
         if (marka) return;
 
-        const sl = sayacindaLabel(s);
-        // PDF: "Zemin kat, D2 Sayacında esnek tesisat markası girilmelidir"
+        const sl = sayacindaPrefix(s);
+        // "D2 Sayacında esnek tesisat markası girilmelidir"
         out.push({
             group:   ERROR_GROUP_IDS.SAYAC_HATA,
             errorId: `sayac-esnek-marka-${s.id}`,
             message: `${sl} esnek tesisat markası girilmelidir`,
+            floorName: floorNameById(s.floorId),
             source:  'proje gereği',
             detail:  'Birim içi tesisat esnek (ondüleli) seçilmişse, sayaç üzerinde kullanılan esnek borunun markası seçilmelidir.',
             targets: [{ type: 'comp', id: s.id }],

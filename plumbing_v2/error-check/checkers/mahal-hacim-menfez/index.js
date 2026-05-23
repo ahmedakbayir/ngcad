@@ -11,7 +11,7 @@
 import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
 import { state } from '../../../../general-files/main.js';
-import { daireLabel, cihazAdBig, locInBirim, findMeterUpstream } from '../../checker-utils.js';
+import { cihazHatLabel, floorNameById } from '../../checker-utils.js';
 
 const MIN_HACIM_M3   = 12;
 const A_TIPI_CIHAZ   = new Set(['OCAK']);
@@ -81,19 +81,19 @@ function mahalHacimMenfezChecker({ manager }) {
         );
         if (!room) return;
 
-        const sayac = findMeterUpstream(manager, c.fleksBaglanti?.boruId || c.bagliBoruId);
-        const loc = locInBirim(c.floorId, daireLabel(sayac));
-        const ad = cihazAdBig(c.cihazTipi);
+        // Cihaz hatasında HEDEFin (cihaz) hat no'su yazılır
+        const label = cihazHatLabel(manager, c);
+        const fn = floorNameById(c.floorId);
 
         // 1) Hacim kontrolü
         const hacim = roomVolumeM3(room);
         if (hacim > 0 && hacim < MIN_HACIM_M3) {
-            // PDF: "Zemin Kat, D2 biriminde Ocak, 12 m³'ten daha küçük hacimli
-            //       mekanlara yerleştirilemez"
+            // "X nolu hattaki Ocak, 12 m³'ten daha küçük hacimli mekanlara yerleştirilemez"
             out.push({
                 group:   ERROR_GROUP_IDS.TASARIM,
                 errorId: `mahal-hacim-${c.id}`,
-                message: `${loc ? loc + ' ' : ''}${ad}, ${MIN_HACIM_M3} m³'ten daha küçük hacimli mekanlara yerleştirilemez`,
+                message: `${label}, ${MIN_HACIM_M3} m³'ten daha küçük hacimli mekanlara yerleştirilemez`,
+                floorName: fn,
                 source:  'TS7363 Md:6.1.1',
                 detail:  'A tipi (bacasız) cihazlar 12 m³\'ten daha küçük hacimli mekanlara yerleştirilmemelidir.',
                 targets: [{ type: 'comp', id: c.id }],
@@ -103,11 +103,12 @@ function mahalHacimMenfezChecker({ manager }) {
 
         // 2) Menfez kontrolü
         if (!roomHasVent(room, walls.filter(w => (w.floorId ?? null) === (c.floorId ?? null) || (w.floorId == null)))) {
-            // PDF: "Zemin Kat, D2 biriminde Ocak mahalinde menfez gerekli"
+            // "X nolu hattaki Ocak mahalinde menfez gerekli"
             out.push({
                 group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
                 errorId: `mahal-menfez-${c.id}`,
-                message: `${loc ? loc + ' ' : ''}${ad} mahalinde menfez gerekli`,
+                message: `${label} mahalinde menfez gerekli`,
+                floorName: fn,
                 source:  'TS7363 Md:6.1.3',
                 detail:  'A tipi (bacasız) cihazların yerleştirildiği mahalde en az 150 cm² serbest en kesite sahip havalandırma menfezi bulunmalıdır.',
                 targets: [{ type: 'comp', id: c.id }],
