@@ -174,6 +174,30 @@ export function startEndpointDrag(interactionManager, pipe, endpoint, point) {
     // Düğüm paylaşımı sayesinde connectedPipesAtEndpoint taramasına gerek yok:
     // draggedPoint bir düğüm nesnesidir; taşındığında onu paylaşan tüm borular otomatik güncellenir.
     interactionManager.connectedPipesAtEndpoint = null;
+
+    // Endpoint sürüklerken boru üzerindeki nesnelerin sürükleme öncesi durumlarını
+    // sakla. Kurallar:
+    //  - P1 sürüklenirse: tüm nesneler P1 ile birlikte hareket (P1'e mesafe sabit).
+    //  - P2 sürüklenirse: normal nesneler dünya pozisyonunda sabit kalır (P1'e
+    //    mesafe sabit); P2'ye 50 cm veya daha yakın "uç parçalar" P2 ile birlikte
+    //    hareket eder (P2'ye mesafe sabit).
+    // 50 cm değeri sonlanma vanası/regülatör gibi hat sonu nesnelerinin hassas
+    // konumlandırılmasındaki küçük sapmaları tolere etmek içindir.
+    const _startPipeLen = pipe.uzunluk;
+    const _ENDPOINT_ZONE = 50; // cm — uç parça eşiği
+    const initMap = new Map();
+    interactionManager.manager.components.forEach(comp => {
+        if (!_isOnPipeComp(comp.type)) return;
+        if (comp.bagliBoruId !== pipe.id) return;
+        if (comp.boruPozisyonu === null || comp.boruPozisyonu === undefined) return;
+        const d1 = comp.boruPozisyonu * _startPipeLen;
+        const d2 = (1 - comp.boruPozisyonu) * _startPipeLen;
+        const halfWidth = ((comp.config && comp.config.width) || 6) / 2;
+        const isEndPiece = d2 <= _ENDPOINT_ZONE;
+        initMap.set(comp.id, { d1, d2, halfWidth, isEndPiece });
+    });
+    interactionManager.endpointDragObjects = initMap;
+    interactionManager.endpointDragStartPipeLen = _startPipeLen;
 }
 
 export function startDrag(interactionManager, obj, point) {
@@ -778,31 +802,85 @@ export function handleDrag(interactionManager, point, event = null) {
         const MIN_EDGE_DISTANCE = 4;
         const OBJECT_MARGIN = 2;
         const VALVE_WIDTH = 6;
-        const spacePerValve = OBJECT_MARGIN + VALVE_WIDTH + OBJECT_MARGIN;
-        const totalValveSpace = valvesOnPipe.length * spacePerValve;
-        const minLength = (2 * MIN_EDGE_DISTANCE) + totalValveSpace;
 
         // --- ⚡ 3D LENGTH FIX BURADA ⚡ ---
         let newLength;
         if (interactionManager.dragEndpoint === 'p1') {
             // Sadece X,Y değil, Z farkını da dahil et (Hypot 3 args)
             newLength = Math.hypot(
-                finalPos.x - pipe.p2.x, 
+                finalPos.x - pipe.p2.x,
                 finalPos.y - pipe.p2.y,
-                (finalPos.z || 0) - (pipe.p2.z || 0) 
+                (finalPos.z || 0) - (pipe.p2.z || 0)
             );
         } else {
             // Sadece X,Y değil, Z farkını da dahil et (Hypot 3 args)
             newLength = Math.hypot(
-                pipe.p1.x - finalPos.x, 
+                pipe.p1.x - finalPos.x,
                 pipe.p1.y - finalPos.y,
                 (pipe.p1.z || 0) - (finalPos.z || 0)
             );
         }
         // -------------------------------
 
-        if (!occupiedByOtherPipe && newLength >= minLength) {
-            const oldLength = pipe.uzunluk;
+        // Sürükleme başlangıcında yakalanan nesne durumlarına göre yeni hedef
+        // konumları hesapla. P1 sürüklenirse nesneler P1 ile birlikte hareket
+        // eder (P1'e mesafe sabit). P2 sürüklenirse uç parçalar (P2'ye <=50 cm)
+        // P2 ile hareket eder, diğerleri dünya pozisyonunda sabit kalır.
+        const _initMap = interactionManager.endpointDragObjects;
+        const objectPlans = valvesOnPipe.map(valve => {
+            const init = (_initMap && _initMap.get(valve.id)) || null;
+            const startLen = init ? null : pipe.uzunluk;
+            const d1Orig = init ? init.d1 : (valve.boruPozisyonu * startLen);
+            const d2Orig = init ? init.d2 : ((1 - valve.boruPozisyonu) * startLen);
+            const halfWidth = init ? init.halfWidth : (((valve.config && valve.config.width) || VALVE_WIDTH) / 2);
+            const isEndPiece = init ? init.isEndPiece : (d2Orig <= 50);
+
+            let newFromEnd, newFixedDistance, newDistFromP1;
+            if (interactionManager.dragEndpoint === 'p1') {
+                newFromEnd = 'p1';
+                newFixedDistance = d1Orig;
+                newDistFromP1 = d1Orig;
+            } else if (isEndPiece) {
+                newFromEnd = 'p2';
+                newFixedDistance = d2Orig;
+                newDistFromP1 = newLength - d2Orig;
+            } else {
+                newFromEnd = 'p1';
+                newFixedDistance = d1Orig;
+                newDistFromP1 = d1Orig;
+            }
+            return { valve, halfWidth, isEndPiece, newFromEnd, newFixedDistance, newDistFromP1 };
+        });
+
+        // Her nesne yeni boru üzerinde sığabiliyor mu? (uç boşlukları kontrolü)
+        let constraintsOk = true;
+        for (const plan of objectPlans) {
+            const minEdge = plan.halfWidth + MIN_EDGE_DISTANCE;
+            const distFromP1 = plan.newDistFromP1;
+            const distFromP2 = newLength - distFromP1;
+            if (distFromP1 < minEdge || distFromP2 < minEdge) {
+                constraintsOk = false;
+                break;
+            }
+        }
+
+        // P2 sürüklenirken uç parça (P2 ile hareket eden) ile sabit nesne
+        // (P1'e göre sabit) çakışabilir; en sağdaki sabit ile en soldaki uç
+        // parça arasındaki boşluğu kontrol et.
+        if (constraintsOk && interactionManager.dragEndpoint === 'p2') {
+            const fixedSorted = objectPlans.filter(p => !p.isEndPiece).sort((a, b) => a.newDistFromP1 - b.newDistFromP1);
+            const endSorted = objectPlans.filter(p => p.isEndPiece).sort((a, b) => a.newDistFromP1 - b.newDistFromP1);
+            if (fixedSorted.length && endSorted.length) {
+                const rightmostFixed = fixedSorted[fixedSorted.length - 1];
+                const leftmostEnd = endSorted[0];
+                const requiredGap = rightmostFixed.halfWidth + leftmostEnd.halfWidth + 2 * OBJECT_MARGIN;
+                if (leftmostEnd.newDistFromP1 - rightmostFixed.newDistFromP1 < requiredGap) {
+                    constraintsOk = false;
+                }
+            }
+        }
+
+        if (!occupiedByOtherPipe && constraintsOk) {
             // Etiketler lineer öteleme için: borunun orta noktasının kayma miktarı
             // sürüklenen uç hareketinin yarısı kadardır (diğer uç sabit).
             const _moveDx = finalPos.x - oldPoint.x;
@@ -820,17 +898,19 @@ export function handleDrag(interactionManager, point, event = null) {
             // Borunun kendi etiketini orta nokta kaymasıyla ötele
             if (_moveDx || _moveDy) translateLabel(pipe.id, _moveDx / 2, _moveDy / 2);
 
-            valvesOnPipe.forEach(valve => {
+            // Boru üzerindeki nesneleri yeni kurallara göre yeniden konumlandır
+            const newPipeLen = pipe.uzunluk;
+            for (const plan of objectPlans) {
+                const valve = plan.valve;
                 const oldVX = valve.x, oldVY = valve.y;
-                const distanceFromP2 = (1 - valve.boruPozisyonu) * oldLength;
-                valve.boruPozisyonu = 1 - (distanceFromP2 / pipe.uzunluk);
-                valve.fromEnd = 'p2';
-                valve.fixedDistance = distanceFromP2;
+                valve.fromEnd = plan.newFromEnd;
+                valve.fixedDistance = plan.newFixedDistance;
+                valve.boruPozisyonu = newPipeLen > 0 ? (plan.newDistFromP1 / newPipeLen) : valve.boruPozisyonu;
                 valve.updatePositionFromPipe(pipe);
                 const vDx = valve.x - oldVX;
                 const vDy = valve.y - oldVY;
                 if (vDx || vDy) translateLabel(valve.id, vDx, vDy);
-            });
+            }
 
             // CTRL basılıysa downstream loop zaten sayaç/cihazı taşıyacak — burada atla
             if (!(event && event.ctrlKey)) {
@@ -1518,6 +1598,8 @@ export function endDrag(interactionManager) {
     interactionManager.connectedPipesAtEndpoint = null;
     interactionManager.connectedPipesAtP1 = null;
     interactionManager.connectedPipesAtP2 = null;
+    interactionManager.endpointDragObjects = null;
+    interactionManager.endpointDragStartPipeLen = null;
     interactionManager.servisKutusuConnectedPipes = null;
     interactionManager.sayacConnectedPipes = null;
     interactionManager.meterConnectedPipesAtOutput = null;
