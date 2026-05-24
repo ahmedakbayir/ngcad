@@ -15,7 +15,6 @@ import { draw2D } from '../../../../draw/draw2d.js';
 import {
     hatNoForComp,
     floorNameById,
-    hatPrefix,
     daireLabel,
     findMeterUpstream,
     BIRIM_PLACEHOLDER,
@@ -43,18 +42,25 @@ function vanaFlansChecker({ manager }) {
         if (v.flans === true) return;
 
         const ad = VANA_AD[v.vanaTipi] || 'Vana';
-        // AKV/BRANSMAN kolon vanası → "X nolu hattaki DN65 çaplı AKV …"
-        // EMNIYET/SELENOID/CIHAZ birim içi vana (daire referansı) → "D2 biriminde DN65 çaplı Emn.V …"
+        // AKV/BRANSMAN her zaman kolon hattı referansı.
+        // EMNIYET/SELENOID/CIHAZ: sayac upstream'da bulunduysa "D2 biriminde …",
+        // bulunamadıysa vana kolon üzerindedir → "X nolu kolon hattındaki …".
         const isKolonVana = v.vanaTipi === 'AKV' || v.vanaTipi === 'BRANSMAN';
+        const kolonHatPrefix = () => {
+            const hatNo = hatNoForComp(manager, v);
+            return hatNo != null ? `${hatNo} nolu kolon hattındaki ` : '';
+        };
         let prefix;
         if (isKolonVana) {
-            const hatNo = hatNoForComp(manager, v);
-            const pre = hatPrefix(hatNo);
-            prefix = pre ? `${pre} ` : '';
+            prefix = kolonHatPrefix();
         } else {
             const sayac = findMeterUpstream(manager, v.bagliBoruId);
-            const d = daireLabel(sayac) || BIRIM_PLACEHOLDER;
-            prefix = `${d} biriminde `;
+            if (sayac) {
+                const d = daireLabel(sayac) || BIRIM_PLACEHOLDER;
+                prefix = `${d} biriminde `;
+            } else {
+                prefix = kolonHatPrefix();
+            }
         }
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,

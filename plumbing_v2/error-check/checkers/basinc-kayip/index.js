@@ -32,7 +32,7 @@ function limitDescriptor(limit, isHighStart) {
         if (Math.abs(limit - PATH_LIMITS.TUKETIM) < 1e-6) {
             return {
                 source: 'TS7363 Md:4.3.3',
-                detail: 'Servis kutusu çıkışı 21 mbar tesisatta, sayaç çıkışı ile cihaz arasındaki basınç kaybı en fazla 0.8 mbar olabilir.',
+                detail: 'Servis kutusu çıkışı 21 mbar tesisatta, sayaç çıkışı ile cihaz arasındaki basınç kaybı en fazla 0.8 mbar olabilir. Ayrıca TS7363 Md:4.3.4 e göre Servis kutusu çıkışı 300 mbar tesisatta, sayaç öncesi tesis edilen reglaj grubu ile basınç 21 mbar\'a düşürülüyorsa, sayaç ile yakıcı cihaz arasında basınç kaybı en fazla 0.8 mbar olabilir.',
             };
         }
         if (Math.abs(limit - PATH_LIMITS.KOLON_BRANSMAN) < 1e-6) {

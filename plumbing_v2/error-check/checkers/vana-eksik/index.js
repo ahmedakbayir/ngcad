@@ -368,18 +368,21 @@ function depremSelenoidKuralı(manager, out) {
         })();
         if (!chainIds.size) return;
 
-        const hasAkv = (manager.components || []).some(c =>
+        const akv = (manager.components || []).find(c =>
             c.type === 'vana' && c.vanaTipi === 'AKV' && chainIds.has(c.bagliBoruId)
         );
-        if (!hasAkv) return;
+        if (!akv) return;
 
         if (hasSelenoidInChain(manager, box.id)) return;
 
-        // Hedef: servis kutusu sonrası ilk hat (yoksa kutu)
+        // Hedef: AKV'nin bulunduğu hat (selenoid AKV sonrasına gelecek).
+        // AKV'nin pipe'ı yoksa fallback: servis kutusu sonrası ilk hat, sonra kutu.
         const firstPipeId = roots[0]?.id;
-        const targets = firstPipeId
-            ? [{ type: 'pipe', id: firstPipeId }]
-            : [{ type: 'comp', id: box.id }];
+        const targets = akv.bagliBoruId
+            ? [{ type: 'pipe', id: akv.bagliBoruId }]
+            : firstPipeId
+                ? [{ type: 'pipe', id: firstPipeId }]
+                : [{ type: 'comp', id: box.id }];
         out.push({
             group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
             errorId: `vana-deprem-selenoid-${box.id}`,

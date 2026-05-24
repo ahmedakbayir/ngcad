@@ -12,7 +12,7 @@
 
 import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
-import { floorNameById, vanaHatLabel } from '../../checker-utils.js';
+import { floorNameById, hatNoForComp } from '../../checker-utils.js';
 
 function birimLabel(tipi, no) {
     switch (tipi) {
@@ -73,7 +73,13 @@ function cogulBirimNoKurali(manager, out) {
     }
 }
 
-// ─── Kural 2 — Branşmanda birim no boş ───────────────────────────────────
+// ─── Kural 2 — Branşman / Sayaçta birim no boş ───────────────────────────
+// "X nolu kolon hattındaki" prefix'i — hat tespit edilemediyse boş.
+function _kolonHatPrefix(manager, comp) {
+    const hatNo = hatNoForComp(manager, comp);
+    return hatNo != null ? `${hatNo} nolu kolon hattındaki ` : '';
+}
+
 function bransmanBirimNoBosKurali(manager, out) {
     (manager.components || []).forEach(v => {
         if (v.type !== 'vana' || v.vanaTipi !== 'BRANSMAN') return;
@@ -81,16 +87,41 @@ function bransmanBirimNoBosKurali(manager, out) {
         const no = String(v.birimNo ?? '').trim();
         if (no) return;
 
-        // "X nolu hattaki branşman vanasının birim no'su girilmemiş"
-        const label = vanaHatLabel(manager, v);
+        const pre = _kolonHatPrefix(manager, v);
+        const msg = pre
+            ? `${pre}branşman vanasının birim nosu girilmelidir.`
+            : `Branşman vanasının birim nosu girilmelidir.`;
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `birimno-eksik-${v.id}`,
-            message: `${label} birim no'su girilmemiş`,
+            message: msg,
             floorName: floorNameById(v.floorId),
             source:  'proje gereği',
             detail:  'Branşman vanasına bağlı her birim için birim numarası girilmelidir.',
             targets: [{ type: 'comp', id: v.id }],
+            fix: null,
+        });
+    });
+}
+
+function sayacBirimNoBosKurali(manager, out) {
+    (manager.components || []).forEach(s => {
+        if (s.type !== 'sayac') return;
+        const no = String(s.birimNo ?? '').trim();
+        if (no) return;
+
+        const pre = _kolonHatPrefix(manager, s);
+        const msg = pre
+            ? `${pre}sayacın birim nosu girilmelidir.`
+            : `Sayacın birim nosu girilmelidir.`;
+        out.push({
+            group:   ERROR_GROUP_IDS.TASARIM,
+            errorId: `birimno-eksik-sayac-${s.id}`,
+            message: msg,
+            floorName: floorNameById(s.floorId),
+            source:  'proje gereği',
+            detail:  'Sayaca bağlı her birim için birim numarası girilmelidir.',
+            targets: [{ type: 'comp', id: s.id }],
             fix: null,
         });
     });
@@ -101,6 +132,7 @@ function birimNoChecker({ manager }) {
     const out = [];
     cogulBirimNoKurali(manager, out);
     bransmanBirimNoBosKurali(manager, out);
+    sayacBirimNoBosKurali(manager, out);
     return out;
 }
 
