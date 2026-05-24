@@ -561,6 +561,18 @@ function initMenu() {
         hide();
     });
 
+    // ── İniş Çıkış Ekle (düşey panel) ───────────────────────────────────────
+    document.getElementById('plumbing-btn-inis-cikis')?.addEventListener('click', () => {
+        if (!menuState) return;
+        const { pipe, nokta, interactionManager } = menuState;
+        if (pipe && nokta) {
+            // Sağ tık konumu lastMousePoint'e değil, paneli orada açmak için
+            // doğrudan opts ile geçiriyoruz — pipe + point bağlamı 'araya' modunu açar.
+            interactionManager.toggleVerticalPanel({ pipe, point: nokta, mode: 'araya' });
+        }
+        hide();
+    });
+
     // ── Vana: AKV / EMNIYET / CIHAZ / SELENOID — tıklanan noktaya ─────────
     ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID'].forEach(tip => {
         document.getElementById(`plumbing-vana-${tip}`)?.addEventListener('click', () => {
@@ -710,6 +722,8 @@ export function showPlumbingContextMenu(screenX, screenY, worldPos, interactionM
     document.getElementById('plumbing-btn-cut').disabled = !hasPipe;
     document.getElementById('plumbing-btn-copy').disabled = !hasPipe;
     document.getElementById('plumbing-btn-split').disabled = !pipe; // Böl sadece gövdeye tıklanınca
+    const btnInisCikis = document.getElementById('plumbing-btn-inis-cikis');
+    if (btnInisCikis) btnInisCikis.disabled = !pipe; // İniş çıkış da gövde gerektirir
     document.getElementById('plumbing-btn-delete-after').disabled = !hasPipe;
 
     // İç Tesisatı Sil: hedef sayaç(lar) çözülebiliyorsa aktif

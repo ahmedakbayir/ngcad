@@ -75,112 +75,112 @@ export function handleKeyDown(e) {
         }
     }
 
-    // Boru çizim modunda ölçü girişi ve düşey mod
-    if (this.boruCizimAktif && this.boruBaslangic) {
-        // TAB - Düşey yükseklik panelini aç/kapat
-        if (e.key === 'Tab') {
-            e.preventDefault(); // Varsayılan tab davranışını engelle
+    // TAB - Düşey yükseklik panelini aç/kapat (hat çiziminde VEYA bir hat seçiliyken)
+    if (e.key === 'Tab') {
+        const hasSelectedPipe = this.selectedObject?.type === 'boru'
+            || state.selectedObject?.object?.type === 'boru';
+        if ((this.boruCizimAktif && this.boruBaslangic) || hasSelectedPipe || this.verticalModeActive) {
+            e.preventDefault();
             this.toggleVerticalPanel();
             return true;
         }
+    }
 
-        // Düşey panel aktifken sayı girişi
-        if (this.verticalModeActive) {
-            if (/^[0-9\-+]$/.test(e.key)) {
-                const input = document.getElementById('vertical-height-input');
-                if (input) {
-                    let currentValue = input.value || '0';
-                    let newValue;
+    // Düşey panel aktifken sayı girişi (hat çizim modundan bağımsız çalışır)
+    // Panel input'una çift karakter girmesin diye preventDefault uyguluyoruz.
+    if (this.verticalModeActive) {
+        if (/^[0-9\-+]$/.test(e.key)) {
+            e.preventDefault();
+            const input = document.getElementById('vertical-height-input');
+            if (input) {
+                let currentValue = input.value || '0';
+                let newValue;
 
-                    if (e.key === '+') {
-                        // Artı: eğer '0' ise, pozitif başlangıç işareti
-                        if (currentValue === '0' || currentValue === '-0') {
-                            newValue = '0'; // Hazır, rakam bekliyor
-                        } else {
-                            // Zaten bir sayı varsa, pozitif yap
-                            newValue = Math.abs(parseFloat(currentValue) || 0).toString();
-                        }
-                    } else if (e.key === '-') {
-                        // Eksi: eğer '0' ise, negatif başlangıç işareti
-                        if (currentValue === '0') {
-                            newValue = '-'; // Negatif başlangıç, rakam bekliyor
-                        } else if (currentValue === '-') {
-                            newValue = '0'; // İkinci eksi iptal eder
-                        } else {
-                            // Zaten bir sayı varsa, işaret değiştir
-                            const num = parseFloat(currentValue) || 0;
-                            newValue = (-num).toString();
-                        }
+                if (e.key === '+') {
+                    if (currentValue === '0' || currentValue === '-0') {
+                        newValue = '0';
                     } else {
-                        // Rakam: ekle
-                        if (currentValue === '0') {
-                            newValue = e.key;
-                        } else if (currentValue === '-') {
-                            newValue = '-' + e.key;
-                        } else {
-                            newValue = currentValue + e.key;
-                        }
+                        newValue = Math.abs(parseFloat(currentValue) || 0).toString();
                     }
-
-                    input.value = newValue;
-                    // verticalHeightInput'u güncelle - ama sadece geçerli sayı ise
-                    const parsedValue = parseFloat(newValue);
-                    if (!isNaN(parsedValue)) {
-                        this.verticalHeightInput = parsedValue;
+                } else if (e.key === '-') {
+                    if (currentValue === '0') {
+                        newValue = '-';
+                    } else if (currentValue === '-') {
+                        newValue = '0';
+                    } else {
+                        const num = parseFloat(currentValue) || 0;
+                        newValue = (-num).toString();
                     }
-                    // Eğer sadece "-" ise, henüz güncelleme (kullanıcı rakam girecek)
+                } else {
+                    if (currentValue === '0') {
+                        newValue = e.key;
+                    } else if (currentValue === '-') {
+                        newValue = '-' + e.key;
+                    } else {
+                        newValue = currentValue + e.key;
+                    }
                 }
-                return true;
-            }
 
-            // Backspace - son rakamı sil
-            if (e.key === 'Backspace') {
-                const input = document.getElementById('vertical-height-input');
-                if (input && input.value.length > 0) {
-                    const currentValue = input.value;
-                    input.value = currentValue.slice(0, -1) || '0';
-                    this.verticalHeightInput = parseFloat(input.value) || 0;
+                input.value = newValue;
+                const parsedValue = parseFloat(newValue);
+                if (!isNaN(parsedValue)) {
+                    this.verticalHeightInput = parsedValue;
                 }
-                return true;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
             }
+            return true;
+        }
 
-            // Enter - düşey yüksekliği uygula ve paneli kapat
-            if (e.key === 'Enter') {
-                this.applyVerticalHeight();
-                return true;
+        if (e.key === 'Backspace') {
+            e.preventDefault();
+            const input = document.getElementById('vertical-height-input');
+            if (input && input.value.length > 0) {
+                const currentValue = input.value;
+                input.value = currentValue.slice(0, -1) || '0';
+                this.verticalHeightInput = parseFloat(input.value) || 0;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
             }
-        } else {
-            // Normal ölçü girişi (düşey panel kapalıyken)
-            // +/- ile düşey mod
-            if (e.key === '+' || e.key === '-') {
-                this.measurementInput = e.key;
-                this.measurementActive = true;
-                this.isVerticalMeasurement = true;
-                return true;
-            }
+            return true;
+        }
 
-            // Rakam girişi (0-9)
-            if (/^[0-9]$/.test(e.key)) {
-                this.measurementInput += e.key;
-                this.measurementActive = true;
-                return true;
-            }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            this.applyVerticalHeight();
+            return true;
+        }
+    }
 
-            // Backspace - son rakamı sil
-            if (e.key === 'Backspace' && this.measurementInput.length > 0) {
-                this.measurementInput = this.measurementInput.slice(0, -1);
-                if (this.measurementInput.length === 0) {
-                    this.measurementActive = false;
-                    this.isVerticalMeasurement = false;
-                }
-                return true;
-            }
+    // Boru çizim modunda ölçü girişi (düşey panel kapalıyken)
+    if (this.boruCizimAktif && this.boruBaslangic) {
+        // +/- ile düşey mod
+        if (e.key === '+' || e.key === '-') {
+            this.measurementInput = e.key;
+            this.measurementActive = true;
+            this.isVerticalMeasurement = true;
+            return true;
+        }
 
-            // Enter - ölçüyü uygula
-            if (e.key === 'Enter' && this.measurementInput.length > 0) {
-                this.applyMeasurement();
-                return true;
+        // Rakam girişi (0-9)
+        if (/^[0-9]$/.test(e.key)) {
+            this.measurementInput += e.key;
+            this.measurementActive = true;
+            return true;
+        }
+
+        // Backspace - son rakamı sil
+        if (e.key === 'Backspace' && this.measurementInput.length > 0) {
+            this.measurementInput = this.measurementInput.slice(0, -1);
+            if (this.measurementInput.length === 0) {
+                this.measurementActive = false;
+                this.isVerticalMeasurement = false;
             }
+            return true;
+        }
+
+        // Enter - ölçüyü uygula
+        if (e.key === 'Enter' && this.measurementInput.length > 0) {
+            this.applyMeasurement();
+            return true;
         }
     }
 
@@ -630,54 +630,139 @@ export function handleKeyDown(e) {
 
 /**
  * Düşey yükseklik panelini aç/kapat
+ * @param {object} [opts] - { mode: 'araya'|'inisCikis', pipe, point } (sağ tık menüsünden gelir)
  */
-export function toggleVerticalPanel() {
+export function toggleVerticalPanel(opts) {
     const panel = document.getElementById('vertical-height-panel');
     if (!panel) return;
 
     if (this.verticalModeActive) {
         applyVerticalHeight.call(this);
     } else {
-        openVerticalPanel.call(this);
+        openVerticalPanel.call(this, opts);
     }
+}
+
+// Panel açılışı için bağlam çözümü:
+//   - opts ile gelen (pipe+point) → 'splitAtPoint'
+//   - hat çizim aktif → 'drawing'
+//   - seçili boru → 'selectedPipe' (point: p2 (iniş çıkış için), arayaPoint: gövde noktası)
+function _resolveVerticalContext(opts) {
+    if (opts && opts.pipe && opts.point) {
+        return { kind: 'splitAtPoint', pipe: opts.pipe, point: opts.point };
+    }
+    if (this.boruCizimAktif && this.boruBaslangic) {
+        return { kind: 'drawing', point: this.boruBaslangic.nokta };
+    }
+    const selPipe = (this.selectedObject && this.selectedObject.type === 'boru')
+        ? this.selectedObject
+        : (state.selectedObject?.object?.type === 'boru' ? state.selectedObject.object : null);
+    if (selPipe) {
+        // Araya için: son mouse pozisyonunu boruya projekte et; yoksa orta nokta
+        let arayaPoint = null;
+        if (this.lastMousePoint && typeof selPipe.projectPoint === 'function') {
+            const proj = selPipe.projectPoint({ x: this.lastMousePoint.x, y: this.lastMousePoint.y });
+            // Uçlardan biraz uzaklaş (split başarılı olması için)
+            if (proj && proj.t > 0.05 && proj.t < 0.95) {
+                arayaPoint = {
+                    x: selPipe.p1.x + proj.t * (selPipe.p2.x - selPipe.p1.x),
+                    y: selPipe.p1.y + proj.t * (selPipe.p2.y - selPipe.p1.y),
+                    z: (selPipe.p1.z || 0) + proj.t * ((selPipe.p2.z || 0) - (selPipe.p1.z || 0))
+                };
+            }
+        }
+        if (!arayaPoint) {
+            arayaPoint = {
+                x: (selPipe.p1.x + selPipe.p2.x) / 2,
+                y: (selPipe.p1.y + selPipe.p2.y) / 2,
+                z: ((selPipe.p1.z || 0) + (selPipe.p2.z || 0)) / 2
+            };
+        }
+        return { kind: 'selectedPipe', pipe: selPipe, point: selPipe.p2, arayaPoint };
+    }
+    return null;
+}
+
+function _findFloorAtZ(z) {
+    const floors = state.floors || [];
+    const f = floors.find(fl => z >= (fl.bottomElevation || 0) && z < (fl.topElevation || 0));
+    return f || state.currentFloor || null;
+}
+
+function _floorHeightAt(z) {
+    const f = _findFloorAtZ(z);
+    if (!f) return 280;
+    const h = (f.topElevation || 0) - (f.bottomElevation || 0);
+    return h > 0 ? Math.round(h) : 280;
 }
 
 /**
  * Düşey yükseklik panelini aç
  */
-function openVerticalPanel() {
+function openVerticalPanel(opts) {
     const panel = document.getElementById('vertical-height-panel');
     const input = document.getElementById('vertical-height-input');
     if (!panel || !input) return;
 
-    if (this.lastMousePoint) {
-        const canvas = document.getElementById('c2d');
-        const rect = canvas.getBoundingClientRect();
+    const ctx = _resolveVerticalContext.call(this, opts);
+    this.verticalContext = ctx;
 
-        let screenX = this.lastMousePoint.screenX || rect.width / 2;
-        let screenY = this.lastMousePoint.screenY || rect.height / 2;
+    // Mod seçimi: sağ tık → 'araya' default, diğer durumlarda 'inisCikis'
+    const defaultMode = (opts && opts.mode) ? opts.mode
+        : (ctx && ctx.kind === 'splitAtPoint' ? 'araya' : 'inisCikis');
+    const radios = panel.querySelectorAll('input[name="vertical-mode"]');
+    radios.forEach(r => { r.checked = (r.value === defaultMode); });
 
-        const panelWidth = 220;
-        const panelHeight = 120;
-
-        if (screenX + panelWidth > rect.width) {
-            screenX = rect.width - panelWidth - 10;
-        }
-        if (screenY + panelHeight > rect.height) {
-            screenY = rect.height - panelHeight - 10;
-        }
-
-        panel.style.left = `${screenX + 20}px`;
-        panel.style.top = `${screenY}px`;
-    }
+    // Kat yüksekliği: başlangıç noktasının z'sine göre dinamik
+    const startZ = (ctx && ctx.point) ? (ctx.point.z || 0) : 0;
+    const floorH = _floorHeightAt(startZ);
+    panel.dataset.floorHeight = String(floorH);
+    const btnUp = document.getElementById('btn-floor-up');
+    const btnDown = document.getElementById('btn-floor-down');
+    if (btnUp) btnUp.title = `+${floorH} cm`;
+    if (btnDown) btnDown.title = `-${floorH} cm`;
 
     panel.style.display = 'block';
     this.verticalModeActive = true;
 
-    input.value = '100';
+    input.value = '0';
     this.verticalHeightInput = 0;
 
+    // Konumlandırma — panel sayfa dışına taşmasın (tüm kenarlar)
+    const canvas = document.getElementById('c2d');
+    const rect = canvas.getBoundingClientRect();
+    let screenX = (this.lastMousePoint && this.lastMousePoint.screenX) || rect.width / 2;
+    let screenY = (this.lastMousePoint && this.lastMousePoint.screenY) || rect.height / 2;
+
+    // Panel gerçek boyutu (render edildikten sonra)
+    const pw = panel.offsetWidth || 260;
+    const ph = panel.offsetHeight || 280;
+    const margin = 8;
+
+    let left = screenX + 20;
+    let top  = screenY;
+    if (left + pw > rect.width - margin)  left = rect.width  - pw - margin;
+    if (top  + ph > rect.height - margin) top  = rect.height - ph - margin;
+    if (left < margin) left = margin;
+    if (top  < margin) top  = margin;
+
+    panel.style.left = `${left}px`;
+    panel.style.top  = `${top}px`;
+
     setTimeout(() => input.focus(), 50);
+
+    // Dışarı tıklayınca paneli kapat. Aynı turdaki TAB/sağ-tık olayını yakalamamak
+    // için listener'ı bir sonraki tick'te bağlıyoruz; kapatınca da kendini söker.
+    const self = this;
+    const onOutsideClick = (ev) => {
+        if (!panel.contains(ev.target)) {
+            closeVerticalPanel.call(self);
+        }
+    };
+    setTimeout(() => {
+        document.addEventListener('mousedown', onOutsideClick, true);
+    }, 0);
+    this._verticalOutsideClickHandler = onOutsideClick;
 }
 
 /**
@@ -690,26 +775,64 @@ export function closeVerticalPanel() {
     panel.style.display = 'none';
     this.verticalModeActive = false;
     this.verticalHeightInput = 0;
+    this.verticalContext = null;
+
+    if (this._verticalOutsideClickHandler) {
+        document.removeEventListener('mousedown', this._verticalOutsideClickHandler, true);
+        this._verticalOutsideClickHandler = null;
+    }
 }
 
 /**
- * Düşey yüksekliği uygula ve boru çiz
+ * Düşey yüksekliği uygula
+ * Mod 'inisCikis': aktif uçtan +h düşey ekle, çizime devam et
+ * Mod 'araya'   : hattı verilen noktada böl, downstream zinciri +h kaldır, araya düşey koy
  */
 export function applyVerticalHeight() {
-    if (!this.boruCizimAktif || !this.boruBaslangic) {
-        closeVerticalPanel.call(this);
-        return;
-    }
-
     const input = document.getElementById('vertical-height-input');
     const height = input ? parseFloat(input.value) : this.verticalHeightInput;
 
-    if (height === 0) {
+    if (!height || isNaN(height) || height === 0) {
         closeVerticalPanel.call(this);
         return;
     }
 
-    const startPoint = this.boruBaslangic.nokta;
+    const ctx = this.verticalContext || _resolveVerticalContext.call(this);
+    if (!ctx) {
+        closeVerticalPanel.call(this);
+        return;
+    }
+
+    const panel = document.getElementById('vertical-height-panel');
+    const modeEl = panel?.querySelector('input[name="vertical-mode"]:checked');
+    const mode = modeEl?.value || 'inisCikis';
+
+    if (mode === 'araya' && (ctx.kind === 'splitAtPoint' || ctx.kind === 'selectedPipe')) {
+        // Seçili boruda araya için arayaPoint (gövde projeksiyonu); sağ tıkta point.
+        const splitPt = (ctx.kind === 'selectedPipe' && ctx.arayaPoint) ? ctx.arayaPoint : ctx.point;
+        _applyArayaInisCikis.call(this, ctx.pipe, splitPt, height);
+        closeVerticalPanel.call(this);
+        return;
+    }
+
+    // 'inisCikis' veya araya çalışamayan durum: tek düşey ekle + çizime devam et
+    let startPoint;
+    if (ctx.kind === 'drawing') {
+        startPoint = this.boruBaslangic.nokta;
+    } else if (ctx.kind === 'selectedPipe') {
+        startPoint = { x: ctx.pipe.p2.x, y: ctx.pipe.p2.y, z: ctx.pipe.p2.z || 0 };
+        // Seçili borunun p2 ucundan çizime başla
+        if (!this.boruCizimAktif) {
+            this.startBoruCizim(startPoint, ctx.pipe.id, 'boru', ctx.pipe.colorGroup);
+        }
+    } else { // splitAtPoint + inisCikis
+        startPoint = { x: ctx.point.x, y: ctx.point.y, z: ctx.point.z || 0 };
+        if (!this.boruCizimAktif) {
+            // Split point üzerinde çizime başla (handlePipeSplit gibi)
+            this.handlePipeSplit(ctx.pipe, startPoint, true);
+        }
+    }
+
     const endPoint = {
         x: startPoint.x,
         y: startPoint.y,
@@ -717,8 +840,87 @@ export function applyVerticalHeight() {
     };
 
     handleBoruClick(this, endPoint);
-
     closeVerticalPanel.call(this);
+}
+
+/**
+ * Araya iniş çıkış: pipe'ı splitPoint'te böl, downstream zincirini +h kaldır,
+ * boru1.p2 (eski Z) ile boru2.p1 (yeni Z) arasına düşey boru ekle.
+ */
+function _applyArayaInisCikis(pipe, splitPoint, height) {
+    const manager = this.manager;
+    if (!pipe || !splitPoint) return;
+
+    // 1. Hattı böl (çizime BAŞLATMA)
+    this.handlePipeSplit(pipe, splitPoint, false);
+
+    // splitAt sonrası yeni borular pipe'ın üzerinde değil, manager.pipes içinde.
+    // boru1 = splitPoint'te biten (eski p1'den gelen)
+    // boru2 = splitPoint'ten başlayan (eski p2'ye giden)
+    const TOL = 0.5;
+    const dist3D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0));
+
+    const boru1 = manager.pipes.find(p =>
+        dist3D(p.p2, splitPoint) < TOL &&
+        dist3D(p.p1, pipe.p1) < TOL
+    );
+    const boru2 = manager.pipes.find(p =>
+        dist3D(p.p1, splitPoint) < TOL &&
+        dist3D(p.p2, pipe.p2) < TOL
+    );
+
+    if (!boru1 || !boru2) {
+        console.warn('[araya-inis-cikis] boru1/boru2 bulunamadı', { boru1: !!boru1, boru2: !!boru2 });
+        return;
+    }
+
+    // boru2.p1 ile boru1.p2 splitAt'te aynı düğüm referansını paylaşır.
+    // Downstream'i kaldırınca boru1.p2 de kalkmasın diye boru2.p1'i kopyalayıp ayır.
+    if (boru2.p1 === boru1.p2) {
+        const old = boru2.p1;
+        const detached = { _nodeId: `n_${Date.now()}_${Math.random().toString(36).substr(2,6)}`, x: old.x, y: old.y, z: old.z };
+        boru2.p1 = detached;
+        boru2.p1NodeId = detached._nodeId;
+    }
+
+    // 2. Downstream zinciri topla (boru2 dahil) ve +height kaldır
+    // Aynı düğüm referansını birden fazla kez kaldırmamak için Set tutuyoruz.
+    const downstream = getDownstreamPipesAndComponents(boru2, manager);
+    const shiftedNodes = new Set();
+    const shiftZ = (node) => {
+        if (!node || shiftedNodes.has(node)) return;
+        node.z = (node.z || 0) + height;
+        shiftedNodes.add(node);
+    };
+    for (const p of downstream.pipes) {
+        shiftZ(p.p1);
+        shiftZ(p.p2);
+    }
+    for (const entry of downstream.components) {
+        const c = entry.object;
+        if (c && typeof c.z === 'number') c.z = (c.z || 0) + height;
+    }
+
+    // 3. boru1.p2 (eski Z) ile boru2.p1 (yeni Z = eski+h) arasına düşey boru
+    // Düğüm referanslarını paylaş ki taşımalarda zincir kopmasın.
+    const dusey = new Boru(boru1.p2, boru2.p1);
+    dusey.colorGroup = pipe.colorGroup || boru1.colorGroup || 'YELLOW';
+    dusey.floorId    = pipe.floorId    || boru1.floorId;
+    if (pipe.basinc != null) dusey.basinc = pipe.basinc;
+    dusey.boruCap = pipe.boruCap || boru1.boruCap || 'DN25';
+
+    // Bağlantıları yeniden zincirle: boru1 → düşey → boru2
+    dusey.baslangicBaglanti = { tip: 'boru', hedefId: boru1.id };
+    dusey.bitisBaglanti     = { tip: 'boru', hedefId: boru2.id };
+    boru1.bitisBaglanti     = { tip: 'boru', hedefId: dusey.id };
+    boru2.baslangicBaglanti = { tip: 'boru', hedefId: dusey.id };
+
+    manager.pipes.push(dusey);
+    manager.registerPipeNodes(dusey);
+    manager.recomputePipeParents?.();
+    recomputeAllPressures(manager);
+    manager.saveToState?.();
+    draw2D();
 }
 
 /**

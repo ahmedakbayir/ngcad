@@ -405,8 +405,8 @@ export class InteractionManager {
     /**
      * Düşey panel yönetimi
      */
-    toggleVerticalPanel() {
-        return toggleVerticalPanel.call(this);
+    toggleVerticalPanel(opts) {
+        return toggleVerticalPanel.call(this, opts);
     }
 
     closeVerticalPanel() {

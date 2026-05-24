@@ -2053,19 +2053,26 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
 .vertical-panel {
     position: absolute;
     z-index: 5000;
-    width: 260px;
+    width: 360px;
     border-radius: 16px;
     font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
     color: #fff;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
     overflow: hidden;
     background: rgba(30, 30, 35, 0.85);
-    /* Yarı saydam koyu */
     backdrop-filter: blur(12px);
-    /* Arkası bulanık */
     border: 1px solid rgba(255, 255, 255, 0.1);
     animation: popIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
+/* Yan yana iki kolon: solda kontroller, sağda dikey slider */
+.vertical-body {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    padding: 16px;
+}
+.vertical-body .vertical-content { flex: 1; padding: 0; }
 
 @keyframes popIn {
     from {
@@ -2119,6 +2126,46 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
 
 .vertical-content {
     padding: 16px;
+}
+
+/* Mod radio butonları (İniş Çıkış / Araya İniş Çıkış) */
+.vertical-mode-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.vertical-mode-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #bbb;
+    transition: 0.15s;
+}
+
+.vertical-mode-option:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+.vertical-mode-option input[type="radio"] {
+    accent-color: #4facfe;
+    cursor: pointer;
+    margin: 0;
+}
+
+.vertical-mode-option input[type="radio"]:checked + span {
+    color: #4facfe;
 }
 
 /* Sayaç Alanı */
@@ -2230,7 +2277,7 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
     border-color: #666;
 }
 
-/* Hızlı Grid */
+/* Hızlı Grid (legacy buton ızgarası) */
 .quick-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -2252,6 +2299,129 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
     background: rgba(255, 255, 255, 0.15);
     color: #fff;
 }
+
+/* Hızlı Slider (dikey, yan kolon) */
+.quick-slider-container {
+    position: relative;
+    width: 92px;
+    padding: 6px 6px;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.quick-slider-track {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 260px;
+    cursor: ns-resize;
+    user-select: none;
+    overflow: visible;
+}
+
+.quick-slider-track.dragging { cursor: grabbing; }
+.quick-slider-track.auto-extending {
+    box-shadow: 0 0 0 1px rgba(0, 198, 251, 0.7), 0 0 12px rgba(0, 198, 251, 0.4);
+    border-radius: 6px;
+}
+
+/* Sağ kenara hizalı, uzunluğu |değer| ile orantılı tick çubuğu */
+.quick-slider-tick {
+    position: absolute;
+    right: 30px;
+    height: 2px;
+    transform: translateY(-50%);
+    background: rgba(79, 172, 254, 0.75);
+    border-radius: 1px;
+    pointer-events: none;
+}
+.quick-slider-tick.negative { background: rgba(255, 138, 138, 0.75); }
+.quick-slider-tick.zero {
+    background: rgba(255, 255, 255, 0.5);
+    height: 1px;
+    left: 4px;
+    right: 4px;
+    width: auto;
+}
+
+.quick-slider-tick-label {
+    position: absolute;
+    right: 2px;
+    width: 26px;
+    transform: translateY(-50%);
+    font-size: 11px;
+    font-weight: 700;
+    color: #d0d6dd;
+    pointer-events: none;
+    font-family: 'Segoe UI', monospace;
+    text-align: right;
+    line-height: 1;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.quick-slider-tick-label.zero { color: #ffffff; }
+
+/* Otomatik genişleme uçları (+++/---): farklı renk ve kalın */
+.quick-slider-tick.auto-extend {
+    height: 3px;
+    background: linear-gradient(90deg, transparent 0%, #ffcc00 100%);
+}
+.quick-slider-tick-label.auto-extend {
+    color: #ffcc00;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+/* Tutamaç: aktif satırı vurgulayan parlak yatay çubuk + sağa bakan ok */
+.quick-slider-handle {
+    position: absolute;
+    left: 0;
+    right: 30px;
+    transform: translateY(-50%);
+    height: 3px;
+    background: linear-gradient(90deg, transparent 0%, #00c6fb 100%);
+    box-shadow: 0 0 10px rgba(0, 198, 251, 0.7);
+    pointer-events: none;
+    transition: top 0.06s linear;
+    z-index: 2;
+}
+.quick-slider-handle::after {
+    content: '';
+    position: absolute;
+    right: -7px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    border-left: 7px solid #00c6fb;
+    filter: drop-shadow(0 0 4px rgba(0, 198, 251, 0.7));
+}
+.quick-slider-handle.negative { background: linear-gradient(90deg, transparent 0%, #ff5252 100%); }
+.quick-slider-handle.negative::after { border-left-color: #ff5252; filter: drop-shadow(0 0 4px rgba(255, 82, 82, 0.7)); }
+
+/* Değer balonu: tutamacın yanında, panel içinde kalır */
+.quick-slider-value-bubble {
+    position: absolute;
+    left: 2px;
+    transform: translateY(-50%);
+    background: #00c6fb;
+    color: #fff;
+    font-weight: 800;
+    font-size: 11px;
+    padding: 2px 5px;
+    border-radius: 4px;
+    pointer-events: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    font-family: monospace;
+    white-space: nowrap;
+    transition: top 0.06s linear;
+    line-height: 1.2;
+    z-index: 3;
+}
+.quick-slider-value-bubble.negative { background: #ff5252; }
 
 .vertical-footer {
     padding: 12px 16px;

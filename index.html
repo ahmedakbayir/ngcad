@@ -814,6 +814,7 @@
           <div class="context-menu-divider"></div>
 
           <button id="plumbing-btn-split" class="context-menu-btn"> ➖♦➖ Hattı Böl</button>
+          <button id="plumbing-btn-inis-cikis" class="context-menu-btn">↕ İniş Çıkış Ekle</button>
 
           <div class="context-menu-divider"></div>
           <div class="context-menu-item-with-submenu">
@@ -880,33 +881,46 @@
             <button id="vertical-close-btn" class="close-btn">✕</button>
           </div>
 
-          <div class="vertical-content">
-            <div class="counter-wrapper">
-              <button class="control-btn minus" id="btn-dec-10" title="-10cm">
-                <svg viewBox="0 0 24 24" width="16" height="16">
-                  <path fill="currentColor" d="M19 13H5v-2h14v2z" />
-                </svg>
-              </button>
-              <div class="input-display">
-                <input type="number" id="vertical-height-input" value="10" />
+          <div class="vertical-body">
+            <div class="vertical-content">
+              <div class="vertical-mode-group">
+                <label class="vertical-mode-option">
+                  <input type="radio" name="vertical-mode" value="inisCikis" checked />
+                  <span>İniş Çıkış Ekle</span>
+                </label>
+                <label class="vertical-mode-option">
+                  <input type="radio" name="vertical-mode" value="araya" />
+                  <span>Araya İniş Çıkış Ekle</span>
+                </label>
               </div>
-              <button class="control-btn plus" id="btn-inc-10" title="+10cm">
-                <svg viewBox="0 0 24 24" width="16" height="16">
-                  <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-                </svg>
-              </button>
+
+              <div class="counter-wrapper">
+                <button class="control-btn minus" id="btn-dec-10" title="-10cm">
+                  <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path fill="currentColor" d="M19 13H5v-2h14v2z" />
+                  </svg>
+                </button>
+                <div class="input-display">
+                  <input type="number" id="vertical-height-input" value="0" />
+                </div>
+                <button class="control-btn plus" id="btn-inc-10" title="+10cm">
+                  <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="floor-actions">
+                <button class="floor-btn down" id="btn-floor-down">
+                  <span class="symbol">▼</span> Alt Kat
+                </button>
+                <button class="floor-btn up" id="btn-floor-up">
+                  <span class="symbol">▲</span> Üst Kat
+                </button>
+              </div>
             </div>
 
-            <div class="floor-actions">
-              <button class="floor-btn down" id="btn-floor-down">
-                <span class="symbol">▼</span> Alt Kat (-280)
-              </button>
-              <button class="floor-btn up" id="btn-floor-up">
-                <span class="symbol">▲</span> Üst Kat (+280)
-              </button>
-            </div>
-
-            <div class="quick-grid" id="quick-values-container">
+            <div class="quick-slider-container" id="quick-values-container">
             </div>
           </div>
 
