@@ -37,12 +37,22 @@ const DEFAULT_KOMBI = [
     { marka: 'WARMHAUS',  model: 'PRIWA PLUS ErP 28',                  kw: 29.5   },
     { marka: 'BUDERUS',   model: 'GB122i.2-24 KD H',                   kw: 25     },
     { marka: 'BUDERUS',   model: 'GB022i-24 K H',                      kw: 25.2   },
+    { marka: 'DEMİRDÖKÜM',   model: 'Atron Condense P 24-FC/3 (H-TR)', kw: 24.5   },    
+    { marka: 'DEMİRDÖKÜM',   model: 'Atromix P 20 - A/2 (H-TR)',       kw: 20.4   },
+    { marka: 'DEMİRDÖKÜM',   model: 'NİTROMİX P 28',                   kw: 28   },
+    { marka: 'DEMİRDÖKÜM',   model: 'NİTROMİX P 24',                   kw: 24   },
+    { marka: 'DEMİRDÖKÜM',   model: 'Nitromix ioni P34/36-CS/1 (N-TR)',kw: 34   },
+    { marka: 'DEMİRDÖKÜM',   model: 'Atromix P 28 - A/2 (H-TR)',       kw: 28.3   },
+    { marka: 'DEMİRDÖKÜM',   model: 'Atron Condense P 24-FC/3 (H-TR)', kw: 24.5   },
+    { marka: 'DEMİRDÖKÜM',   model: 'ademiX P 28/28 AS/2 (H-TR)',      kw: 28   },
+    { marka: 'DEMİRDÖKÜM',   model: 'ademiX P 24/28-AS/1 (H-TR)',      kw: 23.9   },
 ];
 
 const DEFAULT_OCAK = [
     { marka: 'ARÇELİK',    model: 'BFG04H12X',                         kw: 8.3  },
     { marka: 'ARÇELİK',    model: 'BFG04H11X',                         kw: 7.9  },
     { marka: 'ARÇELİK',    model: '60BSGO2222321',                     kw: 8.3  },
+    { marka: 'ARÇELİK',    model: 'AH153221',                          kw: 9.5  },
     { marka: 'Beko',       model: 'BFG04H11X',                         kw: 7.9  },
     { marka: 'Beko',       model: 'LU12111211',                        kw: 12.4 },
     { marka: 'Beko',       model: 'GO121',                             kw: 9    },
