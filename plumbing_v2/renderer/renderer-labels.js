@@ -40,18 +40,22 @@ export function clearLabelAutoPos(pipeId) {
 
 /**
  * Saklı etiket konumunu (dx, dy) kadar ötelir.
- * Manuel konumlandırılmış etiketlerin nesnesiyle birlikte taşınması için kullanılır.
- * Otomatik konumlandırılmış etiketler için sadece cache temizlenir (yeni konumda yeniden hesaplanır).
+ * Manuel ve otomatik konumların ikisi de lineer olarak taşınır — kullanıcı
+ * boru ucunu sürüklediğinde / uzunluk verdiğinde etiketler yerinde "zıplamak"
+ * yerine nesneyle birlikte aynı yönde kayar.
  */
 export function translateLabel(id, dx, dy) {
     if (!dx && !dy) return;
     const stored = _labelOffsets.get(id);
     if (stored && stored.ax != null) {
         _labelOffsets.set(id, { ax: stored.ax + dx, ay: stored.ay + dy, dir: stored.dir ?? 0 });
-    } else {
-        // Manuel konum yok — auto-pos cache'ini temizle, yeni pozisyonda yeniden hesaplanır
-        _labelAutoPos.delete(id);
+        return;
     }
+    const auto = _labelAutoPos.get(id);
+    if (auto) {
+        _labelAutoPos.set(id, { ax: auto.ax + dx, ay: auto.ay + dy });
+    }
+    // Ne manuel ne de auto — ilk render'da otomatik yerleştirilecek; yapacak iş yok.
 }
 
 /**
@@ -70,6 +74,67 @@ function _segIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
     }
     return segSeg(x1, y1, x2, y2, rx, ry, r, ry) || segSeg(x1, y1, x2, y2, r, ry, r, b) ||
         segSeg(x1, y1, x2, y2, r, b, rx, b) || segSeg(x1, y1, x2, y2, rx, b, rx, ry);
+}
+
+// ─── MAHAL adı AABB'leri (mimari etiketler — etiket bunlarla çakışmamalı) ───
+function _buildRoomNameRects() {
+    const rects = [];
+    const rooms = state.rooms;
+    if (!rooms || rooms.length === 0) return rects;
+    const curFloor = state.currentFloor?.id || null;
+    const sameFloor = (o) => !curFloor || !o?.floorId || o.floorId === curFloor;
+
+    for (const room of rooms) {
+        if (!sameFloor(room)) continue;
+        if (!room.center || !Array.isArray(room.center) || room.center.length < 2) continue;
+        const name = room.name || 'MAHAL';
+        const parts = name.split(' ');
+        const lineCount = parts.length === 2 ? 2 : 1;
+        // Mimari yazı dünya birimi ~14 px @ zoom=1; alan/açıklama satırlarını da içerir
+        const baseFontSize = 14;
+        const charW = baseFontSize * 0.62;
+        const maxWord = Math.max(...parts.map(s => s.length || 1));
+        // Alan ve açıklamayı da kabaca kapsa
+        const extraLines = (typeof room.area === 'number' ? 1 : 0) +
+            (room.description ? room.description.split('\n').filter(l => l.trim()).length : 0);
+        const bw = Math.max(40, maxWord * charW + 16);
+        const bh = (lineCount + extraLines) * baseFontSize * 1.3 + 14;
+        rects.push({
+            kind: 'room',
+            bx: room.center[0] - bw / 2,
+            by: room.center[1] - bh / 2,
+            bw, bh,
+        });
+    }
+    return rects;
+}
+
+// ─── Duvar segmentleri (etiket tercihen duvar olmayan yerlere yerleşsin) ────
+function _buildWallSegments() {
+    const segs = [];
+    const walls = state.walls;
+    if (!walls || walls.length === 0) return segs;
+    const curFloor = state.currentFloor?.id || null;
+    const sameFloor = (o) => !curFloor || !o?.floorId || o.floorId === curFloor;
+    for (const w of walls) {
+        if (!sameFloor(w) || !w.p1 || !w.p2) continue;
+        segs.push({
+            x1: w.p1.x, y1: w.p1.y,
+            x2: w.p2.x, y2: w.p2.y,
+            thickness: w.thickness || state.wallThickness || 20,
+        });
+    }
+    return segs;
+}
+
+// Etiket dikdörtgeni (bx,by,bw,bh) duvar şeridine değiyor mu?
+function _wallTouchesRect(wall, bx, by, bw, bh) {
+    const half = wall.thickness / 2;
+    // Dikdörtgeni duvar yarı-kalınlığı kadar genişlet ve segment kesişimine bak
+    return _segIntersectsRect(
+        wall.x1, wall.y1, wall.x2, wall.y2,
+        bx - half, by - half, bw + 2 * half, bh + 2 * half
+    );
 }
 
 // ─── Render sırasında kaydedilen etiket sınırlayıcı kutuları ────────────────
@@ -176,8 +241,14 @@ export const LabelMixin = {
         const fontSize = 10;
         const lineH = fontSize * 1.6;
 
+        // Mimari engeller — etiket yerleşimi MAHAL adlarıyla çakışmasın,
+        // tercihen duvar olmayan yerlere düşsün. Frame başına bir kez kur.
+        const roomNameRects = _buildRoomNameRects();
+        const wallSegs = _buildWallSegments();
+
         const opts = {
             zoom, t, fontSize, lineH, manager,
+            roomNameRects, wallSegs,
             textColor: light ? '#0a0e16' : '#f3f4f8',
             subColor: light ? '#25272c' : '#c8ced8',
             accentColor: light ? '#153692' : '#a2cbfc',
@@ -671,6 +742,22 @@ export const LabelMixin = {
                         const ox = Math.max(0, Math.min(cbx + estW, bb.bx + bb.bw) - Math.max(cbx, bb.bx));
                         const oy = Math.max(0, Math.min(cby + estH, bb.by + bb.bh) - Math.max(cby, bb.by));
                         if (ox > 0 && oy > 0) score += 10 + ox * oy;
+                    }
+
+                    // MAHAL adları: kesinlikle çakışma — çok ağır ceza
+                    if (opts.roomNameRects) {
+                        for (const rr of opts.roomNameRects) {
+                            const ox = Math.max(0, Math.min(cbx + estW, rr.bx + rr.bw) - Math.max(cbx, rr.bx));
+                            const oy = Math.max(0, Math.min(cby + estH, rr.by + rr.bh) - Math.max(cby, rr.by));
+                            if (ox > 0 && oy > 0) score += 5000 + ox * oy * 2;
+                        }
+                    }
+
+                    // Duvarlar: tercihen üzerine düşme — orta ağırlık
+                    if (opts.wallSegs) {
+                        for (const w of opts.wallSegs) {
+                            if (_wallTouchesRect(w, cbx, cby, estW, estH)) score += 60;
+                        }
                     }
 
                     if (allPipes) {
@@ -1481,7 +1568,9 @@ function _computeSceneCenter(manager, t) {
     return { x: sx / n, y: sy / n };
 }
 
-function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors) {
+function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors, archObstacles) {
+    const roomRects = archObstacles?.roomNameRects || null;
+    const wallSegs = archObstacles?.wallSegs || null;
     const GAP = 25; 
 
     const objHalf = _getObjectHalfSize(c.obj);
@@ -1573,13 +1662,29 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors)
             if (pipeSegments && pipeSegments.length) {
                 for (const seg of pipeSegments) {
                     if (_segmentIntersectsRect(seg, candBx, candBy, c.bw, c.bh, ignorePipeId)) {
-                        penalty += 8000; 
+                        penalty += 8000;
                     }
                     if (ignorePipeId !== seg.pipeId) {
                         if (_segOverlapsSeg(lineStartX, lineStartY, candCX, candCY, seg.x1, seg.y1, seg.x2, seg.y2)) {
-                            penalty += 8000; 
+                            penalty += 8000;
                         }
                     }
+                }
+            }
+
+            // MAHAL adı çakışması: kesin kaçınma
+            if (roomRects) {
+                for (const rr of roomRects) {
+                    const ox = Math.max(0, Math.min(candBx + c.bw, rr.bx + rr.bw) - Math.max(candBx, rr.bx));
+                    const oy = Math.max(0, Math.min(candBy + c.bh, rr.by + rr.bh) - Math.max(candBy, rr.by));
+                    if (ox > 0 && oy > 0) penalty += 9000 + ox * oy * 2;
+                }
+            }
+
+            // Duvar: tercih edilmesin
+            if (wallSegs) {
+                for (const w of wallSegs) {
+                    if (_wallTouchesRect(w, candBx, candBy, c.bw, c.bh)) penalty += 300;
                 }
             }
 
@@ -1633,7 +1738,8 @@ function _getPushVector(r1, r2, pad) {
     return { x: 0, y: 0 };
 }
 
-function _strictSeparation(cands, obstacleRects, pad) {
+function _strictSeparation(cands, obstacleRects, pad, archObstacles) {
+    const roomRects = archObstacles?.roomNameRects || null;
     const MAX_PASS = 80;
     for (let pass = 0; pass < MAX_PASS; pass++) {
         let anyOverlap = false;
@@ -1646,6 +1752,15 @@ function _strictSeparation(cands, obstacleRects, pad) {
                 if (push.x !== 0 || push.y !== 0) {
                     c.bx += push.x; c.by += push.y;
                     anyOverlap = true;
+                }
+            }
+            if (roomRects) {
+                for (const rr of roomRects) {
+                    const push = _getPushVector(c, rr, pad * 1.5);
+                    if (push.x !== 0 || push.y !== 0) {
+                        c.bx += push.x; c.by += push.y;
+                        anyOverlap = true;
+                    }
                 }
             }
             for (let j = 0; j < cands.length; j++) {
@@ -1663,8 +1778,9 @@ function _strictSeparation(cands, obstacleRects, pad) {
     }
 }
 
-async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated, pipeSegments) {
+async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated, pipeSegments, archObstacles) {
     const PAD = 8;
+    const roomRects = archObstacles?.roomNameRects || null;
 
     for (let iter = 0; iter < iterCount; iter++) {
         for (let i = 0; i < cands.length; i++) {
@@ -1719,6 +1835,15 @@ async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnima
                 forceY += push.y * 0.7;
             }
 
+            // MAHAL adlarından güçlü itme — etiket asla mahal isminin üzerine düşmesin
+            if (roomRects) {
+                for (const rr of roomRects) {
+                    const push = _getPushVector(c, rr, PAD * 1.5);
+                    forceX += push.x * 1.4;
+                    forceY += push.y * 1.4;
+                }
+            }
+
             for (let j = 0; j < cands.length; j++) {
                 if (i === j) continue;
                 const other = cands[j];
@@ -1748,7 +1873,7 @@ async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnima
         }
     }
 
-    _strictSeparation(cands, obstacleRects, PAD);
+    _strictSeparation(cands, obstacleRects, PAD, archObstacles);
 }
 
 export async function relayoutAllLabels(manager, mode, onProgress) {
@@ -1763,6 +1888,10 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
     const obstacleRects = _buildObstacleRects(manager, t);
     const pipeSegments = _buildPipeSegments(manager, t);
     const sceneCenter = _computeSceneCenter(manager, t);
+    const archObstacles = {
+        roomNameRects: _buildRoomNameRects(),
+        wallSegs: _buildWallSegments(),
+    };
 
     cands.forEach(c => {
         c.anchor = _getLabelAnchor(c.obj, t, manager);
@@ -1792,7 +1921,7 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
                 c.obj = p;
                 c.anchor = _getLabelAnchor(p, t, manager);
                 c.hostPipeDir = _getHostPipeDir(p, manager, t);
-                const spot = _findBestLocalPosition(c, runningObstacles, pipeSegments, neighborAnchors);
+                const spot = _findBestLocalPosition(c, runningObstacles, pipeSegments, neighborAnchors, archObstacles);
 
                 spot.score += i * 60;
 
@@ -1812,7 +1941,7 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
             c.idealCX = bestSpot.cx;
             c.idealCY = bestSpot.cy;
         } else {
-            const bestSpot = _findBestLocalPosition(c, runningObstacles, pipeSegments, neighborAnchors);
+            const bestSpot = _findBestLocalPosition(c, runningObstacles, pipeSegments, neighborAnchors, archObstacles);
             c.align = bestSpot.align;
             c.idealCX = bestSpot.cx;
             c.idealCY = bestSpot.cy;
@@ -1826,7 +1955,7 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
     const isAnimated = mode === 'free';
     const iterCount = 40;
 
-    await _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated, pipeSegments);
+    await _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated, pipeSegments, archObstacles);
 
     const _chosenPipeIds = new Set();
     cands.forEach(c => {

@@ -8,7 +8,7 @@
 import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
 import { saveState } from '../../general-files/history.js';
 import { getObjectsOnPipe } from './placement-utils.js';
-import { clearLabelAutoPos, translateLabel } from '../renderer/renderer-labels.js';
+import { translateLabel } from '../renderer/renderer-labels.js';
 import { Boru } from '../objects/pipe.js';
 import { state } from '../../general-files/main.js';
 import { TESISAT_CONSTANTS } from './tesisat-snap.js';
@@ -803,6 +803,10 @@ export function handleDrag(interactionManager, point, event = null) {
 
         if (!occupiedByOtherPipe && newLength >= minLength) {
             const oldLength = pipe.uzunluk;
+            // Etiketler lineer öteleme için: borunun orta noktasının kayma miktarı
+            // sürüklenen uç hareketinin yarısı kadardır (diğer uç sabit).
+            const _moveDx = finalPos.x - oldPoint.x;
+            const _moveDy = finalPos.y - oldPoint.y;
             if (interactionManager.dragEndpoint === 'p1') {
                 pipe.p1.x = finalPos.x;
                 pipe.p1.y = finalPos.y;
@@ -813,13 +817,19 @@ export function handleDrag(interactionManager, point, event = null) {
                 pipe.p2.y = finalPos.y;
                 pipe.p2.z = finalPos.z;
             }
+            // Borunun kendi etiketini orta nokta kaymasıyla ötele
+            if (_moveDx || _moveDy) translateLabel(pipe.id, _moveDx / 2, _moveDy / 2);
 
             valvesOnPipe.forEach(valve => {
+                const oldVX = valve.x, oldVY = valve.y;
                 const distanceFromP2 = (1 - valve.boruPozisyonu) * oldLength;
                 valve.boruPozisyonu = 1 - (distanceFromP2 / pipe.uzunluk);
                 valve.fromEnd = 'p2';
                 valve.fixedDistance = distanceFromP2;
                 valve.updatePositionFromPipe(pipe);
+                const vDx = valve.x - oldVX;
+                const vDy = valve.y - oldVY;
+                if (vDx || vDy) translateLabel(valve.id, vDx, vDy);
             });
 
             // CTRL basılıysa downstream loop zaten sayaç/cihazı taşıyacak — burada atla
@@ -833,9 +843,14 @@ export function handleDrag(interactionManager, point, event = null) {
                     const dz = (finalPos.z || 0) - (oldPoint.z || 0);
                     connectedMeter.x += dx; connectedMeter.y += dy;
                     connectedMeter.z = (connectedMeter.z || 0) + dz;
+                    translateLabel(connectedMeter.id, dx, dy);
                     if (connectedMeter.cikisBagliBoruId) {
                         const cikisBoru = interactionManager.manager.pipes.find(p => p.id === connectedMeter.cikisBagliBoruId);
-                        if (cikisBoru) { cikisBoru.p1.x += dx; cikisBoru.p1.y += dy; cikisBoru.p1.z = (cikisBoru.p1.z || 0) + dz; }
+                        if (cikisBoru) {
+                            cikisBoru.p1.x += dx; cikisBoru.p1.y += dy; cikisBoru.p1.z = (cikisBoru.p1.z || 0) + dz;
+                            // cikiş borusunun sadece p1'i hareket etti → etiket yarım delta kadar
+                            translateLabel(cikisBoru.id, dx / 2, dy / 2);
+                        }
                     }
                 }
 
@@ -848,6 +863,7 @@ export function handleDrag(interactionManager, point, event = null) {
                     const dz = (finalPos.z || 0) - (oldPoint.z || 0);
                     connectedDevice.x += dx; connectedDevice.y += dy;
                     connectedDevice.z = (connectedDevice.z || 0) + dz;
+                    translateLabel(connectedDevice.id, dx, dy);
                     const bacalar = interactionManager.manager.components.filter(c => c.type === 'baca' && c.parentCihazId === connectedDevice.id);
                     bacalar.forEach(baca => {
                         baca.startX += dx; baca.startY += dy;
@@ -871,6 +887,8 @@ export function handleDrag(interactionManager, point, event = null) {
                 // Taşınan düğüm (pipe.p1 veya pipe.p2) zaten finalPos'a taşındı.
                 // O düğümden downstream ulaşılabilen tüm düğümleri aynı delta ile taşı.
                 // "Öncesi" borular node sharing sayesinde otomatik gerilir — burada dokunmuyoruz.
+                // NOT: Sürüklenen borunun kendi etiketi yukarıda (non-CTRL bloğunda)
+                // _moveDx/2 oranında zaten ötelendi. Burada sadece downstream'i taşıyoruz.
                 const draggedNode = interactionManager.dragEndpoint === 'p1' ? pipe.p1 : pipe.p2;
                 const downstreamNodes = collectDownstreamNodes(interactionManager.manager, [draggedNode], pipe);
                 downstreamNodes.forEach(node => {
@@ -1480,8 +1498,9 @@ export function endDrag(interactionManager) {
     const draggedObject = interactionManager.dragObject;
     const draggedEndpoint = interactionManager.dragEndpoint;
 
-    // Boru taşındıysa oto-konum cache'ini temizle
-    if (draggedObject?.type === 'boru') clearLabelAutoPos(draggedObject.id);
+    // NOT: Boru sürüklenirken etiket her frame'de lineer olarak ötelendi
+    // (mouseMove içinde translateLabel çağrıları). Cache'i temizlemiyoruz ki
+    // etiket sürükleme sonunda "zıplamasın" — translated konumda kalsın.
 
     interactionManager.isDragging = false;
     interactionManager.dragObject = null;

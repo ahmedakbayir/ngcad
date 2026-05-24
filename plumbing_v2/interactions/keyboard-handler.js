@@ -1530,8 +1530,9 @@ export function applyPipeResize() {
         node.x += moveDx; node.y += moveDy; node.z = (node.z || 0) + moveDz;
     });
 
-    // Seçili boru etiketini güncelle (otomatik konumu yeniden hesaplat)
-    clearLabelAutoPos(pipe.id);
+    // Seçili borunun etiketini lineer olarak ötele — p1 sabit, p2 hareketli
+    // olduğu için orta nokta yarım delta kadar kayar.
+    translateLabel(pipe.id, moveDx / 2, moveDy / 2);
 
     // Yardımcı: cihazın bacalarını taşı
     const moveBacalar = (cihaz) => {
@@ -1561,7 +1562,9 @@ export function applyPipeResize() {
     // Downstream pipe'ların etiketlerini ve bileşenlerini taşı
     const movedComponents = new Set();
     downstreamPipes.forEach(p => {
-        clearLabelAutoPos(p.id);
+        // Downstream borular bütünüyle delta kadar kaydığı için etiketler de
+        // tam delta öteleniyor — eski cache temizleme yerine lineer ötele.
+        translateLabel(p.id, moveDx, moveDy);
         this.manager.components.forEach(c => {
             if (c.bagliBoruId !== p.id && c.fleksBaglanti?.boruId !== p.id && c.cikisBagliBoruId !== p.id) return;
             if (movedComponents.has(c.id)) return;
@@ -1596,6 +1599,20 @@ export function applyPipeResize() {
         c.floorId = getFloorIdForZ(c.z) || c.floorId;
         translateLabel(c.id, moveDx, moveDy);
         if (c.type === 'cihaz') moveBacalar(c);
+    });
+
+    // Seçili borunun üzerindeki vana/aksesuar etiketleri — bunlar p2'ye sabit
+    // mesafede (fixedDistance) durduğu için p2 hareket ettiğinde tam delta öteleniyor.
+    this.manager.components.forEach(c => {
+        if (movedComponents.has(c.id)) return;
+        if (c.bagliBoruId !== pipe.id) return;
+        // Vana ve benzeri boru-üstü bileşenler: konumlarını boruya göre güncelle,
+        // etiketi gerçek dünya farkı kadar ötele.
+        const oldX = c.x, oldY = c.y;
+        if (typeof c.updatePositionFromPipe === 'function') c.updatePositionFromPipe(pipe);
+        const vDx = c.x - oldX;
+        const vDy = c.y - oldY;
+        if (vDx || vDy) translateLabel(c.id, vDx, vDy);
     });
 
     // Seçili borunun yeni p2 z'sine göre floorId'sini güncelle (p1 katı korunur).
