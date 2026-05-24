@@ -181,6 +181,7 @@ function saveProject() {
         plumbingPipes: state.plumbingPipes || [],
         plumbingBlocks: state.plumbingBlocks || [],
         plumbingLabelOffsets: state.plumbingLabelOffsets || {},
+        cihazKatalog: state.cihazKatalog || null,
 
         // İzometri görünüm düzenlemeleri
         isoPipeOffsets: state.isoPipeOffsets || {},
@@ -443,6 +444,7 @@ function loadJSONProject(fileContent) {
         plumbingPipes: projectData.plumbingPipes || [],
         plumbingBlocks: projectData.plumbingBlocks || [],
         plumbingLabelOffsets: projectData.plumbingLabelOffsets || {},
+        cihazKatalog: projectData.cihazKatalog || null,
 
         // İzometri görünüm düzenlemeleri
         isoPipeOffsets: projectData.isoPipeOffsets || {},

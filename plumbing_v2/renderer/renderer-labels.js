@@ -917,10 +917,12 @@ export const LabelMixin = {
         const vt = comp.vanaTipi || '';
 
         if (vt === 'CIHAZ') {
+            if (comp.flans) lines.push({ text: 'Flanşlı Cihaz Vanası', sub: true });
             if (comp.izolator) lines.push({ text: 'İzolatörlü', sub: true });
 
         } else if (vt === 'AKV') {
-            lines.push({ text: 'AKV', bold: true });
+            if (!comp.flans) lines.push({ text: 'AKV', bold: true });
+            if (comp.flans) lines.push({ text: 'Flanşlı AKV', bold: true });
             if (comp.vanaCap) lines.push({ text: comp.vanaCap, sub: true });
             lines.push({ text: 'h:1.9-2.1m', sub: true });
 
@@ -948,16 +950,21 @@ export const LabelMixin = {
                 const lblLines = getBirimLabelLines(birimTipi, comp.birimNo || '');
                 lblLines.forEach(t => { if (t) lines.push({ text: t, bold: true }); });
             }
+            if (comp.flans) lines.push({ text: 'Flanşlı Vana', sub: true });
+
 
         } else if (vt === 'EMNIYET') {
-            lines.push({ text: 'Emn.V', sub: true });
+            if (!comp.flans) lines.push({ text: 'Emn.V', sub: true });
+            if (comp.flans) lines.push({ text: 'Flanşlı Emn.V', sub: true });
             if (comp.vanaCap) lines.push({ text: comp.vanaCap, sub: true });
 
         } else if (vt === 'SELENOID') {
-            lines.push({ text: 'Selenoid Vana', sub: true });
+            if (!comp.flans) lines.push({ text: 'Selenoid Vana', sub: true }); 
+            if (comp.flans) lines.push({ text: 'Flanşlı Selenoid Vana', sub: true });
 
         } else if (vt === 'YANBINA' || vt === 'YAN_BINA') {
-            lines.push({ text: 'Yan Bina Vanası', bold: true });
+            if (!comp.flans) lines.push({ text: 'Yan Bina Vanası', bold: true});
+            if (comp.flans) lines.push({ text: 'Flanşlı Yan Bina Vanası', bold: true});
             if (comp.tesisatNo) lines.push({ text: `Tesisat No: ${comp.tesisatNo}`, sub: true });
             const d = parseFloat(comp.daireSayisi) || 0;
             const dk = parseFloat(comp.dukkanSayisi) || 0;
@@ -969,6 +976,7 @@ export const LabelMixin = {
             const toplamDebi = faktorluDebi + ek;
             if (ek > 0) lines.push({ text: `Ek Debi: ${ek.toFixed(2)} m³/h`, sub: true });
             if (toplamDebi > 0) lines.push({ text: `Toplam Debi: ${toplamDebi.toFixed(2)} m³/h`, sub: true });
+
         }
 
         if (comp.description) {

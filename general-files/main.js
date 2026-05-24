@@ -23,6 +23,7 @@ import '../plumbing_v2/error-check/checkers/sayac-hatasi/index.js';
 import '../plumbing_v2/error-check/checkers/birim-no/index.js';
 import '../plumbing_v2/error-check/checkers/vana-flans/index.js';
 import '../plumbing_v2/error-check/checkers/mahal-hacim-menfez/index.js';
+import '../plumbing_v2/error-check/checkers/cihaz-marka-model/index.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
 // --- DEĞİŞİKLİK BURADA ---
 import { updateFirstPersonCamera, setupFirstPersonMouseControls, isFPSMode } from '../scene3d/scene3d-camera.js';
@@ -458,6 +459,9 @@ export let state = {
     currentFloor: null, // Aktif kat
     defaultFloorHeight: 300,// Varsayılan kat yüksekliği (cm)
     // --- KAT YÖNETİMİ SONU ---
+
+    // Kombi/Ocak marka-model kataloğu (cihaz-katalog.js demo veriyle doldurur)
+    cihazKatalog: null,
 
     // --- MERDİVEN AYARLARI ---
     stairSettings: {

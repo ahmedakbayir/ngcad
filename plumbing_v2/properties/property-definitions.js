@@ -7,6 +7,7 @@ import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 import { getHatRowForPipe, getCumulativeLossForHat } from '../utils/pipe-calculations.js';
 import { TOPRAKLAMA_YONTEMLERI } from '../objects/pipe-fitting.js';
 import { ensureRegulatorAccessories } from '../objects/regulator-accessories.js';
+import { getMarkaList, getModelList, getModelKW } from './cihaz-katalog.js';
 
 /**
  * Sayacın çıkış (iç tesisat) zincirinde bir regülatör var mı?
@@ -429,6 +430,24 @@ function _cihazDebiHesapla(obj) {
     const raw = kcal / 8250 / verim;
     const min = _CIHAZ_MIN_DEBI[(obj.cihazTipi || '').toUpperCase()] ?? 0;
     return Math.max(raw, min);
+}
+
+/**
+ * Cihaz model seçimi sonrası kapasite KW + kcal alanlarını günceller ve
+ * panel inputlarını senkronlar. Model bilinmiyorsa hiçbir şey yapmaz.
+ */
+function _applyCihazModelKapasite(obj, panelEl) {
+    const kw = getModelKW(obj.cihazTipi, obj.marka, obj.model);
+    if (!Number.isFinite(kw)) return;
+    obj.kapasiteKW = kw;
+    obj.kapasiteKcal = Math.round(kw * 860);
+    if (panelEl) {
+        const kwEl = panelEl.querySelector('[data-prop-key="kapasiteKW"]');
+        if (kwEl) kwEl.value = parseFloat(kw.toFixed(2));
+        const kcalEl = panelEl.querySelector('[data-prop-key="kapasiteKcal"]');
+        if (kcalEl) kcalEl.value = obj.kapasiteKcal;
+        _refreshCihazDebi(obj, panelEl);
+    }
 }
 
 /** Kapasite/verim değişince debi label'ını günceller. Verim % → /100 dönüşümü yapılır. */
@@ -1615,17 +1634,24 @@ export const PROPERTY_DEFS = {
 
     kombiMarka: {
         label: 'Marka',
-        type: 'text',
+        type: 'select',
         key: 'marka',
-        default: 'DEMİRDÖKÜM',
-        placeholder: 'Marka...',
+        options: (obj) => getMarkaList('KOMBI', obj?.marka || ''),
+        placeholder: 'Marka seçin...',
+        afterChange: (obj, _manager, panelEl) => {
+            // Marka değişince eski model artık geçersiz — temizle, panel yenilensin
+            obj.model = '';
+            if (panelEl?._refresh) panelEl._refresh();
+        },
     },
     kombiModel: {
         label: 'Model',
-        type: 'text',
+        type: 'select',
         key: 'model',
-        default: 'AdemiX P 24/24 AS/2 (H-TR)',
-        placeholder: 'Model...',
+        options: (obj) => getModelList('KOMBI', obj?.marka, obj?.model || ''),
+        placeholder: 'Model seçin...',
+        disabledFn: (obj) => !obj?.marka,
+        afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
     },
     kombiBacaTipi: {
         label: 'Baca Tipi',
@@ -1721,17 +1747,23 @@ export const PROPERTY_DEFS = {
 
     ocakMarka: {
         label: 'Marka',
-        type: 'text',
+        type: 'select',
         key: 'marka',
-        default: 'ARÇELİK',
-        placeholder: 'Marka...',
+        options: (obj) => getMarkaList('OCAK', obj?.marka || ''),
+        placeholder: 'Marka seçin...',
+        afterChange: (obj, _manager, panelEl) => {
+            obj.model = '';
+            if (panelEl?._refresh) panelEl._refresh();
+        },
     },
     ocakModel: {
         label: 'Model',
-        type: 'text',
+        type: 'select',
         key: 'model',
-        default: 'AH153221',
-        placeholder: 'Model...',
+        options: (obj) => getModelList('OCAK', obj?.marka, obj?.model || ''),
+        placeholder: 'Model seçin...',
+        disabledFn: (obj) => !obj?.marka,
+        afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
     },
     ocakBacaTipi: {
         label: 'Baca Tipi',

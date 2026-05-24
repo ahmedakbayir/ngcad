@@ -118,7 +118,10 @@ export function saveState() {
         // İzometri görünüm düzenlemeleri
         isoPipeOffsets: JSON.parse(JSON.stringify(state.isoPipeOffsets || {})),
         isoComponentOffsets: JSON.parse(JSON.stringify(state.isoComponentOffsets || {})),
-        isoLabelOffsets: JSON.parse(JSON.stringify(state.isoLabelOffsets || {}))
+        isoLabelOffsets: JSON.parse(JSON.stringify(state.isoLabelOffsets || {})),
+
+        // Cihaz marka/model kataloğu
+        cihazKatalog: state.cihazKatalog ? JSON.parse(JSON.stringify(state.cihazKatalog)) : null,
     };
 
     state.history = state.history.slice(0, state.historyIndex + 1);
@@ -285,6 +288,9 @@ export function restoreState(snapshot) {
         isoPipeOffsets: snapshot.isoPipeOffsets ? JSON.parse(JSON.stringify(snapshot.isoPipeOffsets)) : {},
         isoComponentOffsets: snapshot.isoComponentOffsets ? JSON.parse(JSON.stringify(snapshot.isoComponentOffsets)) : {},
         isoLabelOffsets: snapshot.isoLabelOffsets ? JSON.parse(JSON.stringify(snapshot.isoLabelOffsets)) : {},
+
+        // Cihaz marka/model kataloğu
+        cihazKatalog: snapshot.cihazKatalog ? JSON.parse(JSON.stringify(snapshot.cihazKatalog)) : (state.cihazKatalog || null),
 
         // Geri yüklenen startPoint'i state'e ata
         startPoint: restoredStartPoint
