@@ -20,6 +20,7 @@ import './plumbing_v2/interactions/interaction-manager.js';
 import './wall/wall-panel.js';
 import './menu/guide-menu.js';
 import './menu/floor-operations-menu.js';
+import './draw/drawing-mode-panel.js';
 
 // Voice Commands
 import { createVoiceCommandUI } from './voice-commands/voice-command-ui.js';

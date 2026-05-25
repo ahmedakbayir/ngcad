@@ -6,14 +6,17 @@ import { state, setState } from '../general-files/main.js'; // setState import e
 import { currentModifierKeys } from '../general-files/input.js';
 
 // Kiriş nesnesi oluşturur
+//   width  = Boy        (2D uzunluk)
+//   height = En         (2D kalınlık — duvar kalınlığından gelir)
+//   depth  = Yükseklik  (3D Z boyutu — properties UI'da "Yükseklik")
 export function createBeam(centerX, centerY, width, height, rotation) {
     return {
         type: 'beam',
         center: { x: centerX, y: centerY },
-        width: width, // Kullanıcının çizdiği uzunluk
-        height: height, // Duvar kalınlığından gelen en
-        depth: 20, // 3D yükseklik
-        rotation: rotation, // Hesaplanan açı
+        width: width,
+        height: height,
+        depth: 20,
+        rotation: rotation,
         hollowWidth: 0,
         hollowHeight: 0,
         hollowOffsetX: 0,

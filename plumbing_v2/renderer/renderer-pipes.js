@@ -1232,40 +1232,60 @@ export const PipeMixin = {
 
         // Z koordinatlarını al ve viewBlendFactor ile interpolate et
         const t = state.viewBlendFactor || 0;
-        const z1 = (geciciBoru.p1.z || 0) * t;
-        const z2 = (geciciBoru.p2.z || 0) * t;
 
-        // Koordinatları hesapla (Z smooth interpolasyonla)
-        const x1 = geciciBoru.p1.x + z1;
-        const y1 = geciciBoru.p1.y - z1;
-        const x2 = geciciBoru.p2.x + z2;
-        const y2 = geciciBoru.p2.y - z2;
+        // Çok-segment (geometri modu rotalı preview) desteği
+        const segments = (geciciBoru.waypoints && geciciBoru.waypoints.length > 2)
+            ? geciciBoru.waypoints
+            : [geciciBoru.p1, geciciBoru.p2];
 
+        // Toplam 3D uzunluk (etiket için)
+        let trueLength = 0;
+        for (let i = 1; i < segments.length; i++) {
+            const a = segments[i - 1], b = segments[i];
+            trueLength += Math.hypot(b.x - a.x, b.y - a.y, (b.z || 0) - (a.z || 0));
+        }
+
+        // Etiketi (orta noktayı) bulmak için: ilk-son nokta arası midpoint kullan
+        const head = segments[0];
+        const tail = segments[segments.length - 1];
+        const zHead = (head.z || 0) * t;
+        const zTail = (tail.z || 0) * t;
+        const x1 = head.x + zHead;
+        const y1 = head.y - zHead;
+        const x2 = tail.x + zTail;
+        const y2 = tail.y - zTail;
         const dx = x2 - x1;
         const dy = y2 - y1;
         const screenLength = Math.hypot(dx, dy);
-        const angle = Math.atan2(dy, dx);
 
-        ctx.save();
-        ctx.translate(x1, y1);
-        ctx.rotate(angle);
+        // Her segmenti çiz
+        for (let i = 1; i < segments.length; i++) {
+            const a = segments[i - 1], b = segments[i];
+            const za = (a.z || 0) * t;
+            const zb = (b.z || 0) * t;
+            const ax = a.x + za, ay = a.y - za;
+            const bx = b.x + zb, by = b.y - zb;
+            const sdx = bx - ax;
+            const sdy = by - ay;
+            const slen = Math.hypot(sdx, sdy);
+            if (slen < 0.001) continue;
+            const sang = Math.atan2(sdy, sdx);
 
-        // Renk grubuna göre gradient oluştur
-        const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
-        gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.3));
-        gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
-        gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.3));
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, -width / 2, screenLength, width);
-        ctx.restore();
+            ctx.save();
+            ctx.translate(ax, ay);
+            ctx.rotate(sang);
+            const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
+            gradient.addColorStop(0.0, this.getRenkByGroup(colorGroup, 'boru', 0.3));
+            gradient.addColorStop(0.5, this.getRenkByGroup(colorGroup, 'boru', 1));
+            gradient.addColorStop(1, this.getRenkByGroup(colorGroup, 'boru', 0.3));
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, -width / 2, slen, width);
+            ctx.restore();
+        }
 
         // ── ANLIK UZUNLUK ETİKETİ (yatay/düşey/eğik fark etmez) ─────────────
-        // 3D gerçek uzunluk (Z dahil) — cm
-        const trueDx = geciciBoru.p2.x - geciciBoru.p1.x;
-        const trueDy = geciciBoru.p2.y - geciciBoru.p1.y;
-        const trueDz = (geciciBoru.p2.z || 0) - (geciciBoru.p1.z || 0);
-        const trueLength = Math.hypot(trueDx, trueDy, trueDz);
-
+        // 3D gerçek uzunluk (Z dahil, segment'lerin toplamı) — cm
+        // trueLength yukarıda segments üzerinden hesaplandı.
         if (trueLength >= 1) {
             const label = trueLength >= 100
                 ? `${(trueLength / 100).toFixed(2)} m`

@@ -1886,6 +1886,63 @@ export const PROPERTY_DEFS = {
      },
  
      */
+    // Kolon (column) — en, boy
+    column_sec_boyut: { type: 'section', label: 'Boyut' },
+    columnWidth: {
+        label: 'En (cm)',
+        type: 'text',
+        key: 'width',
+        inputType: 'number',
+        default: 40,
+        min: 5,
+        max: 500,
+        precision: 0,
+        afterChange: (obj) => { if (obj) obj.size = obj.width; },
+    },
+    columnDepth: {
+        label: 'Boy (cm)',
+        type: 'text',
+        key: 'height',
+        inputType: 'number',
+        default: 40,
+        min: 5,
+        max: 500,
+        precision: 0,
+    },
+
+    // Kiriş (beam) — en, boy, yükseklik
+    beam_sec_boyut: { type: 'section', label: 'Boyut' },
+    beamWidth: {
+        label: 'En (cm)',
+        type: 'text',
+        key: 'height',   // Kullanıcının "en"i kodda "height" (kalınlık)
+        inputType: 'number',
+        default: 20,
+        min: 5,
+        max: 200,
+        precision: 0,
+    },
+    beamLength: {
+        label: 'Boy (cm)',
+        type: 'text',
+        key: 'width',    // Kullanıcının "boy"u kodda "width" (uzunluk)
+        inputType: 'number',
+        default: 100,
+        min: 5,
+        max: 2000,
+        precision: 0,
+    },
+    beamHeight: {
+        label: 'Yükseklik (cm)',
+        type: 'text',
+        key: 'depth',    // Z boyutu
+        inputType: 'number',
+        default: 20,
+        min: 5,
+        max: 200,
+        precision: 0,
+    },
+
     // Duvar (wall)
     wall_sec_boyut: { type: 'section', label: 'Boyut' },
     wallThickness: {
@@ -2290,6 +2347,17 @@ export const OBJECT_PROPERTIES = {
         'wall_sec_ekle',
         'wallActions',
     ],
+    column: [
+        'column_sec_boyut',
+        'columnWidth',
+        'columnDepth',
+    ],
+    beam: [
+        'beam_sec_boyut',
+        'beamWidth',
+        'beamLength',
+        'beamHeight',
+    ],
     door: [
         'door_sec_boyut',
         'doorWidth',
@@ -2359,6 +2427,8 @@ export function getObjectTypeLabel(type) {
         cihaz: 'Cihaz',
         room: 'Oda',
         wall: 'Duvar',
+        column: 'Kolon',
+        beam: 'Kiriş',
         door: 'Kapı',
         window: 'Pencere',
         vent: 'Menfez',

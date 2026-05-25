@@ -15,6 +15,7 @@ import { syncBirimState, seedSayacFromRooms } from '../../draw/draw-birim-labels
 import { getFloorAtElevation, switchToFloor } from '../../floor/floor-handler.js';
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
+import { routePath } from './geometry-routing.js';
 
 /**
  * Boru çizim modunu başlat
@@ -349,6 +350,36 @@ export function handlePipeSplit(interactionManager, pipe, splitPoint, startDrawi
 export function handleBoruClick(interactionManager, point) {
     if (!interactionManager.boruBaslangic) return;
 
+    // Geometri modu: hattın üzerine denk gelen kolonları dolaşan
+    // ara waypointleri çıkar; her segment için handleBoruClick'i sırayla çağır.
+    // _geometriRoutingInProgress guard'ı sayesinde iç çağrılar tekrar rotalanmaz.
+    if (typeof window !== 'undefined' && window.cizimModu === 'geometri'
+        && !interactionManager._geometriRoutingInProgress) {
+        const startPt = interactionManager.boruBaslangic.nokta;
+        const waypoints = routePath(startPt, point);
+        console.log('[geometri] click', {
+            start: { x: +startPt.x.toFixed(1), y: +startPt.y.toFixed(1) },
+            end:   { x: +point.x.toFixed(1),    y: +point.y.toFixed(1)    },
+            waypoints: waypoints.length,
+            via: waypoints.slice(1, -1).map(w => ({ x: +w.x.toFixed(1), y: +w.y.toFixed(1) }))
+        });
+        if (waypoints && waypoints.length > 2) {
+            interactionManager._geometriRoutingInProgress = true;
+            try {
+                const startZ = startPt.z || 0;
+                for (let i = 1; i < waypoints.length; i++) {
+                    const wp = waypoints[i];
+                    const wpZ = (wp.z !== undefined) ? wp.z : startZ;
+                    handleBoruClick(interactionManager, { x: wp.x, y: wp.y, z: wpZ });
+                }
+            } finally {
+                interactionManager._geometriRoutingInProgress = false;
+            }
+            return;
+        }
+        // engel yok → normal tek segment akışına devam
+    }
+
     // Dikey boru kontrolü (aynı x,y, farklı z)
     const isVerticalPipe = (
         Math.abs(point.x - interactionManager.boruBaslangic.nokta.x) < 0.1 &&
@@ -588,7 +619,18 @@ export function hasServisKutusu(interactionManager) {
 
 export function getGeciciBoruCizgisi(interactionManager) {
     if (!interactionManager.boruCizimAktif || !interactionManager.boruBaslangic || !interactionManager.geciciBoruBitis) return null;
-    return { p1: interactionManager.boruBaslangic.nokta, p2: interactionManager.geciciBoruBitis };
+    const p1 = interactionManager.boruBaslangic.nokta;
+    const p2 = interactionManager.geciciBoruBitis;
+
+    // Geometri modunda preview'ı da rotalanmış yolla göster ki kullanıcı
+    // tıkladığında ne olacağını görsün.
+    if (typeof window !== 'undefined' && window.cizimModu === 'geometri') {
+        const wp = routePath(p1, p2);
+        if (wp && wp.length > 2) {
+            return { p1, p2, waypoints: wp };
+        }
+    }
+    return { p1, p2 };
 }
 /**
  * 3D Snap Hesaplama (Eksen Kilitleme)
