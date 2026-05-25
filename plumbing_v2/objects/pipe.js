@@ -28,53 +28,45 @@ import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 //     DN80 (turuncu) ≈ DN20 (altın)       → DN80 kahveye (turuncu front'la karışıyordu)
 //   DN125+ kullanıcı izniyle birbirine yakın olabilir, sadece front'la benzemeyecek.
 export const DIAMETER_PALETTE = {
-    light: {
-        // --- YÜKSEK KULLANIM (FRONT) ---
-        DN15:  [34, 139, 34],     // Orman Yeşili (Canlı ve net)
-        DN20:  [255, 165, 0],    // Saf Turuncu (Altın sarısından daha ayrıştırıcı)
-        DN25:  [220, 20, 60],     // Crimson Kırmızı (Göz alıcı anchor)
-        DN32:  [0, 191, 255],     // Gökyüzü Mavisi (Deep Sky Blue - Temiz ayrım)
-        DN40:  [199, 21, 133],    // Medium Violet Red (Pembe-Kırmızı arası, çok belirgin)
-        DN50:  [65, 105, 225],    // Royal Blue (Derin ama parlak mavi)
-        
-        // --- ORTA KULLANIM ---
-        DN65:  [138, 43, 226],    // Blue Violet (Net mor, maviden ve pembeden ayrılmış)
-        DN80:  [110, 90, 75],      // Mat Toprak Kahvesi (Kırmızı/Turuncu alt tonu sıfırlandı)
-        DN100: [0, 128, 128],     // Teal (Mavi-Yeşil dengesi, DN15'ten çok farklı)
-        DN125: [154, 205, 50],    // Yellow Green (Limon küfü, DN15 ile DN20 arası köprü)
-        
-        // --- DÜŞÜK KULLANIM ---
-        DN150: [47, 79, 79],      // Dark Slate Gray (Koyu petrol grisi)
-        DN200: [160, 82, 45],     // Sienna (Koyu bakır)
-        DN250: [72, 61, 139],     // Dark Slate Blue (Morumsu füme)
-        DN300: [105, 105, 105],   // Dim Gray (Tok gri)
-        DN400: [50, 50, 50],      // Antrasit
-        DN450: [20, 20, 20],      // Siyaha yakın
-    },
-    dark: {
-        // --- YÜKSEK KULLANIM (FRONT) ---
-        DN15:  [50, 205, 50],     // Lime Green (Neon etkisi)
-        DN20:  [255, 215, 0],     // Gold (Siyah zeminde turuncudan daha iyi patlar)
-        DN25:  [255, 69, 0],      // Red Orange (En parlak kırmızı tonu)
-        DN32:  [0, 255, 255],     // Cyan (Siyah üstünde en yüksek kontrast)
-        DN40:  [255, 105, 180],    // Hot Pink (Ayırt ediciliği çok yüksek)
-        DN50:  [100, 149, 237],    // Cornflower Blue (Yumuşak ama belirgin mavi)
-        
-        // --- ORTA KULLANIM ---
-        DN65:  [191, 123, 255],    // Parlak Lavanta (DN32'den net uzaklaşmış)
-        DN80:  [155, 135, 115],    // Nötr Taş Grisi / Kahve (Doygunluğu düşük, DN25 ile asla karışmaz)
-        DN100: [72, 209, 204],     // Medium Turquoise
-        DN125: [173, 255, 47],     // Green Yellow
-        
-        // --- DÜŞÜK KULLANIM ---
-        DN150: [102, 205, 170],    // Medium Aquamarine
-        DN200: [244, 164, 96],     // Sandy Brown
-        DN250: [176, 196, 222],    // Light Steel Blue
-        DN300: [169, 169, 169],    // Dark Gray
-        DN400: [120, 120, 120],    // Orta Gri
-        DN450: [80, 80, 90],       // Soğuk Gri
-    },
+   light: {
+       DN15:  [15, 165, 75],     // koyu zümrüt yeşili ★ FRONT
+       DN20:  [215, 150, 20],    // doygun altın ★ FRONT
+       DN25:  [210, 55, 55],     // saf mercan kırmızı ★ FRONT (en çok kullanılan)
+       DN32:  [200, 30, 180],    // parlak magenta-pembe ★ FRONT (mor değil — DN65'ten ayrı)
+       DN40:  [30, 50, 175],     // derin indigo ★ FRONT (eski DN100'ün "iyi" rengi öne)
+       DN50:  [0, 150, 200],     // koyu cyan ★ FRONT
+       DN65:  [125, 60, 200],    // saf mor (daha doygun, pembeden net ayrı)
+       DN80:  [140, 85, 50],     // sıcak kahve (eski turuncu → DN20 ile karışıyordu)
+       DN100: [25, 130, 105],    // koyu deniz yeşili (DN15 zümrütten farklı, mavi-yeşil)
+       DN125: [155, 180, 25],    // parlak lime
+       DN150: [40, 125, 70],     // koyu orman yeşili
+       DN200: [155, 95, 35],     // koyu bronz
+       DN250: [70, 75, 115],     // doygun arduvaz
+       DN300: [115, 55, 30],     // koyu pas
+       DN400: [85, 85, 95],      // gri-mor
+       DN450: [42, 42, 48],      // neredeyse siyah
+   },
+   dark: {
+       DN15:  [55, 225, 105],    // canlı zümrüt yeşili ★ FRONT
+       DN20:  [255, 195, 30],    // doygun altın ★ FRONT
+       DN25:  [245, 75, 75],     // saf mercan kırmızı ★ FRONT (en çok kullanılan)
+       DN32:  [235, 60, 200],    // parlak magenta-pembe ★ FRONT (mor değil, pembe-leaning)
+       DN40:  [55, 80, 235],     // derin indigo ★ FRONT ("iyi renk" öne, koyu/doygun)
+       DN50:  [25, 215, 240],    // saf cyan ★ FRONT
+       DN65:  [170, 90, 250],    // saf mor (doygunluk yüksek, magenta'dan blue-shift ile ayrı)
+       DN80:  [180, 115, 70],    // sıcak kahve (eski 255,145,45 turuncu → DN20 ile karışıyordu)
+       DN100: [55, 175, 145],    // deniz yeşili / teal-green (DN15'ten mavi-yeşil farkıyla ayrı)
+       DN125: [205, 230, 55],    // parlak lime
+       DN150: [70, 185, 110],    // orman yeşili
+       DN200: [225, 160, 90],    // açık bronz
+       DN250: [165, 165, 220],   // açık arduvaz
+       DN300: [210, 115, 65],    // pas
+       DN400: [185, 185, 200],   // açık gri-mor
+       DN450: [125, 125, 140],   // orta gri-mor
+   },
+
 };
+
 
 function _buildDiameterGroups(mode) {
     const palette = DIAMETER_PALETTE[mode];

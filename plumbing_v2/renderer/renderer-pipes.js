@@ -711,6 +711,10 @@ export const PipeMixin = {
         const light = isLightMode();
         const fill = light ? '#9c5b00' : 'rgb(251, 232, 213)';
         const accent = light ? '#783a00' : 'rgb(75, 75, 75)';
+        const isoFixed = !!state.isoReducerFixed;
+        const ISO_REF = 5;     // sabit geometri referansı (uzunluk hesapları)
+        const ISO_WIDE = 6;    // sabit huni geniş kenar
+        const ISO_NARROW = 4;  // sabit huni dar kenar
 
         // Reducer geometrisi her zaman DN-bazlı olmalı — boru görsel kalınlığı
         // (pipeWidthFromCap) iso modunda sabite kilitlenince huni kayboluyordu.
@@ -746,7 +750,7 @@ export const PipeMixin = {
             const cx = bp.x + jz;
             const cy = bp.y - jz;
 
-            const maxDiameter = bigVal;
+            const maxDiameter = isoFixed ? ISO_REF : bigVal;
             const elbowArmLength = maxDiameter * 0.2;
             const startOffset = elbowArmLength;
             const plateauW = Math.max(0.5, maxDiameter * 0.18);
@@ -795,8 +799,8 @@ export const PipeMixin = {
                 // Huni geometrisi: geniş kenar her zaman BÜYÜK çaplı boruya bakar.
                 //   • Alçalan (parent>child): geniş kenar junction tarafında, dar kenar child tarafında.
                 //   • Yükselen (parent<child): geniş kenar child tarafında, dar kenar junction tarafında.
-                const wideCap = Math.max(parentCap, childCap) + 1; // junction taraf padding'i için +1
-                const narrowCap = Math.min(parentCap, childCap);
+                const wideCap = isoFixed ? ISO_WIDE : (Math.max(parentCap, childCap) + 1); // junction taraf padding'i için +1
+                const narrowCap = isoFixed ? ISO_NARROW : Math.min(parentCap, childCap);
                 const wideAtJunction = parentCap >= childCap;
                 const angle = bp.directions[i]; // child'ın yönü = downstream yönü
 
@@ -850,6 +854,10 @@ export const PipeMixin = {
         const light = isLightMode();
         const fill = light ? '#9c5b00' : 'rgb(233, 233, 224)';
         const accent = light ? '#783a00' : 'rgb(8, 8, 8)';
+        const isoFixed = !!state.isoReducerFixed;
+        const ISO_REF = 5;
+        const ISO_WIDE = 6;
+        const ISO_NARROW = 4;
 
         // Reducer geometrisi DN-bazlı (iso'da boru kalınlığı sabit olsa bile görünür)
         const refWidthFromCap = (cap) => {
@@ -888,7 +896,7 @@ export const PipeMixin = {
             const angle = Math.atan2(fy - cy, fx - cx);
 
             // Geometri (drawReducers ile aynı parametreler)
-            const maxDiameter = Math.max(parentCap, childCap);
+            const maxDiameter = isoFixed ? ISO_REF : Math.max(parentCap, childCap);
             const elbowArmLength = maxDiameter * 0.2;
             const startOffset = elbowArmLength;
             const plateauW = Math.max(0.5, maxDiameter * 0.18);
@@ -896,8 +904,8 @@ export const PipeMixin = {
             const taper = Math.max(2.0, maxDiameter * 0.7);
             const totalLen = plateauW + taper + plateauN;
 
-            const wideCap = Math.max(parentCap, childCap) + 1;
-            const narrowCap = Math.min(parentCap, childCap);
+            const wideCap = isoFixed ? ISO_WIDE : (Math.max(parentCap, childCap) + 1);
+            const narrowCap = isoFixed ? ISO_NARROW : Math.min(parentCap, childCap);
             const wideAtJunction = parentCap >= childCap;
 
             ctx.save();

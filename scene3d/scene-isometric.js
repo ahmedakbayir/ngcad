@@ -259,8 +259,11 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     // BORU KALINLIĞI: izometride DN'den bağımsız TEK sabit kalınlık (şematik görünüm)
     const originalPipeWidthFromCap = plumbingManager.renderer.pipeWidthFromCap;
     plumbingManager.renderer.pipeWidthFromCap = function(_boruCap) {
-        return 2.2; // ~DN25 * 0.55 — referans incelik, çap fark etmez
+        return 3.2; // ~1 px daha kalın — çap fark etmez
     };
+
+    // Redüksiyon hunisi de çap bağımsız sabit geometriyle çizilsin
+    state.isoReducerFixed = true;
 
     // Ana motor kaydırılmış proxy tesisatı çizer
     plumbingManager.renderer.drawPipes(ctx, proxyManager.pipes);
@@ -269,6 +272,7 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     // Restore
     plumbingManager.renderer.drawVana = originalDrawVana;
     plumbingManager.renderer.pipeWidthFromCap = originalPipeWidthFromCap;
+    state.isoReducerFixed = false;
     state.viewBlendFactor = oldBlend;
     state.dimensionMode = oldDim;
     state.is3DPerspectiveActive = oldPerspActive;
@@ -561,11 +565,23 @@ function _buildKutuLinesIso(comp) {
     return lines;
 }
 
+// Cihaz iso-modda persp-şematik konuma kayar; sayaç/kutu vs. proxyComp.x/y'de durur.
+// Etiket anchor'ı çizilen nesneyle aynı konumu kullanmalı, yoksa leader hava boşluğunu gösterir.
+function _resolveIsoCompAnchor(comp, proxyManager) {
+    const fn = plumbingManager?.renderer?._computeCihazPerspSchematic;
+    if (comp.type === 'cihaz' && typeof fn === 'function') {
+        const sch = fn.call(plumbingManager.renderer, comp, proxyManager, 1);
+        if (sch) return { x: sch.x, y: sch.y, z: sch.z || 0 };
+    }
+    return { x: comp.x, y: comp.y, z: comp.z || 0 };
+}
+
 function drawIsometricComponentLabels(ctx, proxyManager) {
     proxyManager.components.forEach(comp => {
         if (typeof comp.x !== 'number') return;
 
-        const pos = toIsometric(comp.x, comp.y, comp.z || 0);
+        const anchor = _resolveIsoCompAnchor(comp, proxyManager);
+        const pos = toIsometric(anchor.x, anchor.y, anchor.z);
 
         let lines, clip, useBelow = false, noLeader = false;
         switch (comp.type) {
@@ -590,16 +606,8 @@ function drawIsometricComponentLabels(ctx, proxyManager) {
 }
 
 // Gruplanmış Dikey Boru Etiketleri
-function drawVerticalPipeLabelsIso(ctx, proxyManager) {
-    const isLightMode = document.body.classList.contains('light-mode');
-    const textColor = isLightMode ? 'rgba(20,20,20,0.85)' : 'rgba(225,230,240,0.85)';
-
-    // İnce ve küçük: weight 300, 9px
-    ctx.font = '300 9px "Segoe UI", sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-
-    // Yalnızca orijinal boruları temel al (Eğilme/sündürmelerden etkilenmez)
+// Dikey boru grupları (h-etiketi adayları) — hem draw hem layout için ortak.
+function _computeVerticalPipeLabelInfos(proxyManager) {
     const originalPipes = plumbingManager.pipes;
     const vertPipes = originalPipes.filter(pipe => {
         if (!pipe.p1 || !pipe.p2) return false;
@@ -609,30 +617,22 @@ function drawVerticalPipeLabelsIso(ctx, proxyManager) {
         return Math.hypot(dx, dy) < 2.0 && Math.abs(dz) > 1.0;
     });
 
-    // Hat numarası eşitliği için: h değerini sadece aynı hatta ait uç-uca bağlı
-    // dikey parçalar için tek ölçüm gibi göster. Farklı hatlarsa ayrı ölç.
     const { hatMap } = computeHatGroups(plumbingManager.pipes, plumbingManager.components);
-
     const visited = new Set();
     const groups = [];
 
-    // Uç uca bağlı dikey boruları bul ve grupla (Kopuk parçaları toplar)
     vertPipes.forEach(startPipe => {
         if (visited.has(startPipe.id)) return;
         const group = [];
         const queue = [startPipe];
         visited.add(startPipe.id);
-
-        while(queue.length > 0) {
+        while (queue.length > 0) {
             const curr = queue.shift();
             group.push(curr);
             const currHat = hatMap.get(curr.id);
-
             vertPipes.forEach(other => {
                 if (visited.has(other.id)) return;
-                // Hat noları farklıysa aynı gruba girmez → ayrı ölçülür
                 if (hatMap.get(other.id) !== currHat) return;
-                // Bağlantı noktası toleransı 1cm (x,y aynı olmalı; z farklı kabul)
                 if (
                     (Math.abs(curr.p1.x - other.p1.x) < 1 && Math.abs(curr.p1.y - other.p1.y) < 1 && Math.abs((curr.p1.z||0) - (other.p1.z||0)) < 1) ||
                     (Math.abs(curr.p1.x - other.p2.x) < 1 && Math.abs(curr.p1.y - other.p2.y) < 1 && Math.abs((curr.p1.z||0) - (other.p2.z||0)) < 1) ||
@@ -647,16 +647,11 @@ function drawVerticalPipeLabelsIso(ctx, proxyManager) {
         groups.push(group);
     });
 
+    const infos = [];
     groups.forEach(group => {
-        let totalDz = 0;
-        let sumIsoX = 0;
-        let sumIsoY = 0;
-        let validCount = 0;
-
-        // Orijinal h değerlerini topla ve ekranın ortasına (proxy) sabitle
+        let totalDz = 0, sumIsoX = 0, sumIsoY = 0, validCount = 0;
         group.forEach(pipe => {
             totalDz += Math.abs((pipe.p2.z || 0) - (pipe.p1.z || 0));
-            
             const proxyP = proxyManager.pipes.find(pp => pp.id === pipe.id);
             if (proxyP && proxyP.p1 && proxyP.p2) {
                 const start = toIsometric(proxyP.p1.x, proxyP.p1.y, proxyP.p1.z || 0);
@@ -666,31 +661,46 @@ function drawVerticalPipeLabelsIso(ctx, proxyManager) {
                 validCount++;
             }
         });
-
         if (validCount === 0 || totalDz < 1.0) return;
-
         const midX = sumIsoX / validCount;
         const midY = sumIsoY / validCount;
-        
-        const repId = group[0].id; // Sütun temsilcisi ID'si
+        const repId = group[0].id;
         const hText = `${(totalDz / 100).toFixed(2)}m`;
+        infos.push({ repId, midX, midY, hText });
+    });
+    return infos;
+}
+
+function drawVerticalPipeLabelsIso(ctx, proxyManager) {
+    const isLightMode = document.body.classList.contains('light-mode');
+    const textColor = isLightMode ? 'rgba(20,20,20,0.85)' : 'rgba(225,230,240,0.85)';
+
+    // İnce ve küçük: weight 300, 9px
+    ctx.font = '300 9px "Segoe UI", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
+    const infos = _computeVerticalPipeLabelInfos(proxyManager);
+
+    infos.forEach(({ repId, midX, midY, hText }) => {
 
         const tw = ctx.measureText(hText).width;
         // Tıklama için biraz şişirilmiş bbox (görsel font küçük kalır, hit kolay)
         const boxW = tw + 10;
         const boxH = 14;
 
-        // Stored offset (dax/day) "left-center" ax/ay formatında saklanır → bx/by dönüşümü
-        // (pipe label ile aynı): bx=ax, by=ay-bh/2. Bu olmadan sürüklenen etiket bh/2 kayıyor.
+        // Stored offset (dax/day) ax/ay formatında saklanır + style ile birlikte.
         let bx = midX + 6;
         let by = midY - boxH / 2;
+        let style = 'left-center';
 
         const stored = state.isoLabelOffsets?.[`vert_${repId}`];
+        if (stored && stored.style) style = stored.style;
         if (stored && stored.dax != null) {
             const ax = midX + stored.dax;
             const ay = midY + stored.day;
-            bx = ax;
-            by = ay - boxH / 2;
+            bx = style === 'top-center' ? ax - boxW / 2 : ax;
+            by = style === 'top-center' ? ay : ay - boxH / 2;
         } else if (stored && stored.dir != null) {
             const gap = 12;
             switch(stored.dir) {
@@ -700,14 +710,14 @@ function drawVerticalPipeLabelsIso(ctx, proxyManager) {
                 case 3: bx = midX - gap - boxW; by = midY - boxH/2; break;
             }
         }
-        
+
         _isoLabelBBoxes.push({
             id: `vert_${repId}`,
             bx: bx,
             by: by,
             bw: boxW,
             bh: boxH,
-            style: 'left-center',
+            style,
             cx: midX,
             cy: midY
         });
@@ -835,13 +845,17 @@ function drawPipeLabelsIso(ctx, proxyManager) {
 // ─── İZO ETİKET ETKİLEŞİM API'LERİ VE YENİDEN YERLEŞTİRME ─────────────────────
 
 export function hitTestIsoLabel(wx, wy) {
+    // Birden çok etiket çakışırsa en KÜÇÜK kutuyu tercih et — h-etiketi gibi
+    // küçük öğeler komşu büyük etiket altında kalıp tıklanamıyordu.
+    let best = null; let bestArea = Infinity;
     for (let i = _isoLabelBBoxes.length - 1; i >= 0; i--) {
         const bb = _isoLabelBBoxes[i];
         if (wx >= bb.bx && wx <= bb.bx + bb.bw && wy >= bb.by && wy <= bb.by + bb.bh) {
-            return { id: bb.id, style: bb.style, bx: bb.bx, by: bb.by, bw: bb.bw, bh: bb.bh, cx: bb.cx, cy: bb.cy };
+            const area = bb.bw * bb.bh;
+            if (area < bestArea) { bestArea = area; best = bb; }
         }
     }
-    return null;
+    return best ? { id: best.id, style: best.style, bx: best.bx, by: best.by, bw: best.bw, bh: best.bh, cx: best.cx, cy: best.cy } : null;
 }
 
 function _saveIsoLabelOffsetsFromPlaced(placed) {
@@ -897,7 +911,8 @@ function _collectIsoLabelCandidates(proxyManager) {
         let lines = comp.type === 'sayac' ? _buildSayacLinesIso(comp) : comp.type === 'cihaz' ? _buildCihazLinesIso(comp) : comp.type === 'servis_kutusu' ? _buildKutuLinesIso(comp) : comp.type === 'vana' ? _buildVanaLinesIso(comp) : comp.type === 'regulator' ? _buildRegulatorLinesIso(comp) : ['filtre', 'izolasyon_flansi', 'kompansator', 'manometre', 'topraklama'].includes(comp.type) ? _buildFittingLinesIso(comp) : null;
         if (!lines) continue;
         const sz = _isoMeasureLines(lines); if (sz.bw === 0) continue;
-        const pos = toIsometric(comp.x, comp.y, comp.z || 0); 
+        const anchor = _resolveIsoCompAnchor(comp, proxyManager);
+        const pos = toIsometric(anchor.x, anchor.y, anchor.z);
         cands.push({ kind: 'comp', id: comp.id, type: comp.type, anchorX: pos.isoX, anchorY: pos.isoY, clip: ISO_CLIP_BY_TYPE[comp.type] ?? 10, defaultStyle: ISO_DEFAULT_STYLE_BY_TYPE[comp.type] || 'left-center', bw: sz.bw, bh: sz.bh, priority: ISO_PRIORITY[comp.type] ?? 4, obj: comp });
     }
 
@@ -929,12 +944,28 @@ function _collectIsoLabelCandidates(proxyManager) {
         const sz = _isoMeasureHatLabel(hatNo, infoLines);
         cands.push({ kind: 'pipe', id: chosen.id, type: 'boru', anchorX: midX, anchorY: midY, clip: ISO_CLIP_BY_TYPE.boru, defaultStyle: 'left-center', bw: sz.bw, bh: sz.bh, priority: ISO_PRIORITY.boru, obj: chosen, hatNo });
     });
+
+    // Dikey boru h-etiketleri (h: yükseklik) — küçük kutu ama layout'a girsin ki çarpışmasınlar
+    const measure = _getIsoMeasureCtx();
+    measure.font = '300 9px sans-serif';
+    _computeVerticalPipeLabelInfos(proxyManager).forEach(({ repId, midX, midY, hText }) => {
+        const tw = measure.measureText(hText).width;
+        const bw = tw + 10; const bh = 14;
+        cands.push({
+            kind: 'vert', id: `vert_${repId}`, type: 'vert',
+            anchorX: midX, anchorY: midY,
+            clip: 6, defaultStyle: 'left-center',
+            bw, bh,
+            priority: ISO_PRIORITY.boru, obj: null
+        });
+    });
     return cands;
 }
 
 function _buildIsoObstacleRects(proxyManager) {
     return proxyManager.components.filter(c => typeof c.x === 'number').map(comp => {
-        const pos = toIsometric(comp.x, comp.y, comp.z || 0); 
+        const anchor = _resolveIsoCompAnchor(comp, proxyManager);
+        const pos = toIsometric(anchor.x, anchor.y, anchor.z);
         const clip = ISO_CLIP_BY_TYPE[comp.type] ?? 10;
         return { id: comp.id + '_body', bx: pos.isoX - clip, by: pos.isoY - clip, bw: clip * 2, bh: clip * 2 };
     });
@@ -977,12 +1008,70 @@ function _positionsAtRadius(c, radius) {
     return out;
 }
 
-function _isSpotCompletelyClean(box, leader, obstacles, placedLabels, placedLeaders, pipeSegs) {
-    const PAD = 8; const expBox = { bx: box.bx - PAD, by: box.by - PAD, bw: box.bw + 2 * PAD, bh: box.bh + 2 * PAD };
-    for (const o of obstacles) { if (_rectOverlapArea(expBox, o) > 0) return false; }
-    for (const s of pipeSegs) { if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, expBox.bx, expBox.by, expBox.bw, expBox.bh)) return false; }
-    for (const p of placedLabels) { if (_rectOverlapArea(expBox, p) > 0) return false; }
-    return true;
+// İki segment kesişiyor mu (uç noktalar dahil)
+function _segSegIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
+    const den = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx);
+    if (Math.abs(den) < 1e-9) return false;
+    const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / den;
+    const u = ((cx - ax) * (by - ay) - (cy - ay) * (bx - ax)) / den;
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+}
+
+// Leader segmenti uçlardan kısalt: başlangıç anchor'dan clip kadar uzaklaşsın,
+// bitiş etiket kutu kenarına kırpılsın. Görünmeyen kısmı kesişim sayma.
+function _visibleLeaderSeg(c, box) {
+    const cx0 = c.anchorX, cy0 = c.anchorY;
+    const lx = box.bx + box.bw / 2, ly = box.by + box.bh / 2;
+    const dx = lx - cx0, dy = ly - cy0;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.1) return null;
+    const ux = dx / dist, uy = dy / dist;
+    const tObj = c.clip || 0;
+    const tLab = Math.min(Math.abs(ux) > 1e-3 ? (box.bw / 2) / Math.abs(ux) : Infinity,
+                          Math.abs(uy) > 1e-3 ? (box.bh / 2) / Math.abs(uy) : Infinity);
+    if (tObj + tLab + 1 >= dist) return null;
+    return { x1: cx0 + ux * tObj, y1: cy0 + uy * tObj, x2: lx - ux * tLab, y2: ly - uy * tLab };
+}
+
+// Placement skoru: 0 = mükemmel; büyüdükçe kötü. Sert ihlaller büyük ceza alır.
+function _scorePlacement(c, box, obstacles, placedLabels, placedLeaders, pipeSegs) {
+    const PAD = 6;
+    const expBox = { bx: box.bx - PAD, by: box.by - PAD, bw: box.bw + 2 * PAD, bh: box.bh + 2 * PAD };
+    let pen = 0;
+    for (const o of obstacles) {
+        const ov = _rectOverlapArea(expBox, o);
+        if (ov > 0) pen += 500 + ov * 0.5;
+    }
+    for (const p of placedLabels) {
+        const ov = _rectOverlapArea(expBox, p);
+        if (ov > 0) pen += 400 + ov * 0.5;
+    }
+    for (const s of pipeSegs) {
+        if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, expBox.bx, expBox.by, expBox.bw, expBox.bh)) pen += 150;
+    }
+    const vis = _visibleLeaderSeg(c, box);
+    if (vis) {
+        for (const s of pipeSegs) {
+            if (_segSegIntersect(vis.x1, vis.y1, vis.x2, vis.y2, s.x1, s.y1, s.x2, s.y2)) pen += 80;
+        }
+        for (const pl of placedLeaders) {
+            if (!pl) continue;
+            if (_segSegIntersect(vis.x1, vis.y1, vis.x2, vis.y2, pl.x1, pl.y1, pl.x2, pl.y2)) pen += 60;
+        }
+        for (const p of placedLabels) {
+            const pcx = p.bx + p.bw / 2, pcy = p.by + p.bh / 2;
+            const pclip = Math.max(p.bw, p.bh) / 2;
+            // Leader başka etiketin gövdesini kesiyor mu (kabaca dikdörtgen üzerinden)
+            if (_segRectIntersects(vis.x1, vis.y1, vis.x2, vis.y2, p.bx, p.by, p.bw, p.bh)) pen += 70;
+            // pclip kullanım uyarı bastırma
+            void pcx; void pcy; void pclip;
+        }
+    }
+    return pen;
+}
+
+function _isSpotCompletelyClean(c, box, obstacles, placedLabels, placedLeaders, pipeSegs) {
+    return _scorePlacement(c, box, obstacles, placedLabels, placedLeaders, pipeSegs) === 0;
 }
 
 function _tryPlaceLabelsStrict(cands, obstacles, pipeSegs) {
@@ -991,22 +1080,32 @@ function _tryPlaceLabelsStrict(cands, obstacles, pipeSegs) {
 
     for (const c of cands) {
         let best = null; let bestLeader = null;
+        let bestScore = Infinity; let bestFallback = null; let bestFallbackLeader = null;
         // Etiketler nesnenin yakınında kalsın — eski 2000px sınırı 'uzakta' etiketlere yol açıyordu.
-        // Önce sıkı clean spot ara (kısa mesafe), bulunamazsa "biraz çakışmayı kabullenip" yakına yerleştir.
+        // Önce sıkı clean spot ara (kısa mesafe), bulunamazsa skor en düşük olanı al.
         const baseR = c.clip + 12; const maxR = 140;
         for (let r = baseR; r <= maxR; r += 12) {
             const positions = _positionsAtRadius(c, r + Math.max(c.bw, c.bh) / 2);
             for (const pos of positions) {
                 const box = _bboxFromStyle(pos.ax, pos.ay, c.bw, c.bh, pos.style);
                 const leader = { x1: c.anchorX, y1: c.anchorY, x2: box.bx + box.bw / 2, y2: box.by + box.bh / 2 };
-                if (_isSpotCompletelyClean(box, leader, obstacles, placed, placedLeaders, pipeSegs)) {
+                const score = _scorePlacement(c, box, obstacles, placed, placedLeaders, pipeSegs);
+                if (score === 0) {
                     best = { bx: box.bx, by: box.by, style: pos.style }; bestLeader = leader; break;
+                }
+                // Skora mesafe cezası ekle — yakın çözümler tercih edilsin
+                const distPen = r * 0.05;
+                if (score + distPen < bestScore) {
+                    bestScore = score + distPen;
+                    bestFallback = { bx: box.bx, by: box.by, style: pos.style };
+                    bestFallbackLeader = leader;
                 }
             }
             if (best) break;
         }
+        if (!best && bestFallback) { best = bestFallback; bestLeader = bestFallbackLeader; }
         if (best) { c.bx = best.bx; c.by = best.by; c.style = best.style; placed.push(c); placedLeaders.push(bestLeader); }
-        else { c.bx = c.anchorX + c.clip + 14; c.by = c.anchorY - c.bh / 2; c.style = 'left-center'; placed.push(c); }
+        else { c.bx = c.anchorX + c.clip + 14; c.by = c.anchorY - c.bh / 2; c.style = 'left-center'; placed.push(c); placedLeaders.push(null); }
     }
     return { placed };
 }
