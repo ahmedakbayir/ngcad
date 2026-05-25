@@ -64,8 +64,8 @@ export function initVerticalPanelListeners() {
     // Mouse Tekerleği ile Değer Değiştirme
     panel.addEventListener('wheel', (e) => {
         e.preventDefault();
-        // Yukarı çevirirse +5, aşağı çevirirse -5
-        const delta = e.deltaY < 0 ? 5 : -5;
+        // Yukarı çevirirse +10, aşağı çevirirse -10
+        const delta = e.deltaY < 0 ? 10 : -10;
         addToValue(delta);
     }, { passive: false });
 
@@ -115,25 +115,25 @@ function renderQuickSlider() {
     // null değer = auto-extend ucu (label sadece görsel)
     const ROWS = [
         { value: null, label: '+++', auto: +1 },
+        { value:  250, label: '+250' },
+        { value:  200, label: '+200'  },
         { value:  150, label: '+150' },
-        { value:  120, label: '+120' },
         { value:  100, label: '+100' },
-        { value:   80, label: '+80'  },
         { value:   50, label: '+50'  },
         { value:   30, label: '+30'  },
         { value:    0, label: '0'    },
         { value:  -30, label: '-30'  },
         { value:  -50, label: '-50'  },
-        { value:  -80, label: '-80'  },
         { value: -100, label: '-100' },
-        { value: -120, label: '-120' },
         { value: -150, label: '-150' },
+        { value: -200, label: '-200' },
+        { value: -250, label: '-250' },
         { value: null, label: '---', auto: -1 }
     ];
-    const MAX_VISIBLE = 150;
-    const MAX_AUTO = 500;
+    const MAX_VISIBLE = 250;
+    const MAX_AUTO = 1000;
     const AUTO_STEP = 50;
-    const AUTO_INTERVAL_MS = 1000;
+    const AUTO_INTERVAL_MS = 400;
 
     const TICK_MIN_PX = 6;
     const TICK_MAX_PX = 48;

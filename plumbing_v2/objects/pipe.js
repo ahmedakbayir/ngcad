@@ -29,42 +29,41 @@ import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 //   DN125+ kullanıcı izniyle birbirine yakın olabilir, sadece front'la benzemeyecek.
 export const DIAMETER_PALETTE = {
    light: {
-       DN15:  [15, 165, 75],     // koyu zümrüt yeşili ★ FRONT
-       DN20:  [215, 150, 20],    // doygun altın ★ FRONT
-       DN25:  [210, 55, 55],     // saf mercan kırmızı ★ FRONT (en çok kullanılan)
-       DN32:  [200, 30, 180],    // parlak magenta-pembe ★ FRONT (mor değil — DN65'ten ayrı)
-       DN40:  [30, 50, 175],     // derin indigo ★ FRONT (eski DN100'ün "iyi" rengi öne)
-       DN50:  [0, 150, 200],     // koyu cyan ★ FRONT
-       DN65:  [125, 60, 200],    // saf mor (daha doygun, pembeden net ayrı)
-       DN80:  [140, 85, 50],     // sıcak kahve (eski turuncu → DN20 ile karışıyordu)
-       DN100: [25, 130, 105],    // koyu deniz yeşili (DN15 zümrütten farklı, mavi-yeşil)
-       DN125: [155, 180, 25],    // parlak lime
-       DN150: [40, 125, 70],     // koyu orman yeşili
-       DN200: [155, 95, 35],     // koyu bronz
-       DN250: [70, 75, 115],     // doygun arduvaz
-       DN300: [115, 55, 30],     // koyu pas
-       DN400: [85, 85, 95],      // gri-mor
-       DN450: [42, 42, 48],      // neredeyse siyah
+       DN15:  [15, 165, 75],  
+       DN20:  [215, 150, 20], 
+       DN25:  [210, 55, 55],  
+       DN32:  [200, 30, 180], 
+       DN40:  [30, 50, 175],  
+       DN50:  [0, 150, 200],  
+       DN65:  [125, 60, 200], 
+       DN80:  [140, 85, 50],  
+       DN100: [25, 130, 105], 
+       DN125: [155, 180, 25], 
+       DN150: [40, 125, 70],  
+       DN200: [155, 95, 35],  
+       DN250: [70, 75, 115],  
+       DN300: [115, 55, 30],  
+       DN400: [85, 85, 95],   
+       DN450: [42, 42, 48],   
    },
    dark: {
-       DN15:  [55, 225, 105],    // canlı zümrüt yeşili ★ FRONT
-       DN20:  [255, 195, 30],    // doygun altın ★ FRONT
-       DN25:  [245, 75, 75],     // saf mercan kırmızı ★ FRONT (en çok kullanılan)
-       DN32:  [235, 60, 200],    // parlak magenta-pembe ★ FRONT (mor değil, pembe-leaning)
-       DN40:  [55, 80, 235],     // derin indigo ★ FRONT ("iyi renk" öne, koyu/doygun)
-       DN50:  [25, 215, 240],    // saf cyan ★ FRONT
-       DN65:  [170, 90, 250],    // saf mor (doygunluk yüksek, magenta'dan blue-shift ile ayrı)
-       DN80:  [180, 115, 70],    // sıcak kahve (eski 255,145,45 turuncu → DN20 ile karışıyordu)
-       DN100: [55, 175, 145],    // deniz yeşili / teal-green (DN15'ten mavi-yeşil farkıyla ayrı)
-       DN125: [205, 230, 55],    // parlak lime
-       DN150: [70, 185, 110],    // orman yeşili
-       DN200: [225, 160, 90],    // açık bronz
-       DN250: [165, 165, 220],   // açık arduvaz
-       DN300: [210, 115, 65],    // pas
-       DN400: [185, 185, 200],   // açık gri-mor
-       DN450: [125, 125, 140],   // orta gri-mor
+       DN15:  [253,222, 48], 
+       DN20:  [252,149, 53], 
+       DN25:  [253, 48, 48], 
+       DN32:  [252, 52,208], 
+       DN40:  [155, 35,253], 
+       DN50:  [ 55,118,255], 
+       DN65:  [ 40,231,104], 
+       DN80:  [161,163, 43], 
+       DN100: [122,113, 57], 
+       DN125: [143,105, 70], 
+       DN150: [151, 75, 75], 
+       DN200: [141, 68,125], 
+       DN250: [101, 67,129], 
+       DN300: [ 65, 85,128], 
+       DN400: [ 65,114, 89], 
+       DN450: [104,109, 64], 
    },
-
 };
 
 

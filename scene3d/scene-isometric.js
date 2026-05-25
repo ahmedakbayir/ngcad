@@ -999,11 +999,17 @@ function _rectOverlapArea(a, b) {
 }
 
 function _positionsAtRadius(c, radius) {
-    const out = []; const N = Math.max(16, Math.floor(radius / 8));
+    const out = [];
+    const N = Math.max(24, Math.floor(radius / 5));
     for (let i = 0; i < N; i++) {
-        const ang = (i / N) * 2 * Math.PI; const ux = Math.cos(ang), uy = Math.sin(ang);
+        const ang = (i / N) * 2 * Math.PI;
+        const ux = Math.cos(ang), uy = Math.sin(ang);
         const style = Math.abs(ux) >= Math.abs(uy) ? 'left-center' : 'top-center';
-        out.push({ ax: c.anchorX + ux * radius - (style === 'left-center' ? c.bw/2 : 0), ay: c.anchorY + uy * radius - (style === 'top-center' ? c.bh/2 : 0), style, ux, uy });
+        out.push({
+            ax: c.anchorX + ux * radius - (style === 'left-center' ? c.bw / 2 : 0),
+            ay: c.anchorY + uy * radius - (style === 'top-center' ? c.bh / 2 : 0),
+            style, ux, uy
+        });
     }
     return out;
 }
@@ -1017,54 +1023,61 @@ function _segSegIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
     return t >= 0 && t <= 1 && u >= 0 && u <= 1;
 }
 
-// Leader segmenti uçlardan kısalt: başlangıç anchor'dan clip kadar uzaklaşsın,
-// bitiş etiket kutu kenarına kırpılsın. Görünmeyen kısmı kesişim sayma.
+// drawIsometricComponentLabels noLeader=true ile çizmediği için skorlamada da yok sayılmalı.
 function _visibleLeaderSeg(c, box) {
+    if (c.type === 'sayac' || c.type === 'servis_kutusu' || c.type === 'regulator') return null;
+
     const cx0 = c.anchorX, cy0 = c.anchorY;
     const lx = box.bx + box.bw / 2, ly = box.by + box.bh / 2;
     const dx = lx - cx0, dy = ly - cy0;
     const dist = Math.hypot(dx, dy);
     if (dist < 0.1) return null;
+
     const ux = dx / dist, uy = dy / dist;
     const tObj = c.clip || 0;
-    const tLab = Math.min(Math.abs(ux) > 1e-3 ? (box.bw / 2) / Math.abs(ux) : Infinity,
-                          Math.abs(uy) > 1e-3 ? (box.bh / 2) / Math.abs(uy) : Infinity);
+    const tLab = Math.min(
+        Math.abs(ux) > 1e-3 ? (box.bw / 2) / Math.abs(ux) : Infinity,
+        Math.abs(uy) > 1e-3 ? (box.bh / 2) / Math.abs(uy) : Infinity
+    );
+
     if (tObj + tLab + 1 >= dist) return null;
     return { x1: cx0 + ux * tObj, y1: cy0 + uy * tObj, x2: lx - ux * tLab, y2: ly - uy * tLab };
 }
 
-// Placement skoru: 0 = mükemmel; büyüdükçe kötü. Sert ihlaller büyük ceza alır.
+// Cezalar tiered: kutu çakışması > leader-leader > leader-label > kutu-boru > yumuşak (PAD) ihlaller > leader-boru.
 function _scorePlacement(c, box, obstacles, placedLabels, placedLeaders, pipeSegs) {
-    const PAD = 6;
+    const PAD = 5;
     const expBox = { bx: box.bx - PAD, by: box.by - PAD, bw: box.bw + 2 * PAD, bh: box.bh + 2 * PAD };
     let pen = 0;
+
     for (const o of obstacles) {
-        const ov = _rectOverlapArea(expBox, o);
-        if (ov > 0) pen += 500 + ov * 0.5;
+        const ov = _rectOverlapArea(box, o);
+        if (ov > 0) pen += 5000 + ov * 5;
+        else if (_rectOverlapArea(expBox, o) > 0) pen += 500;
     }
+
     for (const p of placedLabels) {
-        const ov = _rectOverlapArea(expBox, p);
-        if (ov > 0) pen += 400 + ov * 0.5;
+        const ov = _rectOverlapArea(box, p);
+        if (ov > 0) pen += 6000 + ov * 10;
+        else if (_rectOverlapArea(expBox, p) > 0) pen += 800;
     }
+
     for (const s of pipeSegs) {
-        if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, expBox.bx, expBox.by, expBox.bw, expBox.bh)) pen += 150;
+        if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, box.bx, box.by, box.bw, box.bh)) pen += 3000;
+        else if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, expBox.bx, expBox.by, expBox.bw, expBox.bh)) pen += 300;
     }
+
     const vis = _visibleLeaderSeg(c, box);
     if (vis) {
         for (const s of pipeSegs) {
-            if (_segSegIntersect(vis.x1, vis.y1, vis.x2, vis.y2, s.x1, s.y1, s.x2, s.y2)) pen += 80;
+            if (_segSegIntersect(vis.x1, vis.y1, vis.x2, vis.y2, s.x1, s.y1, s.x2, s.y2)) pen += 50;
         }
         for (const pl of placedLeaders) {
             if (!pl) continue;
-            if (_segSegIntersect(vis.x1, vis.y1, vis.x2, vis.y2, pl.x1, pl.y1, pl.x2, pl.y2)) pen += 60;
+            if (_segSegIntersect(vis.x1, vis.y1, vis.x2, vis.y2, pl.x1, pl.y1, pl.x2, pl.y2)) pen += 4500;
         }
         for (const p of placedLabels) {
-            const pcx = p.bx + p.bw / 2, pcy = p.by + p.bh / 2;
-            const pclip = Math.max(p.bw, p.bh) / 2;
-            // Leader başka etiketin gövdesini kesiyor mu (kabaca dikdörtgen üzerinden)
-            if (_segRectIntersects(vis.x1, vis.y1, vis.x2, vis.y2, p.bx, p.by, p.bw, p.bh)) pen += 70;
-            // pclip kullanım uyarı bastırma
-            void pcx; void pcy; void pclip;
+            if (_segRectIntersects(vis.x1, vis.y1, vis.x2, vis.y2, p.bx, p.by, p.bw, p.bh)) pen += 4000;
         }
     }
     return pen;
@@ -1075,37 +1088,64 @@ function _isSpotCompletelyClean(c, box, obstacles, placedLabels, placedLeaders, 
 }
 
 function _tryPlaceLabelsStrict(cands, obstacles, pipeSegs) {
-    cands.sort((a, b) => (a.priority - b.priority) || ((b.bw * b.bh) - (a.bw * a.bh)));
-    const placed = []; const placedLeaders = [];
+    // anchorX tiebreaker: render arası layout jitter'ını engeller.
+    cands.sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        const areaA = a.bw * a.bh;
+        const areaB = b.bw * b.bh;
+        if (Math.abs(areaA - areaB) > 1e-2) return areaB - areaA;
+        return a.anchorX - b.anchorX;
+    });
+
+    const placed = [];
+    const placedLeaders = [];
 
     for (const c of cands) {
-        let best = null; let bestLeader = null;
-        let bestScore = Infinity; let bestFallback = null; let bestFallbackLeader = null;
-        // Etiketler nesnenin yakınında kalsın — eski 2000px sınırı 'uzakta' etiketlere yol açıyordu.
-        // Önce sıkı clean spot ara (kısa mesafe), bulunamazsa skor en düşük olanı al.
-        const baseR = c.clip + 12; const maxR = 140;
-        for (let r = baseR; r <= maxR; r += 12) {
+        let best = null, bestLeader = null;
+        let bestScore = Infinity, bestFallback = null, bestFallbackLeader = null;
+
+        const baseR = c.clip + 12;
+        const maxR = 200;
+
+        for (let r = baseR; r <= maxR; r += 10) {
             const positions = _positionsAtRadius(c, r + Math.max(c.bw, c.bh) / 2);
             for (const pos of positions) {
                 const box = _bboxFromStyle(pos.ax, pos.ay, c.bw, c.bh, pos.style);
-                const leader = { x1: c.anchorX, y1: c.anchorY, x2: box.bx + box.bw / 2, y2: box.by + box.bh / 2 };
                 const score = _scorePlacement(c, box, obstacles, placed, placedLeaders, pipeSegs);
+                const currentLeader = _visibleLeaderSeg(c, box);
+
                 if (score === 0) {
-                    best = { bx: box.bx, by: box.by, style: pos.style }; bestLeader = leader; break;
+                    best = { bx: box.bx, by: box.by, style: pos.style };
+                    bestLeader = currentLeader;
+                    break;
                 }
-                // Skora mesafe cezası ekle — yakın çözümler tercih edilsin
-                const distPen = r * 0.05;
+
+                const distPen = r * 0.15;
                 if (score + distPen < bestScore) {
                     bestScore = score + distPen;
                     bestFallback = { bx: box.bx, by: box.by, style: pos.style };
-                    bestFallbackLeader = leader;
+                    bestFallbackLeader = currentLeader;
                 }
             }
             if (best) break;
         }
-        if (!best && bestFallback) { best = bestFallback; bestLeader = bestFallbackLeader; }
-        if (best) { c.bx = best.bx; c.by = best.by; c.style = best.style; placed.push(c); placedLeaders.push(bestLeader); }
-        else { c.bx = c.anchorX + c.clip + 14; c.by = c.anchorY - c.bh / 2; c.style = 'left-center'; placed.push(c); placedLeaders.push(null); }
+
+        if (!best && bestFallback) {
+            best = bestFallback;
+            bestLeader = bestFallbackLeader;
+        }
+
+        if (best) {
+            c.bx = best.bx; c.by = best.by; c.style = best.style;
+            placed.push(c);
+            placedLeaders.push(bestLeader);
+        } else {
+            c.bx = c.anchorX + c.clip + 20;
+            c.by = c.anchorY - c.bh / 2;
+            c.style = 'left-center';
+            placed.push(c);
+            placedLeaders.push(_visibleLeaderSeg(c, _bboxFromStyle(c.bx, c.by, c.bw, c.bh, c.style)));
+        }
     }
     return { placed };
 }
