@@ -2131,10 +2131,11 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
 /* Mod radio butonları (İniş Çıkış / Araya İniş Çıkış) */
 .vertical-mode-group {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    justify-content: space-between;
     gap: 6px;
-    margin-bottom: 14px;
-    padding: 8px;
+    margin-bottom: 12px;
+    padding: 6px;
     background: rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 10px;
@@ -2142,15 +2143,75 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
 
 .vertical-mode-option {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
     cursor: pointer;
-    padding: 6px 8px;
+    padding: 4px;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: #bbb;
     transition: 0.15s;
+}
+
+.mode-option-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Her radyo seçeneğinin üstündeki küçük animasyon */
+.mode-anim {
+    width: 80px;
+    height: 48px;
+    display: block;
+}
+
+.anim-line {
+    stroke-width: 3;
+    stroke-linecap: round;
+    fill: none;
+}
+
+.anim-blue {
+    stroke: #4facfe;
+    filter: drop-shadow(0 0 2px rgba(79, 172, 254, 0.5));
+}
+
+.anim-red {
+    stroke: #ff5e62;
+    filter: drop-shadow(0 0 2px rgba(255, 94, 98, 0.55));
+    stroke-dasharray: 20;
+    stroke-dashoffset: 20;
+    animation: animRedRise 5s ease-in-out infinite;
+}
+
+/* Yalnızca Araya modunda: sağ mavi hat kırmızıyla aynı anda yükselir */
+.anim-blue-right {
+    transform-box: view-box;
+    transform-origin: 50px 36px;
+    animation: animBlueLift 5s ease-in-out infinite;
+}
+
+/* Zaman çizelgesi (5s):
+   0-2s    : sadece mavi çapraz hat (durur)
+   2-2.5s  : kırmızı yükselir + (Araya) sağ mavi de aynı anda yükselir
+   2.5-4.5s: yükselmiş durumda 2 sn sabit
+   4.5-5s  : başlangıca dön
+*/
+@keyframes animRedRise {
+    0%, 40%  { stroke-dashoffset: 20; }
+    50%, 90% { stroke-dashoffset: 0; }
+    100%     { stroke-dashoffset: 20; }
+}
+
+@keyframes animBlueLift {
+    0%, 40%  { transform: translateY(0); }
+    50%, 90% { transform: translateY(-20px); }
+    100%     { transform: translateY(0); }
 }
 
 .vertical-mode-option:hover {
@@ -2228,6 +2289,14 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
     text-align: center;
     outline: none;
     font-family: monospace;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.input-display input[type="number"]::-webkit-outer-spin-button,
+.input-display input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .unit-label {
