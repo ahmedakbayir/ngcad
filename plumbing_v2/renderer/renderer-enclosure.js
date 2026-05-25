@@ -112,11 +112,17 @@ export const EnclosureMixin = {
         const zoom = state.zoom || 1;
         const light = isLightMode();
 
+        // Aktif kat filtresi: muhafaza sadece kendi katında görünür. Diğer
+        // katlardaki (dikey kolon üzerindeki) muhafazalar bu görünüme sızmaz.
+        const curFloorId = state.currentFloor?.id || null;
+        const sameFloor = (c) => !curFloorId || !c.floorId || c.floorId === curFloorId;
+
         const grouped    = []; // muhafazaGrupla !== false
         const standalone = []; // muhafazaGrupla === false
 
         manager.components.forEach(comp => {
             if (!comp.muhafaza) return;
+            if (!sameFloor(comp)) return;
             if (!['vana', 'sayac', 'cihaz', 'regulator', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre'].includes(comp.type)) return;
 
             const bb = _aabb(comp, t);

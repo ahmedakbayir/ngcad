@@ -593,6 +593,7 @@ export function nameFloor(floorId) {
         if (antre && !hasName('BANYO')) {
             const cand = antreNeighbors
                 .filter(r => NEEDS(r.name))
+                .filter(r => roomAreaM2(r) <= 6)
                 .filter(r => roomDoorCount(r, walls, doors) <= 1)
                 .sort((a, b) => roomAreaM2(a) - roomAreaM2(b));
             if (cand[0]) setName(cand[0], 'BANYO');

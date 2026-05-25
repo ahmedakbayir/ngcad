@@ -284,8 +284,15 @@ export function handleKeyDown(e) {
             return true;
         }
 
-        // 2. EĞER işlem yok ama bir nesne SEÇİLİYSE, önce seçimi bırak
-        if (this.selectedObject) {
+        // 2. EĞER işlem yok ama herhangi bir görsel seçim varsa (singular,
+        //    hat, çoklu seçim, ya da sahte kalmış isSelected bayrağı), bırak
+        const hasAnySelection = !!this.selectedObject
+            || !!this.selectedValve
+            || (this.selectedHatPipes && this.selectedHatPipes.length > 0)
+            || (this.selectedObjects && this.selectedObjects.length > 0)
+            || (this.manager?.pipes || []).some(p => p.isSelected)
+            || (this.manager?.components || []).some(c => c.isSelected);
+        if (hasAnySelection) {
             this.cancelCurrentAction();
             setMode("select");
             return true;

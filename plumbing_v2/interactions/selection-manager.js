@@ -203,40 +203,27 @@ export function selectValve(interactionManager, pipe, vana, opts = {}) {
 }
 
 /**
- * Seçili nesneyi kaldır
+ * Seçili nesneyi kaldır.
+ *
+ * Görsel bayrak (isSelected) çeşitli yollardan set edilebiliyor:
+ * selectObject / selectHat / selectValve / hata-kontrol selectObjects /
+ * voice command / yeni boru oluşturma sonrası vb. Hangisi olursa olsun
+ * iptal isteğinde manager içindeki tüm pipe ve component'lere bir tarama
+ * yapılır → "sahte seçili rengi" sorunu giderilir.
  */
 export function deselectObject(interactionManager) {
-    if (interactionManager.selectedObject) {
-        interactionManager.selectedObject.isSelected = false;
-
-        if (interactionManager.selectedObject.type === 'cihaz') {
-            const baca = interactionManager.manager.components.find(c =>
-                c.type === 'baca' && c.parentCihazId === interactionManager.selectedObject.id
-            );
-            if (baca) baca.isSelected = false;
-        } else if (interactionManager.selectedObject.type === 'baca' && interactionManager.selectedObject.parentCihazId) {
-            const cihaz = interactionManager.manager.components.find(c =>
-                c.type === 'cihaz' && c.id === interactionManager.selectedObject.parentCihazId
-            );
-            if (cihaz) cihaz.isSelected = false;
-        }
-
-        interactionManager.selectedObject = null;
+    const mgr = interactionManager?.manager;
+    if (mgr) {
+        (mgr.pipes || []).forEach(p => { if (p.isSelected) p.isSelected = false; });
+        (mgr.components || []).forEach(c => { if (c.isSelected) c.isSelected = false; });
     }
-    
+
+    interactionManager.selectedObject = null;
     interactionManager.selectedEndpoint = null;
-
-    if (interactionManager.selectedValve) {
-        if (interactionManager.selectedValve.vana) {
-            interactionManager.selectedValve.vana.isSelected = false;
-        }
-        interactionManager.selectedValve = null;
-    }
-
-    if (interactionManager.selectedHatPipes) {
-        interactionManager.selectedHatPipes.forEach(p => { p.isSelected = false; });
-        interactionManager.selectedHatPipes = null;
-    }
+    interactionManager.selectedValve = null;
+    interactionManager.selectedHatPipes = null;
+    interactionManager.selectedObjects = null;
+    interactionManager.lastSelectedObject = null;
 
     window._selectedPipePath = null;
     onDeselect();

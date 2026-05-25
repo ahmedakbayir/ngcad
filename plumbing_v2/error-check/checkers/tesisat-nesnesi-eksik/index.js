@@ -1,17 +1,22 @@
 // tesisat-nesnesi-eksik / index.js
-// "Tesisat nesnesi eksik" grubu — kolonda topraklama çubuğu ve AKV muhafaza.
+// "Tesisat nesnesi eksik" grubu — kolonda topraklama çubuğu ve muhafaza.
 //
 // Kurallar:
 //   1. Md:5.1.20 — Servis kutusu sonrası ilk kolon parçasında Topraklama
 //      çubuğu bulunmalı (ilk vana veya ilk dallanmadan önce).
-//   2. Md:5.1.9  — AKV vanası dış ortamda ise muhafazalı olmalı.
-//      "Dış ortam" tespiti otomatik değildir; AKV'lerde muhafaza
-//      seçili değilse uyarı verilir.
+//   2. Md:5.1.9  — Atmosfere açık ortamdaki AKV ve diğer ekipmanlar
+//      (vana, sayaç, cihaz, regülatör, manometre) muhafazalı olmalı.
+//      "Atmosfere açık": hiçbir mahalin içinde değil (dış ortam) veya
+//      içinde bulunduğu mahalin balkon duvarı var.
 
 import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
-import { ensureTopraklama, ensureAkvMuhafaza } from './fix.js';
-import { hatNoForComp, floorNameById } from '../../checker-utils.js';
+import { ensureTopraklama, ensureMuhafaza } from './fix.js';
+import {
+    hatNoForComp, floorNameById,
+    vanaHatLabel, sayacHatLabel, cihazHatLabel, hatPrefix,
+} from '../../checker-utils.js';
+import { state } from '../../../../general-files/main.js';
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────
 function buildChildrenMap(pipes) {
@@ -99,26 +104,93 @@ function topraklamaKurali(manager, out) {
     });
 }
 
-function akvMuhafazaKurali(manager, out) {
-    (manager.components || []).forEach(c => {
-        if (c.type !== 'vana' || c.vanaTipi !== 'AKV') return;
-        if (c.muhafaza === true) return;
+// ─── Atmosfere açıklık tespiti ────────────────────────────────────────────
+// "Atmosfere açık" = bileşen hiçbir mahalin içinde değil (dış ortam) VEYA
+// içinde olduğu mahalin duvarlarından en az biri 'balcony' (balkon duvarı).
+
+const _WALL_TOL_CM = 2;
+
+function _roomWalls(room, walls) {
+    const out = [];
+    const coords = room?.polygon?.geometry?.coordinates?.[0];
+    if (!coords) return out;
+    for (let i = 0; i < coords.length - 1; i++) {
+        const [ax, ay] = coords[i];
+        const [bx, by] = coords[i + 1];
+        for (const w of walls) {
+            if (!w?.p1 || !w?.p2) continue;
+            const d1 = Math.hypot(w.p1.x - ax, w.p1.y - ay) + Math.hypot(w.p2.x - bx, w.p2.y - by);
+            const d2 = Math.hypot(w.p1.x - bx, w.p1.y - by) + Math.hypot(w.p2.x - ax, w.p2.y - ay);
+            if (Math.min(d1, d2) < _WALL_TOL_CM) { out.push(w); break; }
+        }
+    }
+    return out;
+}
+
+function _pointInRoom(pt, room) {
+    if (!pt || !room?.polygon || typeof turf === 'undefined') return false;
+    try { return turf.booleanPointInPolygon(turf.point([pt.x, pt.y]), room.polygon); }
+    catch { return false; }
+}
+
+function isComponentAtmosphereOpen(comp) {
+    if (typeof comp?.x !== 'number') return false;
+    const cFid = comp.floorId ?? null;
+    const sameFloor = (o) => {
+        const f = o?.floorId ?? null;
+        return f === null || cFid === null || f === cFid;
+    };
+    const rooms = (state.rooms || []).filter(sameFloor);
+    const containing = rooms.find(r => _pointInRoom({ x: comp.x, y: comp.y }, r));
+    if (!containing) return true; // dış ortam
+    const walls = (state.walls || []).filter(sameFloor);
+    return _roomWalls(containing, walls).some(w => w.wallType === 'balcony');
+}
+
+// ─── Muhafaza Kuralları ───────────────────────────────────────────────────
+// Atmosfere açık olan vana/sayaç/cihaz/regülatör/manometre muhafazalı olmalı.
+
+function _muhafazaLabelFor(manager, c) {
+    if (c.type === 'vana') {
+        if (c.vanaTipi === 'AKV') {
+            const hatNo = hatNoForComp(manager, c);
+            return hatNo != null ? `${hatNo} nolu hattaki AKV` : 'AKV';
+        }
+        return vanaHatLabel(manager, c);
+    }
+    if (c.type === 'sayac') return sayacHatLabel(manager, c);
+    if (c.type === 'cihaz') return cihazHatLabel(manager, c);
+    if (c.type === 'regulator') {
         const hatNo = hatNoForComp(manager, c);
-        // "X nolu hattaki AKV muhafazalı olmalıdır"
-        const prefix = hatNo != null
-            ? `${hatNo} nolu hattaki AKV`
-            : 'AKV';
+        const pre = hatPrefix(hatNo);
+        return pre ? `${pre} Regülatör` : 'Regülatör';
+    }
+    if (c.type === 'manometre') {
+        const hatNo = hatNoForComp(manager, c);
+        const pre = hatPrefix(hatNo);
+        return pre ? `${pre} Manometre` : 'Manometre';
+    }
+    return 'Ekipman';
+}
+
+function muhafazaKurali(manager, out) {
+    const TIPS = new Set(['vana', 'sayac', 'cihaz', 'regulator', 'manometre']);
+    (manager.components || []).forEach(c => {
+        if (!TIPS.has(c.type)) return;
+        if (c.muhafaza === true) return;
+        if (!isComponentAtmosphereOpen(c)) return;
+        const label = _muhafazaLabelFor(manager, c);
         out.push({
             group:   ERROR_GROUP_IDS.MUHAFAZA,
-            errorId: `akv-muhafaza-${c.id}`,
-            message: `${prefix} muhafazalı olmalıdır`,
+            errorId: `muhafaza-${c.id}`,
+            message: `${label} muhafazalı olmalıdır`,
             floorName: floorNameById(c.floorId),
             source:  'TS7363 Md:5.1.9',
-            detail:  'Ana kapatma vanası (dişli bağlantılı) bina dışında bir noktaya konulacak ise havalandırılmış bir kutu içine alınmalıdır.',
+            detail:  'Atmosfere açık ortamdaki (dış ortam veya balkon duvarı bulunan mahaldeki) ekipmanlar havalandırılmış bir muhafaza içine alınmalıdır.',
             targets: [{ type: 'comp', id: c.id }],
             fix: {
-                description: 'AKV için muhafaza işaretlenecek',
-                apply: () => ensureAkvMuhafaza(manager, c.id),
+                description: 'Ekipman için muhafaza işaretlenecek',
+                apply: () => ensureMuhafaza(manager, c.id),
             },
         });
     });
@@ -129,7 +201,7 @@ function tesisatNesnesiEksikChecker({ manager }) {
     if (!manager) return [];
     const out = [];
     topraklamaKurali(manager, out);
-    akvMuhafazaKurali(manager, out);
+    muhafazaKurali(manager, out);
     return out;
 }
 

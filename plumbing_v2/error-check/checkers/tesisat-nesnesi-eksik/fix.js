@@ -106,14 +106,18 @@ export function ensureTopraklama(manager, serviceBoxId) {
 }
 
 /**
- * Verilen vananın muhafaza alanını true yapar.
+ * Verilen bileşenin muhafaza alanını true yapar.
+ * (vana/sayaç/cihaz/regülatör/manometre — atmosfere açık ekipmanlar)
  */
-export function ensureAkvMuhafaza(manager, vanaId) {
-    if (!manager || !vanaId) return false;
-    const v = (manager.components || []).find(c => c.id === vanaId);
-    if (!v || v.type !== 'vana') return false;
-    if (v.muhafaza === true) return true;
-    v.muhafaza = true;
+export function ensureMuhafaza(manager, compId) {
+    if (!manager || !compId) return false;
+    const c = (manager.components || []).find(c => c.id === compId);
+    if (!c) return false;
+    const SUPPORTED = new Set(['vana', 'sayac', 'cihaz', 'regulator', 'manometre',
+                                'filtre', 'izolasyon_flansi', 'kompansator']);
+    if (!SUPPORTED.has(c.type)) return false;
+    if (c.muhafaza === true) return true;
+    c.muhafaza = true;
     manager.saveToState?.();
     try { draw2D(); } catch (_) {}
     return true;

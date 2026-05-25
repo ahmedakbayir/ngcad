@@ -64,7 +64,7 @@ export const THEME_COLORS = {
         // Mahaller
         roomFill: '#282828', // Mahal dolgusu (BG'ye yakın)
         roomHover: '#8ab4f8', // Mahal hover
-        roomSelected: '#363636', // Mahal seçili
+        roomSelected: '#1f1e1e', // Mahal seçili
 
         // Grid
         grid: '#141414',

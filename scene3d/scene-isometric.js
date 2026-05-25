@@ -593,7 +593,7 @@ function drawVerticalPipeLabelsIso(ctx, proxyManager) {
     ctx.font = '300 9px "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    
+
     // Yalnızca orijinal boruları temel al (Eğilme/sündürmelerden etkilenmez)
     const originalPipes = plumbingManager.pipes;
     const vertPipes = originalPipes.filter(pipe => {
@@ -603,6 +603,10 @@ function drawVerticalPipeLabelsIso(ctx, proxyManager) {
         const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
         return Math.hypot(dx, dy) < 2.0 && Math.abs(dz) > 1.0;
     });
+
+    // Hat numarası eşitliği için: h değerini sadece aynı hatta ait uç-uca bağlı
+    // dikey parçalar için tek ölçüm gibi göster. Farklı hatlarsa ayrı ölç.
+    const { hatMap } = computeHatGroups(plumbingManager.pipes, plumbingManager.components);
 
     const visited = new Set();
     const groups = [];
@@ -617,19 +621,21 @@ function drawVerticalPipeLabelsIso(ctx, proxyManager) {
         while(queue.length > 0) {
             const curr = queue.shift();
             group.push(curr);
+            const currHat = hatMap.get(curr.id);
 
             vertPipes.forEach(other => {
-                if (!visited.has(other.id)) {
-                    // Bağlantı noktası toleransı 1cm
-                    if (
-                        (Math.abs(curr.p1.x - other.p1.x) < 1 && Math.abs(curr.p1.y - other.p1.y) < 1 && Math.abs((curr.p1.z||0) - (other.p1.z||0)) < 1) ||
-                        (Math.abs(curr.p1.x - other.p2.x) < 1 && Math.abs(curr.p1.y - other.p2.y) < 1 && Math.abs((curr.p1.z||0) - (other.p2.z||0)) < 1) ||
-                        (Math.abs(curr.p2.x - other.p1.x) < 1 && Math.abs(curr.p2.y - other.p1.y) < 1 && Math.abs((curr.p2.z||0) - (other.p1.z||0)) < 1) ||
-                        (Math.abs(curr.p2.x - other.p2.x) < 1 && Math.abs(curr.p2.y - other.p2.y) < 1 && Math.abs((curr.p2.z||0) - (other.p2.z||0)) < 1)
-                    ) {
-                        visited.add(other.id);
-                        queue.push(other);
-                    }
+                if (visited.has(other.id)) return;
+                // Hat noları farklıysa aynı gruba girmez → ayrı ölçülür
+                if (hatMap.get(other.id) !== currHat) return;
+                // Bağlantı noktası toleransı 1cm (x,y aynı olmalı; z farklı kabul)
+                if (
+                    (Math.abs(curr.p1.x - other.p1.x) < 1 && Math.abs(curr.p1.y - other.p1.y) < 1 && Math.abs((curr.p1.z||0) - (other.p1.z||0)) < 1) ||
+                    (Math.abs(curr.p1.x - other.p2.x) < 1 && Math.abs(curr.p1.y - other.p2.y) < 1 && Math.abs((curr.p1.z||0) - (other.p2.z||0)) < 1) ||
+                    (Math.abs(curr.p2.x - other.p1.x) < 1 && Math.abs(curr.p2.y - other.p1.y) < 1 && Math.abs((curr.p2.z||0) - (other.p1.z||0)) < 1) ||
+                    (Math.abs(curr.p2.x - other.p2.x) < 1 && Math.abs(curr.p2.y - other.p2.y) < 1 && Math.abs((curr.p2.z||0) - (other.p2.z||0)) < 1)
+                ) {
+                    visited.add(other.id);
+                    queue.push(other);
                 }
             });
         }
