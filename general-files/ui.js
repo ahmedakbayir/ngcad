@@ -2007,6 +2007,27 @@ export function setupUIListeners() {
         });
     }
 
+    // İZOMETRİ RENK MODU (Topoloji / Çap)
+    const isoColorBtns = [
+        document.getElementById('iso-color-topology'),
+        document.getElementById('iso-color-diameter'),
+    ].filter(Boolean);
+    const syncIsoColorBtns = () => {
+        isoColorBtns.forEach(b => {
+            b.classList.toggle('active', b.dataset.colorMode === state.isometricColorMode);
+        });
+    };
+    syncIsoColorBtns();
+    isoColorBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const mode = btn.dataset.colorMode;
+            if (state.isometricColorMode === mode) return;
+            setState({ isometricColorMode: mode });
+            syncIsoColorBtns();
+            drawIsoView();
+        });
+    });
+
     // İZOMETRİ ETİKETLERİ YERLEŞTİR + YOĞUN HATLARI ÖLÇEKLE
     const isoRelayoutBtn = document.getElementById('iso-relayout');
     if (isoRelayoutBtn) {

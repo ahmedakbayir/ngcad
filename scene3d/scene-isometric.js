@@ -91,13 +91,18 @@ function createIsoProxyManager(manager) {
     }
     
     // 2. Kopya (Proxy) boruları Joint haritasındaki net ofsetlere göre kaydır
+    // İzometri renk modu 'diameter' ise colorGroup'u boruCap (DN15..DN450) ile değiştir.
+    // Bu sayede renderer'ın mevcut colorGroup→renk lookup'ı tüm gövde/dirsek/reducer
+    // çizimlerinde otomatik olarak çap renklerini kullanır.
+    const colorByDiameter = state.isometricColorMode === 'diameter';
     proxyManager.pipes = manager.pipes.map(pipe => {
         const proxyPipe = Object.create(pipe);
         const off1 = jointOffsets.get(getJointKey(pipe.p1)) || { dwx: 0, dwy: 0 };
         const off2 = jointOffsets.get(getJointKey(pipe.p2)) || { dwx: 0, dwy: 0 };
-        
+
         proxyPipe.p1 = { ...pipe.p1, x: pipe.p1.x + off1.dwx, y: pipe.p1.y + off1.dwy };
         proxyPipe.p2 = { ...pipe.p2, x: pipe.p2.x + off2.dwx, y: pipe.p2.y + off2.dwy };
+        if (colorByDiameter && pipe.boruCap) proxyPipe.colorGroup = pipe.boruCap;
         return proxyPipe;
     });
     

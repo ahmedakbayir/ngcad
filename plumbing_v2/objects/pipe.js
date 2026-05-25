@@ -13,6 +13,85 @@
 
 import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 
+// Çap bazlı izometri renk paleti (DN15..DN450).
+// Komşu çaplar (örn. DN25 ↔ DN32) sıcak/soğuk alternasyonu ile her zaman ayrışır.
+// Light/Dark temalar için ayrı RGB'ler — light arka planda koyu, dark arka planda daha doygun.
+// Kullanıcı izometride görmek istediği renkleri DN'lere doğrudan eşledi:
+// DN20←altın, DN25←kırmızı, DN32←zümrüt, DN40←pembe-bordo, DN50←lacivert.
+// Boşalan DN100/DN125 slotları, DN20'nin eski safiri ve DN40'ın eski lime'ı ile
+// doldurularak komşuluk-ayrımı (sıcak↔soğuk alternasyonu) korundu.
+// Kullanıcı feedback'i (görsel + sözlü):
+//   FRONT (DN15-DN50) en çok kullanılan ve en doygun renkleri almalı; aralarında hue
+//   ailesi çakışması olmamalı. Tespit edilen çakışmalar:
+//     DN65 (menekşe) ≈ DN32 (magenta-mor) → DN32 pembe-magenta'ya, DN65 daha saf mora
+//     DN50 (mavi) ≈ DN40 (cyan)           → DN50 derin indigoya (eski DN100'ün "iyi" rengi)
+//     DN80 (turuncu) ≈ DN20 (altın)       → DN80 kahveye (turuncu front'la karışıyordu)
+//   DN125+ kullanıcı izniyle birbirine yakın olabilir, sadece front'la benzemeyecek.
+export const DIAMETER_PALETTE = {
+    light: {
+        // --- YÜKSEK KULLANIM (FRONT) ---
+        DN15:  [34, 139, 34],     // Orman Yeşili (Canlı ve net)
+        DN20:  [255, 165, 0],    // Saf Turuncu (Altın sarısından daha ayrıştırıcı)
+        DN25:  [220, 20, 60],     // Crimson Kırmızı (Göz alıcı anchor)
+        DN32:  [0, 191, 255],     // Gökyüzü Mavisi (Deep Sky Blue - Temiz ayrım)
+        DN40:  [199, 21, 133],    // Medium Violet Red (Pembe-Kırmızı arası, çok belirgin)
+        DN50:  [65, 105, 225],    // Royal Blue (Derin ama parlak mavi)
+        
+        // --- ORTA KULLANIM ---
+        DN65:  [138, 43, 226],    // Blue Violet (Net mor, maviden ve pembeden ayrılmış)
+        DN80:  [110, 90, 75],      // Mat Toprak Kahvesi (Kırmızı/Turuncu alt tonu sıfırlandı)
+        DN100: [0, 128, 128],     // Teal (Mavi-Yeşil dengesi, DN15'ten çok farklı)
+        DN125: [154, 205, 50],    // Yellow Green (Limon küfü, DN15 ile DN20 arası köprü)
+        
+        // --- DÜŞÜK KULLANIM ---
+        DN150: [47, 79, 79],      // Dark Slate Gray (Koyu petrol grisi)
+        DN200: [160, 82, 45],     // Sienna (Koyu bakır)
+        DN250: [72, 61, 139],     // Dark Slate Blue (Morumsu füme)
+        DN300: [105, 105, 105],   // Dim Gray (Tok gri)
+        DN400: [50, 50, 50],      // Antrasit
+        DN450: [20, 20, 20],      // Siyaha yakın
+    },
+    dark: {
+        // --- YÜKSEK KULLANIM (FRONT) ---
+        DN15:  [50, 205, 50],     // Lime Green (Neon etkisi)
+        DN20:  [255, 215, 0],     // Gold (Siyah zeminde turuncudan daha iyi patlar)
+        DN25:  [255, 69, 0],      // Red Orange (En parlak kırmızı tonu)
+        DN32:  [0, 255, 255],     // Cyan (Siyah üstünde en yüksek kontrast)
+        DN40:  [255, 105, 180],    // Hot Pink (Ayırt ediciliği çok yüksek)
+        DN50:  [100, 149, 237],    // Cornflower Blue (Yumuşak ama belirgin mavi)
+        
+        // --- ORTA KULLANIM ---
+        DN65:  [191, 123, 255],    // Parlak Lavanta (DN32'den net uzaklaşmış)
+        DN80:  [155, 135, 115],    // Nötr Taş Grisi / Kahve (Doygunluğu düşük, DN25 ile asla karışmaz)
+        DN100: [72, 209, 204],     // Medium Turquoise
+        DN125: [173, 255, 47],     // Green Yellow
+        
+        // --- DÜŞÜK KULLANIM ---
+        DN150: [102, 205, 170],    // Medium Aquamarine
+        DN200: [244, 164, 96],     // Sandy Brown
+        DN250: [176, 196, 222],    // Light Steel Blue
+        DN300: [169, 169, 169],    // Dark Gray
+        DN400: [120, 120, 120],    // Orta Gri
+        DN450: [80, 80, 90],       // Soğuk Gri
+    },
+};
+
+function _buildDiameterGroups(mode) {
+    const palette = DIAMETER_PALETTE[mode];
+    const out = {};
+    for (const dn in palette) {
+        const [r, g, b] = palette[dn];
+        out[dn] = {
+            id: dn.toLowerCase(),
+            name: dn,
+            boru: `rgba(${r}, ${g}, ${b}, {opacity})`,
+            dirsek: `rgba(${r}, ${g}, ${b}, {opacity})`,
+            fleks: `rgb(${r}, ${g}, ${b})`,
+        };
+    }
+    return out;
+}
+
 // Renk Grupları (Sayaç Öncesi/Sonrası) - TEMAya GÖRE DİNAMİK
 export function getRenkGruplari() {
     const isLightMode = document.body.classList.contains('light-mode');
@@ -47,7 +126,8 @@ export function getRenkGruplari() {
                 boru: 'rgba(180, 168, 0, {opacity})',      // Zeytin sarısı
                 dirsek: 'rgba(180, 168, 0, {opacity})',    // Zeytin sarısı
                 fleks: 'rgb(180, 140, 0)'                            // Zeytin sarısı
-            }
+            },
+            ..._buildDiameterGroups('light'),
         };
     } else {
         // KOYU MOD - Sarı ve turquaz (orijinal)
@@ -79,7 +159,8 @@ export function getRenkGruplari() {
                 boru: 'rgb(166, 255, 0, {opacity})',      // Limon yeşili
                 dirsek: 'rgba(166, 255, 0, {opacity})',    // Limon yeşili
                 fleks: 'rgb(166, 255, 0)'                            // Limon yeşili
-            }
+            },
+            ..._buildDiameterGroups('dark'),
         };
     }
 }
