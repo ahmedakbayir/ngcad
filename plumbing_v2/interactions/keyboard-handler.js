@@ -735,23 +735,31 @@ function openVerticalPanel(opts) {
     input.value = '0';
     this.verticalHeightInput = 0;
 
-    // Konumlandırma — panel sayfa dışına taşmasın (tüm kenarlar)
-    const canvas = document.getElementById('c2d');
-    const rect = canvas.getBoundingClientRect();
-    let screenX = (this.lastMousePoint && this.lastMousePoint.screenX) || rect.width / 2;
-    let screenY = (this.lastMousePoint && this.lastMousePoint.screenY) || rect.height / 2;
+    // Konumlandırma — panel fixed positioned, viewport-relative koordinat kullanılır.
+    // lastMousePoint.clientX/Y her canvas'tan (c2d, cPersp, cIso) güncelleniyor;
+    // böylece 3D perspektif veya izometri görünümünde de panel doğru konuma açılır.
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let clientX = (this.lastMousePoint && this.lastMousePoint.clientX != null)
+        ? this.lastMousePoint.clientX : vw / 2;
+    let clientY = (this.lastMousePoint && this.lastMousePoint.clientY != null)
+        ? this.lastMousePoint.clientY : vh / 2;
 
     // Panel gerçek boyutu (render edildikten sonra)
     const pw = panel.offsetWidth || 260;
     const ph = panel.offsetHeight || 280;
-    const margin = 8;
 
-    let left = screenX + 20;
-    let top  = screenY;
-    if (left + pw > rect.width - margin)  left = rect.width  - pw - margin;
-    if (top  + ph > rect.height - margin) top  = rect.height - ph - margin;
-    if (left < margin) left = margin;
-    if (top  < margin) top  = margin;
+    // %90 kuralı — panel viewport'un orta %90'lık alanında kalmalı, her kenardan
+    // en az %5 boşluk bırakmalı. Panel kendi başına %90'dan büyükse kenara yasla.
+    const marginX = Math.max(8, Math.round(vw * 0.05));
+    const marginY = Math.max(8, Math.round(vh * 0.05));
+
+    let left = clientX + 20;
+    let top  = clientY;
+    if (left + pw > vw - marginX) left = vw - pw - marginX;
+    if (top  + ph > vh - marginY) top  = vh - ph - marginY;
+    if (left < marginX) left = marginX;
+    if (top  < marginY) top  = marginY;
 
     panel.style.left = `${left}px`;
     panel.style.top  = `${top}px`;

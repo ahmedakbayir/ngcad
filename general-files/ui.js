@@ -13,7 +13,7 @@ import { update3DScene } from '../scene3d/scene3d-update.js';
 import { updateSceneBackground } from '../scene3d/scene3d-core.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
-import { renderIsometric, hitTestIsoLabel, setIsoLabelPos, cycleIsoLabelDir, relayoutIsoLabels } from '../scene3d/scene-isometric.js';
+import { renderIsometric, hitTestIsoLabel, setIsoLabelPos, cycleIsoLabelDir, relayoutIsoLabels, toIsometric, createIsoProxyManager } from '../scene3d/scene-isometric.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { closePropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
@@ -331,20 +331,17 @@ export function togglePerspView() {
         const btns = document.getElementById('persp-ratio-buttons');
         if (btns) btns.style.display = 'flex';
         if (dom.perspSplitter) dom.perspSplitter.style.display = 'block';
-        // Önceki kapatmadan kalan genişlik varsa onu geri yükle, yoksa varsayılan %50.
-        if (_savedPerspPanelFlex) {
-            const p2d = document.getElementById('p2d');
-            const pPersp = document.getElementById('pPersp');
-            if (p2d) p2d.style.flex = _savedPerspP2dFlex || '';
-            if (pPersp) pPersp.style.flex = _savedPerspPanelFlex;
-            document.querySelectorAll('#persp-ratio-buttons .split-btn').forEach(b => b.classList.remove('active'));
-            if (_savedPerspRatioBtn) {
-                const btn = document.getElementById(_savedPerspRatioBtn);
-                if (btn) btn.classList.add('active');
-            }
-        } else {
-            setPerspRatio(50);
+        // Önceki açılışta preset ratio (25/50/75/100) kullanıldıysa onunla geri aç;
+        // splitter ile manuel sürüklenmişse (preset yok) güvenli varsayılan %50.
+        // Doğrudan eski inline flex'i (pixel bazlı) restore etmek, bir sonraki açılışta
+        // perspektif panelini sağda sıkışmış halde getirebiliyordu — bu yüzden hep
+        // viewport'a göre yeniden hesaplayan setPerspRatio'dan geçiyoruz.
+        let restoreRatio = 50;
+        if (_savedPerspRatioBtn) {
+            const m = _savedPerspRatioBtn.match(/persp-(\d+)/);
+            if (m) restoreRatio = parseInt(m[1], 10);
         }
+        setPerspRatio(restoreRatio);
     } else {
         const btns = document.getElementById('persp-ratio-buttons');
         if (btns) btns.style.display = 'none';
@@ -450,8 +447,8 @@ export function toggleIsoView() {
         // İzometrik görünümü çiz
         drawIsoView();
 
-        // Varsayılan split ratio'yu ayarla (50%)
-        setIsoRatio(50);
+        // Varsayılan split ratio'yu ayarla (100% — daima tam ekran aç)
+        setIsoRatio(100);
     } else {
         // İzometri ratio butonlarını gizle
         const isoButtons = document.getElementById('iso-ratio-buttons');
@@ -459,13 +456,29 @@ export function toggleIsoView() {
 
         // İzometri splitter'ını gizle
         dom.isoSplitter.style.display = 'none';
+
+        // setIsoRatio(100) ile bırakılan inline flex stillerini temizle —
+        // aksi takdirde p2d '0 0 0' takılı kalıyor ve izometri kapatılınca
+        // 2D çizim ekrana gelmiyor.
+        const p2dPanel = document.getElementById('p2d');
+        const pIsoPanel = document.getElementById('pIso');
+        if (p2dPanel) p2dPanel.style.flex = '';
+        if (pIsoPanel) pIsoPanel.style.flex = '';
     }
 
     setTimeout(() => {
         resize();
         if (dom.mainContainer.classList.contains('show-iso')) {
             resizeIsoCanvas();
-            drawIsoView();
+            // İzometri açıldığında otomatik ekrana sığdır
+            if (isIsoActive) {
+                fitIsoToScreen();
+            } else {
+                drawIsoView();
+            }
+        } else {
+            // İzometri kapatıldı — 2D canvas yeniden boyutlandı, yeniden çiz.
+            draw2D();
         }
     }, 10);
 }
@@ -1052,11 +1065,29 @@ export function setupIsometricControls() {
     dom.cIso.addEventListener('mouseup', stopInteraction);
     dom.cIso.addEventListener('mouseleave', stopInteraction);
 
-    // Sağ tık menüsünü engelle
+    // Sağ tık menüsü — orjinal boyuta sıfırla / etiketleri yeniden yerleştir
     dom.cIso.addEventListener('contextmenu', (e) => {
-        if (dom.mainContainer.classList.contains('show-iso')) {
-            e.preventDefault();
-        }
+        if (!dom.mainContainer.classList.contains('show-iso')) return;
+        e.preventDefault();
+        const menu = document.getElementById('iso-context-menu');
+        if (!menu) return;
+        // Önce göster ki boyutunu ölçebilelim
+        menu.style.display = 'block';
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const mw = menu.offsetWidth || 240;
+        const mh = menu.offsetHeight || 80;
+        // %90 kuralı — viewport orta %90'ında kalmalı, her kenardan %5 boşluk.
+        const marginX = Math.max(8, Math.round(vw * 0.05));
+        const marginY = Math.max(8, Math.round(vh * 0.05));
+        let left = e.clientX;
+        let top = e.clientY;
+        if (left + mw > vw - marginX) left = vw - mw - marginX;
+        if (top + mh > vh - marginY) top = vh - mh - marginY;
+        if (left < marginX) left = marginX;
+        if (top < marginY) top = marginY;
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
     });
 }
 
@@ -1999,11 +2030,53 @@ export function setupUIListeners() {
         });
     });
 
-    // İZOMETRİ RESET BUTONU
+    // İZOMETRİ "EKRANA SIĞDIR" BUTONU — sadece zoom/pan'i fit eder, sürükleme
+    // offset'lerini silmez. Sıfırlama sağ tık menüsünden yapılır.
     const isoResetBtn = document.getElementById('iso-reset');
     if (isoResetBtn) {
         isoResetBtn.addEventListener('click', () => {
+            fitIsoToScreen();
+        });
+    }
+
+    // İZOMETRİ SAĞ TIK MENÜSÜ — orjinal boyuta sıfırla / etiketleri yeniden yerleştir
+    const isoCtxMenu = document.getElementById('iso-context-menu');
+    const isoCtxReset = document.getElementById('iso-ctx-reset');
+    const isoCtxRelayout = document.getElementById('iso-ctx-relayout');
+    const hideIsoCtxMenu = () => { if (isoCtxMenu) isoCtxMenu.style.display = 'none'; };
+    if (isoCtxMenu && isoCtxReset && isoCtxRelayout) {
+        isoCtxReset.addEventListener('click', () => {
+            hideIsoCtxMenu();
             resetIsometricView();
+        });
+        isoCtxRelayout.addEventListener('click', () => {
+            hideIsoCtxMenu();
+            if (!plumbingManager) return;
+            const toast = document.getElementById('label-relayout-toast');
+            const toastText = document.getElementById('label-relayout-toast-text');
+            if (toast && toastText) {
+                toastText.textContent = 'İzo etiketleri yerleştiriliyor…';
+                toast.style.display = 'flex';
+            }
+            try {
+                const { pipeOffsets, labelOffsets } = relayoutIsoLabels(plumbingManager);
+                setState({
+                    isoPipeOffsets: pipeOffsets,
+                    isoLabelOffsets: labelOffsets,
+                });
+                drawIsoView();
+            } finally {
+                if (toast) setTimeout(() => { toast.style.display = 'none'; }, 600);
+            }
+        });
+        // Dışarıya tıklayınca veya ESC ile kapat
+        document.addEventListener('mousedown', (e) => {
+            if (isoCtxMenu.style.display === 'block' && !isoCtxMenu.contains(e.target)) {
+                hideIsoCtxMenu();
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') hideIsoCtxMenu();
         });
     }
 
@@ -2156,17 +2229,78 @@ function setupVisibilityPanel() {
 // --- setupUIListeners Sonu ---
 
 /**
- * İzometrik görünümü orijinal boyutlara sıfırlar
+ * İzometri içeriğinin bounding box'ını hesaplayıp ekrana sığdırır.
+ * isoZoom + isoPanOffset'i çizimi merkezleyecek ve canvas'a oturtacak şekilde ayarlar.
+ */
+export function fitIsoToScreen() {
+    if (!dom.mainContainer.classList.contains('show-iso')) return;
+    if (!plumbingManager) return;
+    const canvas = dom.cIso;
+    if (!canvas || canvas.width === 0 || canvas.height === 0) return;
+
+    const PADDING = 40;
+    const FIT_FILL = 0.9;
+
+    let minIsoX = Infinity, minIsoY = Infinity, maxIsoX = -Infinity, maxIsoY = -Infinity;
+    let hasContent = false;
+
+    const include = (x, y, z = 0) => {
+        const iso = toIsometric(x, y, z);
+        if (iso.isoX < minIsoX) minIsoX = iso.isoX;
+        if (iso.isoY < minIsoY) minIsoY = iso.isoY;
+        if (iso.isoX > maxIsoX) maxIsoX = iso.isoX;
+        if (iso.isoY > maxIsoY) maxIsoY = iso.isoY;
+        hasContent = true;
+    };
+
+    // Kullanıcının manuel sürüklemelerini (isoPipeOffsets, isoComponentOffsets)
+    // dikkate al — fit, ekranda HALEN gördüğü düzene göre yapılmalı, orijinaline
+    // değil. createIsoProxyManager bu offset'leri uygulayıp proxy pozisyonlar üretir.
+    const proxy = createIsoProxyManager(plumbingManager);
+    (proxy.pipes || []).forEach(p => {
+        if (p.p1) include(p.p1.x, p.p1.y, p.p1.z || 0);
+        if (p.p2) include(p.p2.x, p.p2.y, p.p2.z || 0);
+    });
+    (proxy.components || []).forEach(c => {
+        if (c.x != null && c.y != null) include(c.x, c.y, c.z || 0);
+    });
+
+    if (!hasContent || !isFinite(minIsoX) || !isFinite(maxIsoX)) {
+        setState({ isoZoom: 1, isoPanOffset: { x: 0, y: 0 } });
+        drawIsoView();
+        return;
+    }
+
+    const isoWidth = Math.max(maxIsoX - minIsoX, 1);
+    const isoHeight = Math.max(maxIsoY - minIsoY, 1);
+    const availW = Math.max(canvas.width - 2 * PADDING, 1);
+    const availH = Math.max(canvas.height - 2 * PADDING, 1);
+
+    const newZoom = Math.max(0.1, Math.min(5, Math.min(availW / isoWidth, availH / isoHeight) * FIT_FILL));
+
+    const isoCenterX = (minIsoX + maxIsoX) / 2;
+    const isoCenterY = (minIsoY + maxIsoY) / 2;
+
+    setState({
+        isoZoom: newZoom,
+        isoPanOffset: {
+            x: -isoCenterX * newZoom,
+            y: -isoCenterY * newZoom,
+        },
+    });
+    drawIsoView();
+}
+
+/**
+ * İzometrik görünümü orijinal boyutlara sıfırlar ve ekrana sığdırır.
  */
 export function resetIsometricView() {
     setState({
-        isoZoom: 0.5,
-        isoPanOffset: { x: 0, y: 0 },
         isoPipeOffsets: {},
         isoComponentOffsets: {},
         isoLabelOffsets: {},
     });
-    drawIsoView();
+    fitIsoToScreen();
 }
 
 /**

@@ -300,7 +300,11 @@ canvas {
 #ui {
     margin-top: 0;
     position: relative;
-    z-index: 10;
+    /* z-index >= 10001: tüm panellerin (p3d=10000, pPersp=9999, pIso) üstünde olmalı —
+       3D perspektif %100 açıldığında bile çizim ikonları paneller üstünde kalsın.
+       Üst menü çubukları (#drawing-mode-selector, #viewing-mode-selector) bunun
+       üstünde tutulur ki ana menü dropdown'ı toolbar'ı örtebilsin. */
+    z-index: 10001;
     pointer-events: none;
     /* UI container'a tıklanmasın, sadece çocuklar */
 }
@@ -1758,7 +1762,8 @@ body.light-mode .btn.active svg {
     border-right: 1px solid var(--border-group);
     border-bottom-right-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    z-index: 10000;
+    /* Toolbar (#ui=10001) üstünde olmalı ki ana menü dropdown'ı toolbar'ı örtsün. */
+    z-index: 10002;
     backdrop-filter: blur(4px);
 }
 
@@ -1775,7 +1780,8 @@ body.light-mode .btn.active svg {
     border-left: 1px solid var(--border-group);
     border-bottom-left-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    z-index: 10000;
+    /* Toolbar (#ui=10001) üstünde olmalı. */
+    z-index: 10002;
     backdrop-filter: blur(4px);
 }
 
@@ -2051,8 +2057,14 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
 
 /* Düşey Panel - Glassmorphism Tasarım */
 .vertical-panel {
-    position: absolute;
-    z-index: 5000;
+    /* fixed: panel #p2d içinde ama p2d genişliği 0 olduğunda (örn. 3D persp %100)
+       overflow:hidden kırpıyordu — viewport-relative yapınca tüm görünüm modlarında
+       (2D, izometri, 3D perspektif) ekran üstüne düzgün açılıyor.
+       z-index >= 15000: tüm panellerin (pPersp=9999, p3d=10000, #ui=10001, üst menü
+       barları=10002) ve iso ctx menüsünün (12000) üstünde olmalı — aksi takdirde 3D
+       perspektif canvas'ı paneli örtüyordu. */
+    position: fixed;
+    z-index: 15000;
     width: 360px;
     border-radius: 16px;
     font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;

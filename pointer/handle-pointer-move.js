@@ -20,10 +20,14 @@ export function handlePointerMove(e) {
     const walls = state.walls || [];
 
     // Son mouse pozisyonunu kaydet
+    // clientX/Y de saklanıyor: viewport-relative fixed paneller (vertical-height-panel)
+    // perspektif canvas'ında da doğru konumlanabilsin diye gerek var.
     this.lastMousePoint = {
         ...point,
         screenX: mouseScreenX,
-        screenY: mouseScreenY
+        screenY: mouseScreenY,
+        clientX: e.clientX,
+        clientY: e.clientY,
     };
 
     // Gizmo hover kontrolü (seçili nesne varsa ve sürüklenmiyorsa)

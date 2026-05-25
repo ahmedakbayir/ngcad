@@ -49,7 +49,7 @@ function getJointKey(p) {
  * 3D Perspektif motorunu kandırmak için Proxy (Kopya) Manager.
  * Tüm nesnelerin konumları, kullanıcının yaptığı izometrik offset'lere göre kaydırılır.
  */
-function createIsoProxyManager(manager) {
+export function createIsoProxyManager(manager) {
     const proxyManager = Object.create(manager);
     
     // 1. JOINT OFSET HARİTASI (Kopmaları ve fırlamaları kesin çözer)
