@@ -990,8 +990,15 @@ export function handleDrag(interactionManager, point, event = null) {
                             const bacalar = interactionManager.manager.components.filter(b => b.type === 'baca' && b.parentCihazId === c.id);
                             bacalar.forEach(baca => {
                                 baca.startX += dx; baca.startY += dy;
+                                baca.z = (baca.z || 0) + dz;
                                 baca.currentSegmentStart.x += dx; baca.currentSegmentStart.y += dy;
-                                baca.segments.forEach(seg => { seg.x1 += dx; seg.y1 += dy; seg.x2 += dx; seg.y2 += dy; });
+                                if (baca.currentSegmentStart.z !== undefined) baca.currentSegmentStart.z += dz;
+                                baca.segments.forEach(seg => {
+                                    seg.x1 += dx; seg.y1 += dy;
+                                    seg.x2 += dx; seg.y2 += dy;
+                                    if (seg.z1 !== undefined) seg.z1 += dz;
+                                    if (seg.z2 !== undefined) seg.z2 += dz;
+                                });
                                 if (baca.havalandirma) { baca.havalandirma.x += dx; baca.havalandirma.y += dy; }
                             });
                         }

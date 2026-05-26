@@ -17,6 +17,7 @@ import { Baca } from '../objects/chimney.js';
 import { Regulator } from '../objects/regulator.js';
 import { getFloorIdForZ } from '../../floor/floor-handler.js';
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
+import { syncAllFloorAssignments } from '../floor-sync.js';
 import { togglePropertiesPanel, closePropertiesPanel, isPanelOpen, openEmptyPanel, currentPanelMode, PANEL_MODES } from '../properties/properties-panel.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 
@@ -1838,6 +1839,11 @@ export function applyPipeResize() {
         if (newPipeFloorId) pipe.floorId = newPipeFloorId;
     }
 
+    // Resize sonrası tüm tesisat nesnelerinin floorId/kat eşleşmesini tazele;
+    // gerekiyorsa yeni kat oluşturur. Aksi halde uzayan/kısalan hat kat
+    // yönetimine yansımıyor ve cihazlar eski katlarında "aktif" görünüyordu.
+    syncAllFloorAssignments(this.manager);
+
     this.manager.saveToState();
 }
 
@@ -1950,6 +1956,10 @@ export function applyVerticalPipeInsert() {
     }
     newPipe.isSelected = true;
     this.selectedObject = newPipe;
+
+    // Düşey ekleme cihazlar/sayaçları Z'de kaydırıyor; mevcut katlar dışına
+    // çıkılırsa yeni kat oluştur ve tüm floorId eşleşmelerini tazele.
+    syncAllFloorAssignments(this.manager);
 
     this.manager.saveToState();
 }

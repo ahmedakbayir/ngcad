@@ -42,8 +42,25 @@ export function findObjectAt(manager, point) {
     const is3D = t >= 0.5;
     const currentFloorId = state.currentFloor?.id || null;
     const currentFloor = state.currentFloor || null;
-    const sameFloor = (o) => is3D || !currentFloorId || !o.floorId || o.floorId === currentFloorId;
+    // 3D'de yalnızca "Diğer Katları Gizle" aktif olduğunda görünmez kat
+    // nesnelerini tıklanabilir havuzdan çıkar. Diğer katlar silik şekilde
+    // görünüyorsa (viewMode='building') tıklama serbest kalsın — kullanıcı
+    // gördüğü her şeyi seçebilmeli.
+    const hideOtherFloors3D = !!(state.tempVisibility?.hideOtherFloors3D);
+    const sameFloor = (o) => {
+        if (is3D && hideOtherFloors3D) {
+            if (!currentFloorId) return true;
+            if (!o.floorId) return true;
+            return o.floorId === currentFloorId;
+        }
+        return is3D || !currentFloorId || !o.floorId || o.floorId === currentFloorId;
+    };
     const pipeVisibleOnFloor = (pipe) => {
+        if (is3D && hideOtherFloors3D) {
+            if (!currentFloorId) return true;
+            if (!pipe.floorId) return true;
+            return pipe.floorId === currentFloorId;
+        }
         if (is3D) return true;
         if (!currentFloorId || !pipe.floorId || pipe.floorId === currentFloorId) return true;
         if (!currentFloor) return true;

@@ -22,7 +22,10 @@ import { state } from '../../general-files/main.js';
 // Sabitler
 export const TESISAT_CONSTANTS = {
     BORU_ACIKLIGI: 5,           // cm - Duvar yüzeyinden boru mesafesi
-    SNAP_MESAFESI: 20,          // cm - Snap yakalama mesafesi
+    SNAP_MESAFESI: 10,          // cm - Snap yakalama mesafesi (mouse civarı). Daha
+                                // önce 20cm idi; kullanıcı çizerken farenin 10cm
+                                // ötesindeki noktaları zorla yakaladığını bildirdi.
+                                // SELECTION_TOLERANCE_PIXELS pixel cinsinden ayrı.
     MIN_BORU_UZUNLUGU: 5,       // cm
     ACI_TOLERANSI: 30,            // derece - 90° snap toleransı (X ve Y yönü)
     SELECTION_TOLERANCE_PIXELS: 12, // piksel - Seçim için tolerance (ZOOM BAĞIMSIZ - ekranda her zaman 12 piksel)
@@ -286,6 +289,10 @@ export class TesisatSnapSystem {
         let closest = null;
         let minDist = tolerance;
 
+        // Aktif kat dışındaki boruları snap havuzundan çıkar.
+        const currentFloorId = state.currentFloor?.id || null;
+        const isSameFloor = (pipe) => !currentFloorId || !pipe.floorId || pipe.floorId === currentFloorId;
+
         // Kullanıcının gittiği yön
         const userAngle = Math.atan2(
             point.y - this.currentStartPoint.y,
@@ -300,6 +307,7 @@ export class TesisatSnapSystem {
 
         // Her mevcut boru ile kesişim kontrolü
         this.manager.pipes.forEach(pipe => {
+            if (!isSameFloor(pipe)) return;
             const kesisim = this.lineIntersection(
                 drawLine.p1, drawLine.p2,
                 pipe.p1, pipe.p2
@@ -343,6 +351,10 @@ export class TesisatSnapSystem {
         let closest = null;
         let minDist = tolerance;
 
+        // Aktif kat dışındaki boruları snap havuzundan çıkar.
+        const currentFloorId = state.currentFloor?.id || null;
+        const isSameFloor = (pipe) => !currentFloorId || !pipe.floorId || pipe.floorId === currentFloorId;
+
         // Kullanıcının gittiği yön
         let userAngle = null;
         if (this.currentStartPoint) {
@@ -353,6 +365,7 @@ export class TesisatSnapSystem {
         }
 
         this.manager.pipes.forEach(pipe => {
+            if (!isSameFloor(pipe)) return;
             [pipe.p1, pipe.p2].forEach(node => {
                 // Açı kontrolü
                 if (userAngle !== null && this.currentStartPoint) {
@@ -449,6 +462,10 @@ export class TesisatSnapSystem {
         let closest = null;
         let minDist = tolerance;
 
+        // Aktif kat dışındaki boruları snap havuzundan çıkar.
+        const currentFloorId = state.currentFloor?.id || null;
+        const isSameFloor = (pipe) => !currentFloorId || !pipe.floorId || pipe.floorId === currentFloorId;
+
         // Kullanıcının gittiği yön
         const userAngle = Math.atan2(
             point.y - this.currentStartPoint.y,
@@ -456,6 +473,7 @@ export class TesisatSnapSystem {
         ) * 180 / Math.PI;
 
         this.manager.pipes.forEach(pipe => {
+            if (!isSameFloor(pipe)) return;
             const dikNokta = this.perpendicularPoint(
                 this.currentStartPoint,
                 pipe.p1,
@@ -557,6 +575,10 @@ export class TesisatSnapSystem {
         let closest = null;
         let minDist = tolerance;
 
+        // Aktif kat dışındaki boruları snap havuzundan çıkar.
+        const currentFloorId = state.currentFloor?.id || null;
+        const isSameFloor = (pipe) => !currentFloorId || !pipe.floorId || pipe.floorId === currentFloorId;
+
         // Kullanıcının gittiği yön
         let userAngle = null;
         if (this.currentStartPoint) {
@@ -567,6 +589,7 @@ export class TesisatSnapSystem {
         }
 
         this.manager.pipes.forEach(pipe => {
+            if (!isSameFloor(pipe)) return;
             const proj = this.projectToLine(point, pipe.p1, pipe.p2);
             if (!proj || !proj.onSegment) return;
 

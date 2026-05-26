@@ -242,7 +242,10 @@ export function pasteFloorArchitecture() {
             center: roomData.center ? [...roomData.center] : undefined,
             centerOffset: roomData.centerOffset ? { ...roomData.centerOffset } : undefined,
             polygon: roomData.polygon ? JSON.parse(JSON.stringify(roomData.polygon)) : undefined, // DÜZELTME: polygon da kopyalanmalı
-            floorId: currentFloorId
+            floorId: currentFloorId,
+            // Birim numarası kata özgüdür — kopyalanmaz, aksi halde Daire 1
+            // her katta tekrar eder ve kapı/birim etiketleri üst üste biner.
+            birimNo: ''
         };
         state.rooms.push(newRoom);
     });
@@ -445,7 +448,10 @@ function pasteToAllFloors() {
                 center: roomData.center ? [...roomData.center] : undefined,
                 centerOffset: roomData.centerOffset ? { ...roomData.centerOffset } : undefined,
                 polygon: roomData.polygon ? JSON.parse(JSON.stringify(roomData.polygon)) : undefined, // DÜZELTME: polygon da kopyalanmalı
-                floorId: floorId
+                floorId: floorId,
+                // Birim numarası kata özgüdür — kopyalanmaz, aksi halde tüm katlarda
+                // aynı kapı no'ları üst üste biner.
+                birimNo: ''
             };
             state.rooms.push(newRoom);
         });

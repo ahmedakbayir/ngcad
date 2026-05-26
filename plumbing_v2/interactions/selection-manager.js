@@ -51,7 +51,11 @@ export function selectObject(interactionManager, obj, opts = {}) {
 
     const vbf = state.viewBlendFactor || 0;
     const targetFloorId = opts.preferredFloorId || (obj && obj.floorId) || null;
-    if (vbf >= 0.5 && targetFloorId && targetFloorId !== state.currentFloor?.id) {
+    // Yalnızca "Diğer Katları Gizle" aktifse görünmeyen kata otomatik geçme.
+    // Silik (faded) görünüyorsa kullanıcı kasıtlı olarak diğer katlardaki
+    // tesisata tıklamış olabilir; floor switch normal akış.
+    const hideOtherFloors3D = !!(state.tempVisibility?.hideOtherFloors3D);
+    if (vbf >= 0.5 && targetFloorId && targetFloorId !== state.currentFloor?.id && !hideOtherFloors3D) {
         switchToFloor(targetFloorId);
     }
 

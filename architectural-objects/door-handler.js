@@ -191,8 +191,15 @@ export function onPointerMove(unsnappedPos) {
     let minDistSq = Infinity;
     const bodyHitTolerance = state.wallThickness * 2;
 
+    // Kapı yalnız kendi katındaki (veya aktif kattaki) duvarlara taşınmalı.
+    // Aksi halde başka kattaki bir duvar ekranda daha yakın görününce kapı
+    // o kata taşınıyor ve aktif kattan kaybolmuş gibi görünüyordu —
+    // kullanıcının "kapı tıklayınca siliniyor" şikayetinin asıl nedeni.
+    const doorFloorId = door.floorId || door.wall?.floorId || state.currentFloor?.id || null;
+
     for (const w of state.walls) {
         if (!w.p1 || !w.p2) continue; // Geçersiz duvarları atla
+        if (doorFloorId && w.floorId && w.floorId !== doorFloorId) continue;
         const d = distToSegmentSquared(targetPos, w.p1, w.p2);
         if (d < bodyHitTolerance ** 2 && d < minDistSq) {
             minDistSq = d;

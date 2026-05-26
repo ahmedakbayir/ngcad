@@ -466,6 +466,86 @@ function mergeColumnsWithWalls() {
     });
 }
 
+/**
+ * Geçersiz `door.wall` referanslarını onarır.
+ *
+ * processWalls içinde duvarlar splice/yeniden oluşturulduğunda kapılar eski
+ * (artık state.walls'da olmayan) duvar nesnelerine bağlı kalabiliyor. Bu kapılar
+ * 3D'de görünmez oluyor (renderer state.walls üzerinden ilerliyor) ve
+ * mimari paste sonrası kullanıcı için "kapı tıklanınca siliniyor" gibi
+ * algılanıyor. Burada her stale kapı için aynı kattaki uygun bir duvarı
+ * geometrik olarak tespit edip referansı yeniden bağlıyoruz.
+ */
+function repairDoorWallReferences() {
+    const wallSet = new Set(state.walls);
+    let hasStale = false;
+    for (const d of state.doors) {
+        if (d.wall && !wallSet.has(d.wall)) { hasStale = true; break; }
+    }
+    if (!hasStale) return;
+
+    const orphanedDoors = [];
+
+    for (const door of state.doors) {
+        if (!door.wall || wallSet.has(door.wall)) continue;
+        const oldWall = door.wall;
+        if (!oldWall.p1 || !oldWall.p2) continue;
+
+        const oldLen = Math.hypot(oldWall.p2.x - oldWall.p1.x, oldWall.p2.y - oldWall.p1.y);
+        if (oldLen < 0.1) continue;
+
+        // Eski kapının dünya koordinatını bul.
+        const dx = (oldWall.p2.x - oldWall.p1.x) / oldLen;
+        const dy = (oldWall.p2.y - oldWall.p1.y) / oldLen;
+        const doorWorldX = oldWall.p1.x + dx * door.pos;
+        const doorWorldY = oldWall.p1.y + dy * door.pos;
+
+        // Aynı kattaki en yakın segmenti bul; orjinal duvarın yönüne (paralel)
+        // olanlara hafif ek tercih ver.
+        let best = null;
+        let bestScore = Infinity;
+        for (const w of state.walls) {
+            if (!w.p1 || !w.p2) continue;
+            if (oldWall.floorId && w.floorId !== oldWall.floorId) continue;
+
+            const wLen = Math.hypot(w.p2.x - w.p1.x, w.p2.y - w.p1.y);
+            if (wLen < 0.1) continue;
+
+            // Kapı merkezinin segment üzerine izdüşümü
+            const wdx = (w.p2.x - w.p1.x) / wLen;
+            const wdy = (w.p2.y - w.p1.y) / wLen;
+            const px = doorWorldX - w.p1.x;
+            const py = doorWorldY - w.p1.y;
+            const tProj = px * wdx + py * wdy;
+            if (tProj < 0 || tProj > wLen) continue;
+
+            const perpDist = Math.abs(px * (-wdy) + py * wdx);
+            const wallPx = w.thickness || state.wallThickness || 20;
+            if (perpDist > wallPx) continue; // duvarın görünür gövdesinden uzak
+
+            // Yön benzerliği bonusu (paralel duvarlar tercih edilsin)
+            const alignDot = Math.abs(wdx * dx + wdy * dy);
+            const score = perpDist + (1 - alignDot) * 5;
+            if (score < bestScore) {
+                bestScore = score;
+                best = { wall: w, newPos: tProj };
+            }
+        }
+
+        if (best) {
+            door.wall = best.wall;
+            door.pos = best.newPos;
+            door.floorId = best.wall.floorId || door.floorId;
+        } else {
+            orphanedDoors.push(door);
+        }
+    }
+
+    if (orphanedDoors.length > 0) {
+        state.doors = state.doors.filter(d => !orphanedDoors.includes(d));
+    }
+}
+
 export function processWalls(skipMerge = false, skipRoomDetection = false, processAllFloors = false) {
     // Kolon node'larını duvar sisteminden ayır
     state.nodes = state.nodes.filter(n => !n.isColumnNode);
@@ -506,6 +586,14 @@ export function processWalls(skipMerge = false, skipRoomDetection = false, proce
         return length > 0.1 && isFinite(w.p1.x) && isFinite(w.p1.y) && isFinite(w.p2.x) && isFinite(w.p2.y);
     });
     setState({ walls: validWalls, beams: state.beams }); // <-- beams EKLEYİN
+
+    // KAPI ONARIMI: mergeCollinearChains / splitWallsAtCrossings / mergeDuplicateWalls
+    // adımları walls dizisini yeniden oluşturuyor; bu yüzden bazı door.wall
+    // referansları state.walls içinde olmayan eski nesnelere kalabilir. Bu kapılar
+    // 3D'de görünmez oluyor ve mimari kopyala/yapıştır sonrası "tıklanınca
+    // silinmiş gibi" görünüyor. Stale referansları aynı kattaki en yakın duvara
+    // taşı, pos'u yeni duvarın uzunluğuna göre yeniden hesapla.
+    repairDoorWallReferences();
 
     mergeColumnsWithWalls();
 

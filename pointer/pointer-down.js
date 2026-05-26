@@ -166,7 +166,10 @@ export function onPointerDown(e) {
         if (state.isEditingLength) { cancelLengthEdit(); return; }
 
         // Tıklanan nesneyi bul (mevcut çizim modunda interaktif olanları)
-        const clickedObject = getInteractableObjectAtPoint(pos);
+        // Not: aşağıdaki FLOOR VALIDATION bloğu yanlış kat eşleşmesinde null
+        // atadığı için let kullanılmalı — const reassignment TypeError fırlatıp
+        // tüm pointer-down işleyicisini çökertiyordu.
+        let clickedObject = getInteractableObjectAtPoint(pos);
 
         // Silme modu (Sadece Alt tuşu basılıysa)
         if (currentModifierKeys.alt && !currentModifierKeys.ctrl && !currentModifierKeys.shift) {
