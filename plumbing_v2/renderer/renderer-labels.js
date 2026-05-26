@@ -1,5 +1,5 @@
 // plumbing_v2/renderer/renderer-labels.js
-// Nesne etiket çizim sistemi — taşınabilir etiketler
+// Nesne etiket çizim sistemi — taşınabilir etiketler (KAT BAZLI)
 
 import { computeHatGroups, getCizelge6Debi } from './renderer-utils.js';
 import { SERVIS_KUTUSU_CONFIG } from '../objects/service-box.js';
@@ -26,36 +26,90 @@ function getBirimLabelLines(birimTipi, birimNo) {
     }
 }
 
-// ─── Kalıcı etiket offsetleri {dx, dy} her obje id'si için ──────────────────
-const _labelOffsets = new Map(); // id → {dx, dy}
+// ─── KAT BAZLI KALICI ETİKET OFFSETLERİ ──────────────────────────────────────
+// floorId → Map(id → {ax, ay, dir})
+const _labelOffsetsByFloor = new Map();
 
-// ─── Oto-hesaplanan etiket konumları — bir kez hesaplanır, cache'lenir ───────
-const _labelAutoPos = new Map(); // pipe.id → {ax, ay}
+function _getFloorKey(floorId) {
+    return floorId || '__default__';
+}
 
-/** Cache'i temizle (boru eklendi/silindi/taşındı) */
-export function clearLabelAutoPos(pipeId) {
-    if (pipeId) _labelAutoPos.delete(pipeId);
-    else _labelAutoPos.clear();
+function _getFloorOffsetsMap(floorId) {
+    const key = _getFloorKey(floorId);
+    if (!_labelOffsetsByFloor.has(key)) {
+        _labelOffsetsByFloor.set(key, new Map());
+    }
+    return _labelOffsetsByFloor.get(key);
+}
+
+function _getOffset(id, floorId) {
+    const floorMap = _getFloorOffsetsMap(floorId);
+    return floorMap.get(id) || {};
+}
+
+function _setOffset(id, floorId, value) {
+    const floorMap = _getFloorOffsetsMap(floorId);
+    floorMap.set(id, value);
+}
+
+function _deleteOffset(id, floorId) {
+    const floorMap = _getFloorOffsetsMap(floorId);
+    floorMap.delete(id);
+}
+
+// ─── Oto-hesaplanan etiket konumları — kat bazlı cache ───────────────────────
+const _labelAutoPosByFloor = new Map(); // floorId → Map(pipe.id → {ax, ay})
+
+function _getAutoPosMap(floorId) {
+    const key = _getFloorKey(floorId);
+    if (!_labelAutoPosByFloor.has(key)) {
+        _labelAutoPosByFloor.set(key, new Map());
+    }
+    return _labelAutoPosByFloor.get(key);
+}
+
+function _getAutoPos(id, floorId) {
+    return _getAutoPosMap(floorId).get(id);
+}
+
+function _setAutoPos(id, floorId, value) {
+    _getAutoPosMap(floorId).set(id, value);
+}
+
+function _deleteAutoPos(id, floorId) {
+    _getAutoPosMap(floorId).delete(id);
+}
+
+export function clearLabelAutoPos(pipeId, floorId) {
+    if (pipeId && floorId) {
+        _deleteAutoPos(pipeId, floorId);
+    } else if (pipeId) {
+        // Tüm katlardan temizle
+        for (const [_, map] of _labelAutoPosByFloor) {
+            map.delete(pipeId);
+        }
+    } else {
+        _labelAutoPosByFloor.clear();
+    }
 }
 
 /**
- * Saklı etiket konumunu (dx, dy) kadar ötelir.
- * Manuel ve otomatik konumların ikisi de lineer olarak taşınır — kullanıcı
- * boru ucunu sürüklediğinde / uzunluk verdiğinde etiketler yerinde "zıplamak"
- * yerine nesneyle birlikte aynı yönde kayar.
+ * Saklı etiket konumunu (dx, dy) kadar öteler (kat bazlı)
  */
-export function translateLabel(id, dx, dy) {
+export function translateLabel(id, dx, dy, floorId) {
     if (!dx && !dy) return;
-    const stored = _labelOffsets.get(id);
+    const floorKey = _getFloorKey(floorId);
+    
+    const stored = _getOffset(id, floorId);
     if (stored && stored.ax != null) {
-        _labelOffsets.set(id, { ax: stored.ax + dx, ay: stored.ay + dy, dir: stored.dir ?? 0 });
+        _setOffset(id, floorId, { ax: stored.ax + dx, ay: stored.ay + dy, dir: stored.dir ?? 0 });
         return;
     }
-    const auto = _labelAutoPos.get(id);
+    
+    const auto = _getAutoPos(id, floorId);
     if (auto) {
-        _labelAutoPos.set(id, { ax: auto.ax + dx, ay: auto.ay + dy });
+        _setAutoPos(id, floorId, { ax: auto.ax + dx, ay: auto.ay + dy });
     }
-    // Ne manuel ne de auto — ilk render'da otomatik yerleştirilecek; yapacak iş yok.
 }
 
 /**
@@ -76,25 +130,23 @@ function _segIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh) {
         segSeg(x1, y1, x2, y2, r, b, rx, b) || segSeg(x1, y1, x2, y2, rx, b, rx, ry);
 }
 
-// ─── MAHAL adı AABB'leri (mimari etiketler — etiket bunlarla çakışmamalı) ───
-function _buildRoomNameRects() {
+// ─── MAHAL adı AABB'leri (mimari etiketler) ───────────────────────────────────
+function _buildRoomNameRects(floorId) {
     const rects = [];
     const rooms = state.rooms;
     if (!rooms || rooms.length === 0) return rects;
-    const curFloor = state.currentFloor?.id || null;
-    const sameFloor = (o) => !curFloor || !o?.floorId || o.floorId === curFloor;
-
+    
     for (const room of rooms) {
-        if (!sameFloor(room)) continue;
+        const roomFloorId = room.floorId || null;
+        if (roomFloorId !== floorId) continue;
         if (!room.center || !Array.isArray(room.center) || room.center.length < 2) continue;
+        
         const name = room.name || 'MAHAL';
         const parts = name.split(' ');
         const lineCount = parts.length === 2 ? 2 : 1;
-        // Mimari yazı dünya birimi ~14 px @ zoom=1; alan/açıklama satırlarını da içerir
         const baseFontSize = 14;
         const charW = baseFontSize * 0.62;
         const maxWord = Math.max(...parts.map(s => s.length || 1));
-        // Alan ve açıklamayı da kabaca kapsa
         const extraLines = (typeof room.area === 'number' ? 1 : 0) +
             (room.description ? room.description.split('\n').filter(l => l.trim()).length : 0);
         const bw = Math.max(40, maxWord * charW + 16);
@@ -109,15 +161,16 @@ function _buildRoomNameRects() {
     return rects;
 }
 
-// ─── Duvar segmentleri (etiket tercihen duvar olmayan yerlere yerleşsin) ────
-function _buildWallSegments() {
+// ─── Duvar segmentleri (kat bazlı) ────────────────────────────────────────────
+function _buildWallSegments(floorId) {
     const segs = [];
     const walls = state.walls;
     if (!walls || walls.length === 0) return segs;
-    const curFloor = state.currentFloor?.id || null;
-    const sameFloor = (o) => !curFloor || !o?.floorId || o.floorId === curFloor;
+    
     for (const w of walls) {
-        if (!sameFloor(w) || !w.p1 || !w.p2) continue;
+        const wallFloorId = w.floorId || null;
+        if (wallFloorId !== floorId) continue;
+        if (!w.p1 || !w.p2) continue;
         segs.push({
             x1: w.p1.x, y1: w.p1.y,
             x2: w.p2.x, y2: w.p2.y,
@@ -127,10 +180,8 @@ function _buildWallSegments() {
     return segs;
 }
 
-// Etiket dikdörtgeni (bx,by,bw,bh) duvar şeridine değiyor mu?
 function _wallTouchesRect(wall, bx, by, bw, bh) {
     const half = wall.thickness / 2;
-    // Dikdörtgeni duvar yarı-kalınlığı kadar genişlet ve segment kesişimine bak
     return _segIntersectsRect(
         wall.x1, wall.y1, wall.x2, wall.y2,
         bx - half, by - half, bw + 2 * half, bh + 2 * half
@@ -138,10 +189,10 @@ function _wallTouchesRect(wall, bx, by, bw, bh) {
 }
 
 // ─── Render sırasında kaydedilen etiket sınırlayıcı kutuları ────────────────
-let _labelBBoxes = []; // {id, bx, by, bw, bh}  (dünya koordinatları)
+let _labelBBoxes = [];
 
 // ─── Sürükleme durumu ────────────────────────────────────────────────────────
-let _drag = null; // {id, startX, startY, startAX, startAY}
+let _drag = null;
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 
@@ -156,57 +207,60 @@ export function hitTestLabel(wx, wy) {
 }
 
 export function startLabelDrag(id, startX, startY) {
-    // Mevcut bbox'tan gerçek ekran konumunu al — zoom veya auto-konum bağımsız
     const bb = _labelBBoxes.find(b => b.id === id);
     let startAX = 0, startAY = 0;
     if (bb) {
         if (bb.style === 'top-center') {
             startAX = bb.bx + bb.bw / 2;
             startAY = bb.by;
-        } else { // 'left-center' (boru + vana etiketleri)
+        } else {
             startAX = bb.bx;
             startAY = bb.by + bb.bh / 2;
         }
     }
-    _drag = { id, startX, startY, startAX, startAY };
+    _drag = { id, startX, startY, startAX, startAY, floorId: state.currentFloor?.id };
 }
 
 export function updateLabelDrag(curX, curY) {
     if (!_drag) return;
     const ax = _drag.startAX + (curX - _drag.startX);
     const ay = _drag.startAY + (curY - _drag.startY);
-    const existing = _labelOffsets.get(_drag.id) || {};
-    _labelOffsets.set(_drag.id, { ax, ay, dir: existing.dir ?? 0 });
+    const existing = _getOffset(_drag.id, _drag.floorId);
+    _setOffset(_drag.id, _drag.floorId, { ax, ay, dir: existing.dir ?? 0 });
 }
 
 export function endLabelDrag() {
     _drag = null;
 }
 
-/** Tüm etiket offsetlerini düz nesne olarak döndür (kaydetme için) */
 export function getLabelOffsetsJSON() {
     const out = {};
-    _labelOffsets.forEach((v, k) => { out[k] = v; });
+    for (const [floorId, floorMap] of _labelOffsetsByFloor) {
+        const floorOut = {};
+        for (const [id, val] of floorMap) {
+            floorOut[id] = val;
+        }
+        out[floorId] = floorOut;
+    }
     return out;
 }
 
-/** Kaydedilmiş offsetleri yükle (proje açılışında) */
 export function setLabelOffsetsJSON(data) {
-    _labelOffsets.clear();
-    _labelAutoPos.clear();
+    _labelOffsetsByFloor.clear();
+    _labelAutoPosByFloor.clear();
     if (!data) return;
-    Object.entries(data).forEach(([k, v]) => _labelOffsets.set(k, v));
+    for (const [floorId, floorData] of Object.entries(data)) {
+        const floorMap = _getFloorOffsetsMap(floorId === '__default__' ? null : floorId);
+        for (const [id, val] of Object.entries(floorData)) {
+            floorMap.set(id, val);
+        }
+    }
 }
 
-/** Çift tıklamada etiket yönünü döndür: 0(üst)→1(sağ)→2(alt)→3(sol)→0 */
-export function rotateLabelDir(id) {
-    const off = _labelOffsets.get(id) || { dir: 0 };
+export function rotateLabelDir(id, floorId) {
+    const off = _getOffset(id, floorId);
     const newDir = ((off.dir ?? 0) + 1) % 4;
-    _labelOffsets.set(id, { ax: off.ax, ay: off.ay, dir: newDir });
-}
-
-function _getOffset(id) {
-    return _labelOffsets.get(id) || { dx: 0, dy: 0 };
+    _setOffset(id, floorId, { ax: off.ax, ay: off.ay, dir: newDir });
 }
 
 // ─── MIXIN ───────────────────────────────────────────────────────────────────
@@ -214,22 +268,22 @@ export const LabelMixin = {
 
     drawObjectLabels(ctx, manager) {
         if (!manager) return;
-        // 3D perspektif aktifken etiketleri gizle
         if (state.is3DPerspectiveActive) return;
 
-        _labelBBoxes = []; // Her render'da sıfırla
+        _labelBBoxes = [];
 
-        // Artık mevcut olmayan borular için oto-konum cache'ini temizle
+        const currentFloorId = state.currentFloor?.id || null;
+        
+        // Mevcut kattaki aktif boru ID'leri için auto-cache temizliği
         if (manager.pipes) {
             const activePipeIds = new Set(manager.pipes.map(p => p.id));
-            for (const id of _labelAutoPos.keys()) {
-                if (!activePipeIds.has(id)) _labelAutoPos.delete(id);
+            const autoMap = _getAutoPosMap(currentFloorId);
+            for (const id of autoMap.keys()) {
+                if (!activePipeIds.has(id)) autoMap.delete(id);
             }
         }
 
-        // Kat filtresi: etiketler de ait oldukları katta görünsün
-        const _curFloorId = state.currentFloor?.id || null;
-        const _sameFloor = (o) => !_curFloorId || !o.floorId || o.floorId === _curFloorId;
+        const _sameFloor = (o) => !currentFloorId || !o.floorId || o.floorId === currentFloorId;
         const _pipesForLabels = manager.pipes ? manager.pipes.filter(_sameFloor) : [];
         const _compsForLabels = manager.components ? manager.components.filter(_sameFloor) : [];
 
@@ -237,37 +291,30 @@ export const LabelMixin = {
         const t = state.viewBlendFactor || 0;
         const light = isLightMode();
 
-        // Sabit dünya birimi — zoom ile birlikte doğal olarak büyür/küçülür
         const fontSize = 10;
         const lineH = fontSize * 1.6;
 
-        // Mimari engeller — etiket yerleşimi MAHAL adlarıyla çakışmasın,
-        // tercihen duvar olmayan yerlere düşsün. Frame başına bir kez kur.
-        const roomNameRects = _buildRoomNameRects();
-        const wallSegs = _buildWallSegments();
+        const roomNameRects = _buildRoomNameRects(currentFloorId);
+        const wallSegs = _buildWallSegments(currentFloorId);
 
         const opts = {
-            zoom, t, fontSize, lineH, manager,
+            zoom, t, fontSize, lineH, manager, currentFloorId,
             roomNameRects, wallSegs,
             textColor: light ? '#0a0e16' : '#f3f4f8',
             subColor: light ? '#25272c' : '#c8ced8',
             accentColor: light ? '#153692' : '#a2cbfc',
-            // Çok hafif arka plan — hemen hemen şeffaf
             bgColor: light ? 'rgba(255,255,255,0.08)' : 'rgba(20,20,35,0.10)',
             borderColor: light ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)',
             connColor: light ? 'rgba(85, 85, 85, 0.65)' : 'rgba(182, 182, 182, 0.65)',
             accentBar: light ? 'rgba(29,78,216,0.50)' : 'rgba(96,165,250,0.50)',
         };
 
-        // Hat gruplarını hesapla (debi zaten computePipeDebileri ile set edildi)
         const { hatMap } = computeHatGroups(manager.pipes, manager.components);
-        window._hatMap = hatMap; // panel readonly için erişilebilir yap
+        window._hatMap = hatMap;
 
-        // Borular: aynı hat no'ya sahip olsalar bile FİZİKSEL OLARAK AYRI bağlı
-        // bölümlerin (section) her birine ayrı etiket çiziyoruz.
+        // Boru etiketleri
         if (_pipesForLabels && _pipesForLabels.length > 0) {
             const pipeMap = new Map(_pipesForLabels.map(p => [p.id, p]));
-            // Çocuk indeksi: parentId → [childPipeId,...]
             const childrenIdx = new Map();
             _pipesForLabels.forEach(p => {
                 if (p.baslangicBaglanti?.tip === 'boru' && p.baslangicBaglanti.hedefId) {
@@ -277,7 +324,6 @@ export const LabelMixin = {
                 }
             });
 
-            // Cross-floor
             const allPipes = manager.pipes || [];
             const allPipeMap = new Map(allPipes.map(p => [p.id, p]));
             const allChildrenIdx = new Map();
@@ -290,7 +336,8 @@ export const LabelMixin = {
             });
 
             const visitedSec = new Set();
-            const sections = []; // { hatNo, pipes, fullPipes }
+            const sections = [];
+
             _pipesForLabels.forEach(seedPipe => {
                 if (visitedSec.has(seedPipe.id)) return;
                 const hatNo = hatMap.get(seedPipe.id);
@@ -337,7 +384,9 @@ export const LabelMixin = {
                 });
 
                 for (const pipe of pipes) {
-                    if (_labelAutoPos.has(pipe.id) || _labelOffsets.has(pipe.id)) {
+                    const hasManual = _getOffset(pipe.id, currentFloorId)?.ax != null;
+                    const hasAuto = _getAutoPos(pipe.id, currentFloorId) != null;
+                    if (hasManual || hasAuto) {
                         chosen = pipe;
                         break;
                     }
@@ -371,7 +420,7 @@ export const LabelMixin = {
             });
         }
 
-        // Bileşenler
+        // Bileşen etiketleri
         if (_compsForLabels) {
             _compsForLabels.forEach(comp => {
                 switch (comp.type) {
@@ -400,19 +449,13 @@ export const LabelMixin = {
                 }
             });
         }
-
     },
 
-    // ─── Yardımcı: ekran koordinatı ─────────────────────────────────────────
     _scrPos(obj, t) {
         const z = (obj.z || 0) * t;
         return { x: obj.x + z, y: obj.y - z };
     },
 
-    // İzometride (3D perspektif aktif) cihaz, renderer-components.js'deki
-    // _computeCihazPerspSchematic ile fleks doğrultusunda kaydırılıyor.
-    // Etiket leader'ı ve layout anchor'ı görünen ikon merkezine bakmalı —
-    // bu yüzden aynı kaydırmayı burada da hesaplıyoruz.
     _scrPosForCihazPersp(comp, manager, t) {
         if (!manager || !comp.fleksBaglanti?.boruId || !comp.fleksBaglanti.endpoint) return null;
         const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
@@ -442,7 +485,6 @@ export const LabelMixin = {
         return { x: persp.x + z, y: persp.y - z };
     },
 
-    // Cihaz dahil tüm objelerin "ekrandaki gerçek" merkezini döndürür.
     _scrPosEffective(obj, t, manager) {
         if (obj?.type === 'cihaz' && state.is3DPerspectiveActive) {
             const persp = this._scrPosForCihazPersp(obj, manager, t);
@@ -451,9 +493,36 @@ export const LabelMixin = {
         return this._scrPos(obj, t);
     },
 
-    // ─── Etiket kutusu çiz ve bbox kaydet ───────────────────────────────────
+    // ─── Leader line kesişme kontrolü ─────────────────────────────────────────
+    _lineIntersectsRect(x1, y1, x2, y2, rx, ry, rw, rh, padding = 0) {
+        const prx = rx - padding;
+        const pry = ry - padding;
+        const prw = rw + padding * 2;
+        const prh = rh + padding * 2;
+        return _segIntersectsRect(x1, y1, x2, y2, prx, pry, prw, prh);
+    },
+
+    _findBestConnectionPoint(objCenter, labelCenter, objHalfSize) {
+        const dx = labelCenter.x - objCenter.x;
+        const dy = labelCenter.y - objCenter.y;
+        
+        let edgeX = objCenter.x, edgeY = objCenter.y;
+        
+        if (Math.abs(dx) * objHalfSize.hh > Math.abs(dy) * objHalfSize.hw) {
+            // Yatay çıkış
+            edgeX = objCenter.x + (dx > 0 ? objHalfSize.hw : -objHalfSize.hw);
+            edgeY = objCenter.y;
+        } else {
+            // Dikey çıkış
+            edgeX = objCenter.x;
+            edgeY = objCenter.y + (dy > 0 ? objHalfSize.hh : -objHalfSize.hh);
+        }
+        
+        return { x: edgeX, y: edgeY };
+    },
+
     _drawObjLabelBox(ctx, id, ax, ay, cx, cy, lines, opts, objClip = 0) {
-        const { zoom, fontSize, lineH,
+        const { zoom, fontSize, lineH, currentFloorId,
             textColor, subColor, accentColor,
             connColor, bgColor, borderColor, accentBar } = opts;
 
@@ -479,41 +548,26 @@ export const LabelMixin = {
 
         _labelBBoxes.push({ id, bx, by, bw: boxW, bh: boxH, style: 'left-center' });
 
-        {
-            const lx = bx + boxW / 2;
-            const ly = by + boxH / 2;
-            const objX = cx;
-            const objY = cy;
+        const labelCenter = { x: bx + boxW / 2, y: by + boxH / 2 };
+        const objCenter = { x: cx, y: cy };
+        const objHalf = { hw: objClip, hh: objClip };
+        
+        const connectionPoint = this._findBestConnectionPoint(objCenter, labelCenter, objHalf);
+        
+        const startX = connectionPoint.x;
+        const startY = connectionPoint.y;
+        const endX = labelCenter.x;
+        const endY = labelCenter.y;
 
-            const dx = lx - objX;
-            const dy = ly - objY;
-            const dist = Math.hypot(dx, dy);
-
-            if (dist > 0.1) {
-                const ux = dx / dist;
-                const uy = dy / dist;
-
-                let tObj = 0;
-                if (objClip > 0) {
-                    tObj = Math.min(objClip / Math.abs(ux), objClip / Math.abs(uy));
-                }
-
-                let tLab = Math.min((boxW / 2) / Math.abs(ux), (boxH / 2) / Math.abs(uy));
-
-                if (tObj + tLab < dist) {
-                    const startX = objX + ux * tObj;
-                    const startY = objY + uy * tObj;
-                    const endX = lx - ux * tLab;
-                    const endY = ly - uy * tLab;
-
-                    ctx.strokeStyle = connColor;
-                    ctx.lineWidth = 0.5 / zoom;
-                    ctx.beginPath();
-                    ctx.moveTo(startX, startY);
-                    ctx.lineTo(endX, endY);
-                    ctx.stroke();
-                }
-            }
+        const dist = Math.hypot(endX - startX, endY - startY);
+        
+        if (dist > 0.1) {
+            ctx.strokeStyle = connColor;
+            ctx.lineWidth = 0.5 / zoom;
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
         }
 
         ctx.fillStyle = bgColor;
@@ -546,14 +600,8 @@ export const LabelMixin = {
         ctx.restore();
     },
 
-    // ─── Varsayılan anchor hesapla (obje sağ kenarından) ────────────────────
-    _defaultAnchor(sc, halfW, gap, zoom) {
-        return { cx: sc.x + halfW, cy: sc.y, ax: sc.x + halfW + gap / zoom };
-    },
-
-    // ─── Etiket kutusu ALTINDA çiz (üst-orta ankraj) ────────────────────────
     _drawObjLabelBoxBelow(ctx, id, cx, cy, ox, oy, lines, opts, objClip = 0) {
-        const { zoom, fontSize, lineH,
+        const { zoom, fontSize, lineH, currentFloorId,
             textColor, subColor, accentColor,
             connColor, bgColor, borderColor, accentBar } = opts;
 
@@ -574,7 +622,7 @@ export const LabelMixin = {
         const boxW = maxW + pad * 2;
         const boxH = visLines.length * lineH + pad * 0.8;
 
-        const stored = _labelOffsets.get(id);
+        const stored = _getOffset(id, currentFloorId);
         let topCX, topCY;
         if (stored && stored.ax != null) {
             topCX = stored.ax;
@@ -588,41 +636,26 @@ export const LabelMixin = {
 
         _labelBBoxes.push({ id, bx, by, bw: boxW, bh: boxH, style: 'top-center' });
 
-        {
-            const lx = bx + boxW / 2;
-            const ly = by + boxH / 2;
-            const objX = cx;
-            const objY = cy;
+        const labelCenter = { x: bx + boxW / 2, y: by + boxH / 2 };
+        const objCenter = { x: cx, y: cy };
+        const objHalf = { hw: objClip, hh: objClip };
+        
+        const connectionPoint = this._findBestConnectionPoint(objCenter, labelCenter, objHalf);
+        
+        const startX = connectionPoint.x;
+        const startY = connectionPoint.y;
+        const endX = labelCenter.x;
+        const endY = labelCenter.y;
 
-            const dx = lx - objX;
-            const dy = ly - objY;
-            const dist = Math.hypot(dx, dy);
-
-            if (dist > 0.1) {
-                const ux = dx / dist;
-                const uy = dy / dist;
-
-                let tObj = 0;
-                if (objClip > 0) {
-                    tObj = Math.min(objClip / Math.abs(ux), objClip / Math.abs(uy));
-                }
-
-                let tLab = Math.min((boxW / 2) / Math.abs(ux), (boxH / 2) / Math.abs(uy));
-
-                if (tObj + tLab < dist) {
-                    const startX = objX + ux * tObj;
-                    const startY = objY + uy * tObj;
-                    const endX = lx - ux * tLab;
-                    const endY = ly - uy * tLab;
-
-                    ctx.strokeStyle = connColor;
-                    ctx.lineWidth = 0.5 / zoom;
-                    ctx.beginPath();
-                    ctx.moveTo(startX, startY);
-                    ctx.lineTo(endX, endY);
-                    ctx.stroke();
-                }
-            }
+        const dist = Math.hypot(endX - startX, endY - startY);
+        
+        if (dist > 0.1) {
+            ctx.strokeStyle = connColor;
+            ctx.lineWidth = 0.5 / zoom;
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
         }
 
         ctx.fillStyle = bgColor;
@@ -655,18 +688,13 @@ export const LabelMixin = {
         ctx.restore();
     },
 
-    // ─── BORU — hat numarası + küçük bilgi satırları ────────────────────────
     _drawPipeObjLabel(ctx, pipe, pipeNum, totalLen, opts, allPipes) {
-        const { t, zoom, fontSize,
-            subColor, accentColor, connColor, bgColor, borderColor, accentBar } = opts;
+        const { t, zoom, fontSize, currentFloorId,
+            subColor, accentColor, connColor, bgColor, borderColor, accentBar,
+            roomNameRects, wallSegs } = opts;
 
         if (!pipe.p1 || !pipe.p2) return;
 
-        const len3D = Math.hypot(
-            pipe.p2.x - pipe.p1.x,
-            pipe.p2.y - pipe.p1.y,
-            (pipe.p2.z || 0) - (pipe.p1.z || 0)
-        );
         const z1 = (pipe.p1.z || 0) * t, z2 = (pipe.p2.z || 0) * t;
         const sx1 = pipe.p1.x + z1, sy1 = pipe.p1.y - z1;
         const sx2 = pipe.p2.x + z2, sy2 = pipe.p2.y - z2;
@@ -676,15 +704,10 @@ export const LabelMixin = {
         const angle = Math.atan2(sy2 - sy1, sx2 - sx1);
 
         const connDist = 1 / zoom;
-
         const cx = midX - Math.sin(angle) * connDist;
         const cy = midY + Math.cos(angle) * connDist;
 
-        const _estBoxW = fontSize * 3 + fontSize * 0.84 * 8;
-        const _estBoxH = fontSize * 1.4 + fontSize * 0.78 * 1.45 * 3;
-        const PIPE_LABEL_GAP = 20;
-
-        const stored = _labelOffsets.get(pipe.id);
+        const stored = _getOffset(pipe.id, currentFloorId);
         const dir = stored?.dir ?? 0;
 
         let ax, ay;
@@ -693,35 +716,34 @@ export const LabelMixin = {
             ax = stored.ax;
             ay = stored.ay;
         } else {
-            const cached = _labelAutoPos.get(pipe.id);
+            const cached = _getAutoPos(pipe.id, currentFloorId);
             if (cached) {
                 ax = cached.ax;
                 ay = cached.ay;
             } else {
-                const estW = _estBoxW;
-                const estH = _estBoxH;
-                const halfDiag = Math.hypot(estW / 2, estH / 2);
-
+                // Otomatik yerleşim - daha akıllı
+                const estW = fontSize * 8;
+                const estH = fontSize * 3.5;
+                const PIPE_LABEL_GAP = 15;
+                
+                const pLen = Math.hypot(sx2 - sx1, sy2 - sy1) || 1;
+                const pdx = (sx2 - sx1) / pLen;
+                const pdy = (sy2 - sy1) / pLen;
+                
+                // Boru yönüne dik açıları tercih et
+                const perpX = -pdy;
+                const perpY = pdx;
+                
                 const candidates = [
-                    { ux: 0, uy: -1, off: estH / 2 + PIPE_LABEL_GAP },
-                    { ux: 1, uy: 0, off: estW / 2 + PIPE_LABEL_GAP },
-                    { ux: 0, uy: 1, off: estH / 2 + PIPE_LABEL_GAP },
-                    { ux: -1, uy: 0, off: estW / 2 + PIPE_LABEL_GAP },
-                    { ux: 0.7071, uy: -0.7071, off: halfDiag + PIPE_LABEL_GAP },
-                    { ux: 0.7071, uy: 0.7071, off: halfDiag + PIPE_LABEL_GAP },
-                    { ux: -0.7071, uy: -0.7071, off: halfDiag + PIPE_LABEL_GAP },
-                    { ux: -0.7071, uy: 0.7071, off: halfDiag + PIPE_LABEL_GAP },
+                    { ux: perpX, uy: perpY, off: estH / 2 + PIPE_LABEL_GAP, scoreAdj: 0 },      // dik sağ
+                    { ux: -perpX, uy: -perpY, off: estH / 2 + PIPE_LABEL_GAP, scoreAdj: 5 },     // dik sol
+                    { ux: pdx, uy: pdy, off: estW / 2 + PIPE_LABEL_GAP, scoreAdj: 30 },          // boru yönü
+                    { ux: -pdx, uy: -pdy, off: estW / 2 + PIPE_LABEL_GAP, scoreAdj: 30 },        // ters yön
+                    { ux: 0, uy: -1, off: estH / 2 + PIPE_LABEL_GAP, scoreAdj: 15 },
+                    { ux: 0, uy: 1, off: estH / 2 + PIPE_LABEL_GAP, scoreAdj: 15 },
+                    { ux: 1, uy: 0, off: estW / 2 + PIPE_LABEL_GAP, scoreAdj: 15 },
+                    { ux: -1, uy: 0, off: estW / 2 + PIPE_LABEL_GAP, scoreAdj: 15 },
                 ];
-
-                let pNX = -Math.sin(angle), pNY = Math.cos(angle);
-                if (pNY > 0) { pNX = -pNX; pNY = -pNY; }
-                candidates.sort((a, b) =>
-                    (a.ux * pNX + a.uy * pNY) - (b.ux * pNX + b.uy * pNY)
-                );
-
-                const _pLen = Math.hypot(sx2 - sx1, sy2 - sy1) || 1;
-                const _pdx = (sx2 - sx1) / _pLen;
-                const _pdy = (sy2 - sy1) / _pLen;
 
                 let bestScore = Infinity, bestAx = 0, bestAy = 0;
 
@@ -729,60 +751,48 @@ export const LabelMixin = {
                     const centerX = midX + cand.ux * cand.off;
                     const centerY = midY + cand.uy * cand.off;
                     const cax = centerX - estW / 2;
-                    const cay = centerY;
-                    const cbx = cax;
-                    const cby = cay - estH / 2;
+                    const cay = centerY - estH / 2;
+                    
+                    let score = cand.scoreAdj;
 
-                    let score = 0;
-
-                    const _par = Math.abs(cand.ux * _pdx + cand.uy * _pdy);
-                    score += _par * _par * 80;
-
+                    // Diğer etiketlerle çakışma
                     for (const bb of _labelBBoxes) {
-                        const ox = Math.max(0, Math.min(cbx + estW, bb.bx + bb.bw) - Math.max(cbx, bb.bx));
-                        const oy = Math.max(0, Math.min(cby + estH, bb.by + bb.bh) - Math.max(cby, bb.by));
-                        if (ox > 0 && oy > 0) score += 10 + ox * oy;
+                        const ox = Math.max(0, Math.min(cax + estW, bb.bx + bb.bw) - Math.max(cax, bb.bx));
+                        const oy = Math.max(0, Math.min(cay + estH, bb.by + bb.bh) - Math.max(cay, bb.by));
+                        if (ox > 0 && oy > 0) score += 100 + ox * oy;
                     }
 
-                    // MAHAL adları: kesinlikle çakışma — çok ağır ceza
-                    if (opts.roomNameRects) {
-                        for (const rr of opts.roomNameRects) {
-                            const ox = Math.max(0, Math.min(cbx + estW, rr.bx + rr.bw) - Math.max(cbx, rr.bx));
-                            const oy = Math.max(0, Math.min(cby + estH, rr.by + rr.bh) - Math.max(cby, rr.by));
-                            if (ox > 0 && oy > 0) score += 5000 + ox * oy * 2;
+                    // MAHAL adları - kesin kaçınma
+                    if (roomNameRects) {
+                        for (const rr of roomNameRects) {
+                            const ox = Math.max(0, Math.min(cax + estW, rr.bx + rr.bw) - Math.max(cax, rr.bx));
+                            const oy = Math.max(0, Math.min(cay + estH, rr.by + rr.bh) - Math.max(cay, rr.by));
+                            if (ox > 0 && oy > 0) score += 5000;
                         }
                     }
 
-                    // Duvarlar: tercihen üzerine düşme — orta ağırlık
-                    if (opts.wallSegs) {
-                        for (const w of opts.wallSegs) {
-                            if (_wallTouchesRect(w, cbx, cby, estW, estH)) score += 60;
+                    // Duvarlar - hafif kaçınma
+                    if (wallSegs) {
+                        for (const w of wallSegs) {
+                            if (_wallTouchesRect(w, cax, cay, estW, estH)) score += 25;
                         }
                     }
 
-                    if (allPipes) {
-                        for (const p of allPipes) {
-                            if (p.id === pipe.id || !p.p1 || !p.p2) continue;
-                            const pz1 = (p.p1.z || 0) * t, pz2 = (p.p2.z || 0) * t;
-                            if (_segIntersectsRect(
-                                p.p1.x + pz1, p.p1.y - pz1,
-                                p.p2.x + pz2, p.p2.y - pz2,
-                                cbx, cby, estW, estH
-                            )) score += 3;
-                        }
-                    }
+                    // Mesafe cezası - daha yumuşak
+                    const distFromPipe = Math.hypot(centerX - midX, centerY - midY);
+                    score += distFromPipe * 2;
 
                     if (score < bestScore) {
                         bestScore = score;
                         bestAx = cax;
                         bestAy = cay;
-                        if (score < 0.5) break;
+                        if (score < 30) break;
                     }
                 }
 
                 ax = bestAx;
                 ay = bestAy;
-                _labelAutoPos.set(pipe.id, { ax, ay });
+                _setAutoPos(pipe.id, currentFloorId, { ax, ay });
             }
         }
 
@@ -801,7 +811,6 @@ export const LabelMixin = {
         }
 
         const numColor = pipeNum >= 300 ? '#8d2121' : accentColor;
-
         const numStr = String(pipeNum);
         const numFont = `bold ${fontSize * 1.4}px "Segoe UI",sans-serif`;
         const infoFont = `${fontSize * 0.78}px "Segoe UI",sans-serif`;
@@ -837,56 +846,36 @@ export const LabelMixin = {
         const by = ay - boxH / 2;
 
         let numBX, numBY, numBW, numBH, infoBX, infoBY;
-        if (dir === 0) {        
+        if (dir === 0) {
             numBX = bx; numBY = by; numBW = numCellW; numBH = boxH;
             infoBX = bx + numCellW + sep; infoBY = by;
-        } else if (dir === 1) { 
+        } else if (dir === 1) {
             numBX = bx; numBY = by; numBW = boxW; numBH = numCellH;
             infoBX = bx; infoBY = by + numCellH + sep;
-        } else if (dir === 2) { 
+        } else if (dir === 2) {
             infoBX = bx; infoBY = by;
             numBX = bx + infoCellW + sep; numBY = by; numBW = numCellW; numBH = boxH;
-        } else {                
+        } else {
             infoBX = bx; infoBY = by;
             numBX = bx; numBY = by + infoCellH + sep; numBW = boxW; numBH = numCellH;
         }
 
         _labelBBoxes.push({ id: pipe.id, bx, by, bw: boxW, bh: boxH, style: 'left-center' });
 
-        {
-            const centerX = bx + boxW / 2;
-            const centerY = by + boxH / 2;
-            const dx = cx - centerX;
-            const dy = cy - centerY;
-            const dist = Math.hypot(dx, dy);
+        const labelCenter = { x: bx + boxW / 2, y: by + boxH / 2 };
+        const objCenter = { x: cx, y: cy };
+        const objHalf = { hw: 5, hh: 5 };
+        
+        const connectionPoint = this._findBestConnectionPoint(objCenter, labelCenter, objHalf);
+        
+        ctx.strokeStyle = connColor;
+        ctx.lineWidth = 0.5 / zoom;
+        ctx.beginPath();
+        ctx.moveTo(connectionPoint.x, connectionPoint.y);
+        ctx.lineTo(labelCenter.x, labelCenter.y);
+        ctx.stroke();
 
-            let edgeX = centerX;
-            let edgeY = centerY;
-
-            if (dist > 0.1) {
-                const ux = dx / dist;
-                const uy = dy / dist;
-                let tEdge = Infinity;
-                if (ux > 0) tEdge = Math.min(tEdge, (boxW / 2) / ux);
-                if (ux < 0) tEdge = Math.min(tEdge, (-boxW / 2) / ux);
-                if (uy > 0) tEdge = Math.min(tEdge, (boxH / 2) / uy);
-                if (uy < 0) tEdge = Math.min(tEdge, (-boxH / 2) / uy);
-
-                if (isFinite(tEdge)) {
-                    edgeX = centerX + ux * tEdge;
-                    edgeY = centerY + uy * tEdge;
-                }
-            }
-
-            ctx.strokeStyle = connColor;
-            ctx.lineWidth = 0.5 / zoom;
-            ctx.beginPath();
-            ctx.moveTo(cx, cy);
-            ctx.lineTo(edgeX, edgeY);
-            ctx.stroke();
-        }
-
-        ctx.fillStyle = isLightMode ? `color-mix(in srgb, ${bgColor} 90%, black)` : `color-mix(in srgb, ${bgColor} 90%, white)`;
+        ctx.fillStyle = isLightMode() ? `color-mix(in srgb, ${bgColor} 90%, black)` : `color-mix(in srgb, ${bgColor} 90%, white)`;
         ctx.strokeStyle = borderColor;
         ctx.lineWidth = 1 / zoom;
         ctx.beginPath();
@@ -945,11 +934,10 @@ export const LabelMixin = {
         ctx.restore();
     },
 
-    // ─── SAYAÇ ──────────────────────────────────────────────────────────────
     _drawSayacObjLabel(ctx, comp, opts) {
-        const { t } = opts;
+        const { t, currentFloorId } = opts;
         const sc = this._scrPos(comp, t);
-        const off = _getOffset(comp.id);
+        const off = _getOffset(comp.id, currentFloorId);
 
         const lines = [];
         const birimLines = getBirimLabelLines(comp.birimTipi || '', comp.birimNo || '');
@@ -991,14 +979,13 @@ export const LabelMixin = {
         const cx = sc.x;
         const cy = sc.y;
 
-        this._drawObjLabelBoxBelow(ctx, comp.id, cx, cy, off.dx, off.dy, lines, opts, 10);
+        this._drawObjLabelBoxBelow(ctx, comp.id, cx, cy, off.dx || 0, off.dy || 0, lines, opts, 10);
     },
 
-    // ─── VANA ───────────────────────────────────────────────────────────────
     _drawVanaObjLabel(ctx, comp, manager, opts) {
-        const { t, zoom } = opts;
+        const { t, zoom, currentFloorId } = opts;
         const sc = this._scrPos(comp, t);
-        const off = _getOffset(comp.id);
+        const off = _getOffset(comp.id, currentFloorId);
 
         const lines = [];
         const vt = comp.vanaTipi || '';
@@ -1006,13 +993,11 @@ export const LabelMixin = {
         if (vt === 'CIHAZ') {
             if (comp.flans) lines.push({ text: 'Flanşlı Cihaz Vanası', sub: true });
             if (comp.izolator) lines.push({ text: 'İzolatörlü', sub: true });
-
         } else if (vt === 'AKV') {
             if (!comp.flans) lines.push({ text: 'AKV', bold: true });
             if (comp.flans) lines.push({ text: 'Flanşlı AKV', bold: true });
             if (comp.vanaCap) lines.push({ text: comp.vanaCap, sub: true });
             lines.push({ text: 'h:1.9-2.1m', sub: true });
-
         } else if (vt === 'BRANSMAN') {
             if (comp.ilerdeKullanim) {
                 lines.push({ text: 'ilerde kullanım amacıyla', sub: true });
@@ -1038,20 +1023,16 @@ export const LabelMixin = {
                 lblLines.forEach(t => { if (t) lines.push({ text: t, bold: true }); });
             }
             if (comp.flans) lines.push({ text: 'Flanşlı Vana', sub: true });
-
-
         } else if (vt === 'EMNIYET') {
             if (!comp.flans) lines.push({ text: 'Emn.V', sub: true });
             if (comp.flans) lines.push({ text: 'Flanşlı Emn.V', sub: true });
             if (comp.vanaCap) lines.push({ text: comp.vanaCap, sub: true });
-
         } else if (vt === 'SELENOID') {
-            if (!comp.flans) lines.push({ text: 'Selenoid Vana', sub: true }); 
+            if (!comp.flans) lines.push({ text: 'Selenoid Vana', sub: true });
             if (comp.flans) lines.push({ text: 'Flanşlı Selenoid Vana', sub: true });
-
         } else if (vt === 'YANBINA' || vt === 'YAN_BINA') {
-            if (!comp.flans) lines.push({ text: 'Yan Bina Vanası', bold: true});
-            if (comp.flans) lines.push({ text: 'Flanşlı Yan Bina Vanası', bold: true});
+            if (!comp.flans) lines.push({ text: 'Yan Bina Vanası', bold: true });
+            if (comp.flans) lines.push({ text: 'Flanşlı Yan Bina Vanası', bold: true });
             if (comp.tesisatNo) lines.push({ text: `Tesisat No: ${comp.tesisatNo}`, sub: true });
             const d = parseFloat(comp.daireSayisi) || 0;
             const dk = parseFloat(comp.dukkanSayisi) || 0;
@@ -1063,7 +1044,6 @@ export const LabelMixin = {
             const toplamDebi = faktorluDebi + ek;
             if (ek > 0) lines.push({ text: `Ek Debi: ${ek.toFixed(2)} m³/h`, sub: true });
             if (toplamDebi > 0) lines.push({ text: `Toplam Debi: ${toplamDebi.toFixed(2)} m³/h`, sub: true });
-
         }
 
         if (comp.description) {
@@ -1079,7 +1059,7 @@ export const LabelMixin = {
         let nY = Math.cos(angle);
         if (nY > 0) { nX = -nX; nY = -nY; }
 
-        const hw = 10; 
+        const hw = 10;
         const cx = sc.x;
         const cy = sc.y;
 
@@ -1095,11 +1075,10 @@ export const LabelMixin = {
         this._drawObjLabelBox(ctx, comp.id, ax, ay, cx, cy, lines, opts, 3);
     },
 
-    // ─── REGÜLATÖR ──────────────────────────────────────────────────────────
     _drawRegulatorObjLabel(ctx, comp, manager, opts) {
-        const { t, zoom } = opts;
+        const { t, zoom, currentFloorId } = opts;
         const sc = this._scrPos(comp, t);
-        const off = _getOffset(comp.id);
+        const off = _getOffset(comp.id, currentFloorId);
 
         const lines = [];
         const baslik = comp.shutOff !== false ? 'Shut-Off Regülatör' : 'Regülatör';
@@ -1147,12 +1126,10 @@ export const LabelMixin = {
         this._drawObjLabelBox(ctx, comp.id, ax, ay, cx, cy, lines, opts, 10);
     },
 
-    // ─── TESİSAT AKSESUARLARI ───────────────────────────────────────────────
     _drawFittingObjLabel(ctx, comp, manager, opts) {
-        const { zoom } = opts;
-        const t = opts.t;
+        const { t, zoom, currentFloorId } = opts;
         const sc = this._scrPos(comp, t);
-        const off = _getOffset(comp.id);
+        const off = _getOffset(comp.id, currentFloorId);
 
         const lines = [];
         let baslik;
@@ -1206,11 +1183,10 @@ export const LabelMixin = {
         this._drawObjLabelBox(ctx, comp.id, ax, ay, cx, cy, lines, opts, 8);
     },
 
-    // ─── SERVİS KUTUSU ──────────────────────────────────────────────────────
     _drawKutuObjLabel(ctx, comp, opts) {
-        const { t } = opts;
+        const { t, currentFloorId } = opts;
         const sc = this._scrPos(comp, t);
-        const off = _getOffset(comp.id);
+        const off = _getOffset(comp.id, currentFloorId);
 
         const lines = [];
 
@@ -1233,16 +1209,13 @@ export const LabelMixin = {
         const cx = sc.x;
         const cy = sc.y;
 
-        this._drawObjLabelBoxBelow(ctx, comp.id, cx, cy, off.dx, off.dy, lines, opts, 10);
+        this._drawObjLabelBoxBelow(ctx, comp.id, cx, cy, off.dx || 0, off.dy || 0, lines, opts, 10);
     },
 
-    // ─── CİHAZ (KOMBİ / OCAK) ───────────────────────────────────────────────
     _drawCihazObjLabel(ctx, comp, opts) {
-        const { t, manager } = opts;
-        // İzometride cihaz fleks doğrultusunda kaydırılıyor; leader endpoint
-        // gerçek ikon merkezine baksın.
+        const { t, manager, currentFloorId } = opts;
         const sc = this._scrPosEffective(comp, t, manager);
-        const off = _getOffset(comp.id);
+        const off = _getOffset(comp.id, currentFloorId);
 
         const lines = [];
 
@@ -1259,13 +1232,11 @@ export const LabelMixin = {
                 lines.push({ text: `${Math.round(kcal).toLocaleString('tr-TR')} kcal/h${kwStr}`, sub: true });
             }
             if (comp.yedekCihaz) lines.push({ text: 'Yedek Cihaz', sub: true });
-
         } else if (comp.cihazTipi === 'OCAK') {
             lines.push({ text: 'Evsel Ocak', bold: true });
             if (comp.marka) lines.push({ text: comp.marka, sub: true });
             if (comp.model) lines.push({ text: comp.model, sub: true });
             if (comp.yedekCihaz) lines.push({ text: 'Yedek Cihaz', sub: true });
-
         } else {
             return;
         }
@@ -1284,12 +1255,11 @@ export const LabelMixin = {
         const cx = sc.x;
         const cy = sc.y;
 
-        this._drawObjLabelBoxBelow(ctx, comp.id, cx, cy, off.dx, off.dy, lines, opts, hh);
+        this._drawObjLabelBoxBelow(ctx, comp.id, cx, cy, off.dx || 0, off.dy || 0, lines, opts, hh);
     },
-
 };
 
-// ─── ETİKET YENİDEN YERLEŞİMİ (AKILLI LOKAL KEŞİF + GLOBAL FİZİK) ──────────
+// ─── YENİDEN YERLEŞİM FONKSİYONLARI (KAT BAZLI) ──────────────────────────────
 
 function _rectsOverlap(a, b, pad) {
     return !(a.bx + a.bw + pad <= b.bx ||
@@ -1305,8 +1275,6 @@ function _getLabelAnchor(obj, t, manager) {
         const sx2 = obj.p2.x + z2, sy2 = obj.p2.y - z2;
         return { x: (sx1 + sx2) / 2, y: (sy1 + sy2) / 2 };
     }
-    // İzometride cihaz fleks doğrultusunda kaydırılıyor — layout anchor'ı
-    // gerçek çizim merkezine baksın ki etiket yakınına yerleşsin.
     if (obj.type === 'cihaz' && state.is3DPerspectiveActive && manager
         && LabelMixin?._scrPosForCihazPersp) {
         const persp = LabelMixin._scrPosForCihazPersp(obj, manager, t);
@@ -1327,14 +1295,15 @@ function _bboxToStoredOffset(bx, by, bw, bh, style) {
     return { ax: bx, ay: by + bh / 2 };
 }
 
-function _collectPipeLabelCandidates(manager, t) {
+function _collectPipeLabelCandidates(manager, t, floorId) {
     const out = [];
     if (!manager?.pipes) return out;
     const { hatMap } = computeHatGroups(manager.pipes, manager.components);
 
-    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    const pipeMap = new Map(manager.pipes.filter(p => p.floorId === floorId).map(p => [p.id, p]));
     const childrenIdx = new Map();
     manager.pipes.forEach(p => {
+        if (p.floorId !== floorId) return;
         if (p.baslangicBaglanti?.tip === 'boru' && p.baslangicBaglanti.hedefId) {
             const par = p.baslangicBaglanti.hedefId;
             if (!childrenIdx.has(par)) childrenIdx.set(par, []);
@@ -1344,6 +1313,7 @@ function _collectPipeLabelCandidates(manager, t) {
 
     const visitedSec = new Set();
     manager.pipes.forEach(seedPipe => {
+        if (seedPipe.floorId !== floorId) return;
         if (!seedPipe.p1 || !seedPipe.p2) return;
         if (visitedSec.has(seedPipe.id)) return;
         const hatNo = hatMap.get(seedPipe.id);
@@ -1377,8 +1347,8 @@ function _collectPipeLabelCandidates(manager, t) {
             const isHorizA = Math.abs(dxa) > Math.abs(dya) ? 1 : 0;
             const isHorizB = Math.abs(dxb) > Math.abs(dyb) ? 1 : 0;
 
-            if (isHorizA !== isHorizB) return isHorizB - isHorizA; 
-            return lenB - lenA; 
+            if (isHorizA !== isHorizB) return isHorizB - isHorizA;
+            return lenB - lenA;
         });
 
         out.push({ obj: group[0], type: 'boru', hatNo, pipeGroup: group });
@@ -1386,12 +1356,13 @@ function _collectPipeLabelCandidates(manager, t) {
     return out;
 }
 
-function _collectAllCandidates(manager) {
+function _collectAllCandidates(manager, floorId) {
     const cands = [];
-    const pipeCands = _collectPipeLabelCandidates(manager, 0);
+    const pipeCands = _collectPipeLabelCandidates(manager, 0, floorId);
     pipeCands.forEach(c => cands.push(c));
     if (manager?.components) {
         manager.components.forEach(c => {
+            if (c.floorId !== floorId) return;
             if (c.type === 'vana') cands.push({ obj: c, type: 'vana' });
             else if (c.type === 'cihaz') cands.push({ obj: c, type: 'cihaz' });
             else if (c.type === 'sayac') cands.push({ obj: c, type: 'sayac' });
@@ -1407,14 +1378,11 @@ function _collectAllCandidates(manager) {
     return cands;
 }
 
-function _buildObstacleRects(manager, t) {
+function _buildObstacleRects(manager, t, floorId) {
     const rects = [];
-    const curFloor = state.currentFloor?.id || null;
-    const sameFloor = (o) => !curFloor || !o?.floorId || o.floorId === curFloor;
-
     if (manager?.components) {
         for (const c of manager.components) {
-            if (!sameFloor(c)) continue;
+            if (c.floorId !== floorId) continue;
             
             if (c.type === 'baca') {
                 if (typeof c.getBoundingBox === 'function') {
@@ -1422,7 +1390,7 @@ function _buildObstacleRects(manager, t) {
                     if (isFinite(bb.minX) && isFinite(bb.maxX)) {
                         const zOff = (c.z || 0) * t;
                         rects.push({
-                            id: c.id, 
+                            id: c.id,
                             bx: bb.minX + zOff,
                             by: bb.minY - zOff,
                             bw: bb.maxX - bb.minX,
@@ -1449,18 +1417,14 @@ function _buildObstacleRects(manager, t) {
             if (bw > 0) rects.push({ id: c.id, bx: sx - bw / 2, by: sy - bh / 2, bw, bh });
         }
     }
-
-    // Duvarlar engellerden çıkarıldı
     return rects;
 }
 
-function _buildPipeSegments(manager, t) {
+function _buildPipeSegments(manager, t, floorId) {
     const segs = [];
     if (!manager?.pipes) return segs;
-    const curFloor = state.currentFloor?.id || null;
-    const sameFloor = (o) => !curFloor || !o?.floorId || o.floorId === curFloor;
     for (const p of manager.pipes) {
-        if (!sameFloor(p) || !p.p1 || !p.p2) continue;
+        if (p.floorId !== floorId || !p.p1 || !p.p2) continue;
         const z1 = (p.p1.z || 0) * t, z2 = (p.p2.z || 0) * t;
         segs.push({
             x1: p.p1.x + z1, y1: p.p1.y - z1,
@@ -1498,11 +1462,9 @@ function _segmentIntersectsRect(seg, bx, by, bw, bh, ignoreId) {
 
 function _getHostPipeDir(obj, manager, t) {
     if (!obj) return null;
-
     if (obj.type === 'cihaz' || obj.type === 'sayac' || obj.type === 'servis_kutusu') {
-        return null; 
+        return null;
     }
-
     if (obj.type === 'boru' && obj.p1 && obj.p2) {
         const z1 = (obj.p1.z || 0) * t, z2 = (obj.p2.z || 0) * t;
         const dx = (obj.p2.x + z2) - (obj.p1.x + z1);
@@ -1511,7 +1473,6 @@ function _getHostPipeDir(obj, manager, t) {
         if (L < 0.01) return null;
         return { ux: dx / L, uy: dy / L };
     }
-
     if (obj.bagliBoruId && manager?.findPipeById) {
         const p = manager.findPipeById(obj.bagliBoruId);
         if (p && p.p1 && p.p2) {
@@ -1522,12 +1483,10 @@ function _getHostPipeDir(obj, manager, t) {
             if (L > 0.01) return { ux: dx / L, uy: dy / L };
         }
     }
-
     if (obj.rotation != null) {
         const rad = ((obj.rotation || 0) * Math.PI) / 180;
         return { ux: -Math.sin(rad), uy: Math.cos(rad) };
     }
-
     return null;
 }
 
@@ -1545,10 +1504,11 @@ function _getObjectHalfSize(obj) {
     return { hw: 4, hh: 4 };
 }
 
-function _computeSceneCenter(manager, t) {
+function _computeSceneCenter(manager, t, floorId) {
     let sx = 0, sy = 0, n = 0;
     if (manager?.components) {
         manager.components.forEach(c => {
+            if (c.floorId !== floorId) return;
             if (c.x == null || c.y == null) return;
             const zOff = (c.z || 0) * t;
             sx += c.x + zOff;
@@ -1556,13 +1516,13 @@ function _computeSceneCenter(manager, t) {
             n++;
         });
     }
-    if (state.walls) {
-        for (const w of state.walls) {
-            if (!w.p1 || !w.p2) continue;
-            sx += (w.p1.x + w.p2.x) / 2;
-            sy += (w.p1.y + w.p2.y) / 2;
-            n++;
-        }
+    const walls = state.walls || [];
+    for (const w of walls) {
+        if (w.floorId !== floorId) continue;
+        if (!w.p1 || !w.p2) continue;
+        sx += (w.p1.x + w.p2.x) / 2;
+        sy += (w.p1.y + w.p2.y) / 2;
+        n++;
     }
     if (n === 0) return { x: 0, y: 0 };
     return { x: sx / n, y: sy / n };
@@ -1571,7 +1531,7 @@ function _computeSceneCenter(manager, t) {
 function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors, archObstacles) {
     const roomRects = archObstacles?.roomNameRects || null;
     const wallSegs = archObstacles?.wallSegs || null;
-    const GAP = 25; 
+    const GAP = 20;
 
     const objHalf = _getObjectHalfSize(c.obj);
     const lblHW = c.bw / 2;
@@ -1583,28 +1543,25 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors,
     const directions = [
         { id: 'bottom', nx: 0, ny: 1, align: 'vertical', pref: ['cihaz', 'sayac', 'servis_kutusu'], dirPenalty: 0 },
         { id: 'right', nx: 1, ny: 0, align: 'horizontal', pref: ['vana', 'regulator', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre', 'topraklama', 'cihaz', 'sayac'], dirPenalty: 0 },
-        { id: 'top', nx: 0, ny: -1, align: 'vertical', pref: ['cihaz', 'sayac', 'servis_kutusu'], dirPenalty: 15 },
-        { id: 'left', nx: -1, ny: 0, align: 'horizontal', pref: ['cihaz', 'sayac'], dirPenalty: 25 },
-        
-        { id: 'top-rs', nx: 0.45, ny: -0.89, align: 'free', pref: [], dirPenalty: 120 },
-        { id: 'bottom-rs', nx: 0.45, ny: 0.89, align: 'free', pref: [], dirPenalty: 120 },
-        { id: 'right-us', nx: 0.89, ny: -0.45, align: 'free', pref: [], dirPenalty: 120 },
-        { id: 'right-ds', nx: 0.89, ny: 0.45, align: 'free', pref: [], dirPenalty: 120 },
-        
-        { id: 'br', nx: 0.7071, ny: 0.7071, align: 'free', pref: [], dirPenalty: 200 },
-        { id: 'tr', nx: 0.7071, ny: -0.7071, align: 'free', pref: [], dirPenalty: 200 },
-        { id: 'bl', nx: -0.7071, ny: 0.7071, align: 'free', pref: [], dirPenalty: 200 },
-        { id: 'tl', nx: -0.7071, ny: -0.7071, align: 'free', pref: [], dirPenalty: 200 },
+        { id: 'top', nx: 0, ny: -1, align: 'vertical', pref: ['cihaz', 'sayac', 'servis_kutusu'], dirPenalty: 10 },
+        { id: 'left', nx: -1, ny: 0, align: 'horizontal', pref: ['cihaz', 'sayac'], dirPenalty: 20 },
+        { id: 'top-rs', nx: 0.45, ny: -0.89, align: 'free', pref: [], dirPenalty: 80 },
+        { id: 'bottom-rs', nx: 0.45, ny: 0.89, align: 'free', pref: [], dirPenalty: 80 },
+        { id: 'right-us', nx: 0.89, ny: -0.45, align: 'free', pref: [], dirPenalty: 80 },
+        { id: 'right-ds', nx: 0.89, ny: 0.45, align: 'free', pref: [], dirPenalty: 80 },
+        { id: 'br', nx: 0.7071, ny: 0.7071, align: 'free', pref: [], dirPenalty: 150 },
+        { id: 'tr', nx: 0.7071, ny: -0.7071, align: 'free', pref: [], dirPenalty: 150 },
+        { id: 'bl', nx: -0.7071, ny: 0.7071, align: 'free', pref: [], dirPenalty: 150 },
+        { id: 'tl', nx: -0.7071, ny: -0.7071, align: 'free', pref: [], dirPenalty: 150 },
     ];
 
     const ignorePipeId = c.obj.type === 'boru' ? c.obj.id : null;
-    const distances = [1.0, 1.4, 1.9, 2.5, 3.3, 4.5];
+    const distances = [1.0, 1.3, 1.7, 2.2, 3.0];
 
     let bestScore = Infinity;
     let bestSpot = { cx: c.anchor.x + baseOffX, cy: c.anchor.y + baseOffY, align: 'vertical' };
 
     for (const d of distances) {
-        let layerBest = Infinity;
         for (const dir of directions) {
             const candCX = c.anchor.x + dir.nx * baseOffX * d;
             const candCY = c.anchor.y + dir.ny * baseOffY * d;
@@ -1612,18 +1569,19 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors,
             const candBy = candCY - lblHH;
 
             let penalty = dir.dirPenalty;
-            penalty += (d - 1.0) * 150; 
+            // Çok daha yumuşak mesafe cezası
+            penalty += (d - 1.0) * 25;
 
             let isPref = dir.pref.includes(c.obj.type);
 
             if (c.hostPipeDir) {
                 const par = Math.abs(dir.nx * c.hostPipeDir.ux + dir.ny * c.hostPipeDir.uy);
-                if (par > 0.85) penalty += 10000; 
-                else if (par < 0.2) { penalty -= 80; if (c.obj.type !== 'boru') isPref = true; }
-                else penalty += par * 200;
+                if (par > 0.85) penalty += 8000;
+                else if (par < 0.2) { penalty -= 60; if (c.obj.type !== 'boru') isPref = true; }
+                else penalty += par * 150;
             }
 
-            if (!isPref) penalty += 80;
+            if (!isPref) penalty += 60;
 
             if (neighborAnchors && neighborAnchors.length) {
                 const NEAR = 100;
@@ -1634,27 +1592,26 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors,
                     if (dist < 1 || dist > NEAR) continue;
                     const ux = ndx / dist;
                     const uy = ndy / dist;
-                    const toward = dir.nx * ux + dir.ny * uy; 
+                    const toward = dir.nx * ux + dir.ny * uy;
                     const w = (NEAR - dist) / NEAR;
-                    penalty += toward * w * 300; 
+                    penalty += toward * w * 200;
                 }
             }
 
             for (const obs of obstacleRects) {
                 if (obs.id && c.obj && obs.id === c.obj.id) continue;
                 if (!(candBx + c.bw <= obs.bx || candBx >= obs.bx + obs.bw || candBy + c.bh <= obs.by || candBy >= obs.by + obs.bh)) {
-                    penalty += 8000; 
+                    penalty += 8000;
                 }
             }
 
-            const lineStartX = c.anchor.x + dir.nx * (objHalf.hw + 5);
-            const lineStartY = c.anchor.y + dir.ny * (objHalf.hh + 5);
+            const lineStartX = c.anchor.x + dir.nx * (objHalf.hw + 3);
+            const lineStartY = c.anchor.y + dir.ny * (objHalf.hh + 3);
             
             for (const obs of obstacleRects) {
                 if (obs.id && c.obj && obs.id === c.obj.id) continue;
-                if (obs.bx === candBx && obs.by === candBy) continue; 
                 if (_segIntersectsRect(lineStartX, lineStartY, candCX, candCY, obs.bx, obs.by, obs.bw, obs.bh)) {
-                    penalty += 8000; 
+                    penalty += 8000;
                     break;
                 }
             }
@@ -1672,19 +1629,17 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors,
                 }
             }
 
-            // MAHAL adı çakışması: kesin kaçınma
             if (roomRects) {
                 for (const rr of roomRects) {
                     const ox = Math.max(0, Math.min(candBx + c.bw, rr.bx + rr.bw) - Math.max(candBx, rr.bx));
                     const oy = Math.max(0, Math.min(candBy + c.bh, rr.by + rr.bh) - Math.max(candBy, rr.by));
-                    if (ox > 0 && oy > 0) penalty += 9000 + ox * oy * 2;
+                    if (ox > 0 && oy > 0) penalty += 9000 + ox * oy;
                 }
             }
 
-            // Duvar: tercih edilmesin
             if (wallSegs) {
                 for (const w of wallSegs) {
-                    if (_wallTouchesRect(w, candBx, candBy, c.bw, c.bh)) penalty += 300;
+                    if (_wallTouchesRect(w, candBx, candBy, c.bw, c.bh)) penalty += 20;
                 }
             }
 
@@ -1692,10 +1647,9 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors,
                 bestScore = penalty;
                 bestSpot = { cx: candCX, cy: candCY, align: dir.align };
             }
-            if (penalty < layerBest) layerBest = penalty;
+            if (penalty < 200) break;
         }
-        
-        if (layerBest < 250) break;
+        if (bestScore < 200) break;
     }
 
     bestSpot.score = bestScore;
@@ -1740,7 +1694,7 @@ function _getPushVector(r1, r2, pad) {
 
 function _strictSeparation(cands, obstacleRects, pad, archObstacles) {
     const roomRects = archObstacles?.roomNameRects || null;
-    const MAX_PASS = 80;
+    const MAX_PASS = 60;
     for (let pass = 0; pass < MAX_PASS; pass++) {
         let anyOverlap = false;
 
@@ -1807,7 +1761,7 @@ async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnima
                     const ddy = cy - py;
                     const dist = Math.hypot(ddx, ddy);
                     if (dist > 0.01 && dist < safeDist) {
-                        const k = (safeDist - dist) / dist * 0.45;
+                        const k = (safeDist - dist) / dist * 0.4;
                         forceX += ddx * k;
                         forceY += ddy * k;
                     }
@@ -1818,11 +1772,11 @@ async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnima
             let dy = c.idealCY - cy;
 
             if (c.align === 'vertical') {
-                forceX += dx * 0.8;
+                forceX += dx * 0.7;
                 forceY += dy * 0.15;
             } else if (c.align === 'horizontal') {
                 forceX += dx * 0.15;
-                forceY += dy * 0.8;
+                forceY += dy * 0.7;
             } else {
                 forceX += dx * 0.3;
                 forceY += dy * 0.3;
@@ -1831,16 +1785,15 @@ async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnima
             for (const obs of obstacleRects) {
                 if (obs.id && c.obj && obs.id === c.obj.id) continue;
                 const push = _getPushVector(c, obs, PAD);
-                forceX += push.x * 0.7;
-                forceY += push.y * 0.7;
+                forceX += push.x * 0.6;
+                forceY += push.y * 0.6;
             }
 
-            // MAHAL adlarından güçlü itme — etiket asla mahal isminin üzerine düşmesin
             if (roomRects) {
                 for (const rr of roomRects) {
                     const push = _getPushVector(c, rr, PAD * 1.5);
-                    forceX += push.x * 1.4;
-                    forceY += push.y * 1.4;
+                    forceX += push.x * 1.2;
+                    forceY += push.y * 1.2;
                 }
             }
 
@@ -1848,11 +1801,11 @@ async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnima
                 if (i === j) continue;
                 const other = cands[j];
                 const push = _getPushVector(c, other, PAD);
-                forceX += push.x * 0.6;
-                forceY += push.y * 0.6;
+                forceX += push.x * 0.5;
+                forceY += push.y * 0.5;
             }
 
-            const maxSpeed = 30;
+            const maxSpeed = 25;
             const speed = Math.hypot(forceX, forceY);
             if (speed > maxSpeed) {
                 forceX = (forceX / speed) * maxSpeed;
@@ -1865,11 +1818,11 @@ async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnima
         if (isAnimated && iter % 2 === 0) {
             cands.forEach(c => {
                 const off = _bboxToStoredOffset(c.bx, c.by, c.bw, c.bh, c.style);
-                const prev = _labelOffsets.get(c.obj.id) || {};
-                _labelOffsets.set(c.obj.id, { ax: off.ax, ay: off.ay, dir: prev.dir ?? 0 });
+                const prev = _getOffset(c.obj.id, c.floorId);
+                _setOffset(c.obj.id, c.floorId, { ax: off.ax, ay: off.ay, dir: prev.dir ?? 0 });
             });
             if (onProgress) onProgress(iter + 1, iterCount);
-            await new Promise(res => setTimeout(res, 15));
+            await new Promise(res => setTimeout(res, 12));
         }
     }
 
@@ -1878,19 +1831,24 @@ async function _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnima
 
 export async function relayoutAllLabels(manager, mode, onProgress) {
     if (!manager) return;
+    
+    const currentFloorId = state.currentFloor?.id || null;
+    if (!currentFloorId) return;
+    
     const t = state.viewBlendFactor || 0;
-    const curFloorId = state.currentFloor?.id || null;
-    const sameFloor = (o) => !curFloorId || !o.floorId || o.floorId === curFloorId;
 
-    let cands = _collectAllCandidates(manager).filter(c => sameFloor(c.obj));
+    let cands = _collectAllCandidates(manager, currentFloorId);
     if (cands.length === 0) return;
 
-    const obstacleRects = _buildObstacleRects(manager, t);
-    const pipeSegments = _buildPipeSegments(manager, t);
-    const sceneCenter = _computeSceneCenter(manager, t);
+    // Her adaya floorId ekle
+    cands.forEach(c => c.floorId = currentFloorId);
+
+    const obstacleRects = _buildObstacleRects(manager, t, currentFloorId);
+    const pipeSegments = _buildPipeSegments(manager, t, currentFloorId);
+    const sceneCenter = _computeSceneCenter(manager, t, currentFloorId);
     const archObstacles = {
-        roomNameRects: _buildRoomNameRects(),
-        wallSegs: _buildWallSegments(),
+        roomNameRects: _buildRoomNameRects(currentFloorId),
+        wallSegs: _buildWallSegments(currentFloorId),
     };
 
     cands.forEach(c => {
@@ -1916,14 +1874,14 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
             let bestSpot = null;
             let minScore = Infinity;
 
-            for (let i = 0; i < c.pipeGroup.length; i++) {
+            for (let i = 0; i < Math.min(c.pipeGroup.length, 5); i++) {
                 const p = c.pipeGroup[i];
                 c.obj = p;
                 c.anchor = _getLabelAnchor(p, t, manager);
                 c.hostPipeDir = _getHostPipeDir(p, manager, t);
                 const spot = _findBestLocalPosition(c, runningObstacles, pipeSegments, neighborAnchors, archObstacles);
 
-                spot.score += i * 60;
+                spot.score += i * 50;
 
                 if (spot.score < minScore) {
                     minScore = spot.score;
@@ -1931,7 +1889,7 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
                     bestPipe = p;
                 }
 
-                if (minScore < 50) break;
+                if (minScore < 100) break;
             }
 
             c.obj = bestPipe;
@@ -1953,7 +1911,7 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
     });
 
     const isAnimated = mode === 'free';
-    const iterCount = 40;
+    const iterCount = 35;
 
     await _relaxSystem(cands, obstacleRects, iterCount, onProgress, isAnimated, pipeSegments, archObstacles);
 
@@ -1966,18 +1924,26 @@ export async function relayoutAllLabels(manager, mode, onProgress) {
         for (const p of c.pipeGroup) {
             if (p.id === c.obj.id) continue;
             if (_chosenPipeIds.has(p.id)) continue;
-            _labelOffsets.delete(p.id);
-            _labelAutoPos.delete(p.id);
+            _deleteOffset(p.id, currentFloorId);
+            _deleteAutoPos(p.id, currentFloorId);
         }
     });
 
     cands.forEach(c => {
         const off = _bboxToStoredOffset(c.bx, c.by, c.bw, c.bh, c.style);
-        const prev = _labelOffsets.get(c.obj.id) || {};
-        _labelOffsets.set(c.obj.id, { ax: off.ax, ay: off.ay, dir: prev.dir ?? 0 });
-        _labelAutoPos.delete(c.obj.id);
+        const prev = _getOffset(c.obj.id, currentFloorId);
+        _setOffset(c.obj.id, currentFloorId, { ax: off.ax, ay: off.ay, dir: prev.dir ?? 0 });
+        _deleteAutoPos(c.obj.id, currentFloorId);
     });
 
     if (onProgress && !isAnimated) onProgress('done', 0);
+    
+    // Render'ı tetikle
+    if (window.requestAnimationFrame) {
+        window.requestAnimationFrame(() => {
+            if (state.renderCallback) state.renderCallback();
+        });
+    }
+    
     await new Promise(res => setTimeout(res, 0));
 }

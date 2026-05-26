@@ -610,8 +610,14 @@ export function drawIsoView() {
         }
         const cleanedLabels = {};
         for (const id in state.isoLabelOffsets) {
-            if (pipeIds.has(id) || compIds.has(id)) cleanedLabels[id] = state.isoLabelOffsets[id];
-            else changed = true;
+            if (id.startsWith('vert_')) {
+                if (pipeIds.has(id.slice(5))) cleanedLabels[id] = state.isoLabelOffsets[id];
+                else changed = true;
+            } else if (pipeIds.has(id) || compIds.has(id)) {
+                cleanedLabels[id] = state.isoLabelOffsets[id];
+            } else {
+                changed = true;
+            }
         }
         if (changed) {
             setState({

@@ -729,9 +729,25 @@ function drawVerticalPipeLabelsIso(ctx, proxyManager) {
     });
 }
 
+function _isoRoundRect(ctx, x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.lineTo(x + w - rr, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+    ctx.lineTo(x + w, y + h - rr);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+    ctx.lineTo(x + rr, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+    ctx.lineTo(x, y + rr);
+    ctx.quadraticCurveTo(x, y, x + rr, y);
+    ctx.closePath();
+}
+
 function drawPipeLabelsIso(ctx, proxyManager) {
     const T = _isoLabelTheme();
-    const fontSize = 11; const numFontSize = 14; const pad = 4;
+    // Kat planı stili: küçük no hücresinde sol kenarda kalın accent çubuk + ince ayraç + info hücresi.
+    const numFontSize = 12; const fontSize = 9; const pad = 3;
     const { hatMap } = computeHatGroups(plumbingManager.pipes, plumbingManager.components); 
     const pipeMap = new Map(proxyManager.pipes.map(p => [p.id, p])); 
 
@@ -792,14 +808,33 @@ function drawPipeLabelsIso(ctx, proxyManager) {
             chosen.boruCap || null
         ].filter(Boolean);
 
+        const isLight = document.body.classList.contains('light-mode');
+        const isHigh = hatNo >= 300;
+        const hatColor = isHigh ? '#8d2121' : T.accentColor;
+        const accentBar = isHigh
+            ? (isLight ? 'rgba(141,33,33,0.55)' : 'rgba(220,90,90,0.55)')
+            : (isLight ? 'rgba(29,78,216,0.55)' : 'rgba(96,165,250,0.55)');
+        const bgColor = isLight ? 'rgba(255,255,255,0.10)' : 'rgba(20,20,35,0.12)';
+        const borderColor = isLight ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.20)';
+        const sepColor = isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)';
+
         ctx.save();
-        ctx.font = `bold ${numFontSize}px "Segoe UI",sans-serif`; const numW = ctx.measureText(String(hatNo)).width;
-        ctx.font = `${fontSize}px "Segoe UI",sans-serif`; let maxInfoW = 0;
+        ctx.font = `bold ${numFontSize}px "Segoe UI",sans-serif`;
+        const numW = ctx.measureText(String(hatNo)).width;
+        ctx.font = `${fontSize}px "Segoe UI",sans-serif`;
+        let maxInfoW = 0;
         infoLines.forEach(l => { maxInfoW = Math.max(maxInfoW, ctx.measureText(l).width); });
 
-        const numCellW = pad * 2 + numW; const infoCellW = infoLines.length > 0 ? pad * 2 + maxInfoW : 0;
+        const barW = 3;                                 // sol kenardaki kalın accent çubuk
+        const numCellW = barW + pad + numW + pad;       // bar + sol pad + sayı + sağ pad
+        const infoLineH = fontSize * 1.45;
+        const infoCellW = infoLines.length > 0 ? pad + maxInfoW + pad : 0;
+        const numCellH = numFontSize + pad * 1.6;
+        const infoCellH = infoLines.length > 0 ? infoLines.length * infoLineH + pad * 0.8 : 0;
+
         const boxW = numCellW + (infoCellW > 0 ? 1 + infoCellW : 0);
-        const boxH = Math.max(numFontSize + pad * 2, infoLines.length * (fontSize * 1.4) + pad * 1.2);
+        const boxH = Math.max(numCellH, infoCellH, numFontSize + pad * 2);
+        const r = 2.5;
 
         const stored = state.isoLabelOffsets?.[chosen.id];
         let ax = midX + 20, ay = midY, style = 'left-center';
@@ -810,32 +845,61 @@ function drawPipeLabelsIso(ctx, proxyManager) {
         let by = style === 'top-center' ? ay : ay - boxH / 2;
         _isoLabelBBoxes.push({ id: chosen.id, bx, by, bw: boxW, bh: boxH, style, cx: midX, cy: midY });
 
-        const lx = bx + boxW / 2; const ly = by + boxH / 2;
-        if (Math.hypot(lx - midX, ly - midY) > 0.1) {
+        // LEADER — kutu kenarına kadar
+        const cxBox = bx + boxW / 2; const cyBox = by + boxH / 2;
+        const ddx = cxBox - midX, ddy = cyBox - midY; const ddist = Math.hypot(ddx, ddy);
+        if (ddist > 0.1) {
+            const ux = ddx / ddist, uy = ddy / ddist;
+            const tLab = Math.min(
+                Math.abs(ux) > 1e-3 ? (boxW / 2) / Math.abs(ux) : Infinity,
+                Math.abs(uy) > 1e-3 ? (boxH / 2) / Math.abs(uy) : Infinity
+            );
             ctx.strokeStyle = T.connColor; ctx.lineWidth = 0.8;
-            ctx.beginPath(); ctx.moveTo(midX, midY); ctx.lineTo(lx - (lx - midX) / Math.hypot(lx - midX, ly - midY) * (boxW / 2), ly - (ly - midY) / Math.hypot(lx - midX, ly - midY) * (boxH / 2)); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(midX, midY); ctx.lineTo(cxBox - ux * tLab, cyBox - uy * tLab); ctx.stroke();
         }
 
-        // AYIRAÇ ÇİZGİSİ (silik gri — temayla uyumlu)
+        // ARKA PLAN — hafif yuvarlatılmış, neredeyse şeffaf
+        ctx.fillStyle = bgColor;
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 1;
+        _isoRoundRect(ctx, bx, by, boxW, boxH, r);
+        ctx.fill();
+        ctx.stroke();
+
+        // SOL KENAR KALIN ACCENT ÇUBUĞU
+        ctx.strokeStyle = accentBar;
+        ctx.lineWidth = barW;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(bx + barW / 2 + 0.5, by + r);
+        ctx.lineTo(bx + barW / 2 + 0.5, by + boxH - r);
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+
+        // İNCE AYRAÇ — num cell ile info cell arası
         if (infoCellW > 0) {
-            const sepColor = document.body.classList.contains('light-mode')
-                ? 'rgba(70,70,70,0.28)'
-                : 'rgba(210,210,210,0.30)';
             ctx.strokeStyle = sepColor;
-            ctx.lineWidth = 0.8;
+            ctx.lineWidth = 0.7;
             ctx.beginPath();
-            ctx.moveTo(bx + numCellW, by + pad);
-            ctx.lineTo(bx + numCellW, by + boxH - pad);
+            ctx.moveTo(bx + numCellW, by + pad * 0.6);
+            ctx.lineTo(bx + numCellW, by + boxH - pad * 0.6);
             ctx.stroke();
         }
 
-        ctx.font = `bold ${numFontSize}px "Segoe UI",sans-serif`; ctx.fillStyle = hatNo >= 300 ? '#8d2121' : T.accentColor;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(hatNo), bx + numCellW / 2, by + boxH / 2);
+        // HAT NUMARASI — bold, accent renkte
+        ctx.font = `bold ${numFontSize}px "Segoe UI",sans-serif`;
+        ctx.fillStyle = hatColor;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(hatNo), bx + barW + pad + numW / 2, by + boxH / 2);
 
+        // INFO SATIRLARI
         if (infoLines.length > 0) {
-            ctx.font = `${fontSize}px "Segoe UI",sans-serif`; ctx.fillStyle = T.subColor; ctx.textAlign = 'left';
-            let ty = by + (boxH - infoLines.length * (fontSize * 1.4)) / 2 + (fontSize * 1.4) * 0.75;
-            infoLines.forEach(l => { ctx.fillText(l, bx + numCellW + 1 + pad, ty); ty += (fontSize * 1.4); });
+            ctx.font = `${fontSize}px "Segoe UI",sans-serif`;
+            ctx.fillStyle = T.subColor;
+            ctx.textAlign = 'left';
+            const totalInfoH = infoLines.length * infoLineH;
+            let ty = by + (boxH - totalInfoH) / 2 + infoLineH * 0.72;
+            infoLines.forEach(l => { ctx.fillText(l, bx + numCellW + 1 + pad, ty); ty += infoLineH; });
         }
         ctx.restore();
     });
@@ -887,7 +951,8 @@ export function cycleIsoLabelDir(id) {
     return newOffsets;
 }
 
-const ISO_PRIORITY = { vana: 0, boru: 0, regulator: 1, filtre: 1, izolasyon_flansi: 1, kompansator: 1, manometre: 1, topraklama: 1, sayac: 2, servis_kutusu: 2, cihaz: 3, baca: 3 };
+// Yerleştirme sırası: h (vert) önce → boru çapı → vana → diğer bağlantı parçaları → sayaç/kutu → cihaz/baca
+const ISO_PRIORITY = { vert: 0, boru: 1, vana: 2, regulator: 3, filtre: 3, izolasyon_flansi: 3, kompansator: 3, manometre: 3, topraklama: 3, sayac: 4, servis_kutusu: 4, cihaz: 5, baca: 5 };
 const ISO_CLIP_BY_TYPE = { sayac: 24, cihaz: 24, servis_kutusu: 20, vana: 10, regulator: 10, filtre: 10, izolasyon_flansi: 10, kompansator: 10, manometre: 10, topraklama: 10, boru: 8 };
 const ISO_DEFAULT_STYLE_BY_TYPE = { sayac: 'top-center', cihaz: 'top-center', servis_kutusu: 'top-center', vana: 'left-center', regulator: 'left-center', filtre: 'left-center', manometre: 'left-center', topraklama: 'left-center', boru: 'left-center' };
 
@@ -898,10 +963,20 @@ function _isoMeasureLines(lines) {
     lines.forEach(l => { if (!l?.text) return; count++; ctx.font = `${l.bold ? 'bold ' : ''}11px sans-serif`; maxW = Math.max(maxW, ctx.measureText(l.text).width); });
     return count === 0 ? { bw: 0, bh: 0 } : { bw: maxW + 12, bh: count * 16.5 + 5 };
 }
+// drawPipeLabelsIso (kat planı stili) ile birebir — bar(3) + pad + num(bold 12) + pad + sep + pad + info(9) + pad.
 function _isoMeasureHatLabel(hatNo, infoLines) {
-    const ctx = _getIsoMeasureCtx(); ctx.font = `bold 14px sans-serif`; const numW = ctx.measureText(String(hatNo)).width;
-    ctx.font = `11px sans-serif`; let maxInfoW = 0; infoLines.forEach(t => maxInfoW = Math.max(maxInfoW, ctx.measureText(t).width));
-    return { bw: numW + maxInfoW + 17, bh: Math.max(22, infoLines.length * 15.4 + 6) };
+    const ctx = _getIsoMeasureCtx();
+    const numFontSize = 12, fontSize = 9, pad = 3, barW = 3;
+    ctx.font = `bold ${numFontSize}px sans-serif`;
+    const numW = ctx.measureText(String(hatNo)).width;
+    ctx.font = `${fontSize}px sans-serif`;
+    let maxInfoW = 0;
+    infoLines.forEach(t => { maxInfoW = Math.max(maxInfoW, ctx.measureText(t).width); });
+    const numCellW = barW + pad + numW + pad;
+    const infoCellW = infoLines.length > 0 ? pad + maxInfoW + pad : 0;
+    const bw = numCellW + (infoCellW > 0 ? 1 + infoCellW : 0);
+    const bh = Math.max(numFontSize + pad * 2, infoLines.length * (fontSize * 1.45) + pad * 0.8);
+    return { bw, bh };
 }
 
 function _collectIsoLabelCandidates(proxyManager) {
@@ -956,7 +1031,7 @@ function _collectIsoLabelCandidates(proxyManager) {
             anchorX: midX, anchorY: midY,
             clip: 6, defaultStyle: 'left-center',
             bw, bh,
-            priority: ISO_PRIORITY.boru, obj: null
+            priority: ISO_PRIORITY.vert, obj: null
         });
     });
     return cands;
@@ -1000,11 +1075,13 @@ function _rectOverlapArea(a, b) {
 
 function _positionsAtRadius(c, radius) {
     const out = [];
-    const N = Math.max(24, Math.floor(radius / 5));
-    for (let i = 0; i < N; i++) {
-        const ang = (i / N) * 2 * Math.PI;
+    // 12 yönlü dengeli dairesel tarama
+    for (let i = 0; i < 12; i++) {
+        const ang = (i / 12) * 2 * Math.PI;
         const ux = Math.cos(ang), uy = Math.sin(ang);
-        const style = Math.abs(ux) >= Math.abs(uy) ? 'left-center' : 'top-center';
+        
+        // Ekranda dikey doğrultuya yakınsa üst/alt, yatay doğrultudaysa yan hizalama stili seç
+        const style = Math.abs(ux) < 0.3 ? 'top-center' : 'left-center';
         out.push({
             ax: c.anchorX + ux * radius - (style === 'left-center' ? c.bw / 2 : 0),
             ay: c.anchorY + uy * radius - (style === 'top-center' ? c.bh / 2 : 0),
@@ -1025,7 +1102,9 @@ function _segSegIntersect(ax, ay, bx, by, cx, cy, dx, dy) {
 
 // drawIsometricComponentLabels noLeader=true ile çizmediği için skorlamada da yok sayılmalı.
 function _visibleLeaderSeg(c, box) {
-    if (c.type === 'sayac' || c.type === 'servis_kutusu' || c.type === 'regulator') return null;
+    // Leader çizmeyen tipler: sayaç, servis kutusu, regülatör (drawIsometricComponentLabels noLeader=true),
+    // ve dikey boru h-etiketi (drawVerticalPipeLabelsIso leader çizmiyor).
+    if (c.type === 'sayac' || c.type === 'servis_kutusu' || c.type === 'regulator' || c.type === 'vert') return null;
 
     const cx0 = c.anchorX, cy0 = c.anchorY;
     const lx = box.bx + box.bw / 2, ly = box.by + box.bh / 2;
@@ -1044,42 +1123,84 @@ function _visibleLeaderSeg(c, box) {
     return { x1: cx0 + ux * tObj, y1: cy0 + uy * tObj, x2: lx - ux * tLab, y2: ly - uy * tLab };
 }
 
-// Cezalar tiered: kutu çakışması > leader-leader > leader-label > kutu-boru > yumuşak (PAD) ihlaller > leader-boru.
 function _scorePlacement(c, box, obstacles, placedLabels, placedLeaders, pipeSegs) {
-    const PAD = 5;
+    const PAD = 4;
     const expBox = { bx: box.bx - PAD, by: box.by - PAD, bw: box.bw + 2 * PAD, bh: box.bh + 2 * PAD };
     let pen = 0;
 
+    // Muafiyet kimlik haritası
+    const myIds = new Set([c.id]);
+    if (c.obj) {
+        if (c.obj.id) myIds.add(c.obj.id);
+        if (c.obj.bagliBoruId) myIds.add(c.obj.bagliBoruId);
+        if (c.obj.cikisBagliBoruId) myIds.add(c.obj.cikisBagliBoruId);
+        if (c.obj.fleksBaglanti?.boruId) myIds.add(c.obj.fleksBaglanti.boruId);
+    }
+
+    const boxCx = box.bx + box.bw / 2;
+    const boxCy = box.by + box.bh / 2;
+
+    // 1. Nesne Gövdeleriyle Çakışma ve Yakınlık Alanı Yoğunluk Kontrolü
     for (const o of obstacles) {
+        if (o.id === c.id + '_body' || myIds.has(o.id.replace('_body', ''))) continue;
+
         const ov = _rectOverlapArea(box, o);
-        if (ov > 0) pen += 5000 + ov * 5;
-        else if (_rectOverlapArea(expBox, o) > 0) pen += 500;
+        if (ov > 0) {
+            pen += 10000 + ov * 20;
+        } else if (_rectOverlapArea(expBox, o) > 0) {
+            pen += 1500;
+        }
+
+        // [BORU ÇÖZÜMÜ]: Karmaşa Yakınlık Cezası (Etiketi boş alanlara doğru sürükler)
+        const oCx = o.bx + o.bw / 2;
+        const oCy = o.by + o.bh / 2;
+        const d = Math.hypot(boxCx - oCx, boxCy - oCy);
+        if (d < 75) {
+            pen += (75 - d) * 10; // Düğüm noktasına yaklaştıkça ceza katlanarak artar
+        }
     }
 
+    // 2. Diğer Etiketlerle Çakışma
     for (const p of placedLabels) {
+        if (p.id === c.id) continue;
         const ov = _rectOverlapArea(box, p);
-        if (ov > 0) pen += 6000 + ov * 10;
-        else if (_rectOverlapArea(expBox, p) > 0) pen += 800;
+        if (ov > 0) {
+            pen += 15000 + ov * 30;
+        } else if (_rectOverlapArea(expBox, p) > 0) {
+            pen += 2000;
+        }
+        
+        const pCx = p.bx + p.bw / 2;
+        const pCy = p.by + p.bh / 2;
+        const d = Math.hypot(boxCx - pCx, boxCy - pCy);
+        if (d < 50) pen += (50 - d) * 5;
     }
 
+    // 3. Boru Çizgileriyle Kesişim Kontrolü
     for (const s of pipeSegs) {
-        if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, box.bx, box.by, box.bw, box.bh)) pen += 3000;
-        else if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, expBox.bx, expBox.by, expBox.bw, expBox.bh)) pen += 300;
+        const isOwnPipe = myIds.has(s.pipeId);
+        if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, box.bx, box.by, box.bw, box.bh)) {
+            pen += isOwnPipe ? 100 : 4000; // Yabancı boru üstüne biniyorsa ağır ceza
+        } else if (_segRectIntersects(s.x1, s.y1, s.x2, s.y2, expBox.bx, expBox.by, expBox.bw, expBox.bh)) {
+            pen += isOwnPipe ? 10 : 400;
+        }
     }
 
+    // 4. Bağlantı Çizgileri Kesişimi
     const vis = _visibleLeaderSeg(c, box);
     if (vis) {
         for (const s of pipeSegs) {
-            if (_segSegIntersect(vis.x1, vis.y1, vis.x2, vis.y2, s.x1, s.y1, s.x2, s.y2)) pen += 50;
+            if (!myIds.has(s.pipeId) && _segSegIntersect(vis.x1, vis.y1, vis.x2, vis.y2, s.x1, s.y1, s.x2, s.y2)) {
+                pen += 600;
+            }
         }
         for (const pl of placedLeaders) {
-            if (!pl) continue;
-            if (_segSegIntersect(vis.x1, vis.y1, vis.x2, vis.y2, pl.x1, pl.y1, pl.x2, pl.y2)) pen += 4500;
-        }
-        for (const p of placedLabels) {
-            if (_segRectIntersects(vis.x1, vis.y1, vis.x2, vis.y2, p.bx, p.by, p.bw, p.bh)) pen += 4000;
+            if (pl && _segSegIntersect(vis.x1, vis.y1, vis.x2, vis.y2, pl.x1, pl.y1, pl.x2, pl.y2)) {
+                pen += 3000;
+            }
         }
     }
+
     return pen;
 }
 
@@ -1088,12 +1209,8 @@ function _isSpotCompletelyClean(c, box, obstacles, placedLabels, placedLeaders, 
 }
 
 function _tryPlaceLabelsStrict(cands, obstacles, pipeSegs) {
-    // anchorX tiebreaker: render arası layout jitter'ını engeller.
     cands.sort((a, b) => {
         if (a.priority !== b.priority) return a.priority - b.priority;
-        const areaA = a.bw * a.bh;
-        const areaB = b.bw * b.bh;
-        if (Math.abs(areaA - areaB) > 1e-2) return areaB - areaA;
         return a.anchorX - b.anchorX;
     });
 
@@ -1101,47 +1218,60 @@ function _tryPlaceLabelsStrict(cands, obstacles, pipeSegs) {
     const placedLeaders = [];
 
     for (const c of cands) {
-        let best = null, bestLeader = null;
-        let bestScore = Infinity, bestFallback = null, bestFallbackLeader = null;
+        let bestBox = null;
+        let bestLeader = null;
+        let minTotalScore = Infinity;
 
-        const baseR = c.clip + 12;
-        const maxR = 200;
+        // [SAYAÇ ÇÖZÜMÜ]: Lider çizgisi olmayan (sayaç, kutu vb.) etiketlerin uzağa kaçmasını fiziksel olarak engelle
+        const isNoLeader = ['sayac', 'servis_kutusu', 'regulator', 'vert'].includes(c.type) || c.kind === 'vert';
+        const baseR = c.clip + (isNoLeader ? 8 : 12);
+        const maxR = isNoLeader ? (c.clip + 35) : 140; // Sayaçlar en fazla 40-50px uzağa gidebilir, borular 140px
 
-        for (let r = baseR; r <= maxR; r += 10) {
+        // Yarıçapları küçükten büyüğe doğru tara
+        for (let r = baseR; r <= maxR; r += 8) {
             const positions = _positionsAtRadius(c, r + Math.max(c.bw, c.bh) / 2);
+            let bestAtThisRadius = null;
+            let minScoreAtThisRadius = Infinity;
+            let bestLeaderAtThisRadius = null;
+
+            // [BORU ÇÖZÜMÜ]: Erken break kaldırıldı! Bu yarıçaptaki TÜM açılar elenir, en temiz yön seçilir.
             for (const pos of positions) {
                 const box = _bboxFromStyle(pos.ax, pos.ay, c.bw, c.bh, pos.style);
                 const score = _scorePlacement(c, box, obstacles, placed, placedLeaders, pipeSegs);
-                const currentLeader = _visibleLeaderSeg(c, box);
-
-                if (score === 0) {
-                    best = { bx: box.bx, by: box.by, style: pos.style };
-                    bestLeader = currentLeader;
-                    break;
-                }
-
-                const distPen = r * 0.15;
-                if (score + distPen < bestScore) {
-                    bestScore = score + distPen;
-                    bestFallback = { bx: box.bx, by: box.by, style: pos.style };
-                    bestFallbackLeader = currentLeader;
+                
+                if (score < minScoreAtThisRadius) {
+                    minScoreAtThisRadius = score;
+                    bestAtThisRadius = { bx: box.bx, by: box.by, style: pos.style };
+                    bestLeaderAtThisRadius = _visibleLeaderSeg(c, box);
                 }
             }
-            if (best) break;
+
+            // Merkezden uzaklaştıkça artan mesafe cezası uygula
+            // Lider çizgisi olmayan etiketlerde uzağa gitme cezası çok daha ağırdır
+            const distPenalty = r * (isNoLeader ? 20 : 2.0);
+            const totalScore = minScoreAtThisRadius + distPenalty;
+
+            if (totalScore < minTotalScore) {
+                minTotalScore = totalScore;
+                bestBox = bestAtThisRadius;
+                bestLeader = bestLeaderAtThisRadius;
+            }
+
+            // Eğer bu yarıçapta zaten kusursuz (0 ceza) ve yakın bir yer bulduysak aramayı bitirebiliriz
+            if (minScoreAtThisRadius === 0 && r < baseR + 20) {
+                break;
+            }
         }
 
-        if (!best && bestFallback) {
-            best = bestFallback;
-            bestLeader = bestFallbackLeader;
-        }
-
-        if (best) {
-            c.bx = best.bx; c.by = best.by; c.style = best.style;
+        if (bestBox) {
+            c.bx = bestBox.bx; c.by = bestBox.by; c.style = bestBox.style;
             placed.push(c);
             placedLeaders.push(bestLeader);
         } else {
-            c.bx = c.anchorX + c.clip + 20;
-            c.by = c.anchorY - c.bh / 2;
+            // Tamamen sıkışma durumunda güvenli fallback (İzometrik 30° aksında öteleme)
+            const fallbackAng = Math.PI / 6;
+            c.bx = c.anchorX + Math.cos(fallbackAng) * baseR;
+            c.by = c.anchorY + Math.sin(fallbackAng) * baseR - c.bh / 2;
             c.style = 'left-center';
             placed.push(c);
             placedLeaders.push(_visibleLeaderSeg(c, _bboxFromStyle(c.bx, c.by, c.bw, c.bh, c.style)));
