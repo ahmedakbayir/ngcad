@@ -9,33 +9,86 @@ import { getNextStairLetter } from '../architectural-objects/stairs.js';
 let floorClipboard = null;
 
 export function initFloorOperationsMenu() {
+    // Üst/Kılavuz Menü Butonları
     const copyBtn = document.getElementById('floor-btn-copy');
     const pasteBtn = document.getElementById('floor-btn-paste');
     const pasteAllBtn = document.getElementById('floor-btn-paste-all');
     const clearBtn = document.getElementById('floor-btn-clear');
 
-    if (copyBtn) {
-        copyBtn.addEventListener('click', () => {
-            copyFloorArchitecture();
-        });
-    }
+    // Sağ Tık (Context) Menü Butonları
+    const ctxCopyBtn = document.getElementById('ctx-mimari-cogalt-kopyala');
+    const ctxPasteDeleteBtn = document.getElementById('ctx-mimari-cogalt-yapistir-sil');
+    const ctxPasteKeepBtn = document.getElementById('ctx-mimari-cogalt-yapistir-kal');
+    const ctxPasteAllBtn = document.getElementById('ctx-mimari-cogalt-tum-katlar');
+    const ctxClearBtn = document.getElementById('ctx-mimari-eksilt-kat');
+    const ctxClearAllBtn = document.getElementById('ctx-mimari-eksilt-tum-katlar');
 
-    if (pasteBtn) {
-        pasteBtn.addEventListener('click', () => {
-            pasteFloorArchitecture();
-        });
-    }
+    // Olay Dinleyicileri Tanımlamaları
+    if (copyBtn) copyBtn.addEventListener('click', () => { copyFloorArchitecture(); showFloorToast('✓ Kat mimarisi kopyalandı'); });
+    if (ctxCopyBtn) ctxCopyBtn.addEventListener('click', () => { copyFloorArchitecture(); showFloorToast('✓ Kat mimarisi kopyalandı'); });
 
-    if (pasteAllBtn) {
-        pasteAllBtn.addEventListener('click', () => {
-            pasteToAllFloors();
-        });
-    }
+    if (pasteBtn) pasteBtn.addEventListener('click', () => { pasteFloorArchitecture(true); showFloorToast('✓ Kat mimarisi yapıştırıldı'); });
+    if (ctxPasteDeleteBtn) ctxPasteDeleteBtn.addEventListener('click', () => { pasteFloorArchitecture(true); showFloorToast('✓ Kat mimarisi yapıştırıldı (Eski silindi)'); });
+    if (ctxPasteKeepBtn) ctxPasteKeepBtn.addEventListener('click', () => { pasteFloorArchitecture(false); showFloorToast('✓ Kat mimarisi mevcut plana eklendi'); });
 
-    if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
-            clearFloorArchitecture();
-        });
+    if (pasteAllBtn) pasteAllBtn.addEventListener('click', () => { pasteToAllFloors(); });
+    if (ctxPasteAllBtn) ctxPasteAllBtn.addEventListener('click', () => { pasteToAllFloors(); });
+
+    if (clearBtn) clearBtn.addEventListener('click', () => { clearFloorArchitecture(); });
+    if (ctxClearBtn) ctxClearBtn.addEventListener('click', () => { clearFloorArchitecture(); });
+    if (ctxClearAllBtn) ctxClearAllBtn.addEventListener('click', () => { clearAllFloorsArchitecture(); });
+
+    // Global Klavye Kısayolları Entegrasyonu (CTRL+C, CTRL+V, CTRL+SHIFT+V)
+    document.addEventListener('keydown', (e) => {
+        // Kullanıcı o sırada bir girdi alanındaysa (Input, Textarea vb.) kısayolları tetikleme
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+
+        // Herhangi bir nesnenin (Mimari veya Tesisat) seçili olup olmadığını denetle
+        const hasArchSelection = !!state.selectedObject || (state.selectedGroup && state.selectedGroup.length > 0);
+        const im = window.plumbingManager?.interactionManager;
+        const hasPlumbingSelection = !!(im?.selectedObject || (im?.selectedObjects && im.selectedObjects.length > 0));
+        
+        const hasSelection = hasArchSelection || hasPlumbingSelection;
+
+        // HERHANGİ BİR NESNE SEÇİLİ DEĞİLKEN ÇALIŞACAK MANTIK
+        if (!hasSelection && (e.ctrlKey || e.metaKey)) {
+            const key = e.key.toLowerCase();
+
+            // CTRL + SHIFT + V : Tüm katlara yapıştır
+            if (e.shiftKey && key === 'v') {
+                e.preventDefault();
+                pasteToAllFloors();
+                return;
+            }
+
+            // CTRL + C : Kat planını kopyala
+            if (key === 'c') {
+                e.preventDefault();
+                copyFloorArchitecture();
+                showFloorToast('✓ Kat mimarisi kopyalandı');
+                return;
+            }
+
+            // CTRL + V : Bulunulan kata yapıştır (Önceki plan silinerek temiz kurulum yapar)
+            if (key === 'v') {
+                e.preventDefault();
+                pasteFloorArchitecture(true);
+                showFloorToast('✓ Kat mimarisi yapıştırıldı');
+                return;
+            }
+        }
+    });
+}
+
+// UI üzerinde kullanıcıya hızlı bilgi vermek için Toast mesajı tetikleyici
+function showFloorToast(msg) {
+    const toast = document.getElementById('label-relayout-toast');
+    const text = document.getElementById('label-relayout-toast-text');
+    if (toast && text) {
+        text.textContent = msg;
+        toast.style.display = 'block';
+        // 1.5 saniye sonra otomatik kapatır
+        setTimeout(() => { toast.style.display = 'none'; }, 1500);
     }
 }
 
@@ -63,7 +116,6 @@ export function copyFloorArchitecture() {
     // Kattaki tüm elemanları topla
     const floorData = {
         walls: state.walls.filter(w => w.floorId === currentFloorId),
-        // DÜZELTME: Kapılar duvar üzerinden filtrelenmeli
         doors: state.doors.filter(d => d.wall && (!d.wall.floorId || d.wall.floorId === currentFloorId)),
         columns: state.columns.filter(c => c.floorId === currentFloorId),
         beams: state.beams.filter(b => b.floorId === currentFloorId),
@@ -82,11 +134,11 @@ export function copyFloorArchitecture() {
                       floorClipboard.stairs.length +
                       floorClipboard.rooms.length;
 
-    console.log(`✓ Mimari plan kopyalandı: ${totalItems} eleman (${floorClipboard.walls.length} duvar, ${floorClipboard.doors.length} kapı, ${floorClipboard.columns.length} kolon, ${floorClipboard.beams.length} kiriş, ${floorClipboard.stairs.length} merdiven, ${floorClipboard.rooms.length} oda)`);
+    console.log(`✓ Mimari plan kopyalandı: ${totalItems} eleman`);
 }
 
-// Kopyalanan mimariyi mevcut kata yapıştır
-export function pasteFloorArchitecture() {
+// Kopyalanan mimariyi mevcut kata yapıştır (clearExisting parametresi eklendi)
+export function pasteFloorArchitecture(clearExisting = true) {
     if (!floorClipboard) {
         alert('Önce bir mimari plan kopyalamalısınız!');
         return;
@@ -100,19 +152,20 @@ export function pasteFloorArchitecture() {
     clearPlumbingClipboard();
 
     const currentFloorId = state.currentFloor.id;
-    console.log('Yapıştırma başladı, hedef kat:', currentFloorId, 'isPlaceholder:', state.currentFloor.isPlaceholder);
+    console.log('Yapıştırma başladı, hedef kat:', currentFloorId);
 
-    // Önce mevcut kattaki mimariyi temizle
-    // DÜZELTME: Kapı filtresi için önce silinecek duvarları belirle
-    const wallsToDelete = state.walls.filter(w => w.floorId === currentFloorId);
-    state.doors = state.doors.filter(d => !d.wall || !wallsToDelete.includes(d.wall));
-    state.walls = state.walls.filter(w => w.floorId !== currentFloorId);
-    state.columns = state.columns.filter(c => c.floorId !== currentFloorId);
-    state.beams = state.beams.filter(b => b.floorId !== currentFloorId);
-    state.stairs = state.stairs.filter(s => s.floorId !== currentFloorId);
-    state.rooms = state.rooms.filter(r => r.floorId !== currentFloorId);
-    if (state.textAnnotations) {
-        state.textAnnotations = state.textAnnotations.filter(t => t.floorId && t.floorId !== currentFloorId);
+    // Seçime göre mevcut kattaki eski mimariyi temizle
+    if (clearExisting) {
+        const wallsToDelete = state.walls.filter(w => w.floorId === currentFloorId);
+        state.doors = state.doors.filter(d => !d.wall || !wallsToDelete.includes(d.wall));
+        state.walls = state.walls.filter(w => w.floorId !== currentFloorId);
+        state.columns = state.columns.filter(c => c.floorId !== currentFloorId);
+        state.beams = state.beams.filter(b => b.floorId !== currentFloorId);
+        state.stairs = state.stairs.filter(s => s.floorId !== currentFloorId);
+        state.rooms = state.rooms.filter(r => r.floorId !== currentFloorId);
+        if (state.textAnnotations) {
+            state.textAnnotations = state.textAnnotations.filter(t => t.floorId && t.floorId !== currentFloorId);
+        }
     }
 
     // Node mapping için (duvarların node referanslarını korumak için)
@@ -121,20 +174,17 @@ export function pasteFloorArchitecture() {
     // Duvarları yapıştır
     const newWalls = [];
     floorClipboard.walls.forEach(wallData => {
-        // Node'ları oluştur veya mevcut olanı kullan
         const p1Key = `${wallData.p1.x},${wallData.p1.y}`;
         const p2Key = `${wallData.p2.x},${wallData.p2.y}`;
 
         let p1 = nodeMap.get(p1Key);
         if (!p1) {
-            // Manuel node oluştur (getOrCreateNode kullanma - aktif kata bağımlı)
             p1 = { x: wallData.p1.x, y: wallData.p1.y };
             nodeMap.set(p1Key, p1);
         }
 
         let p2 = nodeMap.get(p2Key);
         if (!p2) {
-            // Manuel node oluştur (getOrCreateNode kullanma - aktif kata bağımlı)
             p2 = { x: wallData.p2.x, y: wallData.p2.y };
             nodeMap.set(p2Key, p2);
         }
@@ -151,12 +201,10 @@ export function pasteFloorArchitecture() {
             description: wallData.description || ''
         };
 
-        // Pencereleri kopyala
         if (wallData.windows && wallData.windows.length > 0) {
             newWall.windows = JSON.parse(JSON.stringify(wallData.windows));
         }
 
-        // Menfezleri kopyala
         if (wallData.vents && wallData.vents.length > 0) {
             newWall.vents = JSON.parse(JSON.stringify(wallData.vents));
         }
@@ -165,7 +213,6 @@ export function pasteFloorArchitecture() {
         state.walls.push(newWall);
     });
 
-    // DÜZELTME: Node'ları state.nodes'a ekle (processWalls için gerekli)
     const newNodes = Array.from(nodeMap.values());
     newNodes.forEach(node => {
         if (!state.nodes.includes(node)) {
@@ -173,16 +220,9 @@ export function pasteFloorArchitecture() {
         }
     });
 
-    console.log(`${newWalls.length} duvar state'e eklendi, aktif kat: ${currentFloorId}`);
-    console.log(`${newNodes.length} node state.nodes'a eklendi`);
-    console.log('İlk duvar örneği:', newWalls[0]);
-    console.log('Toplam state.walls sayısı:', state.walls.length);
-
-    // Kapıları yapıştır (duvar referanslarını güncelle)
-    floorClipboard.doors.forEach((doorData, index) => {
-        // Orijinal duvarın indeksini bul
+    // Kapıları yapıştır
+    floorClipboard.doors.forEach((doorData) => {
         const originalWallIndex = floorClipboard.walls.findIndex(w => {
-            // Duvar referansını bulmak için pozisyon karşılaştırması
             return doorData.wall &&
                    w.p1 && doorData.wall.p1 &&
                    w.p1.x === doorData.wall.p1.x &&
@@ -206,7 +246,7 @@ export function pasteFloorArchitecture() {
     floorClipboard.columns.forEach(columnData => {
         const newColumn = {
             ...columnData,
-            center: { x: columnData.center.x, y: columnData.center.y }, // Deep copy
+            center: { x: columnData.center.x, y: columnData.center.y },
             floorId: currentFloorId
         };
         state.columns.push(newColumn);
@@ -216,17 +256,17 @@ export function pasteFloorArchitecture() {
     floorClipboard.beams.forEach(beamData => {
         const newBeam = {
             ...beamData,
-            center: { x: beamData.center.x, y: beamData.center.y }, // Deep copy
+            center: { x: beamData.center.x, y: beamData.center.y },
             floorId: currentFloorId
         };
         state.beams.push(newBeam);
     });
 
-    // Merdivenleri yapıştır (yeni ID ve isim ver)
+    // Merdivenleri yapıştır
     floorClipboard.stairs.forEach(stairData => {
         const newStair = {
             ...stairData,
-            center: { x: stairData.center.x, y: stairData.center.y }, // Deep copy
+            center: { x: stairData.center.x, y: stairData.center.y },
             id: `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
             name: getNextStairLetter(),
             connectedStairId: null,
@@ -241,10 +281,8 @@ export function pasteFloorArchitecture() {
             ...roomData,
             center: roomData.center ? [...roomData.center] : undefined,
             centerOffset: roomData.centerOffset ? { ...roomData.centerOffset } : undefined,
-            polygon: roomData.polygon ? JSON.parse(JSON.stringify(roomData.polygon)) : undefined, // DÜZELTME: polygon da kopyalanmalı
+            polygon: roomData.polygon ? JSON.parse(JSON.stringify(roomData.polygon)) : undefined,
             floorId: currentFloorId,
-            // Birim numarası kata özgüdür — kopyalanmaz, aksi halde Daire 1
-            // her katta tekrar eder ve kapı/birim etiketleri üst üste biner.
             birimNo: ''
         };
         state.rooms.push(newRoom);
@@ -262,44 +300,27 @@ export function pasteFloorArchitecture() {
         });
     }
 
-    console.log('processWalls çağrılıyor...');
     processWalls();
-    console.log('processWalls tamamlandı, state.walls sayısı:', state.walls.length);
-    console.log('saveState çağrılıyor...');
     saveState();
-    console.log('update3DScene çağrılıyor...');
     update3DScene();
-
-    const totalItems = floorClipboard.walls.length +
-                      floorClipboard.doors.length +
-                      floorClipboard.columns.length +
-                      floorClipboard.beams.length +
-                      floorClipboard.stairs.length +
-                      floorClipboard.rooms.length;
-
-    console.log(`Mimari plan yapıştırıldı: ${totalItems} eleman`);
 }
 
 // Kopyalanan mimariyi diğer tüm katlara yapıştır
 function pasteToAllFloors() {
     console.log('pasteToAllFloors başladı');
-    // Eğer clipboard boşsa, önce mevcut katı kopyala
     if (!floorClipboard) {
         copyFloorArchitecture();
-        // Eğer hala boşsa (kopyalama başarısızsa), çık
         if (!floorClipboard) {
-            console.error('Kopyalama başarısız, clipboard hala boş!');
+            console.error('Clipboard boş!');
             return;
         }
     }
-    console.log('Clipboard içeriği:', floorClipboard);
 
     if (!state.floors || state.floors.length === 0) {
         alert('Başka kat bulunamadı!');
         return;
     }
 
-    // Mevcut katı hariç tut
     const currentFloorId = state.currentFloor?.id;
     const targetFloors = state.floors.filter(f =>
         !f.isPlaceholder &&
@@ -322,8 +343,6 @@ function pasteToAllFloors() {
     targetFloors.forEach(floor => {
         const floorId = floor.id;
 
-        // Önce mevcut kattaki mimariyi temizle (normal yapıştırmadaki gibi)
-        // DÜZELTME: Kapı filtresi için önce silinecek duvarları belirle
         const wallsToDelete = state.walls.filter(w => w.floorId === floorId);
         state.doors = state.doors.filter(d => !d.wall || !wallsToDelete.includes(d.wall));
         state.walls = state.walls.filter(w => w.floorId !== floorId);
@@ -332,10 +351,8 @@ function pasteToAllFloors() {
         state.stairs = state.stairs.filter(s => s.floorId !== floorId);
         state.rooms = state.rooms.filter(r => r.floorId !== floorId);
 
-        // Her kat için node mapping
         const nodeMap = new Map();
 
-        // Duvarları yapıştır
         const newWalls = [];
         floorClipboard.walls.forEach(wallData => {
             const p1Key = `${wallData.p1.x},${wallData.p1.y}`;
@@ -343,14 +360,12 @@ function pasteToAllFloors() {
 
             let p1 = nodeMap.get(p1Key);
             if (!p1) {
-                // Manuel node oluştur (getOrCreateNode kullanma - aktif kata bağımlı)
                 p1 = { x: wallData.p1.x, y: wallData.p1.y };
                 nodeMap.set(p1Key, p1);
             }
 
             let p2 = nodeMap.get(p2Key);
             if (!p2) {
-                // Manuel node oluştur (getOrCreateNode kullanma - aktif kata bağımlı)
                 p2 = { x: wallData.p2.x, y: wallData.p2.y };
                 nodeMap.set(p2Key, p2);
             }
@@ -378,7 +393,6 @@ function pasteToAllFloors() {
             state.walls.push(newWall);
         });
 
-        // DÜZELTME: Node'ları state.nodes'a ekle (processWalls için gerekli)
         const newNodes = Array.from(nodeMap.values());
         newNodes.forEach(node => {
             if (!state.nodes.includes(node)) {
@@ -386,7 +400,6 @@ function pasteToAllFloors() {
             }
         });
 
-        // Kapıları yapıştır
         floorClipboard.doors.forEach((doorData) => {
             const originalWallIndex = floorClipboard.walls.findIndex(w => {
                 return doorData.wall &&
@@ -408,31 +421,28 @@ function pasteToAllFloors() {
             }
         });
 
-        // Kolonları yapıştır
         floorClipboard.columns.forEach(columnData => {
             const newColumn = {
                 ...columnData,
-                center: { x: columnData.center.x, y: columnData.center.y }, // Deep copy
+                center: { x: columnData.center.x, y: columnData.center.y },
                 floorId: floorId
             };
             state.columns.push(newColumn);
         });
 
-        // Kirişleri yapıştır
         floorClipboard.beams.forEach(beamData => {
             const newBeam = {
                 ...beamData,
-                center: { x: beamData.center.x, y: beamData.center.y }, // Deep copy
+                center: { x: beamData.center.x, y: beamData.center.y },
                 floorId: floorId
             };
             state.beams.push(newBeam);
         });
 
-        // Merdivenleri yapıştır
         floorClipboard.stairs.forEach(stairData => {
             const newStair = {
                 ...stairData,
-                center: { x: stairData.center.x, y: stairData.center.y }, // Deep copy
+                center: { x: stairData.center.x, y: stairData.center.y },
                 id: `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
                 name: getNextStairLetter(),
                 connectedStairId: null,
@@ -441,16 +451,13 @@ function pasteToAllFloors() {
             state.stairs.push(newStair);
         });
 
-        // Odaları yapıştır
         floorClipboard.rooms.forEach(roomData => {
             const newRoom = {
                 ...roomData,
                 center: roomData.center ? [...roomData.center] : undefined,
                 centerOffset: roomData.centerOffset ? { ...roomData.centerOffset } : undefined,
-                polygon: roomData.polygon ? JSON.parse(JSON.stringify(roomData.polygon)) : undefined, // DÜZELTME: polygon da kopyalanmalı
+                polygon: roomData.polygon ? JSON.parse(JSON.stringify(roomData.polygon)) : undefined,
                 floorId: floorId,
-                // Birim numarası kata özgüdür — kopyalanmaz, aksi halde tüm katlarda
-                // aynı kapı no'ları üst üste biner.
                 birimNo: ''
             };
             state.rooms.push(newRoom);
@@ -459,21 +466,12 @@ function pasteToAllFloors() {
         pastedFloorCount++;
     });
 
-    console.log(`Toplam ${pastedFloorCount} kata yapıştırıldı`);
-
-    // Yapıştırma sonrası MEVCUT KATTA KAL (kullanıcı kendi katında kalmalı)
-    // setState({ currentFloor: targetFloors[0] }); // KALDIRILDI
     if (window.renderMiniPanel) window.renderMiniPanel();
 
-    // Tüm katları işle (processAllFloors = true)
-    console.log('processWalls çağrılıyor (tüm katlar)...');
-    processWalls(false, false, true);
-    console.log('saveState çağrılıyor...');
+    processWalls(false, false, true); // Bütün katları yeniden hesaplatır
     saveState();
-    console.log('update3DScene çağrılıyor...');
     update3DScene();
-
-    console.log(`✓ Mimari plan ${pastedFloorCount} kata yapıştırıldı (${floorClipboard.walls.length} duvar, ${floorClipboard.doors.length} kapı, ${floorClipboard.columns.length} kolon, ${floorClipboard.beams.length} kiriş, ${floorClipboard.stairs.length} merdiven, ${floorClipboard.rooms.length} mahal)`);
+    showFloorToast(`✓ Mimari plan ${pastedFloorCount} kata yapıştırıldı`);
 }
 
 // Mevcut kattaki tüm mimariyi sil
@@ -485,7 +483,6 @@ function clearFloorArchitecture() {
 
     const currentFloorId = state.currentFloor.id;
 
-    // Kaç eleman silineceğini hesapla
     const wallCount = state.walls.filter(w => w.floorId === currentFloorId).length;
     const doorCount = state.doors.filter(d => d.wall && state.walls.find(w => w === d.wall && w.floorId === currentFloorId)).length;
     const columnCount = state.columns.filter(c => c.floorId === currentFloorId).length;
@@ -500,14 +497,9 @@ function clearFloorArchitecture() {
         return;
     }
 
-    const confirmMsg = `${state.currentFloor.name} katındaki tüm mimari silinecek!\n\n${wallCount} duvar, ${doorCount} kapı, ${columnCount} kolon, ${beamCount} kiriş, ${stairCount} merdiven, ${roomCount} oda\n\nEmin misiniz?`;
+    const confirmMsg = `${state.currentFloor.name} katındaki tüm mimari silinecek!\n\nEmin misiniz?`;
+    if (!confirm(confirmMsg)) return;
 
-    if (!confirm(confirmMsg)) {
-        return;
-    }
-
-    // Mimariyi temizle
-    // DÜZELTME: Kapı filtresi için önce silinecek duvarları belirle
     const wallsToDelete = state.walls.filter(w => w.floorId === currentFloorId);
     state.doors = state.doors.filter(d => !d.wall || !wallsToDelete.includes(d.wall));
     state.walls = state.walls.filter(w => w.floorId !== currentFloorId);
@@ -516,12 +508,33 @@ function clearFloorArchitecture() {
     state.stairs = state.stairs.filter(s => s.floorId !== currentFloorId);
     state.rooms = state.rooms.filter(r => r.floorId !== currentFloorId);
 
-    // Seçimleri temizle
     setState({ selectedObject: null, selectedGroup: [] });
 
     processWalls();
     saveState();
     update3DScene();
+    showFloorToast('× Kat mimarisi temizlendi');
+}
 
-    console.log(`${totalItems} mimari eleman silindi`);
+// TÜM KATLARIN mimarisini siler (ctx-mimari-eksilt-tum-katlar bağlantısı)
+function clearAllFloorsArchitecture() {
+    const confirmMsg = `PROJEDEKİ TÜM KATLARIN mimari planı tamamen silinecek!\n\nEmin misiniz?`;
+    if (!confirm(confirmMsg)) return;
+
+    state.walls = [];
+    state.doors = [];
+    state.columns = [];
+    state.beams = [];
+    state.stairs = [];
+    state.rooms = [];
+    state.nodes = [];
+    if (state.textAnnotations) state.textAnnotations = [];
+
+    setState({ selectedObject: null, selectedGroup: [] });
+
+    processWalls(false, false, true); // Tüm kat topolojisini sıfırlar
+    saveState();
+    update3DScene();
+    if (window.renderMiniPanel) window.renderMiniPanel();
+    showFloorToast('× Tüm projenin mimarisi silindi');
 }
