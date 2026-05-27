@@ -1197,30 +1197,59 @@ body.light-mode .btn.active svg {
 }
 
 .context-submenu {
-    display: none;
+    /* Boyutu ölçülebilsin diye `display:block` + `visibility:hidden`.
+       Açılış yönü JS tarafından parent öğeye class eklenerek belirlenir
+       (submenu-open-left / submenu-open-up). */
+    display: block;
+    visibility: hidden;
+    pointer-events: none;
     position: absolute;
     left: calc(100% - 4px);
     right: auto;
     top: -5px;
+    bottom: auto;
     background-color: var(--bg-popup);
     border: 1px solid var(--border-button);
     border-radius: 6px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     padding: 5px;
-    min-width: 180px;
+    min-width: 200px;
+    max-height: 88vh;
+    overflow-y: auto;
     z-index: 2001;
-    pointer-events: auto;
 }
 
-/* Menü sağ yarıdaysa alt menüleri sola aç */
-#plumbing-context-menu.submenu-flip-left .context-submenu {
+#tesisat-mimari-cogalt {
+
+    min-width: 301px;
+
+}
+
+
+
+/* Per-item açılış yönü — JS, viewport kenarına göre uygun class'ı ekler. */
+.context-menu-item-with-submenu.submenu-open-left > .context-submenu {
     left: auto;
     right: calc(100% - 4px);
 }
 
-.context-menu-item-with-submenu:hover .context-submenu,
+.context-menu-item-with-submenu.submenu-open-up > .context-submenu {
+    top: auto;
+    bottom: -5px;
+}
+
+.context-menu-item-with-submenu:hover > .context-submenu,
 .context-submenu:hover {
-    display: block;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+/* Inline SVG ikonları: metinle hizalı, butona uyumlu boyut */
+.ctx-icon {
+    display: inline-block;
+    vertical-align: -3px;
+    margin-right: 6px;
+    flex-shrink: 0;
 }
 
 .context-menu-divider {

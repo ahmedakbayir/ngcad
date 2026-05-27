@@ -11,6 +11,8 @@ import { setMode, setDrawingMode, state } from '../../general-files/main.js';
 import { draw2D } from '../../draw/draw2d.js';
 import { relayoutAllLabels } from '../renderer/renderer-labels.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
+import { placeMenuInViewport, setupSubmenuPositioning } from '../../menu/menu-positioning.js';
+import { drawColumnToAdjacentFloor, drawColumnAllFloors, pasteFloorPlumbingToAllFloors } from './kolon-operations.js';
 
 let menuEl = null;
 let menuState = null; // { worldPos, pipe, nokta, t, interactionManager }
@@ -36,6 +38,25 @@ function getPipeTarget(menuState) {
     if (menuState.pipe) return menuState.pipe;
     const sel = menuState.interactionManager?.selectedObject;
     if (sel && sel.type === 'boru') return sel;
+    return null;
+}
+
+// ─── Yardımcı: kolon komutları için boru + (boru üzerinde) nokta çöz ─────
+// Önce sağ tıklanan boru gövdesindeki nokta; yoksa seçili boru varsa onun
+// orta noktası fallback olarak kullanılır.
+function resolvePipeAndPoint(menuState) {
+    if (menuState.pipe && menuState.nokta) {
+        return { pipe: menuState.pipe, point: menuState.nokta };
+    }
+    const sel = menuState.interactionManager?.selectedObject;
+    if (sel && sel.type === 'boru') {
+        const mid = {
+            x: (sel.p1.x + sel.p2.x) / 2,
+            y: (sel.p1.y + sel.p2.y) / 2,
+            z: ((sel.p1.z || 0) + (sel.p2.z || 0)) / 2,
+        };
+        return { pipe: sel, point: mid };
+    }
     return null;
 }
 
@@ -562,13 +583,15 @@ function initMenu() {
     });
 
     // ── İniş Çıkış Ekle (düşey panel) ───────────────────────────────────────
+    // Referans = hattın UÇ noktası (pipe.p2). Tıklama konumu yerine boru ucundan
+    // iniş/çıkış eklenir. _applyArayaInisCikis köşe kontrolünü görüp uç-noktası
+    // tabanlı applyVerticalPipeInsert'e delege eder.
     document.getElementById('plumbing-btn-inis-cikis')?.addEventListener('click', () => {
         if (!menuState) return;
-        const { pipe, nokta, interactionManager } = menuState;
-        if (pipe && nokta) {
-            // Sağ tık konumu lastMousePoint'e değil, paneli orada açmak için
-            // doğrudan opts ile geçiriyoruz — pipe + point bağlamı 'araya' modunu açar.
-            interactionManager.toggleVerticalPanel({ pipe, point: nokta, mode: 'araya' });
+        const { interactionManager } = menuState;
+        const pipe = getPipeTarget(menuState);
+        if (pipe) {
+            interactionManager.toggleVerticalPanel({ pipe, point: pipe.p2, mode: 'araya' });
         }
         hide();
     });
@@ -665,6 +688,65 @@ function initMenu() {
         hide();
     });
 
+    // ── YENİ: Tesisat Çoğalt — Üst/Alt Kata Kolon Çiz ─────────────────────
+    // Referans = seçili borunun UÇ noktası (pipe.p2). Boş uç kontrolü yok;
+    // anchor zaten dolu ise paylaşılan T-bağlantı oluşur.
+    document.getElementById('ctx-tesisat-cogalt-ust-kolon')?.addEventListener('click', () => {
+        if (!menuState) return;
+        const pipe = getPipeTarget(menuState);
+        if (pipe) drawColumnToAdjacentFloor(menuState.interactionManager, pipe, 'up');
+        hide();
+    });
+
+    document.getElementById('ctx-tesisat-cogalt-alt-kolon')?.addEventListener('click', () => {
+        if (!menuState) return;
+        const pipe = getPipeTarget(menuState);
+        if (pipe) drawColumnToAdjacentFloor(menuState.interactionManager, pipe, 'down');
+        hide();
+    });
+
+    document.getElementById('ctx-tesisat-cogalt-tum-kolon')?.addEventListener('click', () => {
+        if (!menuState) return;
+        const pipe = getPipeTarget(menuState);
+        if (pipe) drawColumnAllFloors(menuState.interactionManager, pipe);
+        hide();
+    });
+
+    // ── Kattaki Branşman / Branşman+İç — Tüm Katlara Yapıştır ─────────────
+    document.getElementById('ctx-tesisat-cogalt-bransman')?.addEventListener('click', () => {
+        if (!menuState) return;
+        const pipe = getPipeTarget(menuState);
+        if (pipe) pasteFloorPlumbingToAllFloors(menuState.interactionManager, pipe, false);
+        hide();
+    });
+
+    document.getElementById('ctx-tesisat-cogalt-bransman-ic')?.addEventListener('click', () => {
+        if (!menuState) return;
+        const pipe = getPipeTarget(menuState);
+        if (pipe) pasteFloorPlumbingToAllFloors(menuState.interactionManager, pipe, true);
+        hide();
+    });
+
+    // ── Hâlâ işlerliği eklenmemiş diğer yeni butonlar (stub) ──────────────
+    [
+        'ctx-tesisat-eksilt-haric',
+        'ctx-tesisat-eksilt-tumu',
+        'ctx-mimari-cogalt-kopyala',
+        'ctx-mimari-cogalt-alan-kopyala',
+        'ctx-mimari-cogalt-yapistir-sil',
+        'ctx-mimari-cogalt-yapistir-kal',
+        'ctx-mimari-cogalt-tum-katlar',
+        'ctx-mimari-eksilt-kat',
+        'ctx-mimari-eksilt-ic-duvar',
+        'ctx-mimari-eksilt-bolge',
+        'ctx-mimari-eksilt-tum-katlar',
+    ].forEach(btnId => {
+        document.getElementById(btnId)?.addEventListener('click', () => {
+            console.log(`[context-menu stub] ${btnId} tıklandı (işlerlik henüz bağlanmadı)`);
+            hide();
+        });
+    });
+
     // ── Etiketleri Yeniden Yerleştir — tek tuş, "hat etiketlerini sona bırak" modunda
     document.getElementById('plumbing-relayout-labels')?.addEventListener('click', async () => {
         if (!menuState) return;
@@ -723,7 +805,7 @@ export function showPlumbingContextMenu(screenX, screenY, worldPos, interactionM
     document.getElementById('plumbing-btn-copy').disabled = !hasPipe;
     document.getElementById('plumbing-btn-split').disabled = !pipe; // Böl sadece gövdeye tıklanınca
     const btnInisCikis = document.getElementById('plumbing-btn-inis-cikis');
-    if (btnInisCikis) btnInisCikis.disabled = !pipe; // İniş çıkış da gövde gerektirir
+    if (btnInisCikis) btnInisCikis.disabled = !hasPipe; // Boru ucu için boru hedefi yeter
     document.getElementById('plumbing-btn-delete-after').disabled = !hasPipe;
 
     // İç Tesisatı Sil: hedef sayaç(lar) çözülebiliyorsa aktif
@@ -732,24 +814,51 @@ export function showPlumbingContextMenu(screenX, screenY, worldPos, interactionM
         btnDeleteIcSingle.disabled = resolveTargetSayaclarForIcTesisat(menuState).length === 0;
     }
 
-    menuEl.style.left = `${screenX + 5}px`;
-    menuEl.style.top  = `${screenY + 5}px`;
-    menuEl.style.display = 'block';
+    // ── YENİ: Bir tesisat nesnesi seçili/sağ tıklanmış mı? ────────────────
+    // Boru hedefi VEYA bir tesisat komponenti varsa "tesisat nesnesi mevcut".
+    const PLUMBING_TYPES = new Set([
+        'boru', 'sayac', 'vana', 'regulator', 'filtre',
+        'izolasyon_flansi', 'kompansator', 'manometre',
+        'topraklama', 'cihaz', 'baca', 'servis_kutusu'
+    ]);
+    const selObj = interactionManager?.selectedObject;
+    const hasPlumbingTarget = hasPipe
+        || !!clickedComponent
+        || !!(selObj && PLUMBING_TYPES.has(selObj.type));
 
-    requestAnimationFrame(() => {
-        if (!menuEl) return;
-        const r = menuEl.getBoundingClientRect();
-        if (r.right  > window.innerWidth  - 8) menuEl.style.left = `${window.innerWidth  - r.width  - 8}px`;
-        if (r.bottom > window.innerHeight - 8) menuEl.style.top  = `${window.innerHeight - r.height - 8}px`;
-
-        // Alt menülerin ekran dışına çıkmaması: menü sağ yarıdaysa solda aç
-        const r2 = menuEl.getBoundingClientRect();
-        if (r2.left + r2.width / 2 > window.innerWidth / 2) {
-            menuEl.classList.add('submenu-flip-left');
-        } else {
-            menuEl.classList.remove('submenu-flip-left');
-        }
+    // Seçim gerektiren butonlar — disabled = !hasPlumbingTarget
+    [
+        'ctx-tesisat-cogalt-ust-kolon',
+        'ctx-tesisat-cogalt-alt-kolon',
+        'ctx-tesisat-cogalt-tum-kolon',
+        'ctx-tesisat-cogalt-bransman',
+        'ctx-tesisat-cogalt-bransman-ic',
+        'ctx-tesisat-eksilt-haric',
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !hasPlumbingTarget;
     });
+
+    // Seçim gerektirmeyen butonlar — her zaman aktif
+    [
+        'ctx-tesisat-eksilt-tumu',
+        'ctx-mimari-cogalt-kopyala',
+        'ctx-mimari-cogalt-alan-kopyala',
+        'ctx-mimari-cogalt-yapistir-sil',
+        'ctx-mimari-cogalt-yapistir-kal',
+        'ctx-mimari-cogalt-tum-katlar',
+        'ctx-mimari-eksilt-kat',
+        'ctx-mimari-eksilt-ic-duvar',
+        'ctx-mimari-eksilt-bolge',
+        'ctx-mimari-eksilt-tum-katlar',
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = false;
+    });
+
+    menuEl.style.display = 'block';
+    placeMenuInViewport(menuEl, screenX, screenY);
+    setupSubmenuPositioning(menuEl);
 
     // click-outside: once:true kullanmıyoruz; menü içi tıklamalarda listener kaybolmasın
     if (clickOutsideListener) {

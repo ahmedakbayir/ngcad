@@ -22,7 +22,7 @@ import { state } from '../../general-files/main.js';
 // Sabitler
 export const TESISAT_CONSTANTS = {
     BORU_ACIKLIGI: 5,           // cm - Duvar yüzeyinden boru mesafesi
-    SNAP_MESAFESI: 10,          // cm - Snap yakalama mesafesi (mouse civarı). Daha
+    SNAP_MESAFESI: 20,          // cm - Snap yakalama mesafesi (mouse civarı). Daha
                                 // önce 20cm idi; kullanıcı çizerken farenin 10cm
                                 // ötesindeki noktaları zorla yakaladığını bildirdi.
                                 // SELECTION_TOLERANCE_PIXELS pixel cinsinden ayrı.

@@ -1222,17 +1222,11 @@ export function setupInputListeners() {
             return;
         }
 
-        // Boş alana sağ tıklandığında referans + kat işlemleri menüsü (tesisat modundan bağımsız)
-        if (!object) {
-            showGuideContextMenu(e.clientX, e.clientY, clickPos);
-            return;
-        }
-
-        // Tesisat modunda VEYA KARMA modda boru/tesisat nesnesi yakınındaysa menüyü göster
-        const isTesisatMode = state.currentDrawingMode === 'TESİSAT';
-        const isKarmaMode = state.currentDrawingMode === 'KARMA';
-        const hasPipes = plumbingManager && plumbingManager.pipes && plumbingManager.pipes.length > 0;
-        if (isTesisatMode || (isKarmaMode && hasPipes)) {
+        // Boş alana sağ tık VEYA tesisat/boru nesnesine sağ tık →
+        // birleşik bağlam menüsü (Tesisat/Mimari Çoğalt/Eksilt dahil). Hem MİMARİ
+        // hem TESİSAT/KARMA modlarında görünür. Disabled durumları menü içinde
+        // seçili tesisat nesnesine göre ayarlanır.
+        if (plumbingManager && plumbingManager.interactionManager) {
             showPlumbingContextMenu(e.clientX, e.clientY, clickPos, plumbingManager.interactionManager);
             return;
         }

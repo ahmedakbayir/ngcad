@@ -791,7 +791,10 @@
             </div>
           </div>
           <div class="context-menu-divider"></div>
-          <button id="guide-relayout-labels" class="context-menu-btn">🏷 Etiketleri Yeniden Yerleştir</button>
+          <button id="guide-relayout-labels" class="context-menu-btn">
+            <svg class="ctx-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="5" rx="1"></rect><rect x="14" y="15" width="7" height="5" rx="1"></rect><path d="M10 6.5h4"></path><path d="M14 17.5h-4"></path><path d="M12 9v6"></path></svg>
+            Etiketleri Yeniden Yerleştir
+          </button>
         </div>
 
         <div id="label-relayout-toast"
@@ -813,60 +816,137 @@
 
           <div class="context-menu-divider"></div>
 
-          <button id="plumbing-btn-split" class="context-menu-btn"> ➖♦➖ Hattı Böl</button>
-          <button id="plumbing-btn-inis-cikis" class="context-menu-btn">↕ İniş Çıkış Ekle</button>
+          <button id="plumbing-relayout-labels" class="context-menu-btn">
+            🟠Etiketleri Yeniden Yerleştir
+            <svg class="ctx-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="5" rx="1"></rect><rect x="14" y="15" width="7" height="5" rx="1"></rect><path d="M10 6.5h4"></path><path d="M14 17.5h-4"></path><path d="M12 9v6"></path></svg>
+
+          </button>
+
+          <button id="plumbing-btn-split" class="context-menu-btn">🔴Hattı Böl --♦-- </button>
+          <button id="plumbing-btn-inis-cikis" class="context-menu-btn">🔵İniş Çıkış Ekle 🠕🠗 </button>
+
 
           <div class="context-menu-divider"></div>
+
+
           <div class="context-menu-item-with-submenu">
-            <button class="context-menu-btn submenu-trigger">🔷 Vana Ekle ▶</button>
+            <button class="context-menu-btn submenu-trigger">
+              🟡Tesisata Nesne Ekle ▶
+            </button>
             <div class="context-submenu">
-              <button id="plumbing-vana-AKV" class="context-menu-btn">AKV</button>
-              <button id="plumbing-vana-EMNIYET" class="context-menu-btn">Emniyet Vanası</button>
-              <button id="plumbing-vana-CIHAZ" class="context-menu-btn">Cihaz Vanası</button>
-              <button id="plumbing-vana-SELENOID" class="context-menu-btn">Selenoid Vana</button>
+              <div class="context-menu-item-with-submenu">
+                <button class="context-menu-btn submenu-trigger">Vana ▶</button>
+                <div class="context-submenu-2">
+                  <button id="plumbing-vana-AKV" class="context-menu-btn">AKV</button>
+                  <button id="plumbing-vana-EMNIYET" class="context-menu-btn">Emniyet Vanası</button>
+                  <button id="plumbing-vana-BRANSMAN" class="context-menu-btn">Branşman Vanası</button>
+                  <button id="plumbing-vana-YANBINA" class="context-menu-btn">Yan Bina Vanası</button>
+                  <button id="plumbing-vana-SELENOID" class="context-menu-btn">Selenoid Vana</button>
+                  <button id="plumbing-vana-CIHAZ" class="context-menu-btn">Cihaz Vanası</button>
+                </div>
+              </div>
+              <div class="context-menu-item-with-submenu">
+                <button class="context-menu-btn submenu-trigger">Sayaç ▶</button>
+                <div class="context-submenu-2">
+                  <button id="plumbing-sayac-DIREKT" class="context-menu-btn">Sayaç</button>
+                  <button id="plumbing-inis-SAYAC" class="context-menu-btn">İniş + Sayaç</button>
+                </div>
+              </div>
+              <div class="context-menu-item-with-submenu">
+                <button class="context-menu-btn submenu-trigger">Cihaz ▶</button>
+                <div class="context-submenu-2">
+                  <button id="plumbing-cihaz-KOMBI" class="context-menu-btn">Kombi</button>
+                  <button id="plumbing-cihaz-OCAK" class="context-menu-btn">Ocak</button>
+                  <div class="context-menu-divider"></div>
+                  <button id="plumbing-inis-KOMBI" class="context-menu-btn">🡻 İniş + Kombi</button>
+                  <button id="plumbing-inis-OCAK" class="context-menu-btn">🡻 İniş + Ocak</button>
+                </div>
+              </div>
+              <div class="context-menu-item-with-submenu">
+                <button class="context-menu-btn submenu-trigger">Regülatör ▶</button>
+                <div class="context-submenu-2">
+                  <button id="plumbing-regulator-add" class="context-menu-btn">Regülatör Ekle</button>
+                  <button id="plumbing-regulator-add-Group" class="context-menu-btn">Regülatör Grubu Ekle</button>
+                </div>
+              </div>
+              <div class="context-menu-item-with-submenu">
+                <button class="context-menu-btn submenu-trigger">Diğer Nesneler ▶</button>
+                <div class="context-submenu-2">
+                  <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Topraklama Çubuğu Ekle</button>
+                  <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Filtre Ekle</button>
+                  <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">İzolasyon Flanşı Ekle</button>
+                  <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Mg Anot Ekle</button>
+                  <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Manometre Ekle</button>
+                  <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Termometre Ekle</button>
+                  <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Kompansatör Ekle</button>
+                  <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Korrektör Ekle</button>
+                  <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Presostat Ekle</button>
+                  <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Kit Ekle</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+
+
+        <div class="context-menu-item-with-submenu">
+            <button class="context-menu-btn submenu-trigger">🟢Mimariye Nesne Ekle ▶</button>
+            <div class="context-submenu">
+              <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Kapı Ekle </button>
+              <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Pencere Ekle </button>
+              <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Kolon Ekle </button>
+              <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Kiriş Ekle </button>
+              <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Menfez Ekle </button>
+              <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Alarm Cihazı Ekle </button>
+              <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">CO Algılama Cihazı Ekle </button>
+              <button id="xxxxxxxxxxxxxxxx" class="context-menu-btn">Deprem Cihazı Ekle </button>
+            </div>
+          </div>
+
+
+          <div class="context-menu-divider"></div>
+
+          <!-- ─── Tesisat Çoğalt ─────────────────────────────── -->
+          <div class="context-menu-item-with-submenu">
+            <button class="context-menu-btn submenu-trigger">
+              🔵Tesisat Çoğalt - Eksilt ▶
+            </button>
+            <div class="context-submenu" id="tesisat-mimari-cogalt">
+              <button id="ctx-tesisat-cogalt-ust-kolon" class="context-menu-btn">☰ Üst Kata Kolon Çiz</button>
+              <button id="ctx-tesisat-cogalt-alt-kolon" class="context-menu-btn">☰ Alt Kata Kolon Çiz</button>
+              <button id="ctx-tesisat-cogalt-tum-kolon" class="context-menu-btn">☰ Tüm Katlara Kolon Dikmesi Çiz</button>
               <div class="context-menu-divider"></div>
-              <button id="plumbing-vana-BRANSMAN" class="context-menu-btn">Branşman Vanası</button>
-              <button id="plumbing-vana-YANBINA" class="context-menu-btn">Yan Bina Vanası</button>
-            </div>
-          </div>
-
-          <button id="plumbing-regulator-add" class="context-menu-btn">➤ Regülatör Ekle</button>
-
-          <div class="context-menu-item-with-submenu">
-            <button class="context-menu-btn submenu-trigger">🎰 Sayaç Ekle ▶</button>
-            <div class="context-submenu">
-              <button id="plumbing-sayac-DIREKT" class="context-menu-btn">Sayaç</button>
-              <button id="plumbing-inis-SAYAC" class="context-menu-btn">🡻 İniş + Sayaç</button>
-            </div>
-          </div>
-
-
-
-          <div class="context-menu-item-with-submenu">
-            <button class="context-menu-btn submenu-trigger">🎛️ Cihaz Ekle ▶</button>
-            <div class="context-submenu">
-              <button id="plumbing-cihaz-KOMBI" class="context-menu-btn">Kombi</button>
-              <button id="plumbing-cihaz-OCAK" class="context-menu-btn">Ocak</button>
+              <button id="ctx-tesisat-cogalt-bransman" class="context-menu-btn">☰ Branşmanları Tüm Katlara Yapıştır</button>
+              <button id="ctx-tesisat-cogalt-bransman-ic" class="context-menu-btn">☰ Branşman ve İç Tes. Tüm Katlara Yapıştır</button>
               <div class="context-menu-divider"></div>
-              <button id="plumbing-inis-KOMBI" class="context-menu-btn">🡻 İniş + Kombi</button>
-              <button id="plumbing-inis-OCAK" class="context-menu-btn">🡻 İniş + Ocak</button>
+              <button id="plumbing-btn-delete-after" class="context-menu-btn context-menu-btn-danger">× Buradan Sonrasını Sil</button>
+              <button id="plumbing-btn-delete-ic-single" class="context-menu-btn context-menu-btn-danger">× Seçili İç Tesisatı Sil</button>
+              <button id="plumbing-btn-delete-ic" class="context-menu-btn context-menu-btn-danger">× Tüm İç Tesisatları Sil (Kolon Kalsın)</button>
+              <button id="ctx-tesisat-eksilt-haric" class="context-menu-btn context-menu-btn-danger">× Seçili İç Tesisat Hariç Tüm Tesisatı Sil</button>
+              <button id="plumbing-btn-delete-kolon" class="context-menu-btn context-menu-btn-danger">× Kolonu Sil (İç Tesisatlar Kalsın)</button>
+              <button id="ctx-tesisat-eksilt-tumu" class="context-menu-btn context-menu-btn-danger">× Tüm Tesisatı Sil</button>
             </div>
           </div>
 
-          <div class="context-menu-divider"></div>
+          <div class="context-menu-item-with-submenu">
+            <button class="context-menu-btn submenu-trigger">
+              🟣Mimari Çoğalt - Eksilt ▶
+            </button>
+            <div class="context-submenu" id="tesisat-mimari-cogalt">
+              <button id="ctx-mimari-cogalt-kopyala" class="context-menu-btn">☰ Kat Mimarisini Kopyala (CTRL+C)</button>
+              <button id="ctx-mimari-cogalt-alan-kopyala" class="context-menu-btn">☰ Bir Bölgeyi Seçerek Kopyala</button>
+              <div class="context-menu-divider"></div>
+              <button id="ctx-mimari-cogalt-yapistir-sil" class="context-menu-btn">☰ Mimari Yapıştır (önceki silinecek) (CTRL+V)</button>
+              <button id="ctx-mimari-cogalt-yapistir-kal" class="context-menu-btn">☰ Mimari Yapıştır (önceki korunacak)</button>
+              <button id="ctx-mimari-cogalt-tum-katlar" class="context-menu-btn">☰ Planı Tüm Katlara Yapıştır (CTRL+⇧+V)</button>
+              <div class="context-menu-divider"></div>
+              <button id="ctx-mimari-eksilt-kat" class="context-menu-btn context-menu-btn-danger">× Katın Mimari Planını Sil</button>
+              <button id="ctx-mimari-eksilt-ic-duvar" class="context-menu-btn context-menu-btn-danger">× Birimlerin İç Detaylarını Sil</button>
+              <button id="ctx-mimari-eksilt-bolge" class="context-menu-btn context-menu-btn-danger">× Bir Bölgeyi Seçerek Sil</button>
+              <button id="ctx-mimari-eksilt-tum-katlar" class="context-menu-btn context-menu-btn-danger">× Tüm Katların Mimari Planını Sil</button>
+            </div>
+          </div>
 
-          <button id="plumbing-relayout-labels" class="context-menu-btn">🏷 Etiketleri Yeniden Yerleştir</button>
-
-          <div class="context-menu-divider"></div>
-
-          <button id="plumbing-btn-delete-after" class="context-menu-btn context-menu-btn-danger">× Buradan Sonrasını
-            Sil</button>
-          <button id="plumbing-btn-delete-kolon" class="context-menu-btn context-menu-btn-danger">× Kolon Tesisatını
-            Sil</button>
-          <button id="plumbing-btn-delete-ic-single" class="context-menu-btn context-menu-btn-danger">× İç Tesisatı
-            Sil</button>
-          <button id="plumbing-btn-delete-ic" class="context-menu-btn context-menu-btn-danger">× İç Tesisatları
-            Sil</button>
         </div>
 
         <canvas id="c2d"></canvas>
@@ -1111,7 +1191,9 @@
       </div>
       <div id="iso-context-menu" style="display: none; position: fixed; background-color: var(--bg-popup); border: 1px solid var(--border-button); border-radius: 8px; z-index: 12000; box-shadow: 0 8px 24px rgba(0,0,0,0.55); padding: 6px 0 4px; min-width: 240px;">
         <button id="iso-ctx-reset" class="context-menu-btn">↺ Orjinal Boyuta Sıfırla</button>
-        <button id="iso-ctx-relayout" class="context-menu-btn">⇄ Etiketleri Yeniden Yerleştir</button>
+        <button id="iso-ctx-relayout" class="context-menu-btn">           
+           <svg class="ctx-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="5" rx="1"></rect><rect x="14" y="15" width="7" height="5" rx="1"></rect><path d="M10 6.5h4"></path><path d="M14 17.5h-4"></path><path d="M12 9v6"></path></svg>
+            Etiketleri Yeniden Yerleştir</button>
       </div>
       <div id="perspSplitter" style="display: none;"></div>
       <div id="pPersp" class="panel">

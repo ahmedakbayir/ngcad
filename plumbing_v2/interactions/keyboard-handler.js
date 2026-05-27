@@ -862,10 +862,39 @@ export function applyVerticalHeight() {
 /**
  * Araya iniş çıkış: pipe'ı splitPoint'te böl, downstream zincirini +h kaldır,
  * boru1.p2 (eski Z) ile boru2.p1 (yeni Z) arasına düşey boru ekle.
+ *
+ * splitPoint pipe.p2'nin (veya p1'in) üstüne denk gelirse split yapılamaz;
+ * o durumda applyVerticalPipeInsert ile uç noktasından (p2) eklenir.
  */
 function _applyArayaInisCikis(pipe, splitPoint, height) {
     const manager = this.manager;
     if (!pipe || !splitPoint) return;
+
+    // Köşe (uç) kontrolü: tıklama noktası borunun bir ucuyla çakışıyorsa
+    // split başarısız olur. Bu durumda uç-noktası tabanlı ekleme yap.
+    const CORNER_TOL = 0.5;
+    const dCornerP1 = Math.hypot(
+        pipe.p1.x - splitPoint.x,
+        pipe.p1.y - splitPoint.y,
+        (pipe.p1.z || 0) - (splitPoint.z || 0)
+    );
+    const dCornerP2 = Math.hypot(
+        pipe.p2.x - splitPoint.x,
+        pipe.p2.y - splitPoint.y,
+        (pipe.p2.z || 0) - (splitPoint.z || 0)
+    );
+    if (dCornerP2 < CORNER_TOL) {
+        // p2 ucundan iniş/çıkış — applyVerticalPipeInsert tam olarak bunu yapar.
+        this.selectedObject = pipe;
+        this.pipeResizeInput = String(height);
+        applyVerticalPipeInsert.call(this);
+        return;
+    }
+    if (dCornerP1 < CORNER_TOL) {
+        // p1 ucu daha az yaygın; şimdilik desteklenmiyor — uyarı.
+        console.warn('[araya-inis-cikis] p1 ucundan ekleme henüz desteklenmiyor');
+        return;
+    }
 
     // 1. Hattı böl (çizime BAŞLATMA)
     this.handlePipeSplit(pipe, splitPoint, false);

@@ -931,9 +931,8 @@ export const PreviewMixin = {
             const snapScreenX = snap.x + (snap.z || 0) * t;
             const snapScreenY = snap.y - (snap.z || 0) * t;
             const snapColor = hasConflict ? '#FF4444' : '#44FF88';
-            // Köşe ve uç noktası: daha belirgin halka (8); gövde: küçük (6)
-            //  const snapR = (snap.type === 'endpoint' || snap.type === 'corner') ? 8 / zoom : 6 / zoom;
-            const snapR = snap.type === 'endpoint' ? 8 / zoom : 6 / zoom;
+            // Köşe (dirsek/TE) ve uç noktası: daha belirgin halka (8); gövde: küçük (6)
+            const snapR = (snap.type === 'endpoint' || snap.type === 'corner') ? 8 / zoom : 6 / zoom;
 
             ctx.strokeStyle = snapColor;
             ctx.lineWidth = 2.5 / zoom;

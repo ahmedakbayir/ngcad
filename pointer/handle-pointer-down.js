@@ -117,7 +117,7 @@ export function handlePointerDown(e) {
                     snapType = 'endpoint';
                 }
             }
-        } else if (snap.type === 'endpoint' && snap.pipeId) {
+        } else if ((snap.type === 'endpoint' || snap.type === 'corner') && snap.pipeId) {
             snapPipeId = snap.pipeId;
             snapType = 'endpoint';
         } else {

@@ -306,8 +306,37 @@ export class InteractionManager {
         const t3d = state.viewBlendFactor || 0;
 
         const TOLERANCE = 20; // cm — snap yakalama mesafesi
+        const CORNER_TOLERANCE = 10; // cm — dirsek/TE köşelerine snap için sıkı tolerans
         let best = null;
         let bestDist = TOLERANCE;
+
+        // Köşe (dirsek/TE) tespiti: 2+ boru ucunun aynı (x,y,z)'de buluştuğu noktalar.
+        // Mouse 10cm içindeyse bu noktalar diğer endpoint/body snap'lerinin önüne geçer.
+        const cornerMap = new Map();
+        for (const pipe of this.manager.pipes) {
+            if (excludeIds.has(pipe.id)) continue;
+            for (const ep of [pipe.p1, pipe.p2]) {
+                const key = `${Math.round(ep.x * 2)}|${Math.round(ep.y * 2)}|${Math.round((ep.z || 0) * 2)}`;
+                let entry = cornerMap.get(key);
+                if (!entry) {
+                    entry = { x: ep.x, y: ep.y, z: ep.z || 0, pipeIds: [] };
+                    cornerMap.set(key, entry);
+                }
+                entry.pipeIds.push(pipe.id);
+            }
+        }
+        let bestCornerDist = CORNER_TOLERANCE;
+        let bestCorner = null;
+        for (const corner of cornerMap.values()) {
+            if (corner.pipeIds.length < 2) continue; // dirsek/TE değil → atla
+            const cpx = corner.x + corner.z * t3d;
+            const cpy = corner.y - corner.z * t3d;
+            const d = Math.hypot(point.x - cpx, point.y - cpy);
+            if (d < bestCornerDist) {
+                bestCornerDist = d;
+                bestCorner = { x: corner.x, y: corner.y, z: corner.z, type: 'corner', pipeId: corner.pipeIds[0] };
+            }
+        }
 
         for (const pipe of this.manager.pipes) {
             if (excludeIds.has(pipe.id)) continue;
@@ -353,6 +382,13 @@ export class InteractionManager {
                     }
                 }
             }
+        }
+
+        // Köşe (dirsek/TE) bulunduysa diğer snap'lerin önüne geç — kullanıcı
+        // mouse 10cm içindeyse köşeyi tercih etsin (yakın bir gövde noktası
+        // matematiksel olarak daha yakın olsa bile).
+        if (bestCorner) {
+            best = bestCorner;
         }
 
         if (!best) return null;

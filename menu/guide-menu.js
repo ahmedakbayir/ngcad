@@ -5,6 +5,7 @@ import { saveState } from '../general-files/history.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { relayoutAllLabels } from '../plumbing_v2/renderer/renderer-labels.js';
 import { draw2D } from '../draw/draw2d.js';
+import { placeMenuInViewport, setupSubmenuPositioning } from './menu-positioning.js';
 
 let guideMenuEl = null;
 let menuWorldPos = null;
@@ -104,21 +105,10 @@ export function showGuideContextMenu(screenX, screenY, worldPos) {
     if (!guideMenuEl) return; // Still not found
     
     menuWorldPos = worldPos;
-    
-    guideMenuEl.style.left = `${screenX + 5}px`;
-    guideMenuEl.style.top = `${screenY + 5}px`;
-    guideMenuEl.style.display = 'block';
 
-    // Adjust position if it goes off-screen
-    setTimeout(() => {
-        const rect = guideMenuEl.getBoundingClientRect();
-        if (rect.right > window.innerWidth) {
-            guideMenuEl.style.left = `${window.innerWidth - rect.width - 10}px`;
-        }
-        if (rect.bottom > window.innerHeight) {
-            guideMenuEl.style.top = `${window.innerHeight - rect.height - 10}px`;
-        }
-    }, 0);
+    guideMenuEl.style.display = 'block';
+    placeMenuInViewport(guideMenuEl, screenX, screenY);
+    setupSubmenuPositioning(guideMenuEl);
 
     // Add click outside listener
     clickOutsideListener = (event) => {
