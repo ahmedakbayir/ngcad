@@ -505,10 +505,18 @@ export function handleKeyDown(e) {
     if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
         // this.selectedObject yoksa state.selectedObject'ten al
         const selForCopy = this.selectedObject ||
-            (state.selectedObject?.object?.type === 'boru' ? state.selectedObject.object : null);
+            (state.selectedObject?.object && (state.selectedObject.object.type === 'boru' || state.selectedObject.object.type === 'sayac')
+                ? state.selectedObject.object
+                : null);
         if (selForCopy && selForCopy.type === 'boru') {
             if (!this.selectedObject) this.selectedObject = selForCopy;
             handlePipeCopy.call(this);
+            draw2D();
+            return true;
+        }
+        if (selForCopy && selForCopy.type === 'sayac') {
+            if (!this.selectedObject) this.selectedObject = selForCopy;
+            handleSayacIcTesisatCopy.call(this);
             draw2D();
             return true;
         }
@@ -1242,6 +1250,80 @@ export function handlePipeCopy() {
 }
 
 /**
+ * CTRL+C - Sayaç seçildiğinde iç tesisatı kopyala.
+ * Sayaçın kendisi, çıkış borusu ve tüm downstream
+ * boru/bileşenler panoya alınır. Referans nokta: sayaçın giriş borusu ucu
+ * (yapıştırmada hedef boru ucuna taşınarak konumlanma sağlanır).
+ * Kaynaktaki BRANSMAN ilişkili vanası kopyaya dahil edilmez; hedefte yeni
+ * EMNIYET vanası oluşturulur veya mevcut BRANSMAN çevrilir.
+ */
+export function handleSayacIcTesisatCopy() {
+    if (!this.selectedObject || this.selectedObject.type !== 'sayac') return;
+    const sayac = this.selectedObject;
+
+    const cikisPipe = sayac.cikisBagliBoruId
+        ? this.manager.pipes.find(p => p.id === sayac.cikisBagliBoruId)
+        : null;
+    if (!cikisPipe) {
+        console.warn('Sayacın çıkış borusu bulunamadı; iç tesisat kopyalanamadı.');
+        return;
+    }
+
+    // Sayaç çıkışından downstream pipe ve bileşenleri topla
+    const downstream = getDownstreamPipesAndComponents(cikisPipe, this.manager);
+
+    // Referans nokta: sayaç giriş borusunun ucu (yapıştırma hedefi de boru ucudur)
+    const inputPipe = sayac.fleksBaglanti?.boruId
+        ? this.manager.pipes.find(p => p.id === sayac.fleksBaglanti.boruId)
+        : null;
+    const inputEnd = sayac.fleksBaglanti?.endpoint;
+    let refPt;
+    if (inputPipe && inputEnd) {
+        const ep = inputEnd === 'p1' ? inputPipe.p1 : inputPipe.p2;
+        refPt = { x: ep.x, y: ep.y, z: ep.z || 0 };
+    } else {
+        const g = sayac.getGirisNoktasi();
+        refPt = { x: g.x, y: g.y, z: g.z || 0 };
+    }
+
+    // Sayacı bileşen listesine ekle (kaynaktaki BRANSMAN ilişkili vana kopyalanmaz)
+    const allComponents = [
+        { type: 'sayac', object: sayac, parentPipeId: null },
+        ...downstream.components
+    ];
+
+    this.copiedPipes = {
+        pipes: downstream.pipes.map(pipe => ({
+            id: pipe.id,
+            p1: { ...pipe.p1 },
+            p2: { ...pipe.p2 },
+            boruTipi: pipe.boruTipi,
+            boruCap: pipe.boruCap,
+            colorGroup: pipe.colorGroup,
+            floorId: pipe.floorId,
+            baslangicBaglanti: downstream.connections.get(pipe.id).p1Connection,
+            bitisBaglanti: downstream.connections.get(pipe.id).p2Connection,
+            tBaglantilar: pipe.tBaglantilar ? JSON.parse(JSON.stringify(pipe.tBaglantilar)) : [],
+            uzerindekiElemanlar: pipe.uzerindekiElemanlar ? JSON.parse(JSON.stringify(pipe.uzerindekiElemanlar)) : []
+        })),
+        components: allComponents.map(comp => ({
+            type: comp.type,
+            data: JSON.parse(JSON.stringify(comp.object)),
+            parentPipeId: comp.parentPipeId,
+            parentCihazId: comp.parentCihazId,
+            connectionPoint: comp.connectionPoint
+        })),
+        referencePoint: refPt,
+        pasteMode: 'sayac'
+    };
+
+    this.cutPipes = null;
+    this.cutPipesOriginalIds = null;
+
+    console.log(`✅ Sayaç + ${downstream.pipes.length} boru + ${downstream.components.length} bileşen kopyalandı (iç tesisat modu)`);
+}
+
+/**
  * CTRL+X - Kes
  * Seçili boru ve sonrasındaki tüm parçaları keser (ghost olarak gösterilir)
  */
@@ -1648,9 +1730,106 @@ export function handlePipePaste() {
         }
     }
 
+    // 3.6 Sayaç-paste: hedef boru ucuna fleks/vana bağlantısını otomatik kur.
+    //  - Vana yoksa EMNIYET vana yarat (handleSayacEndPlacement ile aynı geometri).
+    //  - BRANSMAN vana varsa EMNIYET'e çevir, birimNo'yu sayaca aktar.
+    //  - Diğer vanalar olduğu gibi kullanılır.
+    //  - newSayac.iliskiliVanaId ve fleksBaglanti hedefe göre set edilir.
+    // Bu blok, aşağıdaki "4. snap pipe bağlantı" mantığını sayaç-paste için
+    // bypass eder; ilk pasted pipe sayaçın çıkış borusudur, hedef boruya doğrudan
+    // bağlanmamalıdır.
+    let sayacPasteHandled = false;
+    if (pasteData.pasteMode === 'sayac') {
+        const snapInfoSayac = this._pasteSnapOverride;
+        const sayacSrc = pasteData.components.find(c => c.type === 'sayac');
+        const newSayacId = sayacSrc ? componentIdMap.get(sayacSrc.data.id) : null;
+        const newSayac = newSayacId ? this.manager.components.find(c => c.id === newSayacId) : null;
+        const targetPipe = snapInfoSayac?.snapPipeId
+            ? this.manager.pipes.find(p => p.id === snapInfoSayac.snapPipeId)
+            : null;
+
+        if (newSayac && targetPipe && snapInfoSayac) {
+            const dP1 = Math.hypot(
+                targetPipe.p1.x - snapInfoSayac.x,
+                targetPipe.p1.y - snapInfoSayac.y,
+                (targetPipe.p1.z || 0) - (snapInfoSayac.z || 0)
+            );
+            const dP2 = Math.hypot(
+                targetPipe.p2.x - snapInfoSayac.x,
+                targetPipe.p2.y - snapInfoSayac.y,
+                (targetPipe.p2.z || 0) - (snapInfoSayac.z || 0)
+            );
+            const targetEnd = dP1 <= dP2 ? 'p1' : 'p2';
+            const targetPt = targetEnd === 'p1' ? targetPipe.p1 : targetPipe.p2;
+
+            const existingVana = this.checkVanaAtPoint(targetPt);
+            let vanaToLink = null;
+
+            if (existingVana && existingVana.vanaTipi !== 'YAN_BINA') {
+                if (existingVana.vanaTipi === 'BRANSMAN') {
+                    if (typeof existingVana.bransmandanSayacVanasiyaDonustur === 'function') {
+                        existingVana.bransmandanSayacVanasiyaDonustur();
+                    } else {
+                        existingVana.vanaTipi = 'EMNIYET';
+                    }
+                    if (existingVana.birimNo != null && existingVana.birimNo !== '') {
+                        newSayac.birimNo = existingVana.birimNo;
+                    }
+                }
+                vanaToLink = existingVana;
+            } else if (!existingVana) {
+                // Vana yoksa EMNIYET yarat — handleSayacEndPlacement ile aynı geometri
+                const VANA_GENISLIGI = 8;
+                const centerMargin = VANA_GENISLIGI / 2;
+                const ddx = targetPipe.p2.x - targetPipe.p1.x;
+                const ddy = targetPipe.p2.y - targetPipe.p1.y;
+                const ddz = (targetPipe.p2.z || 0) - (targetPipe.p1.z || 0);
+                const len3D = Math.hypot(ddx, ddy, ddz) || 1;
+
+                let vX, vY, vZ;
+                if (targetEnd === 'p1') {
+                    vX = targetPt.x - (ddx / len3D) * centerMargin;
+                    vY = targetPt.y - (ddy / len3D) * centerMargin;
+                    vZ = (targetPt.z || 0) - (ddz / len3D) * centerMargin;
+                } else {
+                    vX = targetPt.x + (ddx / len3D) * centerMargin;
+                    vY = targetPt.y + (ddy / len3D) * centerMargin;
+                    vZ = (targetPt.z || 0) + (ddz / len3D) * centerMargin;
+                }
+
+                const newAutoVana = new Vana(vX, vY, 'EMNIYET', {
+                    z: vZ,
+                    floorId: targetPipe.floorId,
+                    bagliBoruId: targetPipe.id,
+                    fromEnd: targetEnd,
+                    fixedDistance: centerMargin
+                });
+                newAutoVana.rotation = targetPipe.aciDerece || 0;
+                const vToP1 = Math.hypot(vX - targetPipe.p1.x, vY - targetPipe.p1.y, vZ - (targetPipe.p1.z || 0));
+                newAutoVana.boruPozisyonu = vToP1 / len3D;
+                this.manager.components.push(newAutoVana);
+                newAutoVana.updateEndCapStatus?.(this.manager);
+                vanaToLink = newAutoVana;
+            }
+
+            if (vanaToLink) newSayac.iliskiliVanaId = vanaToLink.id;
+            const fleksUzunluk = 15;
+            if (newSayac.config) newSayac.config.rijitUzunluk = fleksUzunluk;
+            newSayac.fleksBagla(targetPipe.id, targetEnd);
+            if (newSayac.fleksBaglanti) newSayac.fleksBaglanti.uzunluk = fleksUzunluk;
+            if (newSayac.z === undefined || newSayac.z === null) {
+                newSayac.z = targetPt.z || 0;
+            }
+            if (vanaToLink && typeof vanaToLink.updateEndCapStatus === 'function') {
+                vanaToLink.updateEndCapStatus(this.manager);
+            }
+            sayacPasteHandled = true;
+        }
+    }
+
     // 4. Snap noktasındaki boru ile ilk pasted boru arasında bağlantı kur
     const snapInfo = this._pasteSnapOverride;
-    if (snapInfo?.snapPipeId && newPipes.length > 0) {
+    if (!sayacPasteHandled && snapInfo?.snapPipeId && newPipes.length > 0) {
         const snapPipe = this.manager.pipes.find(p => p.id === snapInfo.snapPipeId);
         const firstPastePipe = newPipes[0];
         if (snapPipe && firstPastePipe) {

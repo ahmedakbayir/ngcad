@@ -294,6 +294,7 @@ export class InteractionManager {
         if (!pasteData) return null;
 
         const isCut = !!this.cutPipes;
+        const isSayacPaste = pasteData.pasteMode === 'sayac';
         const excludeIds = isCut
             ? new Set(this.cutPipesOriginalIds?.pipeIds || [])
             : new Set();
@@ -392,6 +393,23 @@ export class InteractionManager {
         }
 
         if (!best) return null;
+
+        // Sayaç-paste: yalnızca serbest boru ucu kabul edilir
+        // (body, corner veya dolu uç → snap iptal, kullanıcı geçerli uca yaklaşsın).
+        if (isSayacPaste) {
+            if (best.type !== 'endpoint' || !best.pipeId) return null;
+            const tPipe = this.manager.pipes.find(p => p.id === best.pipeId);
+            if (!tPipe) return null;
+            const isP1 = Math.hypot(tPipe.p1.x - best.x, tPipe.p1.y - best.y, (tPipe.p1.z || 0) - best.z) < 0.5;
+            const tUc = isP1 ? 'p1' : 'p2';
+            const tBag = tUc === 'p1' ? tPipe.baslangicBaglanti : tPipe.bitisBaglanti;
+            if (tBag && tBag.hedefId) return null;
+            const tPt = tUc === 'p1' ? tPipe.p1 : tPipe.p2;
+            if (!this.manager.isTrulyFreeEndpoint(tPt, 1)) return null;
+            if (this.hasMeterAtEndpoint(tPipe.id, tUc)) return null;
+            if (this.hasDeviceAtEndpoint && this.hasDeviceAtEndpoint(tPipe.id, tUc)) return null;
+            best.targetEnd = tUc;
+        }
 
         // Kesişim kontrolü: yapıştırılacak borular mevcut borularla çakışıyor mu?
         const ddx = best.x - (pasteData.referencePoint.x);

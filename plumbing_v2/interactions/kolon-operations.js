@@ -2,26 +2,8 @@
  * kolon-operations.js
  *
  * Sağ tık menüsünden çağrılan "Tesisat Çoğalt" komutları.
- *
- *  - drawColumnToAdjacentFloor(im, pipe, 'up'|'down'):
- *      Seçili borunun UÇ noktasını (pipe.p2) referans alarak komşu kata kolon
- *      çizer. Hedef kat yoksa placeholder → gerçek kata dönüştürerek oluşturur.
- *      Sonunda aktif katı yeni kata geçirir.
- *
- *  - drawColumnAllFloors(im, pipe, splitPoint):
- *      Tıklama noktasının z-relative ofsetini her gerçek katta uygulayarak
- *      mevcut tüm katları kolonla bağlar. YENİ KAT OLUŞTURMAZ. Her katın
- *      aynı (x,y) noktasında yatay boru bulunursa orada da split yapar.
- *
- *  - pasteFloorPlumbingToAllFloors(im, anchorPipe, includeInterior):
- *      Anchor borunun bulunduğu kattaki kolon HARİCİ tesisat desenini diğer
- *      tüm katlara z-ofseti ile yapıştırır.
- *        - includeInterior=false  → sadece YELLOW (branşman tarafı) borular
- *          + pre-sayaç bileşenler (vana, regülatör, filtre, …)
- *        - includeInterior=true   → YELLOW + TURQUAZ borular + tüm bileşenler
- *          (sayaç, cihaz, baca dahil)
- *      Kopyalanan birinci boru komşusu kolonun aynı (x,y,z+ofset) düğümüyle
- *      çakışıyorsa otomatik olarak orada bağlanır.
+ * MİMARİ MANTIK: "İşin temeli kopyalamadır" kuralına göre çalışan,
+ * konumsal ve sınıfsal Clipboard Copy-Paste motoru.
  */
 
 import { state } from '../../general-files/main.js';
@@ -33,17 +15,18 @@ import { syncAllFloorAssignments } from '../floor-sync.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 import { draw2D } from '../../draw/draw2d.js';
 
-const TOL_SPLIT = 0.5;
-const TOL_BODY  = 1.0;
-const TOL_NODE  = 0.5;
+// handlePipeCopy fonksiyonunu .call() ile tetiklemek için import ediyoruz
+import { handlePipeCopy } from './keyboard-handler.js';
 
-const dist3D = (a, b) => Math.hypot(
-    (a.x || 0) - (b.x || 0),
-    (a.y || 0) - (b.y || 0),
-    (a.z || 0) - (b.z || 0)
-);
+// Klonlanan ekipmanların sınıf fonksiyonlarını korumak için importlar
+import { Vana } from '../objects/valve.js';
+import { Sayac } from '../objects/meter.js';
+import { Regulator } from '../objects/regulator.js';
+import { Cihaz } from '../objects/device.js';
+import { Baca } from '../objects/chimney.js';
+import { PipeFitting } from '../objects/pipe-fitting.js';
 
-const newNodeId = () => `n_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+const TOL_NODE = 0.5;
 
 const PRE_SAYAC_TYPES = new Set([
     'vana', 'regulator', 'filtre',
@@ -64,79 +47,74 @@ function isKolonPipe(pipe) {
     return Math.abs((pipe.p1.z || 0) - (pipe.p2.z || 0)) > 1;
 }
 
-function makeKolon(p1Node, p2Node, sourcePipe) {
-    const kolon = new Boru(p1Node, p2Node, sourcePipe?.boruTipi || 'STANDART');
-    kolon.colorGroup = sourcePipe?.colorGroup || 'YELLOW';
-    kolon.boruCap    = sourcePipe?.boruCap    || 'DN25';
-    if (sourcePipe?.basinc != null) kolon.basinc = sourcePipe.basinc;
-    return kolon;
-}
-
-/** splitAndLocate: handlePipeSplit'in sonucunda boru1/boru2'yi bulup döndürür. */
-function splitAndLocate(interactionManager, pipe, splitPoint) {
-    const manager = interactionManager.manager;
-    const origP1 = { x: pipe.p1.x, y: pipe.p1.y, z: pipe.p1.z || 0 };
-    const origP2 = { x: pipe.p2.x, y: pipe.p2.y, z: pipe.p2.z || 0 };
-    interactionManager.handlePipeSplit(pipe, splitPoint, false);
-    const boru1 = manager.pipes.find(p =>
-        dist3D(p.p2, splitPoint) < TOL_SPLIT && dist3D(p.p1, origP1) < TOL_SPLIT
-    );
-    const boru2 = manager.pipes.find(p =>
-        dist3D(p.p1, splitPoint) < TOL_SPLIT && dist3D(p.p2, origP2) < TOL_SPLIT
-    );
-    return { boru1, boru2 };
-}
-
-function findHorizontalPipeAt(manager, x, y, z, floorId) {
-    for (const p of manager.pipes) {
-        if (floorId && p.floorId !== floorId) continue;
-        const z1 = p.p1.z || 0;
-        const z2 = p.p2.z || 0;
-        if (Math.abs(z1 - z) > TOL_BODY) continue;
-        if (Math.abs(z2 - z) > TOL_BODY) continue;
-        const proj = p.projectPoint ? p.projectPoint({ x, y, z }) : null;
-        if (proj && proj.distance < TOL_BODY && proj.t > 0.001 && proj.t < 0.999) {
-            return { pipe: p, projection: proj };
-        }
+function makeComponent(data) {
+    switch (data.type) {
+        case 'vana': return Vana.fromJSON(data);
+        case 'sayac': return Sayac.fromJSON(data);
+        case 'regulator': return Regulator.fromJSON(data);
+        case 'cihaz': return Cihaz.fromJSON(data);
+        case 'baca': return Baca.fromJSON(data);
+        default: return PipeFitting.fromJSON(data);
     }
-    return null;
+}
+
+/**
+ * 🌟 ORTAK DİKEY KOLON İNŞA MOTORU
+ * Verilen (x,y) koordinatında, projenin kat dilimleme mimarisine tam uyumlu,
+ * kat kat bölünmüş kesintisiz dikey kolon dikmesi oluşturur.
+ */
+function buildFullRiserColumn(manager, x, y, zOffset, sourcePipe) {
+    const floors = realFloorsSorted();
+    const riserNodes = floors.map(f => {
+        const z = f.bottomElevation + zOffset;
+        return { floorId: f.id, node: manager.getOrCreateNodeAt(x, y, z, 0.5) };
+    }).sort((a, b) => a.node.z - b.node.z);
+
+    for (let i = 0; i < riserNodes.length - 1; i++) {
+        const lower = riserNodes[i].node;
+        const upper = riserNodes[i + 1].node;
+
+        const exists = manager.pipes.some(p => isKolonPipe(p) && 
+            ((p.p1NodeId === lower._nodeId && p.p2NodeId === upper._nodeId) || 
+             (p.p2NodeId === lower._nodeId && p.p1NodeId === upper._nodeId))
+        );
+        if (exists) continue;
+
+        const kolon = new Boru(lower, upper, sourcePipe?.boruTipi || 'STANDART');
+        kolon.colorGroup = 'YELLOW';
+        kolon.boruCap    = sourcePipe?.boruCap || 'DN25';
+        kolon.floorId    = riserNodes[i + 1].floorId;
+
+        const lowerPipe = manager.pipes.find(p => (p.p2NodeId === lower._nodeId || p.p1NodeId === lower._nodeId) && p.id !== kolon.id);
+        if (lowerPipe) {
+            kolon.baslangicBaglanti = { tip: 'boru', hedefId: lowerPipe.id };
+        }
+
+        manager.pipes.push(kolon);
+        manager.registerPipeNodes(kolon);
+    }
 }
 
 // ─── 1. Üst/Alt Kata Kolon Çiz ───────────────────────────────────────────
-/**
- * Seçili borunun UÇ (p2) noktasını anchor alarak komşu kata kolon çizer.
- * Hedef kat yoksa otomatik oluşturulur ve aktif kat hedef kata geçirilir.
- */
 export function drawColumnToAdjacentFloor(interactionManager, pipe, direction) {
     if (!pipe) return;
-    if (direction !== 'up' && direction !== 'down') return;
-
     const manager = interactionManager.manager;
     const floors  = realFloorsSorted();
     if (floors.length === 0) return;
 
-    const anchorNode = pipe.p2; // "seçili hattın ucu" — referans p2
+    const anchorNode = pipe.p2; 
     const currentZ   = anchorNode.z || 0;
-    const currentFloor = floorContainingZ(currentZ)
-        || floors.find(f => f.id === pipe.floorId)
-        || floors[0];
+    const currentFloor = floorContainingZ(currentZ) || floors[0];
     const relativeOffset = currentZ - currentFloor.bottomElevation;
-    const floorHeight    = currentFloor.topElevation - currentFloor.bottomElevation;
 
     let targetFloor = null;
-    let targetZ;
     if (direction === 'up') {
         targetFloor = floors.find(f => f.bottomElevation === currentFloor.topElevation) || null;
-        targetZ = (targetFloor ? targetFloor.bottomElevation : currentFloor.topElevation) + relativeOffset;
     } else {
         targetFloor = floors.find(f => f.topElevation === currentFloor.bottomElevation) || null;
-        if (targetFloor) {
-            targetZ = targetFloor.bottomElevation + relativeOffset;
-        } else {
-            const h = state.defaultFloorHeight || floorHeight;
-            targetZ = currentFloor.bottomElevation - h + relativeOffset;
-        }
     }
+
+    const targetZ = targetFloor ? (targetFloor.bottomElevation + relativeOffset) : (direction === 'up' ? currentFloor.topElevation + relativeOffset : currentFloor.bottomElevation - 300 + relativeOffset);
 
     saveState();
 
@@ -144,16 +122,14 @@ export function drawColumnToAdjacentFloor(interactionManager, pipe, direction) {
         ensureFloorForElevation(targetZ);
         targetFloor = floorContainingZ(targetZ);
     }
-    if (!targetFloor) {
-        console.warn('[kolon] hedef kat oluşturulamadı, targetZ=', targetZ);
-        return;
-    }
+    if (!targetFloor) return;
 
-    const farNode = { _nodeId: newNodeId(), x: anchorNode.x, y: anchorNode.y, z: targetZ };
-    const kolon = makeKolon(anchorNode, farNode, pipe);
-    // Anchor pipe ile aynı düğümü paylaşıyor (p2 === anchorNode); upstream
-    // referansını anchor pipe'a kuruyoruz. Anchor'ın bitisBaglanti'sini
-    // boş ise kolon'a yönlendiriyoruz.
+    const farNode = manager.createNode(anchorNode.x, anchorNode.y, targetZ);
+    const kolon = new Boru(anchorNode, farNode, pipe.boruTipi || 'STANDART');
+    kolon.colorGroup = pipe.colorGroup || 'YELLOW';
+    kolon.boruCap    = pipe.boruCap    || 'DN25';
+    kolon.floorId    = targetFloor.id;
+    
     kolon.baslangicBaglanti = { tip: 'boru', hedefId: pipe.id };
     if (!pipe.bitisBaglanti?.hedefId) {
         pipe.bitisBaglanti = { tip: 'boru', hedefId: kolon.id };
@@ -167,9 +143,6 @@ export function drawColumnToAdjacentFloor(interactionManager, pipe, direction) {
     recomputeAllPressures(manager);
     manager.saveToState?.();
 
-    // Tesisat hedef kata geçti — aktif katı güncelle ve çizimi yeni katın
-    // hattın ucundan (kolonun açık ucu) başlatarak kullanıcı kalmadığı yerden
-    // devam edebilsin.
     switchToFloor(targetFloor.id);
     if (typeof interactionManager.startBoruCizim === 'function') {
         interactionManager.startBoruCizim(farNode, kolon.id, 'boru', kolon.colorGroup);
@@ -178,61 +151,18 @@ export function drawColumnToAdjacentFloor(interactionManager, pipe, direction) {
 }
 
 // ─── 2. Tüm Katlara Kolon Dikmesi Çiz ─────────────────────────────────────
-/**
- * Seçili borunun UÇ noktasını (pipe.p2) anchor alarak mevcut tüm katları
- * aynı z-relative ofsette kolonla bağlar. YENİ KAT OLUŞTURMAZ.
- * Diğer katların aynı (x,y)'sinde yatay boru varsa split eder.
- */
 export function drawColumnAllFloors(interactionManager, pipe) {
     if (!pipe) return;
     const manager = interactionManager.manager;
     const floors  = realFloorsSorted();
     if (floors.length < 2) return;
 
-    const anchorNode = pipe.p2; // "seçili hattın ucu"
-    const currentZ   = anchorNode.z || 0;
-    const currentFloor = floorContainingZ(currentZ)
-        || floors.find(f => f.id === pipe.floorId)
-        || floors[0];
-    const relativeOffset = currentZ - currentFloor.bottomElevation;
+    const anchorNode = pipe.p2;
+    const currentFloor = floors.find(f => f.id === pipe.floorId) || floors[0];
+    const zOffset = anchorNode.z - currentFloor.bottomElevation;
 
     saveState();
-
-    // Anchor #1: mevcut katın anchor'u doğrudan pipe.p2 (split YOK).
-    const anchors = [{ floor: currentFloor, node: anchorNode }];
-
-    for (const f of floors) {
-        if (f.id === currentFloor.id) continue;
-        const z = f.bottomElevation + relativeOffset;
-        if (z >= f.topElevation || z < f.bottomElevation) continue;
-
-        const hit = findHorizontalPipeAt(manager, anchorNode.x, anchorNode.y, z, f.id);
-        if (hit) {
-            const sp = { x: anchorNode.x, y: anchorNode.y, z };
-            const { boru1: b1 } = splitAndLocate(interactionManager, hit.pipe, sp);
-            if (b1) { anchors.push({ floor: f, node: b1.p2 }); continue; }
-        }
-        const free = { _nodeId: newNodeId(), x: anchorNode.x, y: anchorNode.y, z };
-        anchors.push({ floor: f, node: free });
-    }
-
-    anchors.sort((a, b) => (a.node.z || 0) - (b.node.z || 0));
-
-    for (let i = 0; i < anchors.length - 1; i++) {
-        const lower = anchors[i].node;
-        const upper = anchors[i + 1].node;
-        if (Math.abs((lower.z || 0) - (upper.z || 0)) < 0.5) continue;
-        const kolon = makeKolon(lower, upper, pipe);
-        const upstreamHoriz = manager.pipes.find(p =>
-            (p.p2NodeId === lower._nodeId || p.p1NodeId === lower._nodeId) &&
-            Math.abs((p.p1.z || 0) - (p.p2.z || 0)) < 0.5
-        );
-        if (upstreamHoriz) {
-            kolon.baslangicBaglanti = { tip: 'boru', hedefId: upstreamHoriz.id };
-        }
-        manager.pipes.push(kolon);
-        manager.registerPipeNodes(kolon);
-    }
+    buildFullRiserColumn(manager, anchorNode.x, anchorNode.y, zOffset, pipe);
 
     manager.recomputePipeParents?.();
     syncAllFloorAssignments(manager);
@@ -241,297 +171,159 @@ export function drawColumnAllFloors(interactionManager, pipe) {
     draw2D();
 }
 
-// ─── 3. Kattaki Branşman / Branşman+İç Tesisat — Tüm Katlara Yapıştır ────
-
-/** Bir pipe'ın p1 veya p2 düğümü herhangi bir kolon ile paylaşılıyor mu?
- *  Eğer öyleyse { kolon, exitNode } döndürür. */
-function _checkAdjacentKolon(manager, p) {
-    for (const k of manager.pipes) {
-        if (k === p || !isKolonPipe(k)) continue;
-        if (k.p1NodeId === p.p1NodeId || k.p2NodeId === p.p1NodeId) {
-            return { kolon: k, exitNode: p.p1 };
-        }
-        if (k.p1NodeId === p.p2NodeId || k.p2NodeId === p.p2NodeId) {
-            return { kolon: k, exitNode: p.p2 };
-        }
-    }
-    return null;
-}
-
-/** anchorPipe'ı, sonra upstream zincirini, sonra downstream zincirini gezer;
- *  herhangi bir adımda kolon ile düğüm paylaşan boru bulursa o kolonun
- *  exit node'u ile döndürür. */
-function findKolonExitForAnchor(manager, anchorPipe) {
-    let res = _checkAdjacentKolon(manager, anchorPipe);
-    if (res) return res;
-
-    // Upstream chain
-    const upVisited = new Set([anchorPipe.id]);
-    let curr = anchorPipe;
-    while (true) {
-        const upId = curr.baslangicBaglanti?.hedefId;
-        if (!upId || upVisited.has(upId)) break;
-        const next = manager.pipes.find(p => p.id === upId);
-        if (!next) break;
-        upVisited.add(next.id);
-        res = _checkAdjacentKolon(manager, next);
-        if (res) return res;
-        curr = next;
-    }
-
-    // Downstream chain (anchor → children → grandchildren)
-    const queue = [anchorPipe];
-    const dsVisited = new Set([anchorPipe.id]);
-    while (queue.length > 0) {
-        const c = queue.shift();
-        for (const p of manager.pipes) {
-            if (dsVisited.has(p.id)) continue;
-            if (p.baslangicBaglanti?.hedefId === c.id) {
-                dsVisited.add(p.id);
-                res = _checkAdjacentKolon(manager, p);
-                if (res) return res;
-                queue.push(p);
-            }
-        }
-    }
-
-    return null;
-}
-
-/** (x,y,z) civarında bir mevcut boru ucu (node) varsa onu döndürür. */
-function findExistingNodeAt(manager, x, y, z) {
-    for (const p of manager.pipes) {
-        if (Math.abs(p.p1.x - x) < TOL_NODE
-         && Math.abs(p.p1.y - y) < TOL_NODE
-         && Math.abs((p.p1.z || 0) - z) < TOL_NODE) return p.p1;
-        if (Math.abs(p.p2.x - x) < TOL_NODE
-         && Math.abs(p.p2.y - y) < TOL_NODE
-         && Math.abs((p.p2.z || 0) - z) < TOL_NODE) return p.p2;
-    }
-    return null;
-}
-
-/** Verilen exit node'undan başlayarak yatay borularla kolon-dışı downstream
- *  graf'ı toplar. includeInterior=false → sadece YELLOW; true → sayaç çıkış
- *  borusu üzerinden TURQUAZ tarafa da geçer. */
-function collectDownstreamFromKolon(manager, kolon, exitNode, includeInterior) {
-    const pipes = [];
-    const components = [];
-    const visitedPipes = new Set([kolon.id]);
-    const visitedComps = new Set();
-    const queue = [];
-
-    const nodesEqual = (a, b) => a && b && (a._nodeId === b._nodeId
-        || (Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && Math.abs((a.z || 0) - (b.z || 0)) < 0.5));
-
-    const addPipe = (p) => {
-        if (visitedPipes.has(p.id)) return;
-        if (isKolonPipe(p)) return;
-        if (!includeInterior && p.colorGroup !== 'YELLOW') return;
-        visitedPipes.add(p.id);
-        pipes.push(p);
-        queue.push(p);
-    };
-
-    // Tohum: exitNode ile p1 veya p2'si çakışan yatay borular
-    for (const p of manager.pipes) {
-        if (nodesEqual(p.p1, exitNode) || nodesEqual(p.p2, exitNode)) addPipe(p);
-    }
-
-    while (queue.length > 0) {
-        const curr = queue.shift();
-
-        // Komşu yatay boruları ekle (paylaşılan düğüm)
-        for (const p of manager.pipes) {
-            if (visitedPipes.has(p.id)) continue;
-            if (nodesEqual(p.p1, curr.p1) || nodesEqual(p.p1, curr.p2)
-             || nodesEqual(p.p2, curr.p1) || nodesEqual(p.p2, curr.p2)) {
-                addPipe(p);
-            }
-        }
-
-        // Bileşenleri ekle
-        for (const c of manager.components) {
-            if (visitedComps.has(c.id)) continue;
-            const onCurr = (c.bagliBoruId === curr.id) || (c.fleksBaglanti?.boruId === curr.id);
-            if (!onCurr) continue;
-            if (!includeInterior && !PRE_SAYAC_TYPES.has(c.type)) continue;
-            visitedComps.add(c.id);
-            components.push(c);
-            // İç tesisat dahilse sayacın çıkış borusundan TURQUAZ tarafa devam
-            if (includeInterior && c.type === 'sayac' && c.cikisBagliBoruId) {
-                const cikis = manager.pipes.find(p => p.id === c.cikisBagliBoruId);
-                if (cikis) addPipe(cikis);
-            }
-        }
-    }
-    return { pipes, components };
-}
-
-function clonedNode(nodeMap, origNode, offset) {
-    const key = origNode._nodeId || `${origNode.x},${origNode.y},${origNode.z}`;
-    if (nodeMap.has(key)) return nodeMap.get(key);
-    const newNode = {
-        _nodeId: newNodeId(),
-        x: origNode.x,
-        y: origNode.y,
-        z: (origNode.z || 0) + offset,
-    };
-    nodeMap.set(key, newNode);
-    return newNode;
-}
-
-/**
- * Anchor borunun bağlı olduğu kolon dikmesinden İLERİDEKİ (downstream)
- * tesisatı diğer tüm katlara yapıştırır. Kolonun kendisi kopyalanmaz.
- *   - includeInterior=false → sadece YELLOW (branşman vanasına kadar)
- *   - includeInterior=true  → sayaç + iç tesisat (TURQUAZ) dahil
- */
+// ─── 3. Branşman / Branşman + İç Tesisatı Tüm Katlara Yapıştır ───────────
 export function pasteFloorPlumbingToAllFloors(interactionManager, anchorPipe, includeInterior) {
     if (!anchorPipe) return;
     const manager = interactionManager.manager;
     const floors  = realFloorsSorted();
-    const currentFloor = floors.find(f => f.id === anchorPipe.floorId)
-        || floorContainingZ(anchorPipe.p1.z || 0);
-    if (!currentFloor) return;
+    const currentFloor = floors.find(f => f.id === anchorPipe.floorId) || floors[0];
 
-    // 1) Anchor'a komşu bir kolon bul. YOKSA önce drawColumnAllFloors ile ekle.
-    let exitInfo = findKolonExitForAnchor(manager, anchorPipe);
-    if (!exitInfo) {
-        drawColumnAllFloors(interactionManager, anchorPipe);
-        exitInfo = findKolonExitForAnchor(manager, anchorPipe);
-    }
-    if (!exitInfo) {
-        console.warn('[paste-bransman] kolon bulunamadı/eklenemedi');
-        return;
-    }
-    const { kolon, exitNode } = exitInfo;
-
-    // 2) Kolon'dan downstream tesisatı topla (kolon hariç)
-    const { pipes: srcPipes, components: srcComps } = collectDownstreamFromKolon(
-        manager, kolon, exitNode, includeInterior
-    );
-    if (srcPipes.length === 0 && srcComps.length === 0) {
-        console.warn('[paste-bransman] kopyalanacak tesisat yok');
-        return;
-    }
-
-    // 3) Kolonun aynı (x,y)'de hedef kata erişip erişmediğini kontrol et.
-    const hasKolonAtFloor = (tFloor) => {
-        const targetZ = tFloor.bottomElevation + ((exitNode.z || 0) - currentFloor.bottomElevation);
-        return manager.pipes.some(p => isKolonPipe(p) && [p.p1, p.p2].some(n =>
-            Math.abs(n.x - exitNode.x) < TOL_NODE
-         && Math.abs(n.y - exitNode.y) < TOL_NODE
-         && Math.abs((n.z || 0) - targetZ) < TOL_NODE
-        ));
-    };
+    // Projenin kendi dahili clipboard kopyalama motorunu çalıştırıyoruz
+    interactionManager.selectedObject = anchorPipe;
+    handlePipeCopy.call(interactionManager);
+    
+    const baseClipboard = interactionManager.copiedPipes;
+    if (!baseClipboard || !baseClipboard.pipes || baseClipboard.pipes.length === 0) return;
 
     saveState();
 
+    // 🌟 KURAL: "Kolon yoksa seçili hattın P1 noktasından dikme çıkarsın"
+    // Döngüye başlamadan önce, seçili hattın P1 koordinatında tüm katlar boyunca dikey riser kolonunu eksiksiz inşa ediyoruz.
+    const zOffset = anchorPipe.p1.z - currentFloor.bottomElevation;
+    buildFullRiserColumn(manager, anchorPipe.p1.x, anchorPipe.p1.y, zOffset, anchorPipe);
+
+    // Çoklu yapıştırma döngüsü (Tık tık kopyayı ardı ardına basar gibi)
     for (const tFloor of floors) {
         if (tFloor.id === currentFloor.id) continue;
-        if (!hasKolonAtFloor(tFloor)) continue; // Kolon bu kata gitmiyor → atla
         const offset = tFloor.bottomElevation - currentFloor.bottomElevation;
 
-        const pipeIdMap = new Map(); // origId -> clone (Boru)
-        const compIdMap = new Map(); // origId -> clone (component)
-        const nodeMap   = new Map(); // origNode._nodeId -> clone node
+        // Her kat için panodaki kopyalama verisinin izole bir kopyasını alıyoruz
+        const pasteData = JSON.parse(JSON.stringify(baseClipboard));
 
-        // Pre-populate: kaynak exitNode → hedef kattaki kolonun mevcut ucu.
-        // Böylece klonlar oluşturulurken bu düğüm doğrudan paylaşılır;
-        // sonradan yer değiştirmeye (ve sharing kırılmasına) gerek kalmaz.
-        const targetExitZ   = (exitNode.z || 0) + offset;
-        const targetExitNode = findExistingNodeAt(manager, exitNode.x, exitNode.y, targetExitZ);
-        if (targetExitNode) {
-            nodeMap.set(exitNode._nodeId, targetExitNode);
+        // "Sayaç silindiğinde geriye ne kalıyorsa o" Kuralı (Filtreleme)
+        if (!includeInterior) {
+            pasteData.pipes = pasteData.pipes.filter(p => p.colorGroup !== 'TURQUAZ');
+            pasteData.components = pasteData.components.filter(c => PRE_SAYAC_TYPES.has(c.type));
         }
-        const targetKolon = targetExitNode && manager.pipes.find(p =>
-            isKolonPipe(p) && (
-                p.p1NodeId === targetExitNode._nodeId
-             || p.p2NodeId === targetExitNode._nodeId
-            )
-        );
 
-        // a) Boruları kopyala (paylaşılan iç düğümler korunur; exitNode → kolon ucu)
-        for (const orig of srcPipes) {
-            const p1c = clonedNode(nodeMap, orig.p1, offset);
-            const p2c = clonedNode(nodeMap, orig.p2, offset);
-            const clone = new Boru(p1c, p2c, orig.boruTipi);
-            clone.colorGroup = orig.colorGroup;
-            clone.boruCap    = orig.boruCap;
-            if (orig.basinc != null) clone.basinc = orig.basinc;
-            clone.floorId   = tFloor.id;
-            clone.uzerindekiElemanlar = orig.uzerindekiElemanlar
-                ? JSON.parse(JSON.stringify(orig.uzerindekiElemanlar)) : [];
-            pipeIdMap.set(orig.id, clone);
+        // Üst üste binmeleri engellemek için hedef bölgedeki eski kopyaları süpür
+        const oldPipes = manager.pipes.filter(p => p.floorId === tFloor.id && !isKolonPipe(p) && pasteData.pipes.some(src => Math.abs(p.p1.x - src.p1.x) < 2.0 && Math.abs(p.p1.y - src.p1.y) < 2.0));
+        const oldPipeIds = new Set(oldPipes.map(p => p.id));
+        manager.components = manager.components.filter(c => c.floorId !== tFloor.id || (!oldPipeIds.has(c.bagliBoruId) && !oldPipeIds.has(c.fleksBaglanti?.boruId)));
+        manager.pipes = manager.pipes.filter(p => !oldPipes.includes(p));
+
+        const pipeIdMap = new Map();
+        const compIdMap = new Map();
+        const nodeMap   = new Map();
+
+        // Hedef katın dikey kolon Z koordinatını alıp düğümü eşliyoruz
+        const targetExitZ = pasteData.referencePoint.z + offset;
+        const targetExitNode = manager.getOrCreateNodeAt(pasteData.referencePoint.x, pasteData.referencePoint.y, targetExitZ, 0.5);
+
+        // Yukarıda buildFullRiserColumn ile dikey kolon garanti oluşturulduğu için hedef kolon segmentini tam konumuyla buluyoruz
+        const targetKolon = manager.pipes.find(p => isKolonPipe(p) && (
+            (Math.abs(p.p1.x - pasteData.referencePoint.x) < 1.0 && Math.abs(p.p1.y - pasteData.referencePoint.y) < 1.0 && Math.abs((p.p1.z || 0) - targetExitZ) < TOL_NODE) ||
+            (Math.abs(p.p2.x - pasteData.referencePoint.x) < 1.0 && Math.abs(p.p2.y - pasteData.referencePoint.y) < 1.0 && Math.abs((p.p2.z || 0) - targetExitZ) < TOL_NODE)
+        ));
+
+        // İlk borunun başlangıç ucunu hedef katın kolon düğümüne kilitliyoruz
+        const originalAnchorPipe = baseClipboard.pipes[0];
+        if (originalAnchorPipe) {
+            nodeMap.set(originalAnchorPipe.p1._nodeId, targetExitNode);
+        }
+
+        const getClonedNode = (origNode) => {
+            if (nodeMap.has(origNode._nodeId)) return nodeMap.get(origNode._nodeId);
+            const n = manager.createNode(origNode.x, origNode.y, (origNode.z || 0) + offset);
+            nodeMap.set(origNode._nodeId, n);
+            return n;
+        };
+
+        // a) Sınıfsal Boru Yapıştırması (Boru.fromJSON)
+        const createdPipes = [];
+        for (let i = 0; i < pasteData.pipes.length; i++) {
+            const pipeJson = pasteData.pipes[i];
+            const originalId = baseClipboard.pipes[i].id;
+            const p1c = getClonedNode(pipeJson.p1);
+            const p2c = getClonedNode(pipeJson.p2);
+            
+            pipeJson.id = `pipe_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`;
+            pipeJson.floorId = tFloor.id;
+            
+            const clone = Boru.fromJSON(pipeJson, p1c, p2c);
+            pipeIdMap.set(originalId, clone.id);
+            createdPipes.push(clone);
             manager.pipes.push(clone);
             manager.registerPipeNodes(clone);
         }
 
-        // b) Topolojiyi yeniden kur (klonlar arası referanslar + kolon ucu)
-        for (const orig of srcPipes) {
-            const clone = pipeIdMap.get(orig.id);
-            if (!clone) continue;
-            const bb = orig.baslangicBaglanti;
-            const eb = orig.bitisBaglanti;
-            if (bb?.tip === 'boru' && bb.hedefId) {
-                const target = pipeIdMap.get(bb.hedefId);
-                if (target) {
-                    clone.baslangicBaglanti = { tip: 'boru', hedefId: target.id };
-                } else if (bb.hedefId === kolon.id && targetKolon) {
-                    // Kaynak kolon referansı → hedef kattaki kolon segmentine remap
-                    clone.baslangicBaglanti = { tip: 'boru', hedefId: targetKolon.id };
-                }
+        // b) Topolojik hat bağlarının klonlanan yeni boru ID'lerine map edilmesi
+        for (let i = 0; i < createdPipes.length; i++) {
+            const clone = createdPipes[i];
+            const pipeJson = pasteData.pipes[i];
+            
+            if (pipeJson.baslangicBaglanti?.tip === 'boru') {
+                const newTargetId = pipeIdMap.get(pipeJson.baslangicBaglanti.hedefId);
+                clone.baslangicBaglanti = newTargetId ? { tip: 'boru', hedefId: newTargetId } : (targetKolon ? { tip: 'boru', hedefId: targetKolon.id } : null);
             }
-            if (eb?.tip === 'boru' && eb.hedefId) {
-                const target = pipeIdMap.get(eb.hedefId);
-                if (target) clone.bitisBaglanti = { tip: 'boru', hedefId: target.id };
+            if (pipeJson.bitisBaglanti?.tip === 'boru') {
+                const newTargetId = pipeIdMap.get(pipeJson.bitisBaglanti.hedefId);
+                clone.bitisBaglanti = newTargetId ? { tip: 'boru', hedefId: newTargetId } : null;
             }
-            // Klonun p1/p2'si targetExitNode ile paylaşılıyorsa ve henüz upstream
-            // referansı yoksa otomatik olarak hedef kolon segmentine bağla.
-            if (targetKolon && !clone.baslangicBaglanti?.hedefId) {
-                if (clone.p1NodeId === targetExitNode?._nodeId
-                 || clone.p2NodeId === targetExitNode?._nodeId) {
-                    clone.baslangicBaglanti = { tip: 'boru', hedefId: targetKolon.id };
-                }
+            
+            // Kolona kilitlenen ilk kopyanın girişini yeni dikmeye sımsıkı bağlıyoruz
+            if (i === 0 && targetKolon && (!clone.baslangicBaglanti || !clone.baslangicBaglanti.hedefId)) {
+                clone.baslangicBaglanti = { tip: 'boru', gateway: true, hedefId: targetKolon.id };
             }
         }
 
-        // c) Bileşenleri kopyala ve referansları yeniden eşle
-        for (const orig of srcComps) {
-            const cloneComp = JSON.parse(JSON.stringify(orig));
-            cloneComp.id = `${orig.type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            cloneComp.z  = (orig.z || 0) + offset;
-            cloneComp.floorId = tFloor.id;
-            if (cloneComp.bagliBoruId) {
-                const t = pipeIdMap.get(cloneComp.bagliBoruId);
-                cloneComp.bagliBoruId = t ? t.id : null;
+        // c) Sınıfsal Ekipman Yapıştırması (Vana.fromJSON, Sayac.fromJSON vb.)
+        const currentFloorComps = [];
+        for (let i = 0; i < pasteData.components.length; i++) {
+            const compWrapper = pasteData.components[i];
+            const originalCompId = baseClipboard.components[i].data.id;
+            const compData = compWrapper.data;
+            
+            compData.id = `${compWrapper.type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            compData.floorId = tFloor.id;
+            compData.z = (compData.z || 0) + offset;
+            if (compData.center) compData.center.z = compData.z;
+
+            if (compData.bagliBoruId) {
+                const newPipeId = pipeIdMap.get(compData.bagliBoruId);
+                compData.bagliBoruId = newPipeId ? newPipeId : (targetKolon ? targetKolon.id : null);
             }
-            if (cloneComp.fleksBaglanti?.boruId) {
-                const t = pipeIdMap.get(cloneComp.fleksBaglanti.boruId);
-                if (t) cloneComp.fleksBaglanti.boruId = t.id;
-                else   cloneComp.fleksBaglanti = null;
+            if (compData.fleksBaglanti?.boruId) {
+                const newPipeId = pipeIdMap.get(compData.fleksBaglanti.boruId);
+                if (newPipeId) compData.fleksBaglanti.boruId = newPipeId;
             }
-            if (cloneComp.cikisBagliBoruId) {
-                const t = pipeIdMap.get(cloneComp.cikisBagliBoruId);
-                cloneComp.cikisBagliBoruId = t ? t.id : null;
+            if (compData.cikisBagliBoruId) {
+                const newPipeId = pipeIdMap.get(compData.cikisBagliBoruId);
+                if (newPipeId) compData.cikisBagliBoruId = newPipeId;
             }
-            if (cloneComp.iliskiliVanaId) {
-                const t = compIdMap.get(cloneComp.iliskiliVanaId);
-                cloneComp.iliskiliVanaId = t ? t.id : null;
-            }
-            if (cloneComp.parentCihazId) {
-                const t = compIdMap.get(cloneComp.parentCihazId);
-                cloneComp.parentCihazId = t ? t.id : null;
-            }
-            compIdMap.set(orig.id, cloneComp);
+
+            const cloneComp = makeComponent(compData);
+            compIdMap.set(originalCompId, cloneComp);
+            currentFloorComps.push(cloneComp);
             manager.components.push(cloneComp);
+        }
+
+        // d) Nesnelerin kendi içindeki bağımlılık referans ID'lerinin güncellenmesi
+        for (const cloneComp of currentFloorComps) {
+            if (cloneComp.iliskiliVanaId && compIdMap.has(cloneComp.iliskiliVanaId)) {
+                cloneComp.iliskiliVanaId = compIdMap.get(cloneComp.iliskiliVanaId).id;
+            }
+            if (cloneComp.parentCihazId && compIdMap.has(cloneComp.parentCihazId)) {
+                cloneComp.parentCihazId = compIdMap.get(cloneComp.parentCihazId).id;
+            }
         }
     }
 
-    manager.recomputePipeParents?.();
+    // Vanaların yeni konuma tam yapışması ve hidroliklerin yenilenmesi için tetikleyiciler
+    manager.updateAllValvePositions?.();
+    manager.recomputePipeParents();
     syncAllFloorAssignments(manager);
     recomputeAllPressures(manager);
-    manager.saveToState?.();
+    manager.saveToState();
     draw2D();
 }
