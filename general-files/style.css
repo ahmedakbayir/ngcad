@@ -1213,7 +1213,7 @@ body.light-mode .btn.active svg {
     border-radius: 6px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     padding: 5px;
-    min-width: 200px;
+    min-width: 150px;
     max-height: 88vh;
     overflow-y: auto;
     z-index: 2001;
@@ -6025,4 +6025,69 @@ body {
 /* Herhangi bir gizli input kalıntısını ezmek için */
 .hk-grouping-item input {
     display: none !important;
+}
+
+/* ================================================================= */
+/* 2. KOLON (Level 2): Tesisata Nesne Ekle İçeriği */
+/* ================================================================= */
+.context-submenu {
+    display: block;
+    visibility: hidden;
+    pointer-events: none;
+    position: absolute;
+    left: calc(100% - 4px);
+    right: auto;
+    top: -5px;
+    bottom: auto;
+    background-color: var(--bg-popup);
+    border: 1px solid var(--border-button); /* Mavi çizgi kaldırıldı, normal gri çerçeve yapıldı */
+    border-radius: 6px;                     /* Köşeler her taraftan eşit yuvarlatıldı */
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+    padding: 5px 0;
+    min-width: 200px;
+    max-height: 88vh;
+    z-index: 2001;
+}
+
+/* 2. kolonun içinde 3. bir kolon açılıyorsa kırpılmayı önlemek için overflow kapatılır */
+.context-submenu:has(.context-submenu-2) {
+    overflow: visible !important;
+}
+
+/* ================================================================= */
+/* 3. KOLON (Level 3): Vana / Sayaç / Cihaz / Diğer Nesneler */
+/* ================================================================= */
+.context-submenu-2 {
+    display: block;
+    visibility: hidden;
+    pointer-events: none;
+    position: absolute;
+    left: calc(100% - 4px);
+    right: auto;
+    top: -5px;
+    bottom: auto;
+    background-color: var(--bg-popup);
+    border: 1px solid var(--border-button); /* Mavi çizgi kaldırıldı, normal gri çerçeve yapıldı */
+    border-radius: 6px;                     /* Köşeler her taraftan eşit yuvarlatıldı */
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+    padding: 5px 0;
+    min-width: 220px;
+    max-height: 88vh;
+    overflow-y: auto;
+    z-index: 2002;
+}
+
+/* ================================================================= */
+/* HOVER MEKANİZMALARI (Açılma Tetikleyicileri) */
+/* ================================================================= */
+.context-menu-item-with-submenu:hover > .context-submenu,
+.context-submenu:hover {
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.context-menu-item-with-submenu:hover > .context-submenu-2,
+.context-submenu-2:hover {
+    visibility: visible;
+    pointer-events: auto;
 }

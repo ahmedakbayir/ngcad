@@ -544,6 +544,98 @@ function deleteIcTesisatlar(manager) {
     draw2D();
 }
 
+// ─── 5. Seçili İç Tesisat Hariç Tüm Tesisatı Sil ──────────────────────────
+function deleteExceptSelectedIcTesisat(menuState, manager) {
+    const sayaclar = resolveTargetSayaclarForIcTesisat(menuState);
+    if (sayaclar.length === 0) return;
+
+    saveState();
+
+    const keepPipeIds = new Set();
+    const keepCompIds = new Set();
+
+    // Seçili olan iç tesisat(lar)ın tüm elemanlarını koruma listesine ekle
+    for (const sayac of sayaclar) {
+        keepCompIds.add(sayac.id);
+        if (sayac.iliskiliVanaId) {
+            keepCompIds.add(sayac.iliskiliVanaId);
+        }
+        if (sayac.fleksBaglanti?.boruId) {
+            keepPipeIds.add(sayac.fleksBaglanti.boruId);
+        }
+
+        if (!sayac.cikisBagliBoruId) continue;
+        const visited = new Set();
+        const queue   = [];
+        const addP = (p) => { 
+            if (!visited.has(p.id)) { 
+                visited.add(p.id); 
+                keepPipeIds.add(p.id); 
+                queue.push(p); 
+            } 
+        };
+        const startPipe = manager.pipes.find(p => p.id === sayac.cikisBagliBoruId);
+        if (startPipe) addP(startPipe);
+
+        while (queue.length > 0) {
+            const curr = queue.shift();
+            for (const c of manager.components) {
+                if ((c.type === 'vana' || c.type === 'regulator' || c.type === 'filtre' || c.type === 'izolasyon_flansi' || c.type === 'kompansator' || c.type === 'manometre' || c.type === 'topraklama') && c.bagliBoruId === curr.id) { 
+                    keepCompIds.add(c.id); 
+                }
+                else if (c.type === 'cihaz' && c.fleksBaglanti?.boruId === curr.id) {
+                    keepCompIds.add(c.id);
+                }
+            }
+            for (const p of manager.pipes) {
+                if (!visited.has(p.id)) {
+                    const dz = (p.p1.z||0) - (curr.p2.z||0);
+                    if (Math.hypot(p.p1.x - curr.p2.x, p.p1.y - curr.p2.y, dz) < TOPO_TOL) addP(p);
+                }
+            }
+        }
+    }
+
+    // Korunan cihazlara bağlı bacaları da koru
+    const keptCihazIds = new Set(
+        manager.components.filter(c => c.type === 'cihaz' && keepCompIds.has(c.id)).map(c => c.id)
+    );
+    for (const c of manager.components) {
+        if (c.type === 'baca' && keptCihazIds.has(c.parentCihazId)) keepCompIds.add(c.id);
+    }
+
+    // Silinen kolon/ana borularla olan bağlantı referanslarını temizle
+    for (const pipe of manager.pipes) {
+        if (keepPipeIds.has(pipe.id)) {
+            if (pipe.baslangicBaglanti && pipe.baslangicBaglanti.tip === 'boru' && !keepPipeIds.has(pipe.baslangicBaglanti.hedefId)) {
+                pipe.baslangicBaglanti = null;
+            }
+            if (pipe.bitisBaglanti && pipe.bitisBaglanti.tip === 'boru' && !keepPipeIds.has(pipe.bitisBaglanti.hedefId)) {
+                pipe.bitisBaglanti = null;
+            }
+        }
+    }
+
+    // Listede olmayan her şeyi filtrele/sil
+    manager.pipes      = manager.pipes.filter(p => keepPipeIds.has(p.id));
+    manager.components = manager.components.filter(c => keepCompIds.has(c.id));
+    
+    // Değişiklikleri kaydet ve sahneyi yenile
+    manager.recomputePipeParents();
+    recomputeAllPressures(manager);
+    manager.saveToState();
+    draw2D();
+}
+
+// ─── 6. Tüm Tesisatı Sil ──────────────────────────────────────────────────
+function deleteAllPlumbing(manager) {
+    saveState();
+    manager.clearAll(); // PlumbingManager içindeki hazır temizleme fonksiyonu
+    manager.recomputePipeParents();
+    recomputeAllPressures(manager);
+    manager.saveToState();
+    draw2D();
+}
 // ─── Menü init ─────────────────────────────────────────────────────────────
 
 function initMenu() {
@@ -687,6 +779,19 @@ function initMenu() {
         deleteIcTesisatlar(menuState.interactionManager.manager);
         hide();
     });
+// ── Seçili İç Tesisat Hariç Tüm Tesisatı Sil ────────────────────────────
+    document.getElementById('ctx-tesisat-eksilt-haric')?.addEventListener('click', () => {
+        if (!menuState) return;
+        deleteExceptSelectedIcTesisat(menuState, menuState.interactionManager.manager);
+        hide();
+    });
+
+    // ── Tüm Tesisatı Sil ────────────────────────────────────────────────────
+    document.getElementById('ctx-tesisat-eksilt-tumu')?.addEventListener('click', () => {
+        if (!menuState) return;
+        deleteAllPlumbing(menuState.interactionManager.manager);
+        hide();
+    });
 
     // ── YENİ: Tesisat Çoğalt — Üst/Alt Kata Kolon Çiz ─────────────────────
     // Referans = seçili borunun UÇ noktası (pipe.p2). Boş uç kontrolü yok;
@@ -729,8 +834,7 @@ function initMenu() {
 
     // ── Hâlâ işlerliği eklenmemiş diğer yeni butonlar (stub) ──────────────
     [
-        'ctx-tesisat-eksilt-haric',
-        'ctx-tesisat-eksilt-tumu',
+
         'ctx-mimari-cogalt-kopyala',
         'ctx-mimari-cogalt-alan-kopyala',
         'ctx-mimari-cogalt-yapistir-sil',
