@@ -796,7 +796,7 @@ export const LabelMixin = {
             }
         }
 
-        const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2) : null;
+const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2) : null;
         const debi = typeof pipe.debi === 'number' ? pipe.debi : null;
         const cap = pipe.boruCap || '';
 
@@ -810,7 +810,19 @@ export const LabelMixin = {
             pipe.description.trimEnd().split('\n').forEach(line => infoLines.push(line.trimEnd()));
         }
 
-        const numColor = pipeNum >= 300 ? '#8d2121' : accentColor;
+        // ═══════════════════════════════════════════════════════════════
+        // ─── İZOMETRİ ETİKET STİLİ KAT PLANINA UYARLANDI (YENİ KISIM) ───
+        // ═══════════════════════════════════════════════════════════════
+        const isLight = isLightMode();
+        const isHigh = pipeNum >= 300;
+        const hatColor = isHigh ? '#8d2121' : accentColor;
+        const accentBarColor = isHigh
+            ? (isLight ? 'rgba(141,33,33,0.55)' : 'rgba(220,90,90,0.55)')
+            : (isLight ? 'rgba(29,78,216,0.55)' : 'rgba(96,165,250,0.55)');
+        const bgBoxColor = isLight ? 'rgba(255,255,255,0.10)' : 'rgba(20,20,35,0.12)';
+        const borderBoxColor = isLight ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.20)';
+        const sepBoxColor = isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)';
+
         const numStr = String(pipeNum);
         const numFont = `bold ${fontSize * 1.4}px "Segoe UI",sans-serif`;
         const infoFont = `${fontSize * 0.78}px "Segoe UI",sans-serif`;
@@ -875,16 +887,18 @@ export const LabelMixin = {
         ctx.lineTo(labelCenter.x, labelCenter.y);
         ctx.stroke();
 
-        ctx.fillStyle = isLightMode() ? `color-mix(in srgb, ${bgColor} 90%, black)` : `color-mix(in srgb, ${bgColor} 90%, white)`;
-        ctx.strokeStyle = borderColor;
+        // ─── YARI ŞEFFAF ARKA PLAN KUTUSU ───
+        ctx.fillStyle = bgBoxColor;
+        ctx.strokeStyle = borderBoxColor;
         ctx.lineWidth = 1 / zoom;
         ctx.beginPath();
         ctx.roundRect(bx, by, boxW, boxH, Math.max(0, r));
         ctx.fill();
         ctx.stroke();
 
+        // ─── İNCE AYRAÇ ÇİZGİSİ ───
         if (infoCellW > 0 || infoCellH > 0) {
-            ctx.strokeStyle = borderColor;
+            ctx.strokeStyle = sepBoxColor;
             ctx.lineWidth = 0.5 / zoom;
             ctx.beginPath();
             if (isHoriz) {
@@ -899,7 +913,8 @@ export const LabelMixin = {
             ctx.stroke();
         }
 
-        ctx.strokeStyle = accentBar;
+        // ─── SOL KENAR KALIN ACCENT ÇUBUĞU ───
+        ctx.strokeStyle = accentBarColor;
         ctx.lineWidth = 3 / zoom;
         ctx.lineCap = 'round';
         ctx.beginPath();
@@ -913,12 +928,14 @@ export const LabelMixin = {
         ctx.stroke();
         ctx.lineCap = 'butt';
 
+        // ─── HAT NUMARASI METNİ ───
         ctx.font = numFont;
-        ctx.fillStyle = numColor;
+        ctx.fillStyle = hatColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(numStr, numBX + numBW / 2, numBY + numBH / 2);
 
+        // ─── DETAY SATIRLARI ───
         ctx.font = infoFont;
         ctx.fillStyle = subColor;
         ctx.textAlign = 'left';
@@ -933,7 +950,7 @@ export const LabelMixin = {
 
         ctx.restore();
     },
-
+    
     _drawSayacObjLabel(ctx, comp, opts) {
         const { t, currentFloorId } = opts;
         const sc = this._scrPos(comp, t);

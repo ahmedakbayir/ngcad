@@ -114,6 +114,8 @@ export class PlumbingRenderer {
         this.drawFloorCrossingMarkers(ctx, _pipesCurrent);
         this.drawComponents(ctx, _digerCurrent, manager);
 
+        // plumbing_v2/plumbing-renderer.js -> render metodu içerisindeki geçici boru alanı:
+
         // Geçici boru çizgisi (boru çizim modunda)
         const geciciBoru = manager.interactionManager?.getGeciciBoruCizgisi();
         if (geciciBoru) {
@@ -134,6 +136,12 @@ export class PlumbingRenderer {
                         geciciColorGroup = baslangicBoru.colorGroup || 'YELLOW';
                     }
                 }
+            }
+
+            // ─── EKLENEN KISIM: Çapa göre geçici çizgi renklendirmesi ───
+            if (state.plumbingColorMode === 'diameter') {
+                const baslangicBoru = boruBaslangic?.kaynakTip === 'boru' ? manager.findPipeById(boruBaslangic.kaynakId) : null;
+                geciciColorGroup = baslangicBoru?.boruCap || state.activeBoruCap || 'DN25';
             }
 
             this.drawGeciciBoru(ctx, geciciBoru, geciciColorGroup);

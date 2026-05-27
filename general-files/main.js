@@ -352,6 +352,7 @@ export let state = {
     lastUsedMode: "select", // Son kullanılan da "SEÇ"
     currentDrawingMode: "KARMA", // MİMARİ, TESİSAT, KARMA - Hangi tip nesnelerle çalışılabilir
     currentPlumbingBlockType: 'SERVIS_KUTUSU', // Aktif tesisat bloğu tipi
+    plumbingColorMode: "diameter",
     startPoint: null,
     nodes: [],
     walls: [],
@@ -493,7 +494,7 @@ export let state = {
     isoPanning: false,
     isoPanStart: { x: 0, y: 0 },
     // İzo renklendirme modu: 'topology' (kolon/iç-tesisat sarı/mavi) veya 'diameter' (DN bazlı palet)
-    isometricColorMode: 'topology',
+    isometricColorMode: 'diameter',
     // --- 3D PERSPEKTİF YAN PANEL (sadece tesisat) ---
     perspZoom: 0.5,
     perspPanOffset: { x: 0, y: 0 },
@@ -558,6 +559,10 @@ export function setState(newState) {
     // Debug: State güncellendiğinde window'u da güncelle
     window.DEBUG_state = state;
 
+    const diameterColorChk = document.getElementById('vis-chk-diameter-color');
+    if (diameterColorChk) {
+        diameterColorChk.checked = (state.plumbingColorMode === 'diameter');
+    }
     // Kat içerik durumu değiştiyse mini panel'i güncelle
     if (wallsChanged || doorsChanged) {
         renderMiniPanel();
@@ -566,6 +571,21 @@ export function setState(newState) {
 
 // Debug: State'i global erişime aç
 window.DEBUG_state = state;
+
+window.state = new Proxy(state, {
+    get(target, prop) {
+        return state[prop]; // Her zaman en güncel modül state'ini döndürür
+    },
+    set(target, prop, value) {
+        const update = {};
+        update[prop] = value;
+        setState(update); // Konsoldan doğrudan yapılan atamalar otomatik olarak setState'i tetikler
+        // Çizimi canlandırmak için draw ve update tetiklerini çağır
+        if (typeof draw2D === 'function') draw2D();
+        if (typeof update3DScene === 'function') update3DScene();
+        return true;
+    }
+});
 
 export const dom = {
     mainContainer: document.getElementById("main-container"),
@@ -1179,6 +1199,17 @@ function initialize() {
     initBoruCapMenu();
     initAutoCapMenu();
     initHataKontrolMenu();
+
+    const diameterColorChk = document.getElementById('vis-chk-diameter-color');
+    if (diameterColorChk) {
+        diameterColorChk.addEventListener('change', (e) => {
+            setState({ plumbingColorMode: e.target.checked ? 'diameter' : 'topology' });
+            // Değişiklik sonrası 2D ve 3D görünümleri anında tazelemek için:
+            if (typeof draw2D === 'function') draw2D();
+            if (typeof update3DScene === 'function') update3DScene();
+        });
+    }
+
 
     //loadPictureFrameImages(); // <-- YENİ: Resimleri yüklemeyi burada başlatın
 

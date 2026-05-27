@@ -741,7 +741,7 @@ function openVerticalPanel(opts) {
     panel.style.display = 'block';
     this.verticalModeActive = true;
 
-    input.value = '0';
+    input.value = '200';
     this.verticalHeightInput = 0;
 
     // Konumlandırma — panel fixed positioned, viewport-relative koordinat kullanılır.

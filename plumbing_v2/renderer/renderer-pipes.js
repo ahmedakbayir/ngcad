@@ -24,7 +24,7 @@ function pipeWallCrossingTRange(pipe, wall) {
     if (L < 0.001) return null;
 
     const ux = dwx / L, uy = dwy / L;     // duvar boyunca
-    const vx = -uy,    vy = ux;           // duvara dik
+    const vx = -uy, vy = ux;           // duvara dik
     const halfT = (wall.thickness || 20) / 2;
 
     const px1 = pipe.p1.x - wall.p1.x;
@@ -391,10 +391,13 @@ export const PipeMixin = {
                 const gradient = ctx.createLinearGradient(0, -width / 2, 0, width / 2);
 
                 // Boru yönelimine göre renk grubu seçimi
-                // İzometri modunda dikey borular kendi normal hat rengini korur (sarı/turkuaz).
                 const isoNormalVert = state.tempVisibility && state.tempVisibility.isoVerticalNormalColor;
                 let colorGroup;
-                if (isVerticalPipe) {
+
+                // ─── EKLENEN KISIM: Çapa göre renklendirme kontrolü ───
+                if (state.plumbingColorMode === 'diameter' && pipe.boruCap) {
+                    colorGroup = pipe.boruCap;
+                } else if (isVerticalPipe) {
                     colorGroup = isoNormalVert ? (pipe.colorGroup || 'YELLOW') : 'GREEN';
                 } else if (isInclinedPipe) {
                     colorGroup = isoNormalVert ? (pipe.colorGroup || 'YELLOW') : 'INCLINED';
@@ -411,7 +414,6 @@ export const PipeMixin = {
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, -width / 2, length, width);
             }
-
             ctx.restore();
 
             // Temsili boru yuvarlağı
@@ -991,14 +993,17 @@ export const PipeMixin = {
             // çakışan bir renk lekesi oluşturuyor → iso'da normal hat rengini kullan.
             const isoNormalVert = state.tempVisibility && state.tempVisibility.isoVerticalNormalColor;
             let colorGroup;
-            if (hasVerticalPipe) {
+
+            // ─── EKLENEN KISIM: Çapa göre renklendirme kontrolü ───
+            if (state.plumbingColorMode === 'diameter' && firstPipe?.boruCap) {
+                colorGroup = firstPipe.boruCap;
+            } else if (hasVerticalPipe) {
                 colorGroup = isoNormalVert ? (firstPipe?.colorGroup || 'YELLOW') : 'GREEN';
             } else if (hasInclinedPipe) {
                 colorGroup = isoNormalVert ? (firstPipe?.colorGroup || 'YELLOW') : 'INCLINED';
             } else {
                 colorGroup = firstPipe?.colorGroup || 'YELLOW';
             }
-
             // Dirseğin çizileceği MERKEZİ hesapla (Z'yi t ile interpolate et)
             const z = (bp.z || 0) * t;
             const cx = bp.x + z; // X'e Z ekle
@@ -1145,6 +1150,9 @@ export const PipeMixin = {
 
             // 1. Boru Rengi
             let colorGroup = pipe.colorGroup || 'YELLOW';
+            if (state.plumbingColorMode === 'diameter' && pipe.boruCap) {
+                colorGroup = pipe.boruCap;
+            }
             if (colorGroup === 'SARI') colorGroup = 'YELLOW';
             if (colorGroup === 'TURKUAZ') colorGroup = 'TURQUAZ';
             if (colorGroup === 'MAVI') colorGroup = 'BLUE';
