@@ -7,6 +7,8 @@
 import { state } from '../general-files/main.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
+import { CIHAZ_TIPLERI } from '../plumbing_v2/objects/device.js';
+import { SAYAC_CONFIG }  from '../plumbing_v2/objects/meter.js';
 
 // ─── GEOMETRİ VE YARDIMCI FONKSİYONLAR ────────────────────────────────────────
 
@@ -214,9 +216,17 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
         window._isoEndpoints.push({ pipe: realPipe, type: 'end', x: end.isoX, y: end.isoY });
     });
 
+    // Muhafaza kutuları — bileşenlerin ALTINDA, ekran-eksen hizalı
+    // (komponentler iso matriste çizildiği için kendi label-style frame'inde)
     ctx.save();
-    
-    // 3D PERSPEKTİF MATRİSİNİ KUR 
+    ctx.translate(centerX + offset.x, centerY + offset.y);
+    ctx.scale(zoom, zoom);
+    drawMuhafazaBoxesIso(ctx, proxyManager);
+    ctx.restore();
+
+    ctx.save();
+
+    // 3D PERSPEKTİF MATRİSİNİ KUR
     const cos30 = Math.cos(Math.PI / 6);
     const sin30 = Math.sin(Math.PI / 6);
     ctx.setTransform(
@@ -324,6 +334,133 @@ function drawIsoEndpointMarkers(ctx) {
         ctx.strokeStyle = isHover ? hoverRing : baseRing;
         ctx.stroke();
     }
+    ctx.restore();
+}
+
+// ─── İZOMETRİK MUHAFAZA KUTULARI ─────────────────────────────────────────────
+// 2D'deki drawMuhafazaBoxes karşılığı; köşeleri toIsometric'e projekte edip
+// ekran-eksen hizalı AABB hesaplar, örtüşenleri birleştirir, kesikli kutu çizer.
+function drawMuhafazaBoxesIso(ctx, proxyManager) {
+    if (!proxyManager?.components) return;
+
+    const ALLOWED = ['vana', 'sayac', 'cihaz', 'regulator', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre'];
+    const PAD = 8; // ekran düzleminde iso-birim cinsinden iç boşluk
+    const light = document.body.classList.contains('light-mode');
+    const curFloorId = state.currentFloor?.id || null;
+    const sameFloor = (c) => !curFloorId || !c.floorId || c.floorId === curFloorId;
+
+    const grouped = [];
+    const standalone = [];
+
+    proxyManager.components.forEach(comp => {
+        if (!comp.muhafaza) return;
+        if (!sameFloor(comp)) return;
+        if (!ALLOWED.includes(comp.type)) return;
+
+        let hw, hh;
+        if (comp.type === 'sayac') {
+            const cfg = comp.config || SAYAC_CONFIG;
+            hw = cfg.width / 2;
+            hh = cfg.height / 2;
+        } else if (comp.type === 'cihaz') {
+            const cfg = CIHAZ_TIPLERI[comp.cihazTipi] || { width: 30, height: 30 };
+            hw = cfg.width / 2;
+            hh = cfg.height / 2;
+        } else {
+            hw = (comp.config?.width  || 8) / 1.5;
+            hh = (comp.config?.height || 8) / 1.5;
+        }
+
+        const angle = (comp.rotation || 0) * Math.PI / 180;
+        const cos = Math.cos(angle), sin = Math.sin(angle);
+        const wz = comp.z || 0;
+
+        const localCorners = [
+            { lx: -hw, ly: -hh }, { lx:  hw, ly: -hh },
+            { lx:  hw, ly:  hh }, { lx: -hw, ly:  hh },
+        ];
+        const projected = localCorners.map(c => {
+            const rx = cos * c.lx - sin * c.ly;
+            const ry = sin * c.lx + cos * c.ly;
+            return toIsometric(comp.x + rx, comp.y + ry, wz);
+        });
+
+        const xs = projected.map(p => p.isoX);
+        const ys = projected.map(p => p.isoY);
+        const box = {
+            minX: Math.min(...xs) - PAD,
+            minY: Math.min(...ys) - PAD,
+            maxX: Math.max(...xs) + PAD,
+            maxY: Math.max(...ys) + PAD,
+        };
+
+        if (comp.muhafazaGrupla === false) standalone.push(box);
+        else grouped.push(box);
+    });
+
+    const overlaps = (a, b) => a.minX < b.maxX && a.maxX > b.minX && a.minY < b.maxY && a.maxY > b.minY;
+    const merge = (a, b) => ({
+        minX: Math.min(a.minX, b.minX), minY: Math.min(a.minY, b.minY),
+        maxX: Math.max(a.maxX, b.maxX), maxY: Math.max(a.maxY, b.maxY),
+    });
+    const mergeAll = (list) => {
+        let cur = [...list];
+        let changed = true;
+        while (changed) {
+            changed = false;
+            const next = []; const used = new Set();
+            for (let i = 0; i < cur.length; i++) {
+                if (used.has(i)) continue;
+                let box = cur[i];
+                for (let j = i + 1; j < cur.length; j++) {
+                    if (used.has(j)) continue;
+                    if (overlaps(box, cur[j])) { box = merge(box, cur[j]); used.add(j); changed = true; }
+                }
+                next.push(box); used.add(i);
+            }
+            cur = next;
+        }
+        return cur;
+    };
+
+    const allBoxes = [...mergeAll(grouped), ...standalone];
+    if (allBoxes.length === 0) return;
+
+    const strokeColor = light ? 'rgba(30,64,175,0.75)' : 'rgba(147,197,253,0.80)';
+    const textColor   = light ? 'rgba(30,64,175,0.60)' : 'rgba(147,197,253,0.60)';
+    const fontSize = 10; // iso label frame'de raw değer — zoom ile büyür
+
+    ctx.save();
+    allBoxes.forEach(box => {
+        const w = box.maxX - box.minX;
+        const h = box.maxY - box.minY;
+
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([4, 3]);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.roundRect(box.minX - 1, box.minY - 1, w + 1, h + 1, 3);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.font = `${fontSize}px "Segoe UI",sans-serif`;
+        ctx.fillStyle = textColor;
+        if (w >= h) {
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('muhafaza', box.minX + w / 2, box.minY - 2);
+        } else {
+            ctx.save();
+            ctx.translate(box.minX - 2, box.minY + h / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('muhafaza', 0, 0);
+            ctx.restore();
+        }
+    });
     ctx.restore();
 }
 
