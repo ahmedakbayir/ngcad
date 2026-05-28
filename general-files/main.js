@@ -50,21 +50,21 @@ export const THEME_COLORS = {
         backgroundGradient: null, // Koyu modda gradient yok
         canvas: '#30302e', // Canvas temizleme rengi
         canvasGradient: {
-            center: '#363636',  // Merkez - koyu gri
-            mid: '#252525',     // Orta
-            edge: '#1a1a1a'     // Kenar - daha koyu
+            center: '#282828', //'#363636',  // Merkez - koyu gri
+            mid: '#282828',     // Orta
+            edge: '#282828'     // Kenar - daha koyu
         },
 
         // Duvarlar
-        wallStroke: 'rgb(172, 172, 172)', // Duvar çizgisi
-        wallFill: '#30302e', // Duvar dolgusu (BG ile aynı)
+        wallStroke: 'rgb(128,128,128)', // Duvar çizgisi
+        wallFill: '#282828', // Duvar dolgusu (BG ile aynı)
 
 
 
         // Mahaller
         roomFill: '#282828', // Mahal dolgusu (BG'ye yakın)
-        roomHover: '#8ab4f8', // Mahal hover
-        roomSelected: '#1f1e1e', // Mahal seçili
+        roomHover: '#282828', // Mahal hover
+        roomSelected: '#2c2c2c', // Mahal seçili
 
         // Grid
         grid: '#141414',
@@ -801,7 +801,7 @@ function blendColorWithBackground(color, blendAmount) {
     let src;
     if (typeof color === 'string' && color.startsWith('rgba')) {
         const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-        src = m ? { r: parseInt(m[1]), g: parseInt(m[2]), b: parseInt(m[3]) } : parseHex('#808080');
+        src = m ? { r: parseInt(m[1]), g: parseInt(m[2]), b: parseInt(m[3]) } : parseHex('#000');
     } else {
         src = parseHex(typeof color === 'number' ? '#' + color.toString(16).padStart(6, '0') : color);
     }
@@ -824,7 +824,7 @@ export function getAdjustedColor(originalColor, objectType) {
 
     if (mode === "TESİSAT" && archTags.includes(objectType)) {
         // %89 Arka planla karıştır (İstediğiniz %11 açıklık/belirginlik oranı)
-        return blendColorWithBackground(originalColor, 0.89);
+        return blendColorWithBackground(originalColor, .3);
     }
 
     // Normal durumda (KARMA veya MİMARİ) rengi döndür
