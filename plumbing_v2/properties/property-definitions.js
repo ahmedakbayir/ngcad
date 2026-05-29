@@ -1,5 +1,6 @@
 import { getCizelge6Debi } from '../renderer/renderer-utils.js';
 import { MAHAL_LISTESI, WALL_HEIGHT, state } from '../../general-files/main.js';
+import { getFloorAtElevation } from '../../floor/floor-handler.js';
 import { addDoorToWall, addWindowToWall, addVentToWall, addColumnToWall, flipArcWall } from '../../wall/wall-panel.js';
 import { recalculateStepCount } from '../../architectural-objects/stairs.js';
 import { getUnitRoomsForRoom, getUnitBoundaryPerimeter, invalidateBirimCache, resolveBirimNoForRoom, syncBirimState, findSayacEnteringRoomUnit } from '../../draw/draw-birim-labels.js';
@@ -385,6 +386,14 @@ function _coordSpan(label, changed) {
         : `<span style="color:var(--color-secondary)">${label}</span>`;
 }
 
+/** Bina kotunu alıp "z:325 (25)" formatı için kat-rölatif z döndür; bulunamazsa null */
+function _floorRelZ(zBuilding) {
+    const z = Number(zBuilding) || 0;
+    const floor = getFloorAtElevation(z);
+    if (!floor) return null;
+    return Math.round(z - (floor.bottomElevation || 0));
+}
+
 /**
  * Borunun tipini bağlantı zincirini geriye takip ederek bulur.
  * Doğrudan sayaca bağlıysa sayaç.birimBoruTipi,
@@ -539,7 +548,13 @@ export const PROPERTY_DEFS = {
     boruUzunluk: {
         label: 'Uzunluk',
         type: 'readonly',
-        readonlyFn: (obj) => obj.uzunluk != null ? `${Math.round(obj.uzunluk)} cm` : '—',
+        readonlyFn: (obj) => {
+            if (!obj?.p1 || !obj?.p2) return '—';
+            const dx = obj.p2.x - obj.p1.x;
+            const dy = obj.p2.y - obj.p1.y;
+            const dz = (obj.p2.z || 0) - (obj.p1.z || 0);
+            return `${Math.round(Math.hypot(dx, dy, dz))} cm`;
+        },
     },
 
     boruP1: {
@@ -550,7 +565,9 @@ export const PROPERTY_DEFS = {
             const x1 = Math.round(obj.p1.x), x2 = Math.round(obj.p2.x);
             const y1 = Math.round(obj.p1.y), y2 = Math.round(obj.p2.y);
             const z1 = Math.round(obj.p1.z || 0), z2 = Math.round(obj.p2.z || 0);
-            return `${_coordSpan('x:' + x1, x1 !== x2)}\u2002${_coordSpan('y:' + y1, y1 !== y2)}\u2002${_coordSpan('z:' + z1, z1 !== z2)}`;
+            const zRel1 = _floorRelZ(obj.p1.z || 0);
+            const zLabel1 = zRel1 != null ? `z:${z1} (${zRel1})` : `z:${z1}`;
+            return `${_coordSpan('x:' + x1, x1 !== x2)}\u2002${_coordSpan('y:' + y1, y1 !== y2)}\u2002${_coordSpan(zLabel1, z1 !== z2)}`;
         },
     },
     boruP2: {
@@ -561,7 +578,9 @@ export const PROPERTY_DEFS = {
             const x1 = Math.round(obj.p1.x), x2 = Math.round(obj.p2.x);
             const y1 = Math.round(obj.p1.y), y2 = Math.round(obj.p2.y);
             const z1 = Math.round(obj.p1.z || 0), z2 = Math.round(obj.p2.z || 0);
-            return `${_coordSpan('x:' + x2, x1 !== x2)}\u2002${_coordSpan('y:' + y2, y1 !== y2)}\u2002${_coordSpan('z:' + z2, z1 !== z2)}`;
+            const zRel2 = _floorRelZ(obj.p2.z || 0);
+            const zLabel2 = zRel2 != null ? `z:${z2} (${zRel2})` : `z:${z2}`;
+            return `${_coordSpan('x:' + x2, x1 !== x2)}\u2002${_coordSpan('y:' + y2, y1 !== y2)}\u2002${_coordSpan(zLabel2, z1 !== z2)}`;
         },
     },
 

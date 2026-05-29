@@ -9,6 +9,29 @@ import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
 import { CIHAZ_TIPLERI } from '../plumbing_v2/objects/device.js';
 import { SAYAC_CONFIG }  from '../plumbing_v2/objects/meter.js';
+import { getRenkGruplari } from '../plumbing_v2/objects/pipe.js';
+
+// ─── ÇAP MODU YARDIMCILARI (iso etiketleri) ────────────────────────────────
+function _isoDiameterColor(pipe) {
+    if (!pipe?.boruCap) return null;
+    const grp = getRenkGruplari()[pipe.boruCap];
+    if (!grp?.boru) return null;
+    return grp.boru.replace('{opacity}', '1');
+}
+
+function _isoRelatedPipeFor(comp, manager) {
+    if (!comp || !manager) return null;
+    const find = (id) => id && manager.pipes ? manager.pipes.find(p => p.id === id) : null;
+    if (comp.type === 'sayac') return find(comp.cikisBagliBoruId) || find(comp.fleksBaglanti?.boruId) || null;
+    if (comp.type === 'cihaz') return find(comp.fleksBaglanti?.boruId) || null;
+    if (comp.type === 'servis_kutusu') {
+        return manager.pipes?.find(p =>
+            p.baslangicBaglanti?.tip === 'servis_kutusu' &&
+            p.baslangicBaglanti?.hedefId === comp.id
+        ) || null;
+    }
+    return find(comp.bagliBoruId) || null;
+}
 
 // ─── GEOMETRİ VE YARDIMCI FONKSİYONLAR ────────────────────────────────────────
 
@@ -241,10 +264,14 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     const oldVis = state.tempVisibility ? { ...state.tempVisibility } : {};
     const oldPerspActive = state.is3DPerspectiveActive;
     const oldZoom = state.zoom;
+    const oldPlumbingColorMode = state.plumbingColorMode;
 
     state.viewBlendFactor = 1; // Full 3D Modu
     state.dimensionMode = 0; // 2D ölçüleri gizle
     state.is3DPerspectiveActive = true; // Cihaz "persp şematiği" (hat doğrultusunda) aktif
+    // İzo renk modunu motor genelindeki plumbingColorMode'a aktar — böylece
+    // renderer-pipes.js'teki tüm dirsek/vana/dikey-sembol kararları aynı paleti kullanır.
+    state.plumbingColorMode = state.isometricColorMode === 'diameter' ? 'diameter' : 'topology';
     // İzometri zoom'unu state.zoom'a yansıt — böylece motor içindeki
     // "lineWidth = X / state.zoom" hesapları setTransform(zoom*cos30, …) ile
     // birleşip ekran pixelinde sabit kalınlık üretir. (Büyük projelerde
@@ -287,6 +314,7 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     state.dimensionMode = oldDim;
     state.is3DPerspectiveActive = oldPerspActive;
     state.zoom = oldZoom;
+    state.plumbingColorMode = oldPlumbingColorMode;
     if (oldVis) state.tempVisibility = oldVis;
     ctx.restore();
 
@@ -514,10 +542,13 @@ function _resolveLabelAnchorByDir(cx, cy, clip, boxW, boxH, dir, defaultStyle) {
 
 // Etiketler arka plansız, kenarlıksız (sadece metin + isteğe bağlı hizalama çizgisi)
 // noLeader=true ile bağlantı (leader) çizgisi çizilmez (sayaç/kutu/regülatör için).
-function _drawIsoLabelBox(ctx, id, ax, ay, cx, cy, lines, objClip, forceStyle, noLeader) {
+function _drawIsoLabelBox(ctx, id, ax, ay, cx, cy, lines, objClip, forceStyle, noLeader, colorOverride) {
     const visLines = lines.filter(l => l && l.text);
     if (visLines.length === 0) return;
     const T = _isoLabelTheme();
+    const textColor = colorOverride || T.textColor;
+    const subColor = colorOverride || T.subColor;
+    const accentColor = colorOverride || T.accentColor;
     const fontSize = 11; const lineH = fontSize * 1.5; const pad = fontSize * 0.55;
 
     ctx.save();
@@ -562,7 +593,7 @@ function _drawIsoLabelBox(ctx, id, ax, ay, cx, cy, lines, objClip, forceStyle, n
     let ty = by + pad * 0.4 + fontSize;
     visLines.forEach(l => {
         ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
-        ctx.fillStyle = l.accent ? T.accentColor : (l.sub ? T.subColor : T.textColor);
+        ctx.fillStyle = l.accent ? accentColor : (l.sub ? subColor : textColor);
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         ctx.fillText(l.text, bx + pad, ty); ty += lineH;
     });
@@ -714,6 +745,7 @@ function _resolveIsoCompAnchor(comp, proxyManager) {
 }
 
 function drawIsometricComponentLabels(ctx, proxyManager) {
+    const useDiameter = state.isometricColorMode === 'diameter';
     proxyManager.components.forEach(comp => {
         if (typeof comp.x !== 'number') return;
 
@@ -735,10 +767,14 @@ function drawIsometricComponentLabels(ctx, proxyManager) {
         }
         if (!lines || lines.length === 0) return;
 
+        const colorOverride = useDiameter
+            ? _isoDiameterColor(_isoRelatedPipeFor(comp, plumbingManager))
+            : null;
+
         const defaultStyle = useBelow ? 'top-center' : 'left-center';
         let ax = defaultStyle === 'top-center' ? pos.isoX : pos.isoX + clip + 12;
         let ay = defaultStyle === 'top-center' ? pos.isoY + clip + 12 : pos.isoY;
-        _drawIsoLabelBox(ctx, comp.id, ax, ay, pos.isoX, pos.isoY, lines, clip, defaultStyle, noLeader);
+        _drawIsoLabelBox(ctx, comp.id, ax, ay, pos.isoX, pos.isoY, lines, clip, defaultStyle, noLeader, colorOverride);
     });
 }
 
@@ -810,7 +846,8 @@ function _computeVerticalPipeLabelInfos(proxyManager) {
 
 function drawVerticalPipeLabelsIso(ctx, proxyManager) {
     const isLightMode = document.body.classList.contains('light-mode');
-    const textColor = isLightMode ? 'rgba(20,20,20,0.85)' : 'rgba(225,230,240,0.85)';
+    const defaultTextColor = isLightMode ? 'rgba(20,20,20,0.85)' : 'rgba(225,230,240,0.85)';
+    const useDiameter = state.isometricColorMode === 'diameter';
 
     // İnce ve küçük: weight 300, 9px
     ctx.font = '300 9px "Segoe UI", sans-serif';
@@ -820,6 +857,8 @@ function drawVerticalPipeLabelsIso(ctx, proxyManager) {
     const infos = _computeVerticalPipeLabelInfos(proxyManager);
 
     infos.forEach(({ repId, midX, midY, hText }) => {
+        const repPipe = plumbingManager.pipes.find(p => p.id === repId);
+        const textColor = (useDiameter && _isoDiameterColor(repPipe)) || defaultTextColor;
 
         const tw = ctx.measureText(hText).width;
         // Tıklama için biraz şişirilmiş bbox (görsel font küçük kalır, hit kolay)
@@ -947,13 +986,15 @@ function drawPipeLabelsIso(ctx, proxyManager) {
 
         const isLight = document.body.classList.contains('light-mode');
         const isHigh = hatNo >= 300;
-        const hatColor = isHigh ? '#8d2121' : T.accentColor;
-        const accentBar = isHigh
+        const diaColor = state.isometricColorMode === 'diameter' ? _isoDiameterColor(chosen) : null;
+        const hatColor = diaColor || (isHigh ? '#8d2121' : T.accentColor);
+        const accentBar = diaColor || (isHigh
             ? (isLight ? 'rgba(141,33,33,0.55)' : 'rgba(220,90,90,0.55)')
-            : (isLight ? 'rgba(29,78,216,0.55)' : 'rgba(96,165,250,0.55)');
+            : (isLight ? 'rgba(29,78,216,0.55)' : 'rgba(96,165,250,0.55)'));
         const bgColor = isLight ? 'rgba(255,255,255,0.10)' : 'rgba(20,20,35,0.12)';
         const borderColor = isLight ? 'rgba(0,0,0,0.20)' : 'rgba(255,255,255,0.20)';
         const sepColor = isLight ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.18)';
+        const infoColor = diaColor || T.subColor;
 
         ctx.save();
         ctx.font = `bold ${numFontSize}px "Segoe UI",sans-serif`;
@@ -1032,7 +1073,7 @@ function drawPipeLabelsIso(ctx, proxyManager) {
         // INFO SATIRLARI
         if (infoLines.length > 0) {
             ctx.font = `${fontSize}px "Segoe UI",sans-serif`;
-            ctx.fillStyle = T.subColor;
+            ctx.fillStyle = infoColor;
             ctx.textAlign = 'left';
             const totalInfoH = infoLines.length * infoLineH;
             let ty = by + (boxH - totalInfoH) / 2 + infoLineH * 0.72;

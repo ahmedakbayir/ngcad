@@ -419,7 +419,9 @@ export const PipeMixin = {
             // Temsili boru yuvarlağı
             if (pipe.isTemsiliBoru && pipe.lineStyle === 'dashed') {
                 ctx.save();
-                const colorGroup = pipe.colorGroup || 'YELLOW';
+                const colorGroup = (state.plumbingColorMode === 'diameter' && pipe.boruCap)
+                    ? pipe.boruCap
+                    : (pipe.colorGroup || 'YELLOW');
                 // Temsili boruda standart renk kalsın veya isterseniz greenColor yapabilirsiniz
                 const yuvarlatRenk = this.getRenkByGroup(colorGroup, 'boru', 1);
                 ctx.fillStyle = yuvarlatRenk;
@@ -475,8 +477,10 @@ export const PipeMixin = {
                     ctx.save();
                     ctx.globalAlpha = symbolOpacity;
 
-                    // NORMAL BORU RENGİNİ KULLAN
-                    const colorGroup = pipe.colorGroup || 'YELLOW';
+                    // NORMAL BORU RENGİNİ KULLAN (çap modunda DN paletinden)
+                    const colorGroup = (state.plumbingColorMode === 'diameter' && pipe.boruCap)
+                        ? pipe.boruCap
+                        : (pipe.colorGroup || 'YELLOW');
                     const pipeColor = this.getRenkByGroup(colorGroup, 'boru', 1.0);
 
                     let circleFill, circleStroke, arrowColor;

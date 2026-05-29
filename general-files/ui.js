@@ -2231,6 +2231,28 @@ function setupVisibilityPanel() {
             el.checked = state.tempVisibility[stateKey];
         }
     });
+
+    // 3D Perspektif paneli üzerindeki "Diğer Katları Gizle" anahtarı
+    // → görünürlük panelindeki checkbox ile aynı state'i kontrol eder ve karşılıklı senkronize olur.
+    const perspHideFloorsChk = document.getElementById('persp-hide-floors-chk');
+    const visHideFloorsChk = document.getElementById(ids.hideOtherFloors3D);
+    if (perspHideFloorsChk) {
+        perspHideFloorsChk.checked = !!state.tempVisibility?.hideOtherFloors3D;
+        perspHideFloorsChk.addEventListener('change', (e) => {
+            const checked = e.target.checked;
+            if (visHideFloorsChk && visHideFloorsChk.checked !== checked) {
+                visHideFloorsChk.checked = checked;
+            }
+            updateVisibility('hideOtherFloors3D', checked);
+        });
+    }
+    if (visHideFloorsChk && perspHideFloorsChk) {
+        visHideFloorsChk.addEventListener('change', (e) => {
+            if (perspHideFloorsChk.checked !== e.target.checked) {
+                perspHideFloorsChk.checked = e.target.checked;
+            }
+        });
+    }
 }
 // --- setupUIListeners Sonu ---
 

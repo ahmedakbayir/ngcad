@@ -232,6 +232,56 @@ body.light-mode {
     z-index: 10;
 }
 
+/* 3D Perspektif: Diğer Katları Gizle anahtarı */
+.persp-toggle-switch {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: inline-block;
+    width: 44px;
+    height: 22px;
+    z-index: 10;
+    cursor: pointer;
+}
+
+.persp-toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.persp-toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 22px;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.persp-toggle-slider:before {
+    content: "";
+    position: absolute;
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #ddd;
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+}
+
+.persp-toggle-switch input:checked + .persp-toggle-slider {
+    background: rgba(100, 149, 237, 0.85);
+    border-color: rgba(255, 255, 255, 0.55);
+}
+
+.persp-toggle-switch input:checked + .persp-toggle-slider:before {
+    transform: translate(22px, -50%);
+    background: #fff;
+}
+
 /* 3D Fullscreen Mode - 2D becomes mini-map */
 .main.fullscreen-3d #p3d {
     flex: 1 1 100% !important;
