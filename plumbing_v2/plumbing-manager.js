@@ -920,6 +920,150 @@ export class PlumbingManager {
             pipe.parent = root;
             pipe.colorGroup = (root && root.tip === 'sayac') ? 'TURQUAZ' : 'YELLOW';
         }
+
+        // Topoloji değişti — izoda yapılmış manuel boy/öteleme düzenlemelerinin
+        // yeni borulara da yansıması için joint haritasından explicit offset yaz.
+        this.syncIsoOffsetsToNewPipes();
+    }
+
+    /**
+     * İzometride manuel sürüklemeyle yapılmış offsetleri (state.isoPipeOffsets)
+     * topoloji değişiklikleri sonrası yeni eklenen/yeniden bağlanan borulara
+     * yayar. Render-time propagation aynısını yapıyor ama o sahnede kalıcı
+     * değil; burada explicit entry yazınca:
+     *   - yeni boru kendi id'si ile drag/snapshot/undo akışına girer,
+     *   - sonraki topoloji değişikliği bu boruyu bilinen joint olarak kullanır,
+     *   - iniş çıkış / yeni branş / regülatör split sonrası "eğri/kopuk" görünüm
+     *     yerine iso düzenlemeyle tutarlı rijit ötelenme görünür.
+     *
+     * Algoritma scene-isometric.js'teki rigid-translate ile birebir aynı:
+     *   1) Mevcut explicit entry'lerden joint key → world offset haritası kur
+     *   2) Entry'siz borulara ucu offsetli junction'a denk gelirse diğer ucuna
+     *      kopyala (yakınsayana kadar iterate)
+     *   3) Hâlâ entry'siz ama joint'i offsetli kalan borulara explicit entry yaz
+     */
+    syncIsoOffsetsToNewPipes() {
+        const stateOffsets = state.isoPipeOffsets;
+        if (!stateOffsets || Object.keys(stateOffsets).length === 0) return;
+
+        const cos30 = Math.cos(Math.PI / 6);
+        const sin30 = Math.sin(Math.PI / 6);
+        const toWorld = (dx, dy) => ({
+            dwx: 0.5 * (dx / cos30 - dy / sin30),
+            dwy: 0.5 * (dx / cos30 + dy / sin30),
+        });
+        const toScreen = (dwx, dwy) => ({
+            dx: cos30 * (dwx + dwy),
+            dy: sin30 * (dwy - dwx),
+        });
+        const jointKey = (p) => `${Math.round(p.x)}_${Math.round(p.y)}_${Math.round(p.z || 0)}`;
+
+        const jointOffsets = new Map();
+        for (const pipe of this.pipes) {
+            if (!pipe.p1 || !pipe.p2) continue;
+            const off = stateOffsets[pipe.id];
+            if (!off) continue;
+            if (off.startDx || off.startDy) {
+                jointOffsets.set(jointKey(pipe.p1), toWorld(off.startDx || 0, off.startDy || 0));
+            }
+            if (off.endDx || off.endDy) {
+                jointOffsets.set(jointKey(pipe.p2), toWorld(off.endDx || 0, off.endDy || 0));
+            }
+        }
+        if (jointOffsets.size === 0) return;
+
+        const rigidTranslatePass = () => {
+            let changed = true;
+            let iter = 0;
+            while (changed && iter < 10) {
+                changed = false; iter++;
+                for (const pipe of this.pipes) {
+                    if (!pipe.p1 || !pipe.p2) continue;
+                    if (stateOffsets[pipe.id]) continue;
+                    const k1 = jointKey(pipe.p1);
+                    const k2 = jointKey(pipe.p2);
+                    const off1 = jointOffsets.get(k1);
+                    const off2 = jointOffsets.get(k2);
+                    if (off1 && !off2) { jointOffsets.set(k2, { ...off1 }); changed = true; }
+                    else if (off2 && !off1) { jointOffsets.set(k1, { ...off2 }); changed = true; }
+                }
+            }
+        };
+        rigidTranslatePass();
+
+        // Midpoint fallback: yeni branş bir borunun ORTASINDAN ayrıldığında
+        // ucu hiçbir joint'e denk gelmiyor. Üzerinde bulunduğu segment'in iki
+        // ucundaki offsetlerden lineer interpolasyon ile pick et.
+        const TOL_ON_SEG = 1.0; // cm — segment üstünde sayma toleransı
+        for (const pipe of this.pipes) {
+            if (!pipe.p1 || !pipe.p2) continue;
+            if (stateOffsets[pipe.id]) continue;
+            for (const ek of ['p1', 'p2']) {
+                const p = pipe[ek];
+                const k = jointKey(p);
+                if (jointOffsets.has(k)) continue;
+                for (const M of this.pipes) {
+                    if (M === pipe) continue;
+                    if (!M.p1 || !M.p2) continue;
+                    const o1 = jointOffsets.get(jointKey(M.p1));
+                    const o2 = jointOffsets.get(jointKey(M.p2));
+                    if (!o1 && !o2) continue;
+                    const vx = M.p2.x - M.p1.x;
+                    const vy = M.p2.y - M.p1.y;
+                    const vz = (M.p2.z || 0) - (M.p1.z || 0);
+                    const len2 = vx * vx + vy * vy + vz * vz;
+                    if (len2 < 0.01) continue;
+                    const wx = p.x - M.p1.x;
+                    const wy = p.y - M.p1.y;
+                    const wz = (p.z || 0) - (M.p1.z || 0);
+                    const t = (wx * vx + wy * vy + wz * vz) / len2;
+                    if (t < 0.01 || t > 0.99) continue; // uçlar joint matchten geçer
+                    const cx = M.p1.x + t * vx;
+                    const cy = M.p1.y + t * vy;
+                    const cz = (M.p1.z || 0) + t * vz;
+                    const dist = Math.hypot(p.x - cx, p.y - cy, (p.z || 0) - cz);
+                    if (dist > TOL_ON_SEG) continue;
+                    const a = o1 || { dwx: 0, dwy: 0 };
+                    const b = o2 || { dwx: 0, dwy: 0 };
+                    jointOffsets.set(k, {
+                        dwx: (1 - t) * a.dwx + t * b.dwx,
+                        dwy: (1 - t) * a.dwy + t * b.dwy,
+                    });
+                    break;
+                }
+            }
+        }
+        // Midpoint pick'ten sonra yeni joint'leri downstream'e bir kez daha yay
+        rigidTranslatePass();
+
+        let mutated = false;
+        for (const pipe of this.pipes) {
+            if (!pipe.p1 || !pipe.p2) continue;
+            if (stateOffsets[pipe.id]) continue;
+            const off1 = jointOffsets.get(jointKey(pipe.p1));
+            const off2 = jointOffsets.get(jointKey(pipe.p2));
+            if (!off1 && !off2) continue;
+            const entry = {};
+            if (off1) {
+                const s = toScreen(off1.dwx, off1.dwy);
+                if (s.dx) entry.startDx = s.dx;
+                if (s.dy) entry.startDy = s.dy;
+            }
+            if (off2) {
+                const s = toScreen(off2.dwx, off2.dwy);
+                if (s.dx) entry.endDx = s.dx;
+                if (s.dy) entry.endDy = s.dy;
+            }
+            if (Object.keys(entry).length) {
+                stateOffsets[pipe.id] = entry;
+                mutated = true;
+            }
+        }
+
+        // Mutated state.isoPipeOffsets in place; iso renderer her frame'de
+        // okuyor, ekstra setState gerekmiyor. saveState çağıran kod (mutasyon
+        // sahibi) snapshot'ı bizim yazımızdan sonra alıyor.
+        void mutated;
     }
 
     /**

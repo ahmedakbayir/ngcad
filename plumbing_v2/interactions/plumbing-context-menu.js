@@ -13,6 +13,7 @@ import { relayoutAllLabels } from '../renderer/renderer-labels.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 import { placeMenuInViewport, setupSubmenuPositioning } from '../../menu/menu-positioning.js';
 import { drawColumnToAdjacentFloor, drawColumnAllFloors, pasteFloorPlumbingToAllFloors } from './kolon-operations.js';
+import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
 
 let menuEl = null;
 let menuState = null; // { worldPos, pipe, nokta, t, interactionManager }
@@ -39,6 +40,44 @@ function getPipeTarget(menuState) {
     const sel = menuState.interactionManager?.selectedObject;
     if (sel && sel.type === 'boru') return sel;
     return null;
+}
+
+// ─── Yardımcı: aktif çizimde SON çizilen (commit edilmiş) borunun açık ucu
+// boruBaslangic.kaynakId her tıklamadan sonra en son borunun id'sine güncellenir
+// (handleBoruClick içinde); nokta o borunun çizime devam ettiği UCUDUR (genelde
+// p2). Sağ-tıkla menüden vana/regülatör seçildiğinde preview/ghost segmenti
+// commit ETMEZ — sadece bu son borunun ucunu döndürür ki yerleştirme oraya
+// otursun, kullanıcı sonraki tıklamayla çizime kaldığı yerden devam etsin.
+function lastDrawnOpenEnd(menuState) {
+    const im = menuState?.interactionManager;
+    if (!im || !im.boruCizimAktif || !im.boruBaslangic) return null;
+    const { kaynakTip, kaynakId, nokta } = im.boruBaslangic;
+    if (kaynakTip !== BAGLANTI_TIPLERI.BORU || !kaynakId || !nokta) return null;
+    const pipe = im.manager.pipes.find(p => p.id === kaynakId);
+    if (!pipe) return null;
+    // Nokta hangi uca yakınsa o uçtan devam ediliyor demektir
+    const d1 = Math.hypot(pipe.p1.x - nokta.x, pipe.p1.y - nokta.y, (pipe.p1.z || 0) - (nokta.z || 0));
+    const d2 = Math.hypot(pipe.p2.x - nokta.x, pipe.p2.y - nokta.y, (pipe.p2.z || 0) - (nokta.z || 0));
+    const end = d1 < d2 ? 'p1' : 'p2';
+    return { pipe, end, point: pipe[end] };
+}
+
+// ─── Yardımcı: mid-line yerleştirme sonrası çizimi aynı uçtan sürdür.
+// handleVanaPlacement / handleRegulatorPlacement içlerinde cancelCurrentAction
+// + setMode("select") yaptığı için yerleştirme bittiğinde çizim modu kapanır;
+// bunu telafi edip kullanıcının "ekleyip devam etsin" niyetine uyalım.
+// Sonlanma vana / cihaz için bu çağrılmaz.
+function resumeDrawingFromOpenEnd(im, openEnd) {
+    if (!im || !openEnd?.pipe || !openEnd.point) return;
+    if (state.currentDrawingMode !== 'KARMA') setDrawingMode('TESİSAT');
+    im.startBoruCizim(
+        { x: openEnd.point.x, y: openEnd.point.y, z: openEnd.point.z || 0 },
+        openEnd.pipe.id,
+        BAGLANTI_TIPLERI.BORU,
+        openEnd.pipe.colorGroup || 'YELLOW'
+    );
+    im.manager.activeTool = 'boru';
+    setMode('plumbingV2', true);
 }
 
 // ─── Yardımcı: kolon komutları için boru + (boru üzerinde) nokta çöz ─────
@@ -689,21 +728,39 @@ function initMenu() {
     });
 
     // ── Vana: AKV / EMNIYET / CIHAZ / SELENOID — tıklanan noktaya ─────────
+    // Aktif çizimde: sağ tık başka bir mevcut boruya rast gelse bile ÇİZİLEN
+    // hattın sonuna git (kullanıcının niyeti çizimi sürdürmek). Çizim yoksa
+    // sağ-tıklanan boru veya seçili boru hedeflenir.
     ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID'].forEach(tip => {
         document.getElementById(`plumbing-vana-${tip}`)?.addEventListener('click', () => {
             if (!menuState) return;
-            const { pipe, nokta, t, interactionManager } = menuState;
-            if (pipe && nokta) interactionManager.handleVanaPlacement({ pipe, point: nokta, t, vanaTipi: tip });
+            const { pipe, nokta, interactionManager: im } = menuState;
+            const open = lastDrawnOpenEnd(menuState);
+            if (open) {
+                im.handleVanaPlacement({ pipe: open.pipe, point: open.point, vanaTipi: tip });
+                // Mid-line vana → çizim devam etsin (handleVanaPlacement içinde
+                // cancelCurrentAction çağrıldığı için aynı uçtan yeniden başlat)
+                resumeDrawingFromOpenEnd(im, open);
+            } else if (pipe && nokta) {
+                im.handleVanaPlacement({ pipe, point: nokta, t: menuState.t, vanaTipi: tip });
+            }
             hide();
         });
     });
 
-    // ── Vana: BRANSMAN / YANBINA — hattın P2 ucuna ────────────────────────
+    // ── Vana: BRANSMAN / YANBINA — sonlanma; aktif çizim varsa sonlandır
     ['BRANSMAN', 'YANBINA'].forEach(tip => {
         document.getElementById(`plumbing-vana-${tip}`)?.addEventListener('click', () => {
             if (!menuState) return;
-            const pipe = getPipeTarget(menuState);
-            if (pipe) menuState.interactionManager.handleVanaPlacement({ pipe, point: pipe.p2, t: 1.0, vanaTipi: tip });
+            const im = menuState.interactionManager;
+            const open = lastDrawnOpenEnd(menuState);
+            if (open) {
+                im.handleVanaPlacement({ pipe: open.pipe, point: open.point, vanaTipi: tip });
+                if (im.boruCizimAktif) im.cancelCurrentAction();
+            } else {
+                const pipe = getPipeTarget(menuState);
+                if (pipe) im.handleVanaPlacement({ pipe, point: pipe.p2, vanaTipi: tip });
+            }
             hide();
         });
     });
@@ -711,48 +768,78 @@ function initMenu() {
     // ── Regülatör — tıklanan noktaya (yalnız regülatör) ───────────────────
     document.getElementById('plumbing-regulator-add')?.addEventListener('click', () => {
         if (!menuState) return;
-        const { pipe, nokta, t, interactionManager } = menuState;
-        if (pipe && nokta) interactionManager.handleRegulatorPlacement({ pipe, point: nokta, t }, { addAccessories: false });
+        const { pipe, nokta, t, interactionManager: im } = menuState;
+        const open = lastDrawnOpenEnd(menuState);
+        if (open) {
+            im.handleRegulatorPlacement({ pipe: open.pipe, point: open.point }, { addAccessories: false });
+            resumeDrawingFromOpenEnd(im, open);
+        } else if (pipe && nokta) {
+            im.handleRegulatorPlacement({ pipe, point: nokta, t }, { addAccessories: false });
+        }
         hide();
     });
 
     // ── Regülatör Grubu — tıklanan noktaya (vana + manometre dahil) ───────
     document.getElementById('plumbing-regulator-add-Group')?.addEventListener('click', () => {
         if (!menuState) return;
-        const { pipe, nokta, t, interactionManager } = menuState;
-        if (pipe && nokta) interactionManager.handleRegulatorPlacement({ pipe, point: nokta, t }, { addAccessories: true });
+        const { pipe, nokta, t, interactionManager: im } = menuState;
+        const open = lastDrawnOpenEnd(menuState);
+        if (open) {
+            im.handleRegulatorPlacement({ pipe: open.pipe, point: open.point }, { addAccessories: true });
+            resumeDrawingFromOpenEnd(im, open);
+        } else if (pipe && nokta) {
+            im.handleRegulatorPlacement({ pipe, point: nokta, t }, { addAccessories: true });
+        }
         hide();
     });
 
-    // ── Sayaç — ghost mod başlat ───────────────────────────────────────────
+    // ── Sayaç — aktif çizimde son çizilen borunun açık ucuna otomatik
+    // sayaç yerleştir. placeMeterAtOpenEnd sayacın ÇIKIŞINDAN yeni çizim
+    // başlatır → kullanıcı oradan devam eder. Çizim yoksa ghost mod.
     document.getElementById('plumbing-sayac-DIREKT')?.addEventListener('click', () => {
         if (!menuState) return;
-        autoPlaceSayac(menuState.interactionManager);
+        const im = menuState.interactionManager;
+        const open = lastDrawnOpenEnd(menuState);
+        if (open) {
+            im.manager.placeMeterAtOpenEnd(open);
+        } else {
+            autoPlaceSayac(im);
+        }
         hide();
     });
 
-    // ── İniş + Sayaç — iniş ekle, sonra ghost mod ─────────────────────────
+    // ── İniş + Sayaç — aktif çizimde son boruya iniş, sonra sayaç
     document.getElementById('plumbing-inis-SAYAC')?.addEventListener('click', () => {
         if (!menuState) return;
-        const pipe = getPipeTarget(menuState);
+        const open = lastDrawnOpenEnd(menuState);
+        const pipe = open ? open.pipe : getPipeTarget(menuState);
         if (pipe) placeInisVeSayac(menuState.interactionManager, pipe);
         hide();
     });
 
-    // ── Cihaz — ghost mod başlat ───────────────────────────────────────────
+    // ── Cihaz — aktif çizimde son borunun açık ucuna otomatik yerleştir.
+    // Cihaz terminal; placeDeviceAtOpenEnd setMode("select") yapıp çizimi
+    // sonlandırır. Aksi halde ghost mod.
     ['KOMBI', 'OCAK'].forEach(tip => {
         document.getElementById(`plumbing-cihaz-${tip}`)?.addEventListener('click', () => {
             if (!menuState) return;
-            autoPlaceCihaz(menuState.interactionManager, tip);
+            const im = menuState.interactionManager;
+            const open = lastDrawnOpenEnd(menuState);
+            if (open) {
+                im.manager.placeDeviceAtOpenEnd(tip, open);
+            } else {
+                autoPlaceCihaz(im, tip);
+            }
             hide();
         });
     });
 
-    // ── İniş + Cihaz — iniş ekle, sonra ghost mod ─────────────────────────
+    // ── İniş + Cihaz — aktif çizimde son boruya iniş, sonra cihaz
     ['KOMBI', 'OCAK'].forEach(tip => {
         document.getElementById(`plumbing-inis-${tip}`)?.addEventListener('click', () => {
             if (!menuState) return;
-            const pipe = getPipeTarget(menuState);
+            const open = lastDrawnOpenEnd(menuState);
+            const pipe = open ? open.pipe : getPipeTarget(menuState);
             if (pipe) placeInisVeCihaz(menuState.interactionManager, pipe, tip);
             hide();
         });
