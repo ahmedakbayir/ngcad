@@ -8,11 +8,12 @@
 import { getPropertiesForObject, getObjectLabel, PROPERTY_DEFS } from './property-definitions.js';
 import { draw2D } from '../../draw/draw2d.js';
 import { state, setState } from '../../general-files/main.js';
+import { getVisibleFloors } from '../../floor/floor-handler.js';
 import { syncBirimState } from '../../draw/draw-birim-labels.js';
 import { processWalls } from '../../wall/wall-processor.js';
 import { saveState } from '../../general-files/history.js';
 import { update3DScene } from '../../scene3d/scene3d-update.js';
-import { setLabelOffsetsJSON, relayoutAllLabels } from '../renderer/renderer-labels.js';
+import { clearLabelOffsetsForFloor, relayoutAllLabels } from '../renderer/renderer-labels.js';
 import { startTextAnnotationPlacement } from '../../architectural-objects/text-annotation-placement.js';
 import { selectObject as plumbingSelectObject } from '../interactions/selection-manager.js';
 import { SONLANMA_VANALARI } from '../objects/valve.js';
@@ -88,7 +89,7 @@ export function openEmptyPanel() {
     panelEl.querySelector('#props-add-text-btn')?.addEventListener('click', () => startTextAnnotationPlacement());
 }
 
-/** Tüm etiketleri otomatik yerleşim algoritmasıyla yeniden yerleştirir */
+/** Projedeki tüm katlardaki etiketleri otomatik yerleşim algoritmasıyla yeniden yerleştirir */
 async function _resetAllLabelOffsets() {
     const manager = window.plumbingManager;
     const toast = document.getElementById('label-relayout-toast');
@@ -96,24 +97,67 @@ async function _resetAllLabelOffsets() {
     const showToast = (msg) => { if (toast && toastText) { toastText.textContent = msg; toast.style.display = 'block'; } };
     const hideToast = () => { if (toast) toast.style.display = 'none'; };
 
+    const originalFloor = state.currentFloor;
+
     try {
         try { saveState(); } catch (e) { console.error(e); }
-        // Mevcut manuel offsetleri temizle ki algoritma sıfırdan yerleştirsin
-        setLabelOffsetsJSON({});
-        if (!manager) {
+
+        // Hangi katları işleyeceğiz: görünür gerçek katların hepsi (placeholder yok).
+        // Liste boşsa aktif kata düş.
+        const visibleFloors = getVisibleFloors?.() || [];
+        const targetFloors = visibleFloors.length > 0
+            ? visibleFloors
+            : (originalFloor ? [originalFloor] : []);
+
+        if (!manager || targetFloors.length === 0) {
+            // Manager veya hedef kat yoksa en azından aktif katı temizle ve çiz
+            clearLabelOffsetsForFloor(originalFloor?.id);
             draw2D();
             return;
         }
-        showToast('Etiketler yerleştiriliyor…');
+
+        showToast(targetFloors.length > 1
+            ? `Etiketler yerleştiriliyor… (0/${targetFloors.length})`
+            : 'Etiketler yerleştiriliyor…');
         await new Promise(res => requestAnimationFrame(() => res()));
-        draw2D();
-        await relayoutAllLabels(manager, 'pipes-last');
+
+        for (let i = 0; i < targetFloors.length; i++) {
+            const f = targetFloors[i];
+            if (!f) continue;
+            // relayoutAllLabels state.currentFloor.id okur → her kat için geçici olarak ayarla
+            if (state.currentFloor?.id !== f.id) {
+                setState({ currentFloor: f });
+            }
+            clearLabelOffsetsForFloor(f.id);
+            if (targetFloors.length > 1) {
+                showToast(`Etiketler yerleştiriliyor… (${i + 1}/${targetFloors.length})`);
+            }
+            // ÖNEMLİ: relayoutAllLabels, _labelBBoxes modül-cache'inden okuyarak
+            // etiket kutu boyutlarını alır. Cache son draw'a aittir. Bu yüzden her
+            // kat için relayout'tan ÖNCE draw2D çağırıp aktif katın gerçek
+            // etiket ölçülerini cache'e yazdırmamız gerekir; aksi halde diğer
+            // katlardan kalan stale bbox'lar yüzünden algoritma fallback 80×40
+            // ile çalışır ve yerleşim değişir.
+            draw2D();
+            await new Promise(res => requestAnimationFrame(() => res()));
+            await relayoutAllLabels(manager, 'pipes-last');
+        }
+
+        // Kullanıcının başlangıçtaki aktif katını geri yükle
+        if (originalFloor && state.currentFloor?.id !== originalFloor.id) {
+            setState({ currentFloor: originalFloor });
+        }
+
         manager.saveToState?.();
         draw2D();
         showToast('Etiketler yerleştirildi');
         setTimeout(hideToast, 800);
     } catch (e) {
         console.error('Etiket yerleşimi hatası:', e);
+        // Hata olsa da aktif katı geri yüklemeyi dene
+        if (originalFloor && state.currentFloor?.id !== originalFloor.id) {
+            try { setState({ currentFloor: originalFloor }); } catch (_) { /* ignore */ }
+        }
         hideToast();
     }
 }

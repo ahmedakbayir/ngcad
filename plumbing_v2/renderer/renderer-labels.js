@@ -257,6 +257,14 @@ export function setLabelOffsetsJSON(data) {
     }
 }
 
+// Yalnızca verilen katın manuel/auto etiket offsetlerini temizler.
+// Diğer katların kullanıcı ayarladığı konumlarına dokunmaz.
+export function clearLabelOffsetsForFloor(floorId) {
+    const key = _getFloorKey(floorId);
+    _labelOffsetsByFloor.get(key)?.clear();
+    _labelAutoPosByFloor.get(key)?.clear();
+}
+
 export function rotateLabelDir(id, floorId) {
     const off = _getOffset(id, floorId);
     const newDir = ((off.dir ?? 0) + 1) % 4;
@@ -1675,6 +1683,32 @@ function _findBestLocalPosition(c, obstacleRects, pipeSegments, neighborAnchors,
 
 function _sign(val) { return val >= 0 ? 1 : -1; }
 
+// FNV-1a 32-bit string hash — kararlı sapma yönü üretmek için
+function _hashStr(s) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) {
+        h ^= s.charCodeAt(i);
+        h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h;
+}
+
+function _rectKey(r) {
+    return r.id || r.obj?.id || `@${r.bx.toFixed(2)},${r.by.toFixed(2)}`;
+}
+
+// İki rect tam üst üste düştüğünde Math.random yerine kimlik temelli
+// deterministik + antisimetrik bir yön ver — relayout her çağrıda aynı sonucu üretsin.
+function _stableTieBreak(r1, r2) {
+    const k1 = _rectKey(r1);
+    const k2 = _rectKey(r2);
+    const k1First = k1 < k2;
+    const seed = _hashStr(k1First ? `${k1}|${k2}` : `${k2}|${k1}`);
+    const angle = (seed % 3600) / 3600 * Math.PI * 2;
+    const sign = k1First ? 1 : -1;
+    return { dx: Math.cos(angle) * 2.5 * sign, dy: Math.sin(angle) * 2.5 * sign };
+}
+
 function _getPushVector(r1, r2, pad) {
     const cx1 = r1.bx + r1.bw / 2;
     const cy1 = r1.by + r1.bh / 2;
@@ -1685,8 +1719,9 @@ function _getPushVector(r1, r2, pad) {
     let dy = cy1 - cy2;
 
     if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1) {
-        dx = (Math.random() - 0.5) * 5;
-        dy = (Math.random() - 0.5) * 5;
+        const tie = _stableTieBreak(r1, r2);
+        dx = tie.dx;
+        dy = tie.dy;
     }
 
     const minHDist = (r1.bw + r2.bw) / 2 + pad;
