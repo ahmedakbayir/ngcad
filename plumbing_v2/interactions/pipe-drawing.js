@@ -16,6 +16,7 @@ import { getFloorAtElevation, switchToFloor } from '../../floor/floor-handler.js
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 import { routePath } from './geometry-routing.js';
+import { showQuickActionButtonForDrawing } from './quick-action-button.js';
 
 /**
  * Boru çizim modunu başlat
@@ -185,6 +186,7 @@ export function startBoruCizim(interactionManager, baslangicNoktasi, kaynakId = 
     };
     interactionManager.snapSystem.setStartPoint(baslangicNoktasi);
     interactionManager.manager.activeTool = 'boru';
+    showQuickActionButtonForDrawing(interactionManager);
 }
 
 /**
@@ -491,6 +493,7 @@ export function handleBoruClick(interactionManager, point) {
         kaynakBoruCap: boru.boruCap || null
     };
     interactionManager.snapSystem.setStartPoint(point);
+    showQuickActionButtonForDrawing(interactionManager);
 
     saveState();
 

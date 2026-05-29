@@ -497,8 +497,8 @@ export class InteractionManager {
         return handleVanaPlacement.call(this, vanaPreview);
     }
 
-    handleRegulatorPlacement(regulatorPreview) {
-        return handleRegulatorPlacement.call(this, regulatorPreview);
+    handleRegulatorPlacement(regulatorPreview, options) {
+        return handleRegulatorPlacement.call(this, regulatorPreview, options);
     }
 
     handleFittingPlacement(fittingPreview) {

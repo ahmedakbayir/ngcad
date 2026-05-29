@@ -708,11 +708,19 @@ function initMenu() {
         });
     });
 
-    // ── Regülatör — tıklanan noktaya ───────────────────────────────────────
+    // ── Regülatör — tıklanan noktaya (yalnız regülatör) ───────────────────
     document.getElementById('plumbing-regulator-add')?.addEventListener('click', () => {
         if (!menuState) return;
         const { pipe, nokta, t, interactionManager } = menuState;
-        if (pipe && nokta) interactionManager.handleRegulatorPlacement({ pipe, point: nokta, t });
+        if (pipe && nokta) interactionManager.handleRegulatorPlacement({ pipe, point: nokta, t }, { addAccessories: false });
+        hide();
+    });
+
+    // ── Regülatör Grubu — tıklanan noktaya (vana + manometre dahil) ───────
+    document.getElementById('plumbing-regulator-add-Group')?.addEventListener('click', () => {
+        if (!menuState) return;
+        const { pipe, nokta, t, interactionManager } = menuState;
+        if (pipe && nokta) interactionManager.handleRegulatorPlacement({ pipe, point: nokta, t }, { addAccessories: true });
         hide();
     });
 

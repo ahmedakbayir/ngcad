@@ -27,6 +27,7 @@ import { getStairCorners } from '../architectural-objects/stairs.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
 import { state, dom, getWallFillColor, getCanvasClearColor, THEME_COLORS, isLightMode } from '../general-files/main.js';
 import { getCameraViewInfo } from '../scene3d/scene3d-camera.js';
+import { updateQuickActionButtonPosition } from '../plumbing_v2/interactions/quick-action-button.js';
 
 
 
@@ -652,4 +653,7 @@ export function draw2D() {
     drawGuides(ctx2d, state);
 
     ctx2d.restore();
+
+    // 15. Yüzer hızlı eylem butonu (iniş çıkış) — pan/zoom ile birlikte takip
+    updateQuickActionButtonPosition();
 }

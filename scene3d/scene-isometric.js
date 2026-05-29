@@ -374,15 +374,12 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
     const ALLOWED = ['vana', 'sayac', 'cihaz', 'regulator', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre'];
     const PAD = 8; // ekran düzleminde iso-birim cinsinden iç boşluk
     const light = document.body.classList.contains('light-mode');
-    const curFloorId = state.currentFloor?.id || null;
-    const sameFloor = (c) => !curFloorId || !c.floorId || c.floorId === curFloorId;
 
     const grouped = [];
     const standalone = [];
 
     proxyManager.components.forEach(comp => {
         if (!comp.muhafaza) return;
-        if (!sameFloor(comp)) return;
         if (!ALLOWED.includes(comp.type)) return;
 
         let hw, hh;

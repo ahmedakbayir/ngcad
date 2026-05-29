@@ -13,6 +13,7 @@ import { getFloorAtElevation } from '../floor/floor-handler.js';
 // YENİ IMPORT: 3D hesaplama fonksiyonu
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
 import { hitTestLabel, startLabelDrag, rotateLabelDir } from '../plumbing_v2/renderer/renderer-labels.js';
+import { maybeShowQuickActionButton, hideQuickActionButton } from '../plumbing_v2/interactions/quick-action-button.js';
 
 /**
  * 3D perspektif modda bir boruya tıklandığında, tıklama noktasının
@@ -135,6 +136,10 @@ export function handlePointerDown(e) {
         return true;
     }
     // ─────────────────────────────────────────────────────────────────────
+
+    // Sol/sağ tık önce mevcut hızlı eylem butonunu kapatır; pipe seçildiğinde
+    // aşağıda yeniden gösterilecek. Middle button (pan) butonu yerinde bırakır.
+    if (e.button === 0 || e.button === 2) hideQuickActionButton();
 
     // Double-click detection
     const currentTime = Date.now();
@@ -403,6 +408,7 @@ export function handlePointerDown(e) {
                 this.selectObject(pipe, selectOpts);
                 // Doğrudan gövdeden sürükleme: ALT ile (taşıma) veya CTRL ile (kopya)
                 if (e.altKey || e.ctrlKey) this.startBodyDrag(pipe, point);
+                maybeShowQuickActionButton(this, point, pipe);
                 return true;
             }
         }
@@ -454,6 +460,7 @@ export function handlePointerDown(e) {
             this.selectObject(pipe, selectOpts);
             // Doğrudan gövdeden sürükleme: ALT ile (taşıma) veya CTRL ile (kopya)
             if (e.altKey || e.ctrlKey) this.startBodyDrag(pipe, point);
+            maybeShowQuickActionButton(this, point, pipe);
             return true;
         }
 
@@ -537,6 +544,7 @@ export function handlePointerDown(e) {
 
             if (hitObject.type === 'boru') {
                 const pipe = hitObject;
+                maybeShowQuickActionButton(this, point, pipe);
                 const bagliKutu = this.manager.components.find(c =>
                     c.type === 'servis_kutusu' && c.bagliBoruId === pipe.id
                 );

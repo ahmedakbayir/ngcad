@@ -571,8 +571,9 @@ function _findUpstreamSource(pipe, manager) {
  *       - servis kutusu yoksa upstream sayaç varsa onun basıncı → '300'
  *   • Yerleştirme sonrası tüm boruların basıncı zincirden recompute edilir.
  */
-export function handleRegulatorPlacement(regulatorPreview) {
+export function handleRegulatorPlacement(regulatorPreview, options = {}) {
     const { pipe, point } = regulatorPreview;
+    const addAccessories = options.addAccessories !== false;
 
     saveState();
 
@@ -663,6 +664,12 @@ export function handleRegulatorPlacement(regulatorPreview) {
         boruPozisyonu: regBoruPos,
         fromEnd: 'p2',
         fixedDistance: fixedDistanceFromEnd,
+        ...(addAccessories ? {} : {
+            girisVana: false,
+            girisManometre: false,
+            cikisManometre: false,
+            cikisVana: false,
+        }),
     });
     regulator.z = z;
     ensureFloorForElevation(z);
@@ -701,7 +708,7 @@ export function handleRegulatorPlacement(regulatorPreview) {
     recomputeAllPressures(this.manager);
 
     // Otomatik aksesuarları ekle (giriş/çıkış vana ve manometre — default true)
-    ensureRegulatorAccessories(this.manager, regulator);
+    if (addAccessories) ensureRegulatorAccessories(this.manager, regulator);
 
     this.manager.saveToState();
 

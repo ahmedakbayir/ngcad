@@ -2270,6 +2270,41 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
 
 
 
+/* Hızlı Eylem Butonu — 2D sahnede son tıklanan boru üzerinde yüzer */
+.plumbing-quick-btn {
+    position: fixed;
+    /* z-index: context-menu (2000), vertical-panel (15000) altında kalsın
+       ama canvas üstünde olsun */
+    z-index: 1500;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(147, 197, 253, 0.25);
+    background: rgba(30, 64, 175, 0.28);
+    color: rgba(243, 246, 255, 0.55);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(4px);
+    opacity: 0.45;
+    transition: opacity 0.15s ease, transform 0.15s ease,
+                background 0.15s ease, border-color 0.15s ease,
+                box-shadow 0.15s ease, color 0.15s ease;
+    animation: popIn 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.plumbing-quick-btn:hover {
+    opacity: 1;
+    background: rgba(37, 99, 235, 1);
+    border-color: rgba(147, 197, 253, 0.85);
+    color: #f3f6ff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transform: scale(1.12);
+}
+.plumbing-quick-btn:active { transform: scale(0.96); }
+
 /* Düşey Panel - Glassmorphism Tasarım */
 .vertical-panel {
     /* fixed: panel #p2d içinde ama p2d genişliği 0 olduğunda (örn. 3D persp %100)
