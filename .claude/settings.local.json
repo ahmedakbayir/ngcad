@@ -3,7 +3,11 @@
     "allow": [
       "Bash(xxd)",
       "Bash(grep -n \"contextmenu\\\\|right.*click\\\\|rightclick\" /c/Users/ahmet.akbayir/Documents/aangcad/pointer/*.js)",
-      "Bash(python)"
+      "Bash(python)",
+      "Bash(awk 'BEGIN{RS=\">\";} /T=\"clssayac\"/{found=1; depth=0; print; next;} found{print; depth++; if\\(depth>120\\){exit;}}' \"c:\\\\Users\\\\ahmet.akbayir\\\\Downloads\\\\gline\\\\kolon-ilave\\\\MURAT YILMAZER.xml\" | tr -d '\\\\n' | head -c 6000)",
+      "Read(//c/Users/ahmet.akbayir/Downloads/gline/kolon-ilave/**)",
+      "Bash(awk 'BEGIN{RS=\">\";} /T=\"clsboru\"/{found=1; depth=0; print; next;} found{print; depth++; if\\(depth>50\\){exit;}}' \"c:\\\\Users\\\\ahmet.akbayir\\\\Downloads\\\\gline\\\\kolon-ilave\\\\MURAT YILMAZER.xml\")",
+      "Bash(awk 'BEGIN{RS=\">\";} /T=\"clskombi\"/{found=1; print; next;} found{print; if\\($0 ~ /<\\\\/O$/\\){count++; if\\(count > 250\\) exit;}}' \"c:\\\\Users\\\\ahmet.akbayir\\\\Downloads\\\\gline\\\\kolon-ilave\\\\MURAT YILMAZER.xml\")"
     ]
   }
 }

@@ -18,6 +18,36 @@ import { fitDrawingToScreen } from '../draw/zoom.js';
 // XML'deki koordinatları cm'ye çevirmek için ölçek
 const SCALE = 100;
 
+// Gasline import varsayılan kat yüksekliği (cm). Sample dosyalardaki tüm projeler 300 cm.
+const GASLINE_FLOOR_HEIGHT = 300;
+
+// Standart DN çapları (boru-cap → DN string)
+const STANDARD_DNS = [15, 20, 25, 32, 40, 50, 65, 80, 100, 125, 150, 200, 250, 300, 400, 450];
+
+// GLBORUCAP int (örn. 25) → "DN25". En yakın standart DN'e yuvarlar.
+function _dnFromIntCap(intCap) {
+    const v = Number(intCap);
+    if (!Number.isFinite(v) || v <= 0) return 'DN25';
+    const nearest = STANDARD_DNS.reduce((best, dn) =>
+        Math.abs(dn - v) < Math.abs(best - v) ? dn : best
+    );
+    return `DN${nearest}`;
+}
+
+// ─── XML TOP-LEVEL PROP ARAMA YARDIMCISI ─────────────────────────────────
+// querySelector deskendant taraması yapar; gasline XML'inde clsboru/clssayac/clsvana/
+// clskombi gibi elemanların İÇİNDE (DrawEntities altında) ayrıca vdLine/vdRect bulunur
+// ve bunların StartPoint/EndPoint/Origin'leri de "F=..." Pleridir. Doğrudan querySelector
+// bu inner property'leri döndürür → asıl pipe/sayaç koordinatı yanlış parse edilir.
+// Bu helper sadece DOĞRUDAN ÇOCUK P elementlerine bakar.
+function _topProp(parentEl, fName) {
+    if (!parentEl) return null;
+    for (const child of parentEl.children) {
+        if (child.tagName === 'P' && child.getAttribute('F') === fName) return child;
+    }
+    return null;
+}
+
 // --- GASLINE IMPORT HELPER'LARI ---------------------------------------------
 
 // XML metin satırlarında \P ayracı veya gerçek yeni satır olabilir
@@ -113,80 +143,44 @@ function _parseCihazText(textLines) {
 }
 
 // Z kotlarından kat tespit et ve state.floors'u kur.
-// - Proje yüksekteki bir katta başlıyorsa (Z=900 gibi), Zemin'den başlayarak boş
-//   alt katlar GİZLİ placeholder olarak eklenir.
-// - Sadece içinde içerik bulunan katlar `visible: true` döner.
-// - Kullanıcı önceden gerçek kat tanımladıysa hiç dokunulmaz.
+// Gasline'da slab tepe kotları FLOOR_HEIGHT (=300 cm) katları halindedir: 0, 300, 600...
+// Her Z için floor_idx = floor(z / FLOOR_HEIGHT) hesaplayarak içeriği barındıran tüm katları
+// bulup üst üste binmeyecek şekilde 300 cm dilimlere ayırırız. Negatif idx bodrum katı olur.
+// Kullanıcı önceden gerçek kat tanımladıysa hiç dokunulmaz.
 function _ensureFloorsFromZValues(zValues, existingFloors) {
-    // Kullanıcı zaten gerçek kat tanımladıysa koru
     const realFloors = (existingFloors || []).filter(f => !f.isPlaceholder);
     if (realFloors.length >= 2) return null;
 
     const zs = zValues.filter(v => Number.isFinite(v));
     if (zs.length === 0) return null;
 
-    // 1-boyutlu kümeleme — proje içindeki kat sayısı
-    const sorted = [...zs].sort((a, b) => a - b);
-    const clusters = [];
-    const CLUSTER_GAP = 80;
-    let cur = [sorted[0]];
-    for (let i = 1; i < sorted.length; i++) {
-        if (sorted[i] - cur[cur.length - 1] <= CLUSTER_GAP) cur.push(sorted[i]);
-        else { clusters.push(cur); cur = [sorted[i]]; }
-    }
-    clusters.push(cur);
+    const FH = GASLINE_FLOOR_HEIGHT;
 
-    // Her kümenin medyan merkezi = o katın boru kotu
-    const projectCenters = clusters.map(c => {
-        const s = [...c].sort((a, b) => a - b);
-        return s[Math.floor(s.length / 2)];
-    });
+    // İçerikli kat indekslerini topla
+    const occupied = new Set();
+    zs.forEach(z => occupied.add(Math.floor(z / FH)));
 
-    const PIPE_OFFSET = 200;       // cm — boru hattı zemin slabının üstünde
-    const FLOOR_HEIGHT = 300;      // cm — varsayılan kat yüksekliği
-    const MIN_FLOOR_HEIGHT = 260;
+    if (occupied.size === 0) return null;
 
-    // Projedeki en alt kat zemine ne kadar uzakta?
-    const projectBottomCenter = projectCenters[0];
-    const projectBottom = Math.round(projectBottomCenter - PIPE_OFFSET);
+    let minIdx = Infinity, maxIdx = -Infinity;
+    occupied.forEach(i => { if (i < minIdx) minIdx = i; if (i > maxIdx) maxIdx = i; });
 
-    // Proje hangi kat indeksinden başlıyor? (Zemin = 0)
-    const startFloorIdx = Math.max(0, Math.round(projectBottom / FLOOR_HEIGHT));
-
-    // Kaç gerçek kat var? (kümeleme sonucu)
-    const projectFloorCount = projectCenters.length;
-    const totalFloorCount = startFloorIdx + projectFloorCount;
-
+    // En alt görünür katı 0 sayalım → bodrum negatif kalır
+    // (Önceki algoritma min'i Zemin yapıyordu; gasline'da Z=0 zaten Zemin olarak gelir)
     const floors = [];
-
-    // 0..startFloorIdx-1: GİZLİ placeholder zemin/ara katlar
-    for (let i = 0; i < startFloorIdx; i++) {
-        const bottom = i * FLOOR_HEIGHT;
-        const top = (i + 1) * FLOOR_HEIGHT;
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+    for (let idx = minIdx; idx <= maxIdx; idx++) {
+        const bottom = idx * FH;
+        const top = bottom + FH;
+        const name = idx === 0 ? 'Zemin'
+            : idx > 0 ? `${idx}. Kat`
+            : `Bodrum ${-idx}`;
         floors.push({
-            id: `floor-xml-${i}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-            name: i === 0 ? 'Zemin' : `${i}. Kat`,
+            id: `floor-xml-${idx >= 0 ? idx : 'b' + (-idx)}-${stamp}`,
+            name,
             bottomElevation: bottom,
             topElevation: top,
-            visible: false,
-            isPlaceholder: false
-        });
-    }
-
-    // Proje katları (görünür) — gerçek Z kotlarına göre
-    for (let i = 0; i < projectCenters.length; i++) {
-        const floorIdx = startFloorIdx + i;
-        const bottom = Math.round(projectCenters[i] - PIPE_OFFSET);
-        const rawTop = (i + 1 < projectCenters.length)
-            ? Math.round(projectCenters[i + 1] - PIPE_OFFSET)
-            : (bottom + FLOOR_HEIGHT);
-        const top = Math.max(rawTop, bottom + MIN_FLOOR_HEIGHT);
-        floors.push({
-            id: `floor-xml-${floorIdx}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-            name: floorIdx === 0 ? 'Zemin' : `${floorIdx}. Kat`,
-            bottomElevation: bottom,
-            topElevation: top,
-            visible: true,
+            visible: occupied.has(idx),
             isPlaceholder: false
         });
     }
@@ -200,7 +194,10 @@ function _ensureFloorsFromZValues(zValues, existingFloors) {
 // Böylece computePipeDebileri'nin baslangicBaglanti.tip='boru' zinciri kesintisiz olur.
 function _linkPipeNetwork(pipes) {
     if (!pipes || pipes.length === 0) return;
-    const TOL = 60; // cm — uç eşleşme toleransı (gasline'da bağlantılar bazen kayık)
+    // 30 cm — _topProp düzeltmesi sonrası uç-uç eşleşmeleri 0.001 cm hassasiyetinde olsa da
+    // gasline'ın bazı çizimlerinde fitting/dönüş noktaları 10-20 cm sapabiliyor. 60 cm fazla gevşek
+    // (komşu hatları birleştiriyordu); 15 cm çok sıkı (chain kırılıyordu). 30 güvenli orta.
+    const TOL = 30;
     const eq3 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0)) <= TOL;
     const pipeMap = new Map(pipes.map(p => [p.id, p]));
     let _linkCount = 0;
@@ -248,9 +245,12 @@ function _linkPipeNetwork(pipes) {
     const visited = new Set();
     const queue = [];
 
-    // Seed: sayaç-bağlı borular (giriş/çıkış fleks segmentleri)
+    // Seed: bileşen-bağlı borular (sayaç giriş/çıkış fleks segmentleri, cihaz fleksleri,
+    // servis kutusu çıkışı). Yalnızca sayaçtan seed verilirse, sayaç linki kurulamamış
+    // dosyalarda BFS hiç başlamaz ve tüm chain kırılır.
+    const SEED_TIPS = new Set(['sayac', 'cihaz', 'servis_kutusu']);
     pipes.forEach(p => {
-        if (p.baslangicBaglanti?.tip === 'sayac' || p.bitisBaglanti?.tip === 'sayac') {
+        if (SEED_TIPS.has(p.baslangicBaglanti?.tip) || SEED_TIPS.has(p.bitisBaglanti?.tip)) {
             if (!visited.has(p.id)) { visited.add(p.id); queue.push(p.id); }
         }
     });
@@ -487,6 +487,37 @@ export function importFromXML(xmlString, options = {}) {
     });
     // --- TEMİZLİK SONU ---
 
+    // --- Z-FARKINDA DUVAR YARDIMCILARI ---
+    // Gasline çoklu kat mimarisinde duvarlar farklı Z'lerde ama aynı X/Y'de gelebilir.
+    // Global getOrCreateNode/wallExists Z'yi bilmediği için ayrı katların duvarlarını
+    // birleştirip eziyorlardı. Bu yardımcılar her kat (Z grubu) için izole node havuzu tutar.
+    const _wallNodesByFloorIdx = new Map();  // floorIdx → Array<{x,y}>
+    const _wallsByFloorIdx     = new Map();  // floorIdx → Array<wall>
+    const _wallFloorIdxFor = (z) => Math.floor((Number(z) || 0) / GASLINE_FLOOR_HEIGHT);
+    function _getOrCreateWallNodeAtZ(x, y, z) {
+        const fi = _wallFloorIdxFor(z);
+        if (!_wallNodesByFloorIdx.has(fi)) _wallNodesByFloorIdx.set(fi, []);
+        const nodes = _wallNodesByFloorIdx.get(fi);
+        const SNAP = 1; // cm — XML koordinatları net olduğu için dar tolerans yeterli
+        for (const n of nodes) {
+            if (Math.hypot(n.x - x, n.y - y) < SNAP) return n;
+        }
+        const nn = { x, y };
+        nodes.push(nn);
+        state.nodes.push(nn); // global liste (legacy okumalar için)
+        return nn;
+    }
+    function _wallExistsAtZ(p1, p2, z) {
+        const fi = _wallFloorIdxFor(z);
+        const arr = _wallsByFloorIdx.get(fi) || [];
+        return arr.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
+    }
+    function _registerWallForZ(wall, z) {
+        const fi = _wallFloorIdxFor(z);
+        if (!_wallsByFloorIdx.has(fi)) _wallsByFloorIdx.set(fi, []);
+        _wallsByFloorIdx.get(fi).push(wall);
+    }
+    // --- /Z-FARKINDA DUVAR YARDIMCILARI ---
 
     // 1. Duvarları (VdWall) oluştur ve nodeları kaydet
     // Yeni yapı: CloseArea içindeki Walls dizisini kontrol et
@@ -620,14 +651,25 @@ export function importFromXML(xmlString, options = {}) {
             }
 
             if (vertices.length > 0) {
+                // İçindeki ilk duvardan Z (kat) bilgisini al — multi-floor mimari için kritik
+                let roomZ = 0;
+                if (wallsContainer) {
+                    const firstWall = wallsContainer.querySelector("O[F='_Item'][T='VdWall']");
+                    const spEl = firstWall?.querySelector("P[F='StartPoint']");
+                    if (spEl) {
+                        const coords = spEl.getAttribute('V').split(',').map(Number);
+                        roomZ = (coords[2] || 0) * SCALE;
+                    }
+                }
                 const room = {
                     type: 'room',
                     name: roomName,
                     vertices: vertices,
-                    areaType: areaTypeValue
+                    areaType: areaTypeValue,
+                    _srcZ: roomZ
                 };
                 state.rooms.push(room);
-                console.log(`  -> Room eklendi: ${roomName} (${vertices.length} köşe)`);
+                console.log(`  -> Room eklendi: ${roomName} (${vertices.length} köşe, srcZ=${roomZ})`);
             } else {
                 console.warn(`  -> Room eklenemedi: ${roomName} (vertices bulunamadı)`);
             }
@@ -657,7 +699,7 @@ export function importFromXML(xmlString, options = {}) {
         processWallElement(wallEl);
     });
 
-    // Duvar işleme fonksiyonu
+    // Duvar işleme fonksiyonu (Z-farkında)
     function processWallElement(wallEl) {
         try {
             const startPointEl = wallEl.querySelector("P[F='StartPoint']");
@@ -668,36 +710,38 @@ export function importFromXML(xmlString, options = {}) {
                 const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
                 const endCoords = endPointEl.getAttribute('V').split(',').map(Number);
 
+                // Z (3. koord) gasline'da kat slab tepesini gösterir (0=Zemin, 3=1.Kat, ...).
+                const zStart = (startCoords[2] || 0) * SCALE;
+                const zEnd = (endCoords[2] || 0) * SCALE;
+                const wallZ = (zStart + zEnd) / 2;
+
                 // DÜZELTME: Y eksenini ters çevir (Y -> -Y)
                 const p1 = { x: startCoords[0] * SCALE, y: -startCoords[1] * SCALE };
                 const p2 = { x: endCoords[0] * SCALE, y: -endCoords[1] * SCALE };
 
-                console.log(`      StartPoint: (${p1.x.toFixed(2)}, ${p1.y.toFixed(2)})`);
-                console.log(`      EndPoint: (${p2.x.toFixed(2)}, ${p2.y.toFixed(2)})`);
+                const node1 = _getOrCreateWallNodeAtZ(p1.x, p1.y, wallZ);
+                const node2 = _getOrCreateWallNodeAtZ(p2.x, p2.y, wallZ);
 
-                const node1 = getOrCreateNode(p1.x, p1.y);
-                const node2 = getOrCreateNode(p2.x, p2.y);
-
-                if (node1 !== node2 && !wallExists(node1, node2)) {
+                if (node1 !== node2 && !_wallExistsAtZ(node1, node2, wallZ)) {
                     // Kalınlığı XML'den al, yoksa varsayılanı kullan
                     const thickness = widthEl ? (parseFloat(widthEl.getAttribute('V')) * SCALE) : state.wallThickness;
 
-                    state.walls.push({
+                    const newWall = {
                         type: "wall",
                         p1: node1,
                         p2: node2,
-                        thickness: thickness, // XML'den gelen kalınlık
+                        thickness: thickness,
                         wallType: 'normal',
                         windows: [],
                         vents: [],
-                        floorId: state.currentFloor?.id // XML import edilirken aktif kata ekle
-                    });
-                    console.log(`      -> Duvar eklendi (kalınlık: ${thickness})`);
+                        floorId: null, // gerçek floorId, kat tespiti sonrasında _srcZ'ye göre atanır
+                        _srcZ: wallZ
+                    };
+                    state.walls.push(newWall);
+                    _registerWallForZ(newWall, wallZ);
                 } else {
-                    console.log(`      -> Duvar atlandı (duplicate veya aynı node)`);
+                    // duplicate veya aynı node (sessiz geç — multi-floor'da spam olmasın)
                 }
-            } else {
-                console.log(`      -> StartPoint veya EndPoint bulunamadı`);
             }
         } catch (e) {
             console.error("Duvar işlenirken hata:", e, wallEl);
@@ -741,34 +785,62 @@ export function importFromXML(xmlString, options = {}) {
         }
     });
 
+    // Z-farkında en yakın duvar bulucu: kapı/pencere/menfez aynı kattaki duvarlara yapıştırılmalı.
+    // Çoklu kat mimaride aynı X/Y'de farklı katlarda duvarlar var; XY-tek findClosestWallAndPosition
+    // yanlış kata isabet ediyordu (kapılar başka katta görünüp aktif katta hiç görünmüyordu).
+    function _closestWallAtZ(origin, z) {
+        const targetFloorIdx = _wallFloorIdxFor(z);
+        const candidates = state.walls.filter(w => {
+            if (w._srcZ == null) return true; // legacy
+            return _wallFloorIdxFor(w._srcZ) === targetFloorIdx;
+        });
+        let best = null, bestPos = 0, bestDsq = Infinity;
+        const tolSq = Math.pow(state.wallThickness * 2, 2);
+        for (const w of candidates) {
+            if (!w.p1 || !w.p2) continue;
+            const dsq = distToSegmentSquared(origin, w.p1, w.p2);
+            if (dsq < tolSq && dsq < bestDsq) {
+                const dx = w.p2.x - w.p1.x, dy = w.p2.y - w.p1.y;
+                const len2 = dx * dx + dy * dy;
+                if (len2 < 0.01) continue;
+                let t = ((origin.x - w.p1.x) * dx + (origin.y - w.p1.y) * dy) / len2;
+                t = Math.max(0, Math.min(1, t));
+                bestPos = t * Math.sqrt(len2);
+                bestDsq = dsq;
+                best = w;
+            }
+        }
+        return { wall: best, pos: bestPos };
+    }
+
     // 3. Kapıları (Door) işle
     const doorElements = xmlDoc.querySelectorAll("O[T='Door']");
     console.log(`\n${doorElements.length} Door bulundu (tüm XML'de)`);
 
     doorElements.forEach((doorEl, idx) => {
-        console.log(`  -> Door ${idx} işleniyor...`);
-
         try {
-            const originEl = doorEl.querySelector("P[F='Origin']");
-            const widthEl = doorEl.querySelector("P[F='En']");
+            // Top-level Ps — descendant query Door içindeki vdRect'lerden yanlış değer alıyordu.
+            const originEl = _topProp(doorEl, 'Origin') || _topProp(doorEl, 'origin');
+            const widthEl = _topProp(doorEl, 'En') || _topProp(doorEl, 'Width');
 
             if (originEl && widthEl) {
                 const originCoords = originEl.getAttribute('V').split(',').map(Number);
-                // DÜZELTME: Y eksenini ters çevir
                 const origin = { x: originCoords[0] * SCALE, y: -originCoords[1] * SCALE };
+                const doorZ = (originCoords[2] || 0) * SCALE;
                 const width = parseFloat(widthEl.getAttribute('V')) * SCALE;
 
-                const { wall, pos } = findClosestWallAndPosition(origin);
-                
+                const { wall, pos } = _closestWallAtZ(origin, doorZ);
+
                 if (wall) {
                     state.doors.push({
                         wall: wall,
                         pos: pos,
                         width: width,
-                        type: 'door'
+                        type: 'door',
+                        floorId: wall.floorId || null
                     });
                 } else {
-                    console.warn("Kapı için yakın duvar bulunamadı:", origin);
+                    console.warn(`Kapı ${idx} için yakın duvar bulunamadı (z=${doorZ}):`, origin);
                 }
             }
         } catch (e) {
@@ -781,19 +853,18 @@ export function importFromXML(xmlString, options = {}) {
     console.log(`\n${windowElements.length} Window bulundu (tüm XML'de)`);
 
     windowElements.forEach((winEl, idx) => {
-        console.log(`  -> Window ${idx} işleniyor...`);
         try {
-            const originEl = winEl.querySelector("P[F='Origin']");
-            const widthEl = winEl.querySelector("P[F='En']");
+            const originEl = _topProp(winEl, 'Origin') || _topProp(winEl, 'origin');
+            const widthEl = _topProp(winEl, 'En') || _topProp(winEl, 'Width');
 
             if (originEl && widthEl) {
                 const originCoords = originEl.getAttribute('V').split(',').map(Number);
-                // DÜZELTME: Y eksenini ters çevir
                 const origin = { x: originCoords[0] * SCALE, y: -originCoords[1] * SCALE };
+                const winZ = (originCoords[2] || 0) * SCALE;
                 const width = parseFloat(widthEl.getAttribute('V')) * SCALE;
 
-                const { wall, pos } = findClosestWallAndPosition(origin);
-                
+                const { wall, pos } = _closestWallAtZ(origin, winZ);
+
                 if (wall) {
                     if (!wall.windows) wall.windows = [];
                     wall.windows.push({
@@ -802,7 +873,7 @@ export function importFromXML(xmlString, options = {}) {
                         type: 'window'
                     });
                 } else {
-                    console.warn("Pencere için yakın duvar bulunamadı:", origin);
+                    console.warn(`Pencere ${idx} için yakın duvar bulunamadı (z=${winZ}):`, origin);
                 }
             }
         } catch (e) {
@@ -814,17 +885,16 @@ export function importFromXML(xmlString, options = {}) {
     const ventElements = xmlDoc.querySelectorAll("O[T='Menfez']");
     console.log(`\n${ventElements.length} Menfez bulundu (tüm XML'de)`);
     ventElements.forEach((ventEl, idx) => {
-        console.log(`  -> Menfez ${idx} işleniyor...`);
         try {
-            const originEl = ventEl.querySelector("P[F='Origin']");
+            const originEl = _topProp(ventEl, 'Origin') || _topProp(ventEl, 'origin');
             if (originEl) {
                 const originCoords = originEl.getAttribute('V').split(',').map(Number);
-                // DÜZELTME: Y eksenini ters çevir
                 const origin = { x: originCoords[0] * SCALE, y: -originCoords[1] * SCALE };
+                const ventZ = (originCoords[2] || 0) * SCALE;
                 const width = 30; // Varsayılan menfez çapı
 
-                const { wall, pos } = findClosestWallAndPosition(origin);
-                
+                const { wall, pos } = _closestWallAtZ(origin, ventZ);
+
                 if (wall) {
                     if (!wall.vents) wall.vents = [];
                     wall.vents.push({
@@ -833,7 +903,7 @@ export function importFromXML(xmlString, options = {}) {
                         type: 'vent'
                     });
                 } else {
-                    console.warn("Menfez için yakın duvar bulunamadı:", origin);
+                    console.warn(`Menfez ${idx} için yakın duvar bulunamadı (z=${ventZ}):`, origin);
                 }
             }
         } catch (e) {
@@ -1016,11 +1086,12 @@ export function importFromXML(xmlString, options = {}) {
     console.log(`\n${boruElements.length} clsboru bulundu (tüm XML'de)`);
 
     boruElements.forEach((boruEl, idx) => {
-        console.log(`  -> Boru ${idx} işleniyor...`);
         try {
-            const startPointEl = boruEl.querySelector("P[F='StartPoint']");
-            const endPointEl = boruEl.querySelector("P[F='EndPoint']");
-            const boruCapEl = boruEl.querySelector("P[F='GLBORUCAP']");
+            // ÖNEMLİ: top-level (doğrudan çocuk) Ps kullan — querySelector iç vdLine'lardan
+            // yanlış StartPoint döndürüyor (clsboru içinde DrawEntities altında sketch çizgileri var).
+            const startPointEl = _topProp(boruEl, 'StartPoint');
+            const endPointEl   = _topProp(boruEl, 'EndPoint');
+            const boruCapEl    = _topProp(boruEl, 'GLBORUCAP');
 
             if (startPointEl && endPointEl) {
                 const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
@@ -1038,14 +1109,19 @@ export function importFromXML(xmlString, options = {}) {
                     z: endCoords[2] ? endCoords[2] * SCALE : 0
                 };
 
-                // Boru çapından tipi belirle
-                const boruCap = boruCapEl ? parseInt(boruCapEl.getAttribute('V')) : 25;
-                const boruTipi = boruCap > 30 ? 'KALIN' : 'STANDART';
+                // Boru çapı: XML int → DN string (DN15..DN450).
+                // Eski kod boruCap'i sayı olarak hesaplıyor ama nesneye atamıyordu;
+                // bu yüzden tüm borular varsayılan DN25 görünüyordu (hat numaralandırması da
+                // diametre değişimini göremiyordu).
+                const boruCapInt = boruCapEl ? parseInt(boruCapEl.getAttribute('V')) : 25;
+                const boruCap = _dnFromIntCap(boruCapInt);
+                const boruTipi = boruCapInt > 30 ? 'KALIN' : 'STANDART';
 
                 const boruData = {
                     id: `boru_xml_${idx}_${Date.now()}`,
                     type: 'boru',
                     boruTipi: boruTipi,
+                    boruCap: boruCap,
                     p1: p1,
                     p2: p2,
                     colorGroup: 'YELLOW', // Varsayılan renk
@@ -1079,8 +1155,8 @@ export function importFromXML(xmlString, options = {}) {
 
     bransmanElements.forEach((bransmanEl, idx) => {
         try {
-            const sp = bransmanEl.querySelector("P[F='StartPoint']");
-            const ep = bransmanEl.querySelector("P[F='EndPoint']");
+            const sp = _topProp(bransmanEl, 'StartPoint') || _topProp(bransmanEl, 'origin');
+            const ep = _topProp(bransmanEl, 'EndPoint');
             if (!sp) return;
             const sc = sp.getAttribute('V').split(',').map(Number);
             const ec = (ep ? ep.getAttribute('V') : sp.getAttribute('V')).split(',').map(Number);
@@ -1088,13 +1164,13 @@ export function importFromXML(xmlString, options = {}) {
             const point = { x: sc[0] * SCALE, y: -sc[1] * SCALE, z: topZ };
 
             // Branşman debisi: XML'de değer varsa onu, yoksa standart 3.5 m³/h
-            const ekTukEl = bransmanEl.querySelector("P[F='GLEKTUKETIM']");
+            const ekTukEl = _topProp(bransmanEl, 'GLEKTUKETIM');
             const xmlDebi = ekTukEl ? parseFloat(ekTukEl.getAttribute('V')) : 0;
             const bransmanDebi = (xmlDebi && xmlDebi > 0) ? xmlDebi : 3.5;
 
-            const birimSayisiEl2 = bransmanEl.querySelector("P[F='GLBIRIMSAYISI']");
-            const dukkanSayisiEl2 = bransmanEl.querySelector("P[F='GLDUKKANSAYISI']");
-            const daireNoEl2 = bransmanEl.querySelector("P[F='GLDAIRENO']");
+            const birimSayisiEl2 = _topProp(bransmanEl, 'GLBIRIMSAYISI');
+            const dukkanSayisiEl2 = _topProp(bransmanEl, 'GLDUKKANSAYISI');
+            const daireNoEl2 = _topProp(bransmanEl, 'GLDAIRENO');
 
             const yakin = findClosestPipeEnd(point, state.plumbingPipes, 80);
             const vanaData = {
@@ -1137,10 +1213,11 @@ export function importFromXML(xmlString, options = {}) {
     console.log(`\n${sayacElements.length} clssayac bulundu (tüm XML'de)`);
 
     sayacElements.forEach((sayacEl, idx) => {
-        console.log(`  -> Sayaç ${idx} işleniyor...`);
         try {
-            const startPointEl = sayacEl.querySelector("P[F='StartPoint']");
-            const endPointEl = sayacEl.querySelector("P[F='EndPoint']");
+            // top-level (doğrudan çocuk) StartPoint/EndPoint — querySelector iç vdLine'lardan
+            // yanlış değer döndürüyor (clssayac içinde DrawEntities altında sketch çizgileri var).
+            const startPointEl = _topProp(sayacEl, 'StartPoint');
+            const endPointEl = _topProp(sayacEl, 'EndPoint');
 
             if (startPointEl && endPointEl) {
                 const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
@@ -1164,9 +1241,11 @@ export function importFromXML(xmlString, options = {}) {
                 const centerY = (girisPoint.y + cikisPoint.y) / 2;
                 const z = girisPoint.z;
 
-                // Giriş ve çıkış borularını bul
-                const girisBoru = findClosestPipeEnd(girisPoint, state.plumbingPipes);
-                const cikisBoru = findClosestPipeEnd(cikisPoint, state.plumbingPipes);
+                // Giriş ve çıkış borularını bul. Tolerance=80cm (varsayılan 10cm gasline'da
+                // saymaç-pipe arası boşluk için yetersiz; null dönerse hiç fleks segment
+                // oluşmuyor → sayaç havada kalıyor, debi propagasyonu için seed yok).
+                const girisBoru = findClosestPipeEnd(girisPoint, state.plumbingPipes, 80);
+                const cikisBoru = findClosestPipeEnd(cikisPoint, state.plumbingPipes, 80);
 
                 // DÜZELTME: Sayaç girişine fleks segment ekle (tıpkı çıkış segment gibi)
                 let girisBoruId = null;
@@ -1197,6 +1276,7 @@ export function importFromXML(xmlString, options = {}) {
                             id: `boru_sayac_giris_fleks_${idx}_${Date.now()}`,
                             type: 'boru',
                             boruTipi: 'FLEKS', // Esnek boru
+                            boruCap: girisBoru.pipe.boruCap || 'DN25', // upstream kolon çapı
                             p1: { ...girisPoint },
                             p2: girisFleksP2,
                             colorGroup: 'YELLOW',
@@ -1267,6 +1347,7 @@ export function importFromXML(xmlString, options = {}) {
                             id: `boru_sayac_cikis_${idx}_${Date.now()}`,
                             type: 'boru',
                             boruTipi: 'STANDART',
+                            boruCap: cikisBoru.pipe.boruCap || 'DN25', // downstream tesisat çapı
                             p1: { ...cikisPoint },
                             p2: cikisSegmentP2,
                             colorGroup: 'YELLOW',
@@ -1307,13 +1388,13 @@ export function importFromXML(xmlString, options = {}) {
                     }
                 }
 
-                // Sayaç panel alanlarını XML'den çek
-                const glSayacTipi = parseInt(sayacEl.querySelector("P[F='GLSAYACTIPI']")?.getAttribute('V') || '1', 10);
-                const glAboneUnvan = sayacEl.querySelector("P[F='GLAboneUnvan']")?.getAttribute('V') || '';
-                const glAboneTesisatNo = sayacEl.querySelector("P[F='GLAboneTesisatNo']")?.getAttribute('V') || '';
-                const glAbonePoliceNo = sayacEl.querySelector("P[F='GLAbonePoliceNo']")?.getAttribute('V') || '';
-                const glKapiNoAdi = sayacEl.querySelector("P[F='GLAboneKapiNoAdi']")?.getAttribute('V') || '';
-                const glKullanimTipi = parseInt(sayacEl.querySelector("P[F='GLKULLANIMTIPI']")?.getAttribute('V') || '1', 10);
+                // Sayaç panel alanlarını XML'den çek (top-level Ps; iç sketch'lere bakma)
+                const glSayacTipi = parseInt(_topProp(sayacEl, 'GLSAYACTIPI')?.getAttribute('V') || '1', 10);
+                const glAboneUnvan = _topProp(sayacEl, 'GLAboneUnvan')?.getAttribute('V') || '';
+                const glAboneTesisatNo = _topProp(sayacEl, 'GLAboneTesisatNo')?.getAttribute('V') || '';
+                const glAbonePoliceNo = _topProp(sayacEl, 'GLAbonePoliceNo')?.getAttribute('V') || '';
+                const glKapiNoAdi = _topProp(sayacEl, 'GLAboneKapiNoAdi')?.getAttribute('V') || '';
+                const glKullanimTipi = parseInt(_topProp(sayacEl, 'GLKULLANIMTIPI')?.getAttribute('V') || '1', 10);
                 // Sayaç tipi mapping: 1→G4, 2→G6, 3→G10, 4→G16, 5→G25 (Gasline konvansiyonu)
                 const sayacTipiStr = ({1:'G4',2:'G6',3:'G10',4:'G16',5:'G25',6:'G40'}[glSayacTipi]) || `G${glSayacTipi}`;
                 const birimTipiStr = ({1:'Konut',2:'Dükkan',3:'Sanayi',4:'Kamu',5:'Isınma'}[glKullanimTipi]) || 'Konut';
@@ -1372,15 +1453,14 @@ export function importFromXML(xmlString, options = {}) {
     console.log(`\n${vanaElements.length} clsvana bulundu (tüm XML'de)`);
 
     vanaElements.forEach((vanaEl, idx) => {
-        console.log(`  -> Vana ${idx} işleniyor...`);
         try {
-            const originEl = vanaEl.querySelector("P[F='origin']");
-            const vanaTipiEl = vanaEl.querySelector("P[F='GLVANATIPI']");
-            const muhafazaEl = vanaEl.querySelector("P[F='GLMUHAFAZALI']");
-            const birimSayisiEl = vanaEl.querySelector("P[F='GLBIRIMSAYISI']");
-            const dukkanSayisiEl = vanaEl.querySelector("P[F='GLDUKKANSAYISI']");
-            const ekTuketimEl = vanaEl.querySelector("P[F='GLEKTUKETIM']");
-            const daireNoEl = vanaEl.querySelector("P[F='GLDAIRENO']");
+            const originEl = _topProp(vanaEl, 'origin');
+            const vanaTipiEl = _topProp(vanaEl, 'GLVANATIPI');
+            const muhafazaEl = _topProp(vanaEl, 'GLMUHAFAZALI');
+            const birimSayisiEl = _topProp(vanaEl, 'GLBIRIMSAYISI');
+            const dukkanSayisiEl = _topProp(vanaEl, 'GLDUKKANSAYISI');
+            const ekTuketimEl = _topProp(vanaEl, 'GLEKTUKETIM');
+            const daireNoEl = _topProp(vanaEl, 'GLDAIRENO');
 
             if (originEl) {
                 const originCoords = originEl.getAttribute('V').split(',').map(Number);
@@ -1466,7 +1546,7 @@ export function importFromXML(xmlString, options = {}) {
     console.log(`\n${selenoidElements.length} clsselenoid bulundu`);
     selenoidElements.forEach((el, idx) => {
         try {
-            const originEl = el.querySelector("P[F='origin']") || el.querySelector("P[F='StartPoint']");
+            const originEl = _topProp(el, 'origin') || _topProp(el, 'StartPoint');
             if (!originEl) return;
             const c = originEl.getAttribute('V').split(',').map(Number);
             const p = { x: c[0] * SCALE, y: -c[1] * SCALE, z: (c[2] || 0) * SCALE };
@@ -1510,9 +1590,10 @@ export function importFromXML(xmlString, options = {}) {
     console.log(`\n${kombiElements.length} clskombi bulundu (tüm XML'de)`);
 
     kombiElements.forEach((kombiEl, idx) => {
-        console.log(`  -> Kombi ${idx} işleniyor...`);
         try {
-            const startPointEl = kombiEl.querySelector("P[F='StartPoint']");
+            // Top-level çocuk Ps — clskombi içinde DrawEntities altındaki sketch vdLine'lardan
+            // yanlış StartPoint okumamak için.
+            const startPointEl = _topProp(kombiEl, 'StartPoint') || _topProp(kombiEl, 'Origin') || _topProp(kombiEl, 'origin');
 
             if (startPointEl) {
                 const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
@@ -1616,9 +1697,9 @@ export function importFromXML(xmlString, options = {}) {
     console.log(`\n${ocakElements.length} clsocak bulundu (tüm XML'de)`);
 
     ocakElements.forEach((ocakEl, idx) => {
-        console.log(`  -> Ocak ${idx} işleniyor...`);
         try {
-            const startPointEl = ocakEl.querySelector("P[F='StartPoint']");
+            // Top-level (doğrudan çocuk) P; iç sketch'leri yok say.
+            const startPointEl = _topProp(ocakEl, 'StartPoint') || _topProp(ocakEl, 'Origin') || _topProp(ocakEl, 'origin');
 
             if (startPointEl) {
                 const startCoords = startPointEl.getAttribute('V').split(',').map(Number);
@@ -1905,6 +1986,55 @@ export function importFromXML(xmlString, options = {}) {
         console.warn('Boru ağ bağlama hatası:', e);
     }
 
+    // --- 8.6c. OTOMATİK SERVİS KUTUSU: gasline XML'inde clsservis tag'i yok; kullanıcı
+    // tercihine göre kolon zincirinin en alttaki açık ucuna otomatik servis kutusu konur
+    // ve o boru kutuya bağlanır. Böylece pre-meter zincir bir kaynaktan beslenmiş olur.
+    try {
+        if (!(state.plumbingBlocks || []).some(b => b.type === 'servis_kutusu')) {
+            let lowest = null; // {pipe, endpoint, z, x, y}
+            (state.plumbingPipes || []).forEach(pipe => {
+                [
+                    { end: 'p1', bag: pipe.baslangicBaglanti, pt: pipe.p1 },
+                    { end: 'p2', bag: pipe.bitisBaglanti,     pt: pipe.p2 }
+                ].forEach(({ end, bag, pt }) => {
+                    if (!pt) return;
+                    if (bag && bag.tip) return; // serbest uç değil
+                    const z = pt.z || 0;
+                    if (!lowest || z < lowest.z) {
+                        lowest = { pipe, endpoint: end, z, x: pt.x, y: pt.y };
+                    }
+                });
+            });
+
+            if (lowest) {
+                const kutuId = `servis_kutusu_xml_${Date.now()}`;
+                const kutuData = {
+                    id: kutuId,
+                    type: 'servis_kutusu',
+                    x: lowest.x, y: lowest.y, z: lowest.z,
+                    rotation: 0,
+                    floorId: null, // post-pass'te Z'ye göre atanır
+                    cikisYonu: 'sag',
+                    bagliBoruId: lowest.pipe.id,
+                    cikisKullanildi: true,
+                    kutuTipi: 'S.K.',
+                    kutuBasinc: 21,
+                    cikisCap: lowest.pipe.boruCap || 'DN25',
+                    kutuBoruTipi: 'KAYNAKLI',
+                    kutuBaglantiTipi: 'KAYNAK',
+                    description: ''
+                };
+                const bagSet = { tip: 'servis_kutusu', hedefId: kutuId, baglananNokta: 'cikis' };
+                if (lowest.endpoint === 'p1') lowest.pipe.baslangicBaglanti = bagSet;
+                else                          lowest.pipe.bitisBaglanti     = bagSet;
+                state.plumbingBlocks.push(kutuData);
+                console.log(`  -> Otomatik servis kutusu: (${lowest.x.toFixed(2)}, ${lowest.y.toFixed(2)}, z=${lowest.z.toFixed(2)})`);
+            }
+        }
+    } catch (e) {
+        console.warn('Otomatik servis kutusu hatası:', e);
+    }
+
     // --- 8.7. KAT YÖNETİMİ: Z kotlarından katları tespit et ve floorId ata ---
     try {
         const zPool = [];
@@ -1940,14 +2070,32 @@ export function importFromXML(xmlString, options = {}) {
                 const fid = _findFloorIdForZ(b.z || 0, activeFloors);
                 if (fid) b.floorId = fid;
             });
-            // Mimari: projenin başladığı (ilk görünür) kata ata — Zemin değil!
-            // Gasline XML'inde tek kat mimarisi gelir; bu kat projenin gerçek katı.
+
+            // Mimari: walls/rooms _srcZ'ye göre kendi katlarına dağıtılır.
+            // Birden fazla benzersiz Z varsa XML zaten multi-floor mimari içeriyor → klonlama YAPMA.
+            const wallSrcZs = new Set((state.walls || []).map(w => Math.round(w._srcZ ?? -1e9)));
+            wallSrcZs.delete(-1e9);
+            const hasMultiFloorArch = wallSrcZs.size > 1;
+
             const projectFloor = (state.currentFloor && activeFloors.find(f => f.id === state.currentFloor.id))
                 || activeFloors.find(f => f.visible !== false)
                 || activeFloors[0];
             const projectFloorId = projectFloor.id;
-            (state.walls || []).forEach(w => { w.floorId = projectFloorId; });
-            (state.rooms || []).forEach(r => { r.floorId = projectFloorId; });
+
+            (state.walls || []).forEach(w => {
+                const z = w._srcZ;
+                w.floorId = (z != null)
+                    ? (_findFloorIdForZ(z, activeFloors) || projectFloorId)
+                    : projectFloorId;
+            });
+            (state.rooms || []).forEach(r => {
+                const z = r._srcZ;
+                r.floorId = (z != null)
+                    ? (_findFloorIdForZ(z, activeFloors) || projectFloorId)
+                    : projectFloorId;
+            });
+            // Kolon/kiriş/merdiven Z bilgisi import edilmiyor → projeye ata; multi-floor durumda
+            // kloncuyu atlayacağız, dolayısıyla bunlar tek katta kalır (kullanıcı isterse ekler).
             (state.columns || []).forEach(c => { c.floorId = projectFloorId; });
             (state.beams || []).forEach(b => { b.floorId = projectFloorId; });
             (state.stairs || []).forEach(s => { s.floorId = projectFloorId; });
@@ -1955,13 +2103,13 @@ export function importFromXML(xmlString, options = {}) {
                 if (d.wall?.floorId) d.floorId = d.wall.floorId;
                 else d.floorId = projectFloorId;
             });
-            console.log(`  -> Mimari "${projectFloor.name}" katına atandı (bottom=${projectFloor.bottomElevation}cm)`);
+            console.log(`  -> Mimari: ${state.walls.length} duvar, ${state.rooms.length} oda ${hasMultiFloorArch ? `${wallSrcZs.size} kata dağıtıldı (XML multi-floor)` : `"${projectFloor.name}" katına atandı (tek kat)`}`);
 
-            // --- MİMARİ KLONLAMA: her görünür katın kendi kopyası olsun ---
-            // Gasline tek-kat mimari verir; ama ngcad çoklu kat sahnesinde her katın
-            // kendi duvar/oda/kolon/kiriş/merdiven/kapı kopyası olmalı (boş kat görünmesin).
+            // --- MİMARİ KLONLAMA (yalnızca XML tek-kat mimari verdiyse) ---
+            // Gasline çoklu-kat dosyalarında walls zaten Z'ye göre dağıtıldı; klonlama
+            // ek/yanlış katlara aynı mimariyi basıp döngüsel çakışma yaratır.
             const visibleFloors = activeFloors.filter(f => f.visible !== false && f.id !== projectFloorId);
-            if (visibleFloors.length > 0) {
+            if (!hasMultiFloorArch && visibleFloors.length > 0) {
                 const sourceWalls = (state.walls || []).filter(w => w.floorId === projectFloorId);
                 const sourceRooms = (state.rooms || []).filter(r => r.floorId === projectFloorId);
                 const sourceColumns = (state.columns || []).filter(c => c.floorId === projectFloorId);

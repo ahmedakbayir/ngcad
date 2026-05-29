@@ -342,6 +342,32 @@ export function startBodyDrag(interactionManager, pipe, point) {
     interactionManager.verticalOtherEndsP1 = findVerticalConnectedOtherEnds(interactionManager.manager, pipe.p1, pipe);
     interactionManager.verticalOtherEndsP2 = findVerticalConnectedOtherEnds(interactionManager.manager, pipe.p2, pipe);
 
+    // Bu boruya fleks ile bağlı cihazlar — body drag boyunca ucu RİJİT takip eder
+    // (fleks "boşluk" oluşturmaz; cihaz hatla sabit bağlıdır).
+    interactionManager.bodyDragAttachedDevices = [];
+    interactionManager.manager.components.forEach(c => {
+        if (c.type !== 'cihaz' || c.fleksBaglanti?.boruId !== pipe.id) return;
+        const ep = c.fleksBaglanti.endpoint === 'p2' ? 'p2' : 'p1';
+        const epPt = ep === 'p1' ? pipe.p1 : pipe.p2;
+        interactionManager.bodyDragAttachedDevices.push({
+            cihaz: c,
+            endpoint: ep,
+            offX: c.x - epPt.x,
+            offY: c.y - epPt.y,
+            offZ: (c.z || 0) - (epPt.z || 0),
+            cihazInitial: { x: c.x, y: c.y, z: c.z || 0 },
+            bacalar: interactionManager.manager.components
+                .filter(b => b.type === 'baca' && b.parentCihazId === c.id)
+                .map(b => ({
+                    baca: b,
+                    initStartX: b.startX, initStartY: b.startY, initZ: b.z || 0,
+                    initCurStart: { ...b.currentSegmentStart },
+                    initSegments: (b.segments || []).map(s => ({ ...s })),
+                    initHav: b.havalandirma ? { ...b.havalandirma } : null
+                }))
+        });
+    });
+
     // Kutu/sayaç bağlantısı olan ucu kilitle: o uç hareket etmemeli
     // p1 = baslangicBaglanti, p2 = bitisBaglanti
     const p1Tip = pipe.baslangicBaglanti?.tip;
@@ -1461,6 +1487,38 @@ export function handleDrag(interactionManager, point, event = null) {
         // tüm diğer borular otomatik olarak güncellenir — ayrı loop gerekmez.
         pipe.p1.x = newP1.x; pipe.p1.y = newP1.y; pipe.p1.z = newP1.z;
         pipe.p2.x = newP2.x; pipe.p2.y = newP2.y; pipe.p2.z = newP2.z;
+
+        // Fleks ile bağlı cihazlar ucu RİJİT takip eder (kayıtlı sabit ofset).
+        // Cihaz bacaları da cihaz delta'sı kadar ötelenir.
+        (interactionManager.bodyDragAttachedDevices || []).forEach(rec => {
+            const epPt = rec.endpoint === 'p1' ? pipe.p1 : pipe.p2;
+            const oldCx = rec.cihaz.x, oldCy = rec.cihaz.y, oldCz = rec.cihaz.z || 0;
+            rec.cihaz.x = epPt.x + rec.offX;
+            rec.cihaz.y = epPt.y + rec.offY;
+            rec.cihaz.z = (epPt.z || 0) + rec.offZ;
+            const cDx = rec.cihaz.x - rec.cihazInitial.x;
+            const cDy = rec.cihaz.y - rec.cihazInitial.y;
+            const cDz = rec.cihaz.z - rec.cihazInitial.z;
+            rec.bacalar.forEach(b => {
+                b.baca.startX = b.initStartX + cDx;
+                b.baca.startY = b.initStartY + cDy;
+                b.baca.z     = b.initZ + cDz;
+                b.baca.currentSegmentStart.x = b.initCurStart.x + cDx;
+                b.baca.currentSegmentStart.y = b.initCurStart.y + cDy;
+                if (b.initCurStart.z !== undefined) b.baca.currentSegmentStart.z = b.initCurStart.z + cDz;
+                (b.baca.segments || []).forEach((seg, i) => {
+                    const s0 = b.initSegments[i]; if (!s0) return;
+                    seg.x1 = s0.x1 + cDx; seg.y1 = s0.y1 + cDy;
+                    seg.x2 = s0.x2 + cDx; seg.y2 = s0.y2 + cDy;
+                    if (s0.z1 !== undefined) seg.z1 = s0.z1 + cDz;
+                    if (s0.z2 !== undefined) seg.z2 = s0.z2 + cDz;
+                });
+                if (b.baca.havalandirma && b.initHav) {
+                    b.baca.havalandirma.x = b.initHav.x + cDx;
+                    b.baca.havalandirma.y = b.initHav.y + cDy;
+                }
+            });
+        });
 
         // Düşey boru takibi: bağlı düşey boruların diğer ucunu X/Y'de takip ettir
         const lockedEP = interactionManager.bodyDragLockedEndpoint;
