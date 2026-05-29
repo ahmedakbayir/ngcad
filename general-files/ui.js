@@ -38,6 +38,64 @@ function _fitPerspAndMainTo80() {
     }
 }
 
+/**
+ * İzometri ve 3D perspektif panellerinin görünürlük durumuna göre
+ * 2D/iso/persp flex paylaşımlarını ayarlar:
+ *  - İkisi de açık  → 2D=0, iso=50%, persp=50%
+ *  - Sadece iso     → 2D=0, iso=100%
+ *  - Sadece persp   → 2D=0, persp=100%
+ *  - Hiçbiri açık değil → inline flex temizlenir, 2D varsayılanına döner.
+ * Layout değişiminden sonra resize ve (refit=true ise) açık panelleri ekrana sığdırır.
+ * Mevcut ratio butonlarının "active" sınıfı yeni paylaşıma göre yenilenir.
+ */
+function _applyViewLayout({ refit = true } = {}) {
+    const showIso = dom.mainContainer.classList.contains('show-iso');
+    const showPersp = dom.mainContainer.classList.contains('show-persp');
+    const p2d = document.getElementById('p2d');
+    const pIso = document.getElementById('pIso');
+    const pPersp = document.getElementById('pPersp');
+
+    document.querySelectorAll('#iso-ratio-buttons .split-btn[data-ratio]').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#persp-ratio-buttons .split-btn').forEach(b => b.classList.remove('active'));
+
+    if (showIso && showPersp) {
+        if (p2d) p2d.style.flex = '0 0 0';
+        if (pIso) pIso.style.flex = '1 1 50%';
+        if (pPersp) pPersp.style.flex = '1 1 50%';
+        document.getElementById('iso-50')?.classList.add('active');
+        document.getElementById('persp-50')?.classList.add('active');
+    } else if (showIso) {
+        if (p2d) p2d.style.flex = '0 0 0';
+        if (pIso) pIso.style.flex = '1 1 100%';
+        if (pPersp) pPersp.style.flex = '0 0 0';
+        document.getElementById('iso-100')?.classList.add('active');
+    } else if (showPersp) {
+        if (p2d) p2d.style.flex = '0 0 0';
+        if (pIso) pIso.style.flex = '0 0 0';
+        if (pPersp) pPersp.style.flex = '1 1 100%';
+        document.getElementById('persp-100')?.classList.add('active');
+    } else {
+        if (p2d) p2d.style.flex = '';
+        if (pIso) pIso.style.flex = '';
+        if (pPersp) pPersp.style.flex = '';
+    }
+
+    setTimeout(() => {
+        resize();
+        if (showIso) {
+            resizeIsoCanvas();
+            if (refit) fitIsoToScreen();
+            else drawIsoView();
+        }
+        if (showPersp && refit) {
+            fitDrawingToPerspectiveScreen();
+        }
+        if (!showIso && !showPersp && refit) {
+            fitDrawingToScreen();
+        }
+    }, 30);
+}
+
 // ═══════════════════════════════════════════════════════════════
 // DARK MODE / LIGHT MODE FONKSİYONLARI
 // ═══════════════════════════════════════════════════════════════
@@ -332,35 +390,14 @@ export function togglePerspView() {
         const btns = document.getElementById('persp-ratio-buttons');
         if (btns) btns.style.display = 'flex';
         if (dom.perspSplitter) dom.perspSplitter.style.display = 'block';
-        // Önceki açılışta preset ratio (25/50/75/100) kullanıldıysa onunla geri aç;
-        // splitter ile manuel sürüklenmişse (preset yok) güvenli varsayılan %50.
-        // Doğrudan eski inline flex'i (pixel bazlı) restore etmek, bir sonraki açılışta
-        // perspektif panelini sağda sıkışmış halde getirebiliyordu — bu yüzden hep
-        // viewport'a göre yeniden hesaplayan setPerspRatio'dan geçiyoruz.
-        let restoreRatio = 50;
-        if (_savedPerspRatioBtn) {
-            const m = _savedPerspRatioBtn.match(/persp-(\d+)/);
-            if (m) restoreRatio = parseInt(m[1], 10);
-        }
-        setPerspRatio(restoreRatio);
     } else {
         const btns = document.getElementById('persp-ratio-buttons');
         if (btns) btns.style.display = 'none';
         if (dom.perspSplitter) dom.perspSplitter.style.display = 'none';
-        // Kapanırken inline flex stillerini temizle ki p2d sabit genişlikte
-        // (örn. splitter veya %100 ratio kalıntısı) takılı kalmasın — CSS varsayılanı
-        // (#p2d { flex: 1 1 auto }) tüm alanı doldurur.
-        const p2d = document.getElementById('p2d');
-        const pPersp = document.getElementById('pPersp');
-        if (p2d) p2d.style.flex = '';
-        if (pPersp) pPersp.style.flex = '';
     }
 
-    setTimeout(() => {
-        resize();
-        // 3D perspektif paneli aç/kapat: 2D + 3D %80 sığdırma.
-        _fitPerspAndMainTo80();
-    }, 30);
+    // Layout (iso+persp paylaşımı) ve açılış sığdırması tek noktada.
+    _applyViewLayout();
 }
 
 export function setPerspRatio(ratio) {
@@ -443,15 +480,6 @@ export function toggleIsoView() {
 
         // İzometri splitter'ını göster
         dom.isoSplitter.style.display = 'block';
-
-        // İzometrik canvas boyutunu ayarla
-        resizeIsoCanvas(); // Bu fonksiyonun bu dosyada olduğundan emin olun veya import edin
-
-        // İzometrik görünümü çiz
-        drawIsoView();
-
-        // Varsayılan split ratio'yu ayarla (100% — daima tam ekran aç)
-        setIsoRatio(100);
     } else {
         // İzometri ratio butonlarını gizle
         const isoButtons = document.getElementById('iso-ratio-buttons');
@@ -463,31 +491,14 @@ export function toggleIsoView() {
 
         // İzometri splitter'ını gizle
         dom.isoSplitter.style.display = 'none';
-
-        // setIsoRatio(100) ile bırakılan inline flex stillerini temizle —
-        // aksi takdirde p2d '0 0 0' takılı kalıyor ve izometri kapatılınca
-        // 2D çizim ekrana gelmiyor.
-        const p2dPanel = document.getElementById('p2d');
-        const pIsoPanel = document.getElementById('pIso');
-        if (p2dPanel) p2dPanel.style.flex = '';
-        if (pIsoPanel) pIsoPanel.style.flex = '';
     }
 
-    setTimeout(() => {
-        resize();
-        if (dom.mainContainer.classList.contains('show-iso')) {
-            resizeIsoCanvas();
-            // İzometri açıldığında otomatik ekrana sığdır
-            if (isIsoActive) {
-                fitIsoToScreen();
-            } else {
-                drawIsoView();
-            }
-        } else {
-            // İzometri kapatıldı — 2D canvas yeniden boyutlandı, yeniden çiz.
-            draw2D();
-        }
-    }, 10);
+    // Layout (iso+persp paylaşımı) ve açılış sığdırması tek noktada.
+    _applyViewLayout();
+    // İzometri kapatıldı — 2D canvas yeniden boyutlanıyor, 2D çizimi de yenile.
+    if (!isIsoActive) {
+        setTimeout(() => draw2D(), 40);
+    }
 }
 
 export function toggle3DPerspective() {
@@ -2119,6 +2130,9 @@ export function setupUIListeners() {
     // İZOMETRİ RENK PALETİ — kayıtlı çap paletleri arasında geçiş
     setupIsoPaletteControls();
 
+    // İZOMETRİ BİRİM FİLTRESİ — Kolon / İç tesisat birimleri görünürlüğü
+    setupIsoFilterControls();
+
     // İZOMETRİ ETİKETLERİ YERLEŞTİR + YOĞUN HATLARI ÖLÇEKLE
     const isoRelayoutBtn = document.getElementById('iso-relayout');
     if (isoRelayoutBtn) {
@@ -2347,6 +2361,162 @@ function setupIsoPaletteControls() {
             syncTabs();
             rebuildEditorRows();
         });
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// İZOMETRİ BİRİM FİLTRESİ — Kolon + Sayaç birimleri dropdown'u
+// ═══════════════════════════════════════════════════════════════
+// Çoklu seçim, oturumluk (localStorage'a yazılmaz). En az 1 seçili kalmalı.
+// state.isoVisibleUnits = null  → hepsi görünür (varsayılan)
+// state.isoVisibleUnits = Set  → sadece içindeki anahtarlar görünür
+// Anahtarlar: 'KOLON', `BIRIM_<sayacId>`
+
+function _isoCollectUnits() {
+    const units = [{ key: 'KOLON', label: 'Kolon' }];
+    if (!plumbingManager?.components) return units;
+    const seen = new Set();
+    // Sayaçları (varsa) birimNo'ya göre sıralayıp ekle
+    const sayaclar = plumbingManager.components
+        .filter(c => c.type === 'sayac' && !seen.has(c.id) && seen.add(c.id));
+    sayaclar.sort((a, b) => {
+        const na = parseInt(a.birimNo, 10);
+        const nb = parseInt(b.birimNo, 10);
+        const va = isNaN(na) ? Number.POSITIVE_INFINITY : na;
+        const vb = isNaN(nb) ? Number.POSITIVE_INFINITY : nb;
+        if (va !== vb) return va - vb;
+        return String(a.birimNo || '').localeCompare(String(b.birimNo || ''));
+    });
+    sayaclar.forEach(s => {
+        const no = String(s.birimNo || '').trim();
+        const label = no ? `Birim ${no}` : `Birim ? (${(s.sayacTuru || 'sayaç')})`;
+        units.push({ key: `BIRIM_${s.id}`, label });
+    });
+    return units;
+}
+
+function _isoIsKeyVisible(key) {
+    const vis = state.isoVisibleUnits;
+    if (!vis) return true; // null → hepsi
+    if (vis instanceof Set) return vis.has(key);
+    if (Array.isArray(vis)) return vis.includes(key);
+    return true;
+}
+
+function _isoSanitizeVisibleSet(units) {
+    // Mevcut state'ı yeni birim listesine göre temizle. Hiç eşleşme kalmazsa null'a düş.
+    const cur = state.isoVisibleUnits;
+    if (!cur) return null;
+    const validKeys = new Set(units.map(u => u.key));
+    const next = new Set();
+    for (const k of (cur instanceof Set ? cur : (Array.isArray(cur) ? cur : []))) {
+        if (validKeys.has(k)) next.add(k);
+    }
+    if (next.size === 0) return null; // güvenli düşüş: hepsi görünür
+    if (next.size === validKeys.size) return null; // hepsi seçili → null sade
+    return next;
+}
+
+function setupIsoFilterControls() {
+    const btn = document.getElementById('iso-filter-btn');
+    const menu = document.getElementById('iso-filter-menu');
+    const rowsHost = document.getElementById('iso-filter-rows');
+    const allBtn = document.getElementById('iso-filter-all');
+    if (!btn || !menu || !rowsHost || !allBtn) return;
+
+    const rebuildRows = () => {
+        const units = _isoCollectUnits();
+        // State'ı yeni birim listesine göre temizle (silinen sayaç varsa)
+        const sanitized = _isoSanitizeVisibleSet(units);
+        if (sanitized !== state.isoVisibleUnits) {
+            // Doğrudan state'i değiştir; setState bilinçli olarak kullanmıyoruz çünkü
+            // bu sadece düzeltici bir temizleme (kullanıcı eylemi değil).
+            state.isoVisibleUnits = sanitized;
+        }
+
+        // "Tümünü Göster" toggle metni: hepsi görünürken tekrar tıklamak en üstteki hariç
+        // hepsini gizler; bu yüzden buton etiketi duruma göre değişir.
+        const allVisible = (state.isoVisibleUnits === null);
+        allBtn.textContent = allVisible ? 'Tümünü Gizle(Biri Kalır)' : 'Tümünü Göster';
+
+        rowsHost.innerHTML = '';
+        const checkedKeys = new Set();
+        units.forEach(u => { if (_isoIsKeyVisible(u.key)) checkedKeys.add(u.key); });
+
+        units.forEach(u => {
+            const row = document.createElement('label');
+            row.className = 'iso-filter-row';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = checkedKeys.has(u.key);
+            cb.dataset.key = u.key;
+            const lbl = document.createElement('span');
+            lbl.className = 'iso-filter-row-label';
+            lbl.textContent = u.label;
+            row.appendChild(cb);
+            row.appendChild(lbl);
+            rowsHost.appendChild(row);
+
+            cb.addEventListener('change', () => {
+                const allBoxes = Array.from(rowsHost.querySelectorAll('input[type="checkbox"]'));
+                let currentlyChecked = allBoxes.filter(x => x.checked);
+                if (currentlyChecked.length === 0) {
+                    // Tek kalan birimi de kaldırmak isterse sıradakini (wrap) otomatik aç.
+                    // Böylece tek-tek atlayarak birimler arasında gezinilebilir.
+                    const idx = allBoxes.indexOf(cb);
+                    const nextIdx = (idx + 1) % allBoxes.length;
+                    allBoxes[nextIdx].checked = true;
+                    currentlyChecked = [allBoxes[nextIdx]];
+                }
+                const allKeys = allBoxes.map(x => x.dataset.key);
+                const visibleKeys = currentlyChecked.map(x => x.dataset.key);
+                // Hepsi seçiliyse null'a sadeleştir
+                state.isoVisibleUnits = (visibleKeys.length === allKeys.length)
+                    ? null
+                    : new Set(visibleKeys);
+                // "Tümünü Göster" butonunun metnini güncel duruma göre yenile
+                const allVisible = (state.isoVisibleUnits === null);
+                allBtn.textContent = allVisible ? 'Yalnız İlkini Bırak' : 'Tümünü Göster';
+                drawIsoView();
+            });
+        });
+    };
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = menu.style.display !== 'none' && menu.style.display !== '';
+        if (open) {
+            menu.style.display = 'none';
+        } else {
+            rebuildRows();
+            menu.style.display = 'block';
+        }
+    });
+
+    allBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const units = _isoCollectUnits();
+        const allVisible = (state.isoVisibleUnits === null);
+        if (allVisible && units.length > 0) {
+            // Tekrar tıklama: hepsi açıkken en üstteki birim hariç tümünü gizle.
+            state.isoVisibleUnits = new Set([units[0].key]);
+        } else {
+            state.isoVisibleUnits = null;
+        }
+        rebuildRows();
+        drawIsoView();
+    });
+
+    // Dışarı tıklama / ESC ile kapat
+    document.addEventListener('mousedown', (e) => {
+        if (menu.style.display === 'block' && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+            menu.style.display = 'none';
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && menu.style.display === 'block') {
+            menu.style.display = 'none';
+        }
     });
 }
 

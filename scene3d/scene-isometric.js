@@ -206,7 +206,46 @@ export function createIsoProxyManager(manager) {
 
         return proxyComp;
     });
-    
+
+    // ─── BİRİM FİLTRESİ ───────────────────────────────────────────────────────
+    // state.isoVisibleUnits null → hepsi görünür.
+    // Set/Array ise sadece içindeki anahtarlar (KOLON / BIRIM_<sayacId>) çizilir.
+    // findPipeById tam (filtrelenmemiş) listede arar; aksi takdirde gizli kalan
+    // boruların ucuna kilitli cihazlar (sayaç çıkışı, fleks vs.) yanlış konumlanır.
+    const visibleUnits = state.isoVisibleUnits;
+    if (visibleUnits && (visibleUnits instanceof Set || Array.isArray(visibleUnits))) {
+        const visSet = visibleUnits instanceof Set ? visibleUnits : new Set(visibleUnits);
+
+        const pipeUnitKey = (pipe) => {
+            const p = pipe.parent;
+            if (p && p.tip === 'sayac') return `BIRIM_${p.hedefId}`;
+            return 'KOLON';
+        };
+        // proxyManager.findPipeById'yi tam listeye sabitle (filtreleme sonrası lookup kırılmasın).
+        const _allProxyPipes = proxyManager.pipes;
+        proxyManager._allPipes = _allProxyPipes;
+        proxyManager.findPipeById = function(id) {
+            return _allProxyPipes.find(p => p.id === id);
+        };
+
+        const componentUnitKey = (comp) => {
+            if (comp.type === 'sayac') return `BIRIM_${comp.id}`;
+            if (comp.type === 'cihaz') {
+                const pipe = proxyManager.findPipeById(comp.fleksBaglanti?.boruId);
+                return pipe ? pipeUnitKey(pipe) : 'KOLON';
+            }
+            if (comp.type === 'servis_kutusu') return 'KOLON';
+            if (comp.bagliBoruId) {
+                const pipe = proxyManager.findPipeById(comp.bagliBoruId);
+                return pipe ? pipeUnitKey(pipe) : 'KOLON';
+            }
+            return 'KOLON';
+        };
+
+        proxyManager.pipes = _allProxyPipes.filter(p => visSet.has(pipeUnitKey(p)));
+        proxyManager.components = proxyManager.components.filter(c => visSet.has(componentUnitKey(c)));
+    }
+
     return proxyManager;
 }
 

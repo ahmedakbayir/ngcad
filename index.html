@@ -1231,6 +1231,21 @@
             <line x1="4" y1="17" x2="20" y2="17" stroke="#E36B5E" stroke-width="1.6"></line>
           </svg>
         </button>
+        <div id="iso-filter-wrap" style="position: relative; display: inline-block; margin-right: 8px;">
+          <button id="iso-filter-btn" class="split-btn"
+            title="Görünür birimler (Kolon / İç Tesisat filtresi)">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="3 4 21 4 14 13 14 20 10 20 10 13 3 4"></polygon>
+            </svg>
+          </button>
+          <div id="iso-filter-menu"
+            style="display: none; position: absolute; top: 100%; right: 0; margin-top: 4px; background-color: var(--bg-popup); border: 1px solid var(--border-button); border-radius: 8px; z-index: 12000; box-shadow: 0 8px 24px rgba(0,0,0,0.55); padding: 6px 0 4px; min-width: 220px; max-height: 60vh; overflow-y: auto;">
+            <button id="iso-filter-all" class="context-menu-btn" style="font-weight: 600;">Tümünü Göster</button>
+            <div id="iso-filter-sep" style="height:1px; background: var(--border-button); margin: 4px 0;"></div>
+            <div id="iso-filter-rows"></div>
+          </div>
+        </div>
         <button id="iso-100" class="split-btn" data-ratio="100" title="Tam Ekran İzometri">
           <svg viewBox="0 0 24 24" width="24" height="24">
             <rect x="2" y="2" width="20" height="20" fill="#FFB74D" stroke="#666" stroke-width="1" />

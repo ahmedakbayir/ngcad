@@ -495,6 +495,10 @@ export let state = {
     isoPanStart: { x: 0, y: 0 },
     // İzo renklendirme modu: 'topology' (kolon/iç-tesisat sarı/mavi) veya 'diameter' (DN bazlı palet)
     isometricColorMode: 'diameter',
+    // İzo görünür birim filtresi: null = hepsi görünür. Set veya Array ise sadece
+    // içindeki anahtarlar çizilir. Anahtarlar: 'KOLON', `BIRIM_<sayacId>`.
+    // Oturumluk (localStorage'a yazılmaz); dosya açılınca null'a düşer.
+    isoVisibleUnits: null,
     // --- 3D PERSPEKTİF YAN PANEL (sadece tesisat) ---
     perspZoom: 0.5,
     perspPanOffset: { x: 0, y: 0 },
