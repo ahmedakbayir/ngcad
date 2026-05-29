@@ -322,7 +322,7 @@ export const DeviceMixin = {
 
         // 3D faktörü
         const t = state.viewBlendFactor || 0;
-        if (t > 0.1) { return; } // 3D modda baca çizme
+        if (t > 0.1) { return; } // 3D/izometride baca çizme (kullanıcı tercihi)
 
         ctx.save();
 

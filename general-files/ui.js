@@ -15,6 +15,7 @@ import { processWalls } from '../wall/wall-processor.js';
 import { findAvailableSegmentAt } from '../wall/wall-item-utils.js';
 import { renderIsometric, hitTestIsoLabel, setIsoLabelPos, cycleIsoLabelDir, relayoutIsoLabels, toIsometric, createIsoProxyManager } from '../scene3d/scene-isometric.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
+import { getActiveDiameterPalette, setActiveDiameterPalette, setActiveDiameterColor } from '../plumbing_v2/objects/pipe.js';
 import { closePropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
 import { gsap } from 'gsap';
@@ -437,6 +438,8 @@ export function toggleIsoView() {
         // İzometri ratio butonlarını göster
         const isoButtons = document.getElementById('iso-ratio-buttons');
         if (isoButtons) isoButtons.style.display = 'flex';
+        const isoPaletteCtrls = document.getElementById('iso-palette-controls');
+        if (isoPaletteCtrls) isoPaletteCtrls.style.display = 'flex';
 
         // İzometri splitter'ını göster
         dom.isoSplitter.style.display = 'block';
@@ -453,6 +456,10 @@ export function toggleIsoView() {
         // İzometri ratio butonlarını gizle
         const isoButtons = document.getElementById('iso-ratio-buttons');
         if (isoButtons) isoButtons.style.display = 'none';
+        const isoPaletteCtrls = document.getElementById('iso-palette-controls');
+        if (isoPaletteCtrls) isoPaletteCtrls.style.display = 'none';
+        const isoPaletteEditor = document.getElementById('iso-palette-editor');
+        if (isoPaletteEditor) isoPaletteEditor.style.display = 'none';
 
         // İzometri splitter'ını gizle
         dom.isoSplitter.style.display = 'none';
@@ -533,6 +540,8 @@ export function setIsoRatio(ratio) {
 
         const isoButtons = document.getElementById('iso-ratio-buttons');
         if (isoButtons) isoButtons.style.display = 'flex';
+        const isoPaletteCtrls = document.getElementById('iso-palette-controls');
+        if (isoPaletteCtrls) isoPaletteCtrls.style.display = 'flex';
 
         // Ratio'yu tekrar ayarla (recursive call ile)
         setTimeout(() => {
@@ -2107,6 +2116,9 @@ export function setupUIListeners() {
         });
     });
 
+    // İZOMETRİ RENK PALETİ — kayıtlı çap paletleri arasında geçiş
+    setupIsoPaletteControls();
+
     // İZOMETRİ ETİKETLERİ YERLEŞTİR + YOĞUN HATLARI ÖLÇEKLE
     const isoRelayoutBtn = document.getElementById('iso-relayout');
     if (isoRelayoutBtn) {
@@ -2132,6 +2144,210 @@ export function setupUIListeners() {
     }
 
     setupVisibilityPanel();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// İZOMETRİ RENK PALETİ YÖNETİMİ
+// ═══════════════════════════════════════════════════════════════
+// localStorage'da `iso_diameter_palettes_v1` altında { palettes: {name: {light, dark}}, activeName }
+// saklarız. Aktif palet pipe.js'deki getActiveDiameterPalette()'i besler.
+
+const ISO_PALETTE_STORAGE_KEY = 'iso_diameter_palettes_v1';
+
+function _loadIsoPaletteStore() {
+    try {
+        const raw = localStorage.getItem(ISO_PALETTE_STORAGE_KEY);
+        if (!raw) return { palettes: {}, activeName: '' };
+        const data = JSON.parse(raw);
+        return {
+            palettes: (data && typeof data.palettes === 'object') ? data.palettes : {},
+            activeName: (data && typeof data.activeName === 'string') ? data.activeName : ''
+        };
+    } catch (e) {
+        return { palettes: {}, activeName: '' };
+    }
+}
+
+function _saveIsoPaletteStore(store) {
+    try {
+        localStorage.setItem(ISO_PALETTE_STORAGE_KEY, JSON.stringify(store));
+    } catch (e) { /* quota — yoksay */ }
+}
+
+// Mevcut çap paletinin derin kopyasını al (kayıt için)
+function _snapshotCurrentPalette() {
+    const src = getActiveDiameterPalette();
+    const clone = (modeObj) => {
+        const out = {};
+        for (const dn in modeObj) out[dn] = [...modeObj[dn]];
+        return out;
+    };
+    return { light: clone(src.light), dark: clone(src.dark) };
+}
+
+function _refreshIsoPaletteSelect(store) {
+    const sel = document.getElementById('iso-palette-select');
+    if (!sel) return;
+    const prev = store.activeName;
+    sel.innerHTML = '';
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = 'Varsayılan';
+    sel.appendChild(defaultOpt);
+    const names = Object.keys(store.palettes).sort((a, b) => a.localeCompare(b, 'tr'));
+    for (const name of names) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        sel.appendChild(opt);
+    }
+    sel.value = (prev && store.palettes[prev]) ? prev : '';
+}
+
+function _applyIsoPaletteByName(store, name) {
+    if (name && store.palettes[name]) {
+        // localStorage'dan gelen objeyi DOĞRUDAN aktif palet yapmıyoruz —
+        // editör onu mutate edecek, biz bunu store.palettes[name]'e geri yazmak istiyoruz.
+        // Aynı referansı paylaşmak için klonlamadan veriyoruz.
+        setActiveDiameterPalette(store.palettes[name]);
+    } else {
+        setActiveDiameterPalette(null);
+    }
+}
+
+function _rgbToHex(rgb) {
+    if (!Array.isArray(rgb) || rgb.length < 3) return '#000000';
+    const c = (n) => Math.max(0, Math.min(255, n | 0)).toString(16).padStart(2, '0');
+    return `#${c(rgb[0])}${c(rgb[1])}${c(rgb[2])}`;
+}
+
+function _hexToRgb(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec((hex || '').trim());
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+}
+
+function setupIsoPaletteControls() {
+    const sel = document.getElementById('iso-palette-select');
+    const saveBtn = document.getElementById('iso-palette-save');
+    const delBtn = document.getElementById('iso-palette-delete');
+    const editBtn = document.getElementById('iso-palette-edit');
+    const editor = document.getElementById('iso-palette-editor');
+    const editorRows = document.getElementById('iso-palette-editor-rows');
+    const editorClose = document.getElementById('iso-palette-editor-close');
+    const tabBtns = editor ? Array.from(editor.querySelectorAll('.iso-palette-editor-tab')) : [];
+    if (!sel || !saveBtn || !delBtn) return;
+
+    const store = _loadIsoPaletteStore();
+    _refreshIsoPaletteSelect(store);
+    _applyIsoPaletteByName(store, store.activeName);
+
+    // Editör hangi mod sekmesinde — varsayılan body sınıfına göre
+    let editorMode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+
+    const syncTabs = () => {
+        tabBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === editorMode));
+    };
+
+    const rebuildEditorRows = () => {
+        if (!editorRows) return;
+        const pal = getActiveDiameterPalette();
+        const modeObj = pal[editorMode] || {};
+        editorRows.innerHTML = '';
+        for (const dn of Object.keys(modeObj)) {
+            const row = document.createElement('div');
+            row.className = 'iso-palette-row';
+            const lbl = document.createElement('span');
+            lbl.className = 'dn-label';
+            lbl.textContent = dn;
+            const inp = document.createElement('input');
+            inp.type = 'color';
+            inp.value = _rgbToHex(modeObj[dn]);
+            inp.dataset.dn = dn;
+            inp.addEventListener('input', () => {
+                const rgb = _hexToRgb(inp.value);
+                if (!rgb) return;
+                setActiveDiameterColor(editorMode, dn, rgb);
+                // Eğer kayıtlı bir palet aktifse, ona kalıcı yaz
+                if (store.activeName && store.palettes[store.activeName]) {
+                    store.palettes[store.activeName] = _snapshotCurrentPalette();
+                    _saveIsoPaletteStore(store);
+                }
+                drawIsoView();
+            });
+            row.appendChild(lbl);
+            row.appendChild(inp);
+            editorRows.appendChild(row);
+        }
+    };
+
+    sel.addEventListener('change', () => {
+        const name = sel.value || '';
+        store.activeName = name;
+        _applyIsoPaletteByName(store, name);
+        _saveIsoPaletteStore(store);
+        if (editor && editor.style.display !== 'none') rebuildEditorRows();
+        drawIsoView();
+    });
+
+    saveBtn.addEventListener('click', () => {
+        const suggested = store.activeName || '';
+        const name = (window.prompt('Palet adı:', suggested) || '').trim();
+        if (!name) return;
+        if (store.palettes[name]) {
+            const ok = window.confirm(`"${name}" zaten var. Üzerine yazılsın mı?`);
+            if (!ok) return;
+        }
+        store.palettes[name] = _snapshotCurrentPalette();
+        store.activeName = name;
+        _saveIsoPaletteStore(store);
+        _refreshIsoPaletteSelect(store);
+        _applyIsoPaletteByName(store, name);
+        if (editor && editor.style.display !== 'none') rebuildEditorRows();
+        drawIsoView();
+    });
+
+    delBtn.addEventListener('click', () => {
+        const name = sel.value || '';
+        if (!name) return; // Varsayılan silinemez
+        const ok = window.confirm(`"${name}" paleti silinsin mi?`);
+        if (!ok) return;
+        delete store.palettes[name];
+        store.activeName = '';
+        _saveIsoPaletteStore(store);
+        _refreshIsoPaletteSelect(store);
+        _applyIsoPaletteByName(store, '');
+        if (editor && editor.style.display !== 'none') rebuildEditorRows();
+        drawIsoView();
+    });
+
+    if (editBtn && editor) {
+        editBtn.addEventListener('click', () => {
+            const open = editor.style.display !== 'none' && editor.style.display !== '';
+            if (open) {
+                editor.style.display = 'none';
+            } else {
+                editorMode = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+                syncTabs();
+                rebuildEditorRows();
+                editor.style.display = 'flex';
+            }
+        });
+    }
+    if (editorClose && editor) {
+        editorClose.addEventListener('click', () => { editor.style.display = 'none'; });
+    }
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const mode = btn.dataset.mode;
+            if (mode !== 'light' && mode !== 'dark') return;
+            if (editorMode === mode) return;
+            editorMode = mode;
+            syncTabs();
+            rebuildEditorRows();
+        });
+    });
 }
 
 function setupVisibilityPanel() {

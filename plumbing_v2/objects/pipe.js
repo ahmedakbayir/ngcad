@@ -27,6 +27,8 @@ import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 //     DN50 (mavi) ≈ DN40 (cyan)           → DN50 derin indigoya (eski DN100'ün "iyi" rengi)
 //     DN80 (turuncu) ≈ DN20 (altın)       → DN80 kahveye (turuncu front'la karışıyordu)
 //   DN125+ kullanıcı izniyle birbirine yakın olabilir, sadece front'la benzemeyecek.
+// Yerleşik (varsayılan) çap paleti. Kullanıcı kendi paletini seçtiğinde
+// _activeDiameterPalette set edilir ve getActiveDiameterPalette() onu döner.
 export const DIAMETER_PALETTE = {
    light: {
        DN15:  [15, 165, 75],  
@@ -48,15 +50,15 @@ export const DIAMETER_PALETTE = {
    },
    dark: {
 
-       DN15:  [253, 255, 211], 
-       DN20:  [243, 171,  76], 
-       DN25:  [255,  88,  88], 
-       DN32:  [233,  91, 178], 
-       DN40:  [189,  81, 240], 
-       DN50:  [ 88, 166, 255], 
-       DN65:  [113, 255, 224], 
-       DN80:  [122, 255, 155], 
-       DN100: [218, 218, 218], 
+       DN15:  [245, 255,  46], 
+       DN20:  [255,  46,  88], 
+       DN25:  [250, 156,  32], 
+       DN32:  [255, 112, 200], 
+       DN40:  [194,  61, 255], 
+       DN50:  [ 49, 168, 254], 
+       DN65:  [126, 255, 244], 
+       DN80:  [ 36, 255,  91], 
+       DN100: [ 46, 213, 255], 
        DN125: [218, 218, 218], 
        DN150: [218, 218, 218], 
        DN200: [218, 218, 218], 
@@ -88,8 +90,37 @@ export const DIAMETER_PALETTE = {
 };
 
 
+// Aktif çap paleti — kullanıcı bir kayıtlı palet seçerse override edilir.
+// null ise yerleşik DIAMETER_PALETTE kullanılır.
+let _activeDiameterPalette = null;
+
+export function getDefaultDiameterPalette() {
+    return DIAMETER_PALETTE;
+}
+
+export function getActiveDiameterPalette() {
+    return _activeDiameterPalette || DIAMETER_PALETTE;
+}
+
+export function setActiveDiameterPalette(palette) {
+    _activeDiameterPalette = (palette && palette.light && palette.dark) ? palette : null;
+}
+
+// Tek bir DN rengini değiştir (mode: 'light'|'dark'). Varsayılan üzerindeyse
+// önce klon oluştur ki yerleşik DIAMETER_PALETTE bozulmasın.
+export function setActiveDiameterColor(mode, dn, rgb) {
+    if (!_activeDiameterPalette) {
+        _activeDiameterPalette = { light: {}, dark: {} };
+        for (const k in DIAMETER_PALETTE.light) _activeDiameterPalette.light[k] = [...DIAMETER_PALETTE.light[k]];
+        for (const k in DIAMETER_PALETTE.dark)  _activeDiameterPalette.dark[k]  = [...DIAMETER_PALETTE.dark[k]];
+    }
+    if (!_activeDiameterPalette[mode]) return;
+    if (!Array.isArray(rgb) || rgb.length !== 3) return;
+    _activeDiameterPalette[mode][dn] = [rgb[0] | 0, rgb[1] | 0, rgb[2] | 0];
+}
+
 function _buildDiameterGroups(mode) {
-    const palette = DIAMETER_PALETTE[mode];
+    const palette = getActiveDiameterPalette()[mode];
     const out = {};
     for (const dn in palette) {
         const [r, g, b] = palette[dn];

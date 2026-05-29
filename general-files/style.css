@@ -1474,6 +1474,142 @@ body.light-mode .btn.active svg {
     backdrop-filter: blur(4px);
 }
 
+/* İzometri Overlay: Renk Paleti Kontrolleri (geçici konum — sağ üst, ratio butonlarının altı) */
+#iso-palette-controls {
+    position: absolute;
+    top: 58px;
+    right: 10px;
+    z-index: 100;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    background: var(--bg-menu);
+    padding: 4px;
+    border-radius: 6px;
+    border: 1px solid var(--border-menu);
+    backdrop-filter: blur(4px);
+}
+
+#iso-palette-select {
+    background: var(--bg-button, #3c4043);
+    color: var(--color-text, #e8eaed);
+    border: 1px solid var(--border-button, #5f6368);
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 12px;
+    max-width: 180px;
+    cursor: pointer;
+}
+
+#iso-palette-select:focus {
+    outline: none;
+    border-color: #87CEEB;
+}
+
+/* İzometri Çap Renk Editörü (sağ üst, kontrollerin altında) */
+#iso-palette-editor {
+    position: absolute;
+    top: 104px;
+    right: 10px;
+    z-index: 101;
+    width: 280px;
+    max-height: calc(100% - 130px);
+    background: var(--bg-menu);
+    border: 1px solid var(--border-menu);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.iso-palette-editor-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-menu);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text, #e8eaed);
+}
+
+.iso-palette-editor-header > span {
+    flex: 0 0 auto;
+}
+
+.iso-palette-editor-tabs {
+    flex: 1 1 auto;
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+}
+
+.iso-palette-editor-tab {
+    background: var(--bg-button, #3c4043);
+    color: var(--color-text, #e8eaed);
+    border: 1px solid var(--border-button, #5f6368);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.iso-palette-editor-tab.active {
+    background: var(--bg-button-active, #4a5360);
+    border-color: #87CEEB;
+    color: var(--color-button-active, #fff);
+}
+
+.iso-palette-editor-close-btn {
+    flex: 0 0 auto;
+    background: transparent;
+    border: none;
+    color: var(--color-text, #e8eaed);
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.iso-palette-editor-close-btn:hover {
+    background: var(--bg-button-hover, #4a4f55);
+}
+
+#iso-palette-editor-rows {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 6px 10px 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+}
+
+.iso-palette-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.iso-palette-row .dn-label {
+    flex: 1 1 auto;
+    font-size: 11px;
+    color: var(--color-text, #e8eaed);
+    font-family: monospace;
+}
+
+.iso-palette-row input[type="color"] {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border-button, #5f6368);
+    border-radius: 3px;
+    background: transparent;
+    cursor: pointer;
+}
+
 /* Katı/Binayı Göster Butonu (dikdörtgen) */
 .floor-view-btn {
     padding: 6px 12px;
