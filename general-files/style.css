@@ -2340,145 +2340,119 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
 }
 .plumbing-quick-btn:active { transform: scale(0.96); }
 
-/* Hızlı Nesne Ekle Paleti — boru ucunda yüzer; 3 grup (sayaç/cihaz/tesisat) + çizim kısayolu */
+/* Hızlı Nesne Ekle Paleti — boru ucunda yüzer; düz tek grid, yatay yeniden boyutlandırılabilir.
+   Width 50–202 arası; her sütun ≈ 38 px (slot 34 + gap 4). */
 .plumbing-quick-palette {
     position: fixed;
     z-index: 1500;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 8px;
+    box-sizing: border-box;
+    padding: 6px;
+    width: 162px;       /* default ≈ 3 ikon yan yana (slot 44 + gap 4) */
+    min-width: 60px;
+    max-width: 262px;
+    max-height: 70vh;
+    overflow: auto;
+    resize: horizontal;
     background: rgba(20, 24, 36, 0.94);
     border: 1px solid rgba(120, 140, 180, 0.45);
-    border-radius: 10px;
+    border-radius: 9px;
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(6px);
     animation: popIn 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     color: rgba(220, 230, 250, 0.92);
 }
-.plumbing-quick-palette .qap-top {
-    display: flex;
-    justify-content: stretch;
+.plumbing-quick-palette *:focus { outline: none; }
+.plumbing-quick-palette .qap-action-row {
+    display: block;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(120, 140, 180, 0.2);
+    margin-bottom: 4px;
 }
-.plumbing-quick-palette .qap-draw-shortcut {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    height: 32px;
-    padding: 0 10px;
+.plumbing-quick-palette .qap-slot.qap-action {
+    width: 100%;
+    height: 36px;
+    min-height: 36px;
     background: rgba(37, 99, 235, 0.85);
-    border: 1px solid rgba(147, 197, 253, 0.7);
-    border-radius: 6px;
+    border-color: rgba(147, 197, 253, 0.7);
     color: #f3f6ff;
-    font-size: 12px;
-    font-weight: 600;
     cursor: pointer;
-    transition: background 0.12s ease, transform 0.12s ease;
+    border-radius: 5px;
 }
-.plumbing-quick-palette .qap-draw-shortcut:hover {
+.plumbing-quick-palette .qap-slot.qap-action:hover {
     background: rgba(37, 99, 235, 1);
     transform: scale(1.02);
 }
-.plumbing-quick-palette .qap-draw-shortcut svg {
-    width: 18px;
-    height: 18px;
+.plumbing-quick-palette .qap-slot.qap-action svg {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
 }
-.plumbing-quick-palette .qap-cols {
-    display: flex;
-    flex-direction: row;
-    gap: 6px;
-}
-.plumbing-quick-palette .qap-col {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
+.plumbing-quick-palette .qap-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
     gap: 4px;
-    padding: 4px;
-    border-radius: 7px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(120, 140, 180, 0.18);
-}
-.plumbing-quick-palette .qap-col-label {
-    font-size: 10px;
-    line-height: 1;
-    text-align: center;
-    color: rgba(200, 215, 245, 0.7);
-    letter-spacing: 0.4px;
-    padding: 2px 4px 4px 4px;
-    user-select: none;
-    font-weight: 600;
-}
-.plumbing-quick-palette .qap-slots {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    justify-items: center;
+    align-items: start;
 }
 .plumbing-quick-palette .qap-slot,
 .plumbing-quick-palette .qap-add {
-    width: 60px;
-    min-height: 56px;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: 4px 2px 3px 2px;
+    padding: 2px;
     background: rgba(40, 50, 70, 0.85);
     border: 1px solid rgba(120, 140, 180, 0.45);
-    border-radius: 6px;
+    border-radius: 5px;
     color: rgba(220, 230, 250, 0.92);
     cursor: pointer;
     transition: background 0.12s ease, transform 0.12s ease, border-color 0.12s ease;
     position: relative;
     box-sizing: border-box;
 }
+.plumbing-quick-palette .qap-slot { cursor: grab; }
+.plumbing-quick-palette .qap-slot:active { cursor: grabbing; }
 .plumbing-quick-palette .qap-slot:hover,
 .plumbing-quick-palette .qap-add:hover {
     background: rgba(37, 99, 235, 0.85);
     border-color: rgba(147, 197, 253, 0.95);
-    transform: scale(1.04);
+    transform: scale(1.06);
+}
+.plumbing-quick-palette .qap-slot.qap-dragging { opacity: 0.4; }
+.plumbing-quick-palette .qap-slot.qap-drop-before {
+    border-left: 2px solid rgba(147, 197, 253, 0.95);
+}
+.plumbing-quick-palette .qap-slot.qap-drop-after {
+    border-right: 2px solid rgba(147, 197, 253, 0.95);
 }
 .plumbing-quick-palette .qap-slot svg,
 .plumbing-quick-palette .qap-add svg {
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
     pointer-events: none;
-    flex: 0 0 30px;
+    flex: 0 0 36px;
 }
-.plumbing-quick-palette .qap-slot .qap-label,
-.plumbing-quick-palette .qap-draw-shortcut .qap-label {
-    font-size: 9.5px;
-    line-height: 1.1;
-    color: inherit;
-    text-align: center;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    pointer-events: none;
-    font-weight: 500;
-}
-.plumbing-quick-palette .qap-slot .qap-vana-chip {
+.plumbing-quick-palette .qap-slot .qap-label { display: none; }
+.plumbing-quick-palette .qap-slot .qap-chip {
     position: absolute;
-    right: 3px;
-    bottom: 16px;
-    font-size: 8.5px;
+    right: 1px;
+    bottom: 1px;
+    font-size: 9px;
     font-weight: 700;
     line-height: 1;
     padding: 1px 3px;
-    border-radius: 3px;
-    background: rgba(15, 20, 32, 0.95);
+    background: rgba(15, 20, 32, 0.9);
     color: #f6f8ff;
-    border: 1px solid rgba(147, 197, 253, 0.55);
+    border-radius: 2px;
     pointer-events: none;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.2px;
 }
 .plumbing-quick-palette .qap-slot .qap-combo {
     position: relative;
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
     display: block;
 }
 .plumbing-quick-palette .qap-slot .qap-combo-top,
@@ -2488,44 +2462,29 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
     display: block;
 }
 .plumbing-quick-palette .qap-slot .qap-combo-top svg {
-    width: 12px;
-    height: 12px;
+    width: 15px;
+    height: 15px;
     position: absolute;
     left: 0;
     top: 0;
 }
 .plumbing-quick-palette .qap-slot .qap-combo-bot svg {
-    width: 22px;
-    height: 22px;
+    width: 27px;
+    height: 27px;
     position: absolute;
-    right: -2px;
-    bottom: -2px;
+    right: -1px;
+    bottom: -1px;
 }
-.plumbing-quick-palette .qap-slot .qap-remove {
-    position: absolute;
-    top: -6px;
-    right: -6px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: rgba(220, 50, 60, 0.95);
-    color: #fff;
-    border: 1px solid rgba(255, 200, 200, 0.4);
-    font-size: 12px;
-    line-height: 13px;
-    text-align: center;
-    cursor: pointer;
-    display: none;
-    padding: 0;
-    z-index: 2;
-}
-.plumbing-quick-palette .qap-slot:hover .qap-remove { display: block; }
 .plumbing-quick-palette .qap-add {
     background: rgba(255, 255, 255, 0.05);
     border-style: dashed;
     border-color: rgba(147, 197, 253, 0.45);
     color: rgba(180, 200, 240, 0.7);
-    min-height: 36px;
+}
+.plumbing-quick-palette .qap-add svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
 }
 .plumbing-quick-palette .qap-add:hover {
     background: rgba(37, 99, 235, 0.45);
@@ -2533,46 +2492,99 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
     border-color: rgba(180, 210, 250, 0.9);
 }
 
+/* Context menu (sağ tık) */
+.plumbing-quick-ctxmenu {
+    position: fixed;
+    z-index: 1700;
+    min-width: 130px;
+    padding: 4px;
+    background: rgba(20, 24, 36, 0.98);
+    border: 1px solid rgba(147, 197, 253, 0.55);
+    border-radius: 6px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+    color: rgba(220, 230, 250, 0.92);
+    font-size: 11px;
+    user-select: none;
+}
+.plumbing-quick-ctxmenu .qap-ctx-item {
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1.2;
+    transition: background 0.1s ease, color 0.1s ease;
+}
+.plumbing-quick-ctxmenu .qap-ctx-item:hover:not(.qap-ctx-disabled) {
+    background: rgba(37, 99, 235, 0.85);
+    color: #fff;
+}
+.plumbing-quick-ctxmenu .qap-ctx-item.qap-ctx-danger {
+    color: rgba(248, 130, 140, 0.95);
+}
+.plumbing-quick-ctxmenu .qap-ctx-item.qap-ctx-danger:hover:not(.qap-ctx-disabled) {
+    background: rgba(220, 50, 60, 0.85);
+    color: #fff;
+}
+.plumbing-quick-ctxmenu .qap-ctx-item.qap-ctx-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+body.light-mode .plumbing-quick-ctxmenu {
+    background: rgba(252, 253, 255, 0.98);
+    border-color: rgba(60, 80, 120, 0.4);
+    color: rgba(20, 35, 70, 0.92);
+}
+
 /* Picker — bir gruba ekleyebilecek nesnelerin grid'i */
 .plumbing-quick-picker {
     position: fixed;
     z-index: 1600;
-    padding: 8px;
+    padding: 7px;
     background: rgba(18, 22, 32, 0.97);
     border: 1px solid rgba(147, 197, 253, 0.55);
-    border-radius: 10px;
+    border-radius: 9px;
     box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
     backdrop-filter: blur(8px);
     color: rgba(230, 238, 255, 0.95);
-    max-width: 260px;
+    max-width: 240px;
 }
 .plumbing-quick-picker .qap-pick-head {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
     text-align: center;
-    padding: 4px 4px 8px 4px;
+    padding: 3px 4px 6px 4px;
     color: rgba(200, 215, 245, 0.85);
-    letter-spacing: 0.4px;
+    letter-spacing: 0.3px;
     border-bottom: 1px solid rgba(120, 140, 180, 0.25);
-    margin-bottom: 6px;
+    margin-bottom: 5px;
+}
+.plumbing-quick-picker .qap-pick-section + .qap-pick-section {
+    margin-top: 6px;
+}
+.plumbing-quick-picker .qap-pick-section-head {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: rgba(180, 200, 240, 0.7);
+    letter-spacing: 0.3px;
+    padding: 2px 2px 4px 2px;
+    text-transform: uppercase;
 }
 .plumbing-quick-picker .qap-pick-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 5px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
 }
 .plumbing-quick-picker .qap-pick-item {
-    width: 70px;
-    min-height: 60px;
+    width: 50px;
+    min-height: 46px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    padding: 5px 3px 4px 3px;
+    gap: 2px;
+    padding: 3px 2px 2px 2px;
     background: rgba(40, 50, 70, 0.85);
     border: 1px solid rgba(120, 140, 180, 0.4);
-    border-radius: 6px;
+    border-radius: 5px;
     color: rgba(220, 230, 250, 0.92);
     cursor: pointer;
     transition: background 0.12s ease, transform 0.12s ease;
@@ -2584,13 +2596,13 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
     transform: scale(1.04);
 }
 .plumbing-quick-picker .qap-pick-item svg {
-    width: 30px;
-    height: 30px;
+    width: 22px;
+    height: 22px;
     pointer-events: none;
 }
 .plumbing-quick-picker .qap-pick-item .qap-label {
-    font-size: 9.5px;
-    line-height: 1.1;
+    font-size: 8.5px;
+    line-height: 1.05;
     text-align: center;
     pointer-events: none;
     max-width: 100%;
@@ -2598,25 +2610,10 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.plumbing-quick-picker .qap-pick-item .qap-vana-chip {
-    position: absolute;
-    right: 4px;
-    bottom: 18px;
-    font-size: 8.5px;
-    font-weight: 700;
-    line-height: 1;
-    padding: 1px 3px;
-    border-radius: 3px;
-    background: rgba(15, 20, 32, 0.95);
-    color: #f6f8ff;
-    border: 1px solid rgba(147, 197, 253, 0.55);
-    pointer-events: none;
-    letter-spacing: 0.3px;
-}
 .plumbing-quick-picker .qap-pick-item .qap-combo {
     position: relative;
-    width: 30px;
-    height: 30px;
+    width: 22px;
+    height: 22px;
     display: block;
 }
 .plumbing-quick-picker .qap-pick-item .qap-combo-top,
@@ -2626,27 +2623,37 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
     display: block;
 }
 .plumbing-quick-picker .qap-pick-item .qap-combo-top svg {
-    width: 12px;
-    height: 12px;
+    width: 9px;
+    height: 9px;
     position: absolute;
     left: 0;
     top: 0;
 }
 .plumbing-quick-picker .qap-pick-item .qap-combo-bot svg {
-    width: 22px;
-    height: 22px;
+    width: 17px;
+    height: 17px;
     position: absolute;
     right: -2px;
     bottom: -2px;
 }
-.plumbing-quick-picker .qap-pick-item.qap-pick-disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    background: rgba(40, 50, 70, 0.45);
+.plumbing-quick-picker .qap-pick-item.qap-pick-active {
+    background: rgba(37, 99, 235, 0.55);
+    border-color: rgba(147, 197, 253, 0.85);
+    opacity: 0.55;
 }
-.plumbing-quick-picker .qap-pick-item.qap-pick-disabled:hover {
-    transform: none;
-    background: rgba(40, 50, 70, 0.45);
+.plumbing-quick-picker .qap-pick-item.qap-pick-active::after {
+    content: '✓';
+    position: absolute;
+    top: 2px;
+    right: 3px;
+    font-size: 9px;
+    color: #fff;
+    pointer-events: none;
+}
+.plumbing-quick-picker .qap-pick-item.qap-pick-active:hover {
+    background: rgba(220, 50, 60, 0.65);
+    border-color: rgba(255, 180, 180, 0.95);
+    opacity: 1;
 }
 
 /* Açık (light) mod */
@@ -2655,13 +2662,6 @@ body.light-mode .plumbing-quick-palette {
     border-color: rgba(60, 80, 120, 0.35);
     color: rgba(20, 35, 70, 0.92);
 }
-body.light-mode .plumbing-quick-palette .qap-col {
-    background: rgba(0, 0, 0, 0.03);
-    border-color: rgba(60, 80, 120, 0.18);
-}
-body.light-mode .plumbing-quick-palette .qap-col-label {
-    color: rgba(40, 60, 100, 0.7);
-}
 body.light-mode .plumbing-quick-palette .qap-slot,
 body.light-mode .plumbing-quick-palette .qap-add {
     background: rgba(255, 255, 255, 0.92);
@@ -2669,15 +2669,9 @@ body.light-mode .plumbing-quick-palette .qap-add {
     color: rgba(20, 35, 70, 0.92);
 }
 body.light-mode .plumbing-quick-palette .qap-slot:hover,
-body.light-mode .plumbing-quick-palette .qap-add:hover,
-body.light-mode .plumbing-quick-palette .qap-draw-shortcut:hover {
+body.light-mode .plumbing-quick-palette .qap-add:hover {
     background: rgba(37, 99, 235, 1);
     color: #fff;
-}
-body.light-mode .plumbing-quick-palette .qap-slot .qap-vana-chip {
-    background: rgba(20, 35, 70, 0.92);
-    color: #fff;
-    border-color: rgba(60, 80, 120, 0.45);
 }
 body.light-mode .plumbing-quick-picker {
     background: rgba(252, 253, 255, 0.97);
@@ -2697,8 +2691,13 @@ body.light-mode .plumbing-quick-picker .qap-pick-item:hover {
     background: rgba(37, 99, 235, 1);
     color: #fff;
 }
-body.light-mode .plumbing-quick-picker .qap-pick-item.qap-pick-disabled {
-    background: rgba(0, 0, 0, 0.05);
+body.light-mode .plumbing-quick-picker .qap-pick-item.qap-pick-active {
+    background: rgba(37, 99, 235, 0.35);
+    border-color: rgba(60, 80, 120, 0.5);
+}
+body.light-mode .plumbing-quick-picker .qap-pick-item.qap-pick-active:hover {
+    background: rgba(220, 50, 60, 0.55);
+    border-color: rgba(140, 60, 70, 0.7);
 }
 
 /* Düşey Panel - Glassmorphism Tasarım */
