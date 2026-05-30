@@ -2340,6 +2340,367 @@ body.light-mode .btn-show-3d-perspective.active.last-active {
 }
 .plumbing-quick-btn:active { transform: scale(0.96); }
 
+/* Hızlı Nesne Ekle Paleti — boru ucunda yüzer; 3 grup (sayaç/cihaz/tesisat) + çizim kısayolu */
+.plumbing-quick-palette {
+    position: fixed;
+    z-index: 1500;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px;
+    background: rgba(20, 24, 36, 0.94);
+    border: 1px solid rgba(120, 140, 180, 0.45);
+    border-radius: 10px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(6px);
+    animation: popIn 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    color: rgba(220, 230, 250, 0.92);
+}
+.plumbing-quick-palette .qap-top {
+    display: flex;
+    justify-content: stretch;
+}
+.plumbing-quick-palette .qap-draw-shortcut {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 10px;
+    background: rgba(37, 99, 235, 0.85);
+    border: 1px solid rgba(147, 197, 253, 0.7);
+    border-radius: 6px;
+    color: #f3f6ff;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s ease, transform 0.12s ease;
+}
+.plumbing-quick-palette .qap-draw-shortcut:hover {
+    background: rgba(37, 99, 235, 1);
+    transform: scale(1.02);
+}
+.plumbing-quick-palette .qap-draw-shortcut svg {
+    width: 18px;
+    height: 18px;
+}
+.plumbing-quick-palette .qap-cols {
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+}
+.plumbing-quick-palette .qap-col {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(120, 140, 180, 0.18);
+}
+.plumbing-quick-palette .qap-col-label {
+    font-size: 10px;
+    line-height: 1;
+    text-align: center;
+    color: rgba(200, 215, 245, 0.7);
+    letter-spacing: 0.4px;
+    padding: 2px 4px 4px 4px;
+    user-select: none;
+    font-weight: 600;
+}
+.plumbing-quick-palette .qap-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.plumbing-quick-palette .qap-slot,
+.plumbing-quick-palette .qap-add {
+    width: 60px;
+    min-height: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 2px 3px 2px;
+    background: rgba(40, 50, 70, 0.85);
+    border: 1px solid rgba(120, 140, 180, 0.45);
+    border-radius: 6px;
+    color: rgba(220, 230, 250, 0.92);
+    cursor: pointer;
+    transition: background 0.12s ease, transform 0.12s ease, border-color 0.12s ease;
+    position: relative;
+    box-sizing: border-box;
+}
+.plumbing-quick-palette .qap-slot:hover,
+.plumbing-quick-palette .qap-add:hover {
+    background: rgba(37, 99, 235, 0.85);
+    border-color: rgba(147, 197, 253, 0.95);
+    transform: scale(1.04);
+}
+.plumbing-quick-palette .qap-slot svg,
+.plumbing-quick-palette .qap-add svg {
+    width: 30px;
+    height: 30px;
+    pointer-events: none;
+    flex: 0 0 30px;
+}
+.plumbing-quick-palette .qap-slot .qap-label,
+.plumbing-quick-palette .qap-draw-shortcut .qap-label {
+    font-size: 9.5px;
+    line-height: 1.1;
+    color: inherit;
+    text-align: center;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+    font-weight: 500;
+}
+.plumbing-quick-palette .qap-slot .qap-vana-chip {
+    position: absolute;
+    right: 3px;
+    bottom: 16px;
+    font-size: 8.5px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 3px;
+    background: rgba(15, 20, 32, 0.95);
+    color: #f6f8ff;
+    border: 1px solid rgba(147, 197, 253, 0.55);
+    pointer-events: none;
+    letter-spacing: 0.3px;
+}
+.plumbing-quick-palette .qap-slot .qap-combo {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    display: block;
+}
+.plumbing-quick-palette .qap-slot .qap-combo-top,
+.plumbing-quick-palette .qap-slot .qap-combo-bot {
+    position: absolute;
+    inset: 0;
+    display: block;
+}
+.plumbing-quick-palette .qap-slot .qap-combo-top svg {
+    width: 12px;
+    height: 12px;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+.plumbing-quick-palette .qap-slot .qap-combo-bot svg {
+    width: 22px;
+    height: 22px;
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+}
+.plumbing-quick-palette .qap-slot .qap-remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(220, 50, 60, 0.95);
+    color: #fff;
+    border: 1px solid rgba(255, 200, 200, 0.4);
+    font-size: 12px;
+    line-height: 13px;
+    text-align: center;
+    cursor: pointer;
+    display: none;
+    padding: 0;
+    z-index: 2;
+}
+.plumbing-quick-palette .qap-slot:hover .qap-remove { display: block; }
+.plumbing-quick-palette .qap-add {
+    background: rgba(255, 255, 255, 0.05);
+    border-style: dashed;
+    border-color: rgba(147, 197, 253, 0.45);
+    color: rgba(180, 200, 240, 0.7);
+    min-height: 36px;
+}
+.plumbing-quick-palette .qap-add:hover {
+    background: rgba(37, 99, 235, 0.45);
+    color: #fff;
+    border-color: rgba(180, 210, 250, 0.9);
+}
+
+/* Picker — bir gruba ekleyebilecek nesnelerin grid'i */
+.plumbing-quick-picker {
+    position: fixed;
+    z-index: 1600;
+    padding: 8px;
+    background: rgba(18, 22, 32, 0.97);
+    border: 1px solid rgba(147, 197, 253, 0.55);
+    border-radius: 10px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    color: rgba(230, 238, 255, 0.95);
+    max-width: 260px;
+}
+.plumbing-quick-picker .qap-pick-head {
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    padding: 4px 4px 8px 4px;
+    color: rgba(200, 215, 245, 0.85);
+    letter-spacing: 0.4px;
+    border-bottom: 1px solid rgba(120, 140, 180, 0.25);
+    margin-bottom: 6px;
+}
+.plumbing-quick-picker .qap-pick-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+}
+.plumbing-quick-picker .qap-pick-item {
+    width: 70px;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 5px 3px 4px 3px;
+    background: rgba(40, 50, 70, 0.85);
+    border: 1px solid rgba(120, 140, 180, 0.4);
+    border-radius: 6px;
+    color: rgba(220, 230, 250, 0.92);
+    cursor: pointer;
+    transition: background 0.12s ease, transform 0.12s ease;
+    position: relative;
+    box-sizing: border-box;
+}
+.plumbing-quick-picker .qap-pick-item:hover {
+    background: rgba(37, 99, 235, 0.85);
+    transform: scale(1.04);
+}
+.plumbing-quick-picker .qap-pick-item svg {
+    width: 30px;
+    height: 30px;
+    pointer-events: none;
+}
+.plumbing-quick-picker .qap-pick-item .qap-label {
+    font-size: 9.5px;
+    line-height: 1.1;
+    text-align: center;
+    pointer-events: none;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.plumbing-quick-picker .qap-pick-item .qap-vana-chip {
+    position: absolute;
+    right: 4px;
+    bottom: 18px;
+    font-size: 8.5px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 3px;
+    background: rgba(15, 20, 32, 0.95);
+    color: #f6f8ff;
+    border: 1px solid rgba(147, 197, 253, 0.55);
+    pointer-events: none;
+    letter-spacing: 0.3px;
+}
+.plumbing-quick-picker .qap-pick-item .qap-combo {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    display: block;
+}
+.plumbing-quick-picker .qap-pick-item .qap-combo-top,
+.plumbing-quick-picker .qap-pick-item .qap-combo-bot {
+    position: absolute;
+    inset: 0;
+    display: block;
+}
+.plumbing-quick-picker .qap-pick-item .qap-combo-top svg {
+    width: 12px;
+    height: 12px;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+.plumbing-quick-picker .qap-pick-item .qap-combo-bot svg {
+    width: 22px;
+    height: 22px;
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+}
+.plumbing-quick-picker .qap-pick-item.qap-pick-disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    background: rgba(40, 50, 70, 0.45);
+}
+.plumbing-quick-picker .qap-pick-item.qap-pick-disabled:hover {
+    transform: none;
+    background: rgba(40, 50, 70, 0.45);
+}
+
+/* Açık (light) mod */
+body.light-mode .plumbing-quick-palette {
+    background: rgba(248, 250, 254, 0.96);
+    border-color: rgba(60, 80, 120, 0.35);
+    color: rgba(20, 35, 70, 0.92);
+}
+body.light-mode .plumbing-quick-palette .qap-col {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(60, 80, 120, 0.18);
+}
+body.light-mode .plumbing-quick-palette .qap-col-label {
+    color: rgba(40, 60, 100, 0.7);
+}
+body.light-mode .plumbing-quick-palette .qap-slot,
+body.light-mode .plumbing-quick-palette .qap-add {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(60, 80, 120, 0.35);
+    color: rgba(20, 35, 70, 0.92);
+}
+body.light-mode .plumbing-quick-palette .qap-slot:hover,
+body.light-mode .plumbing-quick-palette .qap-add:hover,
+body.light-mode .plumbing-quick-palette .qap-draw-shortcut:hover {
+    background: rgba(37, 99, 235, 1);
+    color: #fff;
+}
+body.light-mode .plumbing-quick-palette .qap-slot .qap-vana-chip {
+    background: rgba(20, 35, 70, 0.92);
+    color: #fff;
+    border-color: rgba(60, 80, 120, 0.45);
+}
+body.light-mode .plumbing-quick-picker {
+    background: rgba(252, 253, 255, 0.97);
+    border-color: rgba(60, 80, 120, 0.4);
+    color: rgba(20, 35, 70, 0.92);
+}
+body.light-mode .plumbing-quick-picker .qap-pick-head {
+    color: rgba(20, 35, 70, 0.85);
+    border-color: rgba(60, 80, 120, 0.25);
+}
+body.light-mode .plumbing-quick-picker .qap-pick-item {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(60, 80, 120, 0.35);
+    color: rgba(20, 35, 70, 0.92);
+}
+body.light-mode .plumbing-quick-picker .qap-pick-item:hover {
+    background: rgba(37, 99, 235, 1);
+    color: #fff;
+}
+body.light-mode .plumbing-quick-picker .qap-pick-item.qap-pick-disabled {
+    background: rgba(0, 0, 0, 0.05);
+}
+
 /* Düşey Panel - Glassmorphism Tasarım */
 .vertical-panel {
     /* fixed: panel #p2d içinde ama p2d genişliği 0 olduğunda (örn. 3D persp %100)

@@ -1019,6 +1019,40 @@
         </svg>
       </button>
 
+      <button id="plumbing-quick-add-objects" class="plumbing-quick-btn" title="Nesne Ekle" style="display:none;">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M12 5v14M5 12h14"
+                fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+
+      <div id="plumbing-quick-add-palette" class="plumbing-quick-palette" style="display:none;">
+        <div class="qap-top">
+          <button class="qap-draw-shortcut" title="Çizime devam et / yeni hat başlat (Boru)">
+            <svg viewBox="0 0 24 24" stroke="currentColor" fill="none">
+              <rect x="3" y="9" width="18" height="6" rx="1" stroke-width="1.6"/>
+              <line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="2 2" stroke-width="1"/>
+            </svg>
+            <span class="qap-label">Çizim</span>
+          </button>
+        </div>
+        <div class="qap-cols">
+          <div class="qap-col" data-group="meter">
+            <div class="qap-col-label">Sayaç &amp; Vana</div>
+            <div class="qap-slots"></div>
+          </div>
+          <div class="qap-col" data-group="device">
+            <div class="qap-col-label">Cihaz</div>
+            <div class="qap-slots"></div>
+          </div>
+          <div class="qap-col" data-group="fitting">
+            <div class="qap-col-label">Tesisat</div>
+            <div class="qap-slots"></div>
+          </div>
+        </div>
+      </div>
+
       <div id="vertical-height-panel" class="vertical-panel" style="display: none;">
         <div class="glass-effect"></div>
         <div class="vertical-header">

@@ -28,6 +28,7 @@ import { getObjectAtPoint } from '../general-files/actions.js';
 import { state, dom, getWallFillColor, getCanvasClearColor, THEME_COLORS, isLightMode } from '../general-files/main.js';
 import { getCameraViewInfo } from '../scene3d/scene3d-camera.js';
 import { updateQuickActionButtonPosition } from '../plumbing_v2/interactions/quick-action-button.js';
+import { updateQuickAddPalettePosition } from '../plumbing_v2/interactions/quick-add-palette.js';
 
 
 
@@ -656,4 +657,6 @@ export function draw2D() {
 
     // 15. Yüzer hızlı eylem butonu (iniş çıkış) — pan/zoom ile birlikte takip
     updateQuickActionButtonPosition();
+    // 15b. Yüzer hızlı nesne ekleme paleti (sayaç / cihaz / tesisat nesnesi)
+    updateQuickAddPalettePosition();
 }

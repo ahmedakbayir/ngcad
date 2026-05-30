@@ -14,6 +14,7 @@ import { getFloorAtElevation } from '../floor/floor-handler.js';
 import { calculate3DSnap } from '../plumbing_v2/interactions/pipe-drawing.js';
 import { hitTestLabel, startLabelDrag, rotateLabelDir } from '../plumbing_v2/renderer/renderer-labels.js';
 import { maybeShowQuickActionButton, hideQuickActionButton } from '../plumbing_v2/interactions/quick-action-button.js';
+import { maybeShowQuickAddPalette, hideQuickAddPalette } from '../plumbing_v2/interactions/quick-add-palette.js';
 
 /**
  * 3D perspektif modda bir boruya tıklandığında, tıklama noktasının
@@ -139,7 +140,7 @@ export function handlePointerDown(e) {
 
     // Sol/sağ tık önce mevcut hızlı eylem butonunu kapatır; pipe seçildiğinde
     // aşağıda yeniden gösterilecek. Middle button (pan) butonu yerinde bırakır.
-    if (e.button === 0 || e.button === 2) hideQuickActionButton();
+    if (e.button === 0 || e.button === 2) { hideQuickActionButton(); hideQuickAddPalette(); }
 
     // Double-click detection
     const currentTime = Date.now();
@@ -409,6 +410,7 @@ export function handlePointerDown(e) {
                 // Doğrudan gövdeden sürükleme: ALT ile (taşıma) veya CTRL ile (kopya)
                 if (e.altKey || e.ctrlKey) this.startBodyDrag(pipe, point);
                 maybeShowQuickActionButton(this, point, pipe);
+                maybeShowQuickAddPalette(this, point, pipe);
                 return true;
             }
         }
@@ -461,6 +463,7 @@ export function handlePointerDown(e) {
             // Doğrudan gövdeden sürükleme: ALT ile (taşıma) veya CTRL ile (kopya)
             if (e.altKey || e.ctrlKey) this.startBodyDrag(pipe, point);
             maybeShowQuickActionButton(this, point, pipe);
+            maybeShowQuickAddPalette(this, point, pipe);
             return true;
         }
 
@@ -545,6 +548,7 @@ export function handlePointerDown(e) {
             if (hitObject.type === 'boru') {
                 const pipe = hitObject;
                 maybeShowQuickActionButton(this, point, pipe);
+                maybeShowQuickAddPalette(this, point, pipe);
                 const bagliKutu = this.manager.components.find(c =>
                     c.type === 'servis_kutusu' && c.bagliBoruId === pipe.id
                 );

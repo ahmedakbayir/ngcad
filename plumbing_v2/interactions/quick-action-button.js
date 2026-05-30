@@ -224,7 +224,7 @@ export function updateQuickActionButtonPosition() {
     let perpY = dirX;
     if (perpY > 0) { perpX = -perpX; perpY = -perpY; }
 
-    const BACK = 30; // px — hat boyunca geriye
+    const BACK = 50; // px — hat boyunca geriye
     const SIDE = 30; // px — hattan yana kayma
     const bw = el.offsetWidth  || 22;
     const bh = el.offsetHeight || 22;
