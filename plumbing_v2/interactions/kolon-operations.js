@@ -325,5 +325,13 @@ export function pasteFloorPlumbingToAllFloors(interactionManager, anchorPipe, in
     syncAllFloorAssignments(manager);
     recomputeAllPressures(manager);
     manager.saveToState();
+
+    // Pano ghost'unu temizle — kullanıcı mouse'ta hala paste-preview kalmasın.
+    if (interactionManager) {
+        interactionManager.copiedPipes = null;
+        interactionManager.cutPipes = null;
+        interactionManager._pasteSnapOverride = null;
+    }
+
     draw2D();
 }

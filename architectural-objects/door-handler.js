@@ -255,6 +255,9 @@ export function onPointerMove(unsnappedPos) {
             door.wall = closestWall;
             door.pos = finalPos;
             door.width = finalWidth;
+            // door.floorId hedef duvarın floor'una sabitle — drag sonrası
+            // kapı yanlışlıkla farklı bir katın duvarına atanmış görünmesin.
+            door.floorId = closestWall.floorId || door.floorId;
 
         }
     } else {

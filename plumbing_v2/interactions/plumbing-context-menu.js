@@ -4,7 +4,7 @@
  */
 
 import { saveState } from '../../general-files/history.js';
-import { handlePipeCopy, handlePipeCut } from './keyboard-handler.js';
+import { handlePipeCopy, handlePipeCut, handleSayacIcTesisatCopy, handlePipePaste } from './keyboard-handler.js';
 import { findBoruGovdeAt, findObjectAt } from './finders.js';
 import { Boru } from '../objects/pipe.js';
 import { setMode, setDrawingMode, state } from '../../general-files/main.js';
@@ -39,6 +39,16 @@ function getPipeTarget(menuState) {
     if (menuState.pipe) return menuState.pipe;
     const sel = menuState.interactionManager?.selectedObject;
     if (sel && sel.type === 'boru') return sel;
+    return null;
+}
+
+// Sayaç hedefini bul — sağ tıklanan komponent veya seçili sayaç
+function getSayacTarget(menuState) {
+    if (menuState.clickedComponent && menuState.clickedComponent.type === 'sayac') {
+        return menuState.clickedComponent;
+    }
+    const sel = menuState.interactionManager?.selectedObject;
+    if (sel && sel.type === 'sayac') return sel;
     return null;
 }
 
@@ -694,9 +704,18 @@ function initMenu() {
     });
 
     // ── Kopyala ────────────────────────────────────────────────────────────
+    // Sayaç → iç tesisat kopyala (downstream + sayaç + bağlantı bilgileri)
+    // Boru   → klasik boru/zincir kopyala
     document.getElementById('plumbing-btn-copy').addEventListener('click', () => {
         if (!menuState) return;
         const { interactionManager } = menuState;
+        const sayac = getSayacTarget(menuState);
+        if (sayac) {
+            interactionManager.selectedObject = sayac;
+            handleSayacIcTesisatCopy.call(interactionManager);
+            hide();
+            return;
+        }
         const pipe = getPipeTarget(menuState);
         if (pipe) {
             interactionManager.selectedObject = pipe;
@@ -704,6 +723,36 @@ function initMenu() {
         }
         hide();
     });
+
+    // ── Yapıştır ───────────────────────────────────────────────────────────
+    // Hedef boru ucuna kopya yerleştirir. Sayaç-paste modunda boru ucundaki
+    // BRANSMAN vana otomatik EMNIYET'e dönüşür, vana yoksa yeni EMNIYET eklenir.
+    const btnPaste = document.getElementById('plumbing-btn-paste');
+    if (btnPaste) {
+        btnPaste.addEventListener('click', () => {
+            if (!menuState) return;
+            const { interactionManager: im, pipe, nokta, worldPos } = menuState;
+            if (!im?.copiedPipes && !im?.cutPipes) { hide(); return; }
+            const targetPipe = pipe || getPipeTarget(menuState);
+            if (!targetPipe) { hide(); return; }
+            // Sağ tıklanan noktayı boru uçlarından yakın olana snap'le; aksi takdirde
+            // tıklama noktası kullanılır. Sayaç-paste yakın uca tutunmak ister.
+            const refPt = nokta || worldPos;
+            const ep1 = targetPipe.p1, ep2 = targetPipe.p2;
+            const dP1 = Math.hypot(ep1.x - refPt.x, ep1.y - refPt.y, (ep1.z || 0) - (refPt.z || 0));
+            const dP2 = Math.hypot(ep2.x - refPt.x, ep2.y - refPt.y, (ep2.z || 0) - (refPt.z || 0));
+            const targetEnd = dP1 <= dP2 ? ep1 : ep2;
+            im._pasteSnapOverride = {
+                snapPipeId: targetPipe.id,
+                x: targetEnd.x,
+                y: targetEnd.y,
+                z: targetEnd.z || 0,
+            };
+            im.lastMousePoint = { x: targetEnd.x, y: targetEnd.y, z: targetEnd.z || 0 };
+            try { handlePipePaste.call(im); } finally { im._pasteSnapOverride = null; }
+            hide();
+        });
+    }
 
     // ── Hattı Böl ──────────────────────────────────────────────────────────
     document.getElementById('plumbing-btn-split').addEventListener('click', () => {
@@ -999,9 +1048,13 @@ export function showPlumbingContextMenu(screenX, screenY, worldPos, interactionM
     menuState = { worldPos, pipe, nokta, t, interactionManager, clickedComponent };
 
     const hasPipe = !!getPipeTarget(menuState);
+    const hasSayac = !!getSayacTarget(menuState);
+    const hasClipboard = !!(interactionManager?.copiedPipes || interactionManager?.cutPipes);
 
     document.getElementById('plumbing-btn-cut').disabled = !hasPipe;
-    document.getElementById('plumbing-btn-copy').disabled = !hasPipe;
+    document.getElementById('plumbing-btn-copy').disabled = !(hasPipe || hasSayac);
+    const btnPaste = document.getElementById('plumbing-btn-paste');
+    if (btnPaste) btnPaste.disabled = !(hasClipboard && hasPipe);
     document.getElementById('plumbing-btn-split').disabled = !pipe; // Böl sadece gövdeye tıklanınca
     const btnInisCikis = document.getElementById('plumbing-btn-inis-cikis');
     if (btnInisCikis) btnInisCikis.disabled = !hasPipe; // Boru ucu için boru hedefi yeter

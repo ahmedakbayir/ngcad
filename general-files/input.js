@@ -786,8 +786,19 @@ function onKeyDown(e) {
 
         // Grup seçimi varsa, tüm grup nesnelerini hareket ettir
         if (state.selectedGroup.length > 0) {
+            const currentFloorIdGroup = state.currentFloor?.id || null;
             state.selectedGroup.forEach(selectedItem => {
                 const obj = selectedItem.object;
+                // Kapı/pencere/menfez gibi mimari nesneler için: yalnızca
+                // sürüklediğimiz katın nesneleri hareket etsin. Aynı duvar
+                // koordinatına sahip başka katların kapıları taşınmasın.
+                if (selectedItem.type === 'door' || selectedItem.type === 'window' || selectedItem.type === 'vent') {
+                    const itemFloorId = obj?.floorId
+                        || selectedItem.wall?.floorId
+                        || obj?.wall?.floorId
+                        || null;
+                    if (currentFloorIdGroup && itemFloorId && itemFloorId !== currentFloorIdGroup) return;
+                }
 
                 if (selectedItem.type === 'column' && obj.center) {
                     obj.center.x += deltaX;

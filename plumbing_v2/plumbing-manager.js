@@ -673,24 +673,35 @@ export class PlumbingManager {
         };
 
         // 1. Önce uç noktaları kontrol et (handle'lar)
-        const endpointTolerance = 8; // Nokta seçimi için 8 cm
+        // Tüm eşleşen adayları topla; aynı ekran konumuna düşen dikey borularda
+        // önce SERBEST UCU (bağlantısız) seçelim. Eşitlik halinde p2 tercihi.
+        const endpointTolerance = 8;
+        let bestEp = null;
+        let bestEpScore = -Infinity;
         for (const pipe of pipes) {
             if (!floorMatches(pipe.floorId)) continue;
             if (!pipe.p1 || !pipe.p2) continue;
 
-            // Uç noktaların izdüşümlerini hesapla
             const p1Screen = getScreenPoint(pipe.p1);
             const distP1 = Math.hypot(pos.x - p1Screen.x, pos.y - p1Screen.y);
-            if (distP1 < endpointTolerance) {
-                return { type: 'pipe', object: pipe, handle: 'p1' };
-            }
-
             const p2Screen = getScreenPoint(pipe.p2);
             const distP2 = Math.hypot(pos.x - p2Screen.x, pos.y - p2Screen.y);
-            if (distP2 < endpointTolerance) {
-                return { type: 'pipe', object: pipe, handle: 'p2' };
+
+            for (const [end, dist] of [['p2', distP2], ['p1', distP1]]) {
+                if (dist >= endpointTolerance) continue;
+                const bag = end === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
+                const isFree = !bag || (Array.isArray(bag) ? bag.length === 0 : false);
+                // Score: yakınlık (yüksek = iyi) + serbestlik bonusu + p2 önceliği
+                const score = (endpointTolerance - dist) * 10
+                            + (isFree ? 100 : 0)
+                            + (end === 'p2' ? 1 : 0);
+                if (score > bestEpScore) {
+                    bestEpScore = score;
+                    bestEp = { type: 'pipe', object: pipe, handle: end };
+                }
             }
         }
+        if (bestEp) return bestEp;
 
         // 2 + 3. Bileşen ve pipe gövde adaylarını topla, EN YAKINI seç
         // (Önceki kod sayaç toleransını 20 cm'e açıp pipe gövdesinden ÖNCE döndürüyordu;

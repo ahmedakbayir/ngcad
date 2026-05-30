@@ -960,6 +960,30 @@ export const PreviewMixin = {
             }
         }
 
+        // Anchor crosshair — kullanıcı kursörün geometride neyi temsil ettiğini
+        // her zaman görsün (snap olmasa bile). refPt = sayaç-paste'te sayaçın
+        // giriş borusu ucu (= flex bağlantı noktası).
+        if (!hasSnap) {
+            const ax = refPt.x + (refPt.z || 0) * t;
+            const ay = refPt.y - (refPt.z || 0) * t;
+            ctx.save();
+            ctx.globalAlpha = 0.95;
+            ctx.strokeStyle = '#FFD24A';
+            ctx.lineWidth = 1.6 / zoom;
+            const r = 6 / zoom;
+            ctx.beginPath();
+            ctx.moveTo(ax - r, ay);
+            ctx.lineTo(ax + r, ay);
+            ctx.moveTo(ax, ay - r);
+            ctx.lineTo(ax, ay + r);
+            ctx.stroke();
+            ctx.fillStyle = '#FFD24A';
+            ctx.beginPath();
+            ctx.arc(ax, ay, 2.2 / zoom, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
         // Ghost alpha: snap + geçerli → opak; snap yok → soluk
         ctx.globalAlpha = hasSnap && !hasConflict
             ? (isCut ? 0.55 : 0.75)

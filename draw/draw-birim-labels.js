@@ -186,7 +186,22 @@ export function computeUnitBirims(overrideFloorId) {
         const birimTipi = classifyUnit(unitRooms);
         if (!birimTipi) continue; // BİRİM HARİCİ → etiket yok
 
-        seen.add(door);
+        // Bu birimin TÜM giriş kapılarını seen'e ekle — her kapıya ayrı
+        // etiket basılmasın, birim başına yalnızca 1 etiket olsun.
+        const unitRoomSet = new Set(unitRooms);
+        for (const d of fDoors) {
+            if (seen.has(d)) continue;
+            if (!d.wall) continue;
+            const adj = getRoomsAdjacentToWall(d.wall, fRooms);
+            // d, bu birimi sahanlık/bahçe ile veya dışarıyla bağlayan kapı mı?
+            const inUnit = adj.some(r => unitRoomSet.has(r));
+            if (!inUnit) continue;
+            const otherSide = adj.filter(r => !unitRoomSet.has(r));
+            // Hiç dış komşu yok (iki tarafı da birim içi) veya dış komşu separator/dış → bu birime ait giriş kapısıdır
+            const isUnitEntry = otherSide.length === 0
+                || otherSide.every(r => separators.includes(r));
+            if (isUnitEntry) seen.add(d);
+        }
 
         // Kapı merkezi (dünya koordinatı)
         const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
@@ -480,6 +495,7 @@ export function syncBirimState() {
             if (rn !== sayacNo) { r.birimNo = sayacNo; changed = true; }
         }
     }
+
     if (changed) invalidateBirimCache();
     return changed;
 }
@@ -584,7 +600,6 @@ export function drawBirimLabels(ctx2d, st) {
         ctx2d.fillStyle = color;
         ctx2d.font = `bold ${fontSize}px "Segoe UI","Roboto","Helvetica Neue",sans-serif`;
         ctx2d.globalAlpha = 1;
-        // Çok satır: ilk satırı baseline'da, sonraki satırları fontSize aralığıyla aşağıya
         labelLines.forEach((line, i) => {
             ctx2d.fillText(line, 0, i * fontSize);
         });

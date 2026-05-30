@@ -1749,6 +1749,15 @@ export function handlePipePaste() {
             : null;
 
         if (newSayac && targetPipe && snapInfoSayac) {
+            // Hedef kat kaynak kattan farklıysa, pasted sayaç'ın birimNo'sunu
+            // temizle. Aksi takdirde syncBirimState bu değeri hedef kattaki
+            // birim odalarına yazıp mevcut numaraları (örn. "1") eziyor.
+            const srcFloorId = sayacSrc?.data?.floorId;
+            const targetFloorId = targetPipe.floorId;
+            if (srcFloorId && targetFloorId && srcFloorId !== targetFloorId) {
+                newSayac.birimNo = '';
+            }
+
             const dP1 = Math.hypot(
                 targetPipe.p1.x - snapInfoSayac.x,
                 targetPipe.p1.y - snapInfoSayac.y,
@@ -1762,19 +1771,42 @@ export function handlePipePaste() {
             const targetEnd = dP1 <= dP2 ? 'p1' : 'p2';
             const targetPt = targetEnd === 'p1' ? targetPipe.p1 : targetPipe.p2;
 
-            const existingVana = this.checkVanaAtPoint(targetPt);
+            // Vana arama: koordinat tabanlı kontrol fixedDistance/floor offset
+            // farklarında kaçırıyordu. Topolojik arama önce:
+            //  1) bagliBoruId === targetPipe.id && fromEnd === targetEnd olan vana
+            //  2) yoksa targetPipe.id'ye bağlı tek vana (fromEnd undefined olabilir)
+            //  3) son çare olarak 10cm toleranslı koordinat aramasi
+            let existingVana = this.manager.components.find(c =>
+                c.type === 'vana' &&
+                c.bagliBoruId === targetPipe.id &&
+                c.fromEnd === targetEnd
+            ) || this.manager.components.find(c =>
+                c.type === 'vana' &&
+                c.bagliBoruId === targetPipe.id &&
+                Math.hypot(c.x - targetPt.x, c.y - targetPt.y, (c.z || 0) - (targetPt.z || 0)) < 12
+            ) || this.checkVanaAtPoint(targetPt, 10);
             let vanaToLink = null;
 
             if (existingVana && existingVana.vanaTipi !== 'YAN_BINA') {
-                if (existingVana.vanaTipi === 'BRANSMAN') {
-                    if (typeof existingVana.bransmandanSayacVanasiyaDonustur === 'function') {
+                // Sayaç eklenirken hedef ucundaki HER vana EMNIYET'e döner
+                // (BRANSMAN, AKV, SEL — hepsi sayaç önü emniyet vanası rolüne geçer).
+                if (existingVana.vanaTipi !== 'EMNIYET') {
+                    if (existingVana.vanaTipi === 'BRANSMAN' &&
+                        typeof existingVana.bransmandanSayacVanasiyaDonustur === 'function') {
                         existingVana.bransmandanSayacVanasiyaDonustur();
                     } else {
                         existingVana.vanaTipi = 'EMNIYET';
                     }
-                    if (existingVana.birimNo != null && existingVana.birimNo !== '') {
-                        newSayac.birimNo = existingVana.birimNo;
+                    // BRANSMAN → EMNIYET: sonlanma fixedDistance (1) ara vanası
+                    // mesafesine (~4) güncellensin, vana boru ucundan biraz içeri kaysın.
+                    const VANA_GENISLIGI_FIX = 8;
+                    existingVana.fixedDistance = VANA_GENISLIGI_FIX / 2;
+                    if (typeof existingVana.updatePositionFromPipe === 'function') {
+                        existingVana.updatePositionFromPipe(targetPipe);
                     }
+                }
+                if (existingVana.birimNo != null && existingVana.birimNo !== '') {
+                    newSayac.birimNo = existingVana.birimNo;
                 }
                 vanaToLink = existingVana;
             } else if (!existingVana) {
