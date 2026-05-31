@@ -6,6 +6,7 @@ import { state, isObjectInteractable, dom } from './main.js';
 import { getColumnAtPoint } from '../architectural-objects/columns.js';
 import { getBeamAtPoint } from '../architectural-objects/beams.js';
 import { getStairAtPoint } from '../architectural-objects/stairs.js';
+import { getArchDeviceAtPoint } from '../architectural-objects/arch-devices.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { getDoorAtPoint } from '../architectural-objects/door-handler.js';
 import { getGuideAtPoint } from '../architectural-objects/guide-handler.js';
@@ -149,6 +150,10 @@ export function getObjectAtPoint(pos) {
         }
     }
 
+    // 1.05 Mimari cihaz handle (alarm cihazları + yangın tüpü) — küçük nesneler olduğu için handle önce gelmeli
+    const archDeviceHit = getArchDeviceAtPoint(pos);
+    if (archDeviceHit && archDeviceHit.handle !== 'body') return validateFloorMatch(archDeviceHit, currentFloorId);
+
     // 1.1 Kolon Handle
     const columnHandleHit = getColumnAtPoint(pos);
     if (columnHandleHit && columnHandleHit.handle !== 'body') return columnHandleHit;
@@ -240,6 +245,9 @@ export function getObjectAtPoint(pos) {
         const result = { type: 'baca', object: pipeHandleHit.object, handle: pipeHandleHit.handle };
         return validateFloorMatch(result, currentFloorId);
     }
+
+    // 2.55 Mimari Cihaz Gövdesi (küçük nesne — kolon/kiriş öncesi)
+    if (archDeviceHit && archDeviceHit.handle === 'body') return validateFloorMatch(archDeviceHit, currentFloorId);
 
     // 2.6 Kiriş Gövdesi
     if (beamHandleHit && beamHandleHit.handle === 'body') return beamHandleHit;

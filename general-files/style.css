@@ -491,6 +491,18 @@ body.light-mode .group-label {
     height: 22px;
 }
 
+/* Mimari nesneler flyout: ikonların iç metni okunsun diye biraz büyük */
+#mimari-toolbox-flyout .flyout-btn svg {
+    width: 30px;
+    height: 30px;
+}
+#mimari-toolbox-flyout .flyout-btn {
+    min-width: 96px;
+    padding-left: 10px;
+    padding-right: 10px;
+    white-space: nowrap;
+}
+
 
 #bTesisatToolbox.flyout-open,
 #bHesapAutoCap.flyout-open {

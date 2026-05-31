@@ -255,6 +255,9 @@ export function handleDelete() {
             if (item.type === 'column') {
                 state.columns = state.columns.filter(c => c !== item.object);
                 deleted = true;
+            } else if (item.type === 'archDevice') {
+                state.archDevices = (state.archDevices || []).filter(d => d !== item.object);
+                deleted = true;
             } else if (item.type === 'beam') {
                 state.beams = state.beams.filter(b => b !== item.object);
                 deleted = true;
@@ -302,6 +305,10 @@ export function handleDelete() {
         }
         else if (objType === 'column') {
             state.columns = state.columns.filter(c => c !== selectedObjectSnapshot.object);
+            deleted = true;
+        }
+        else if (objType === 'archDevice') {
+            state.archDevices = (state.archDevices || []).filter(d => d !== selectedObjectSnapshot.object);
             deleted = true;
         }
         else if (objType === 'beam') {

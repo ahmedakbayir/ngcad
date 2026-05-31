@@ -3,6 +3,7 @@ import { onPointerMoveGuide, getGuideAtPoint } from '../architectural-objects/gu
 import { onPointerMove as onPointerMoveDoor } from '../architectural-objects/door-handler.js';
 import { onPointerMove as onPointerMoveWindow } from '../architectural-objects/window-handler.js';
 import { onPointerMove as onPointerMoveColumn, getColumnAtPoint, isPointInColumn } from '../architectural-objects/columns.js';
+import { onPointerMoveArchDevice, isPointInArchDevice } from '../architectural-objects/arch-devices.js';
 import { onPointerMove as onPointerMoveBeam, getBeamAtPoint, isPointInBeam } from '../architectural-objects/beams.js';
 import { onPointerMove as onPointerMoveStairs, getStairAtPoint, isPointInStair } from '../architectural-objects/stairs.js';
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
@@ -106,6 +107,19 @@ export function onPointerMove(e) {
             const newColumns = state.columns.filter(c => !columnsToDeleteArray.includes(c));
             setState({ columns: newColumns });
             needsProcessing = true;
+        }
+
+        // Mimari cihaz (alarm/yangın tüpü) silme
+        const archDevicesToDelete = new Set();
+        for (const device of (state.archDevices || [])) {
+            if (isPointInArchDevice(mousePos, device)) {
+                archDevicesToDelete.add(device);
+            }
+        }
+        if (archDevicesToDelete.size > 0) {
+            const toDelete = Array.from(archDevicesToDelete);
+            setState({ archDevices: state.archDevices.filter(d => !toDelete.includes(d)) });
+            // archDevice silmek processWalls gerektirmez, ama mevcut akış zaten en sonda çağırıyor.
         }
 
         // Kiriş silme
@@ -315,6 +329,7 @@ export function onPointerMove(e) {
                 break;
             }
             case 'column': onPointerMoveColumn(snappedPos, unsnappedPos); break;
+            case 'archDevice': onPointerMoveArchDevice(snappedPos, unsnappedPos); break;
             case 'beam': onPointerMoveBeam(snappedPos, unsnappedPos); break;
             case 'stairs': onPointerMoveStairs(snappedPos, unsnappedPos); break;
             case 'plumbingBlock': {

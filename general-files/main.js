@@ -25,6 +25,7 @@ import '../plumbing_v2/error-check/checkers/vana-flans/index.js';
 import '../plumbing_v2/error-check/checkers/mahal-hacim-menfez/index.js';
 import '../plumbing_v2/error-check/checkers/cihaz-marka-model/index.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
+import { ARCH_DEVICE_KINDS } from '../architectural-objects/arch-devices.js';
 // --- DEĞİŞİKLİK BURADA ---
 import { updateFirstPersonCamera, setupFirstPersonMouseControls, isFPSMode } from '../scene3d/scene3d-camera.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
@@ -361,6 +362,8 @@ export let state = {
     columns: [],
     beams: [],
     stairs: [],
+    archDevices: [], // Mahal içi cihazlar (gaz/CO/deprem alarm + yangın tüpü)
+    archDevicePlacementKind: null, // drawArchDevice modunda yerleştirilecek cihaz tipi
     plumbingBlocks: [], // TESİSAT BLOKLARI
     plumbingPipes: [], // TESİSAT BORULARI
     clipboard: null, // <-- YENİ SATIR EKLE
@@ -615,6 +618,12 @@ export const dom = {
     bColumn: document.getElementById("bColumn"),
     bBeam: document.getElementById("bBeam"),
     bStairs: document.getElementById("bStairs"),
+    bMimariNesneler: document.getElementById("bMimariNesneler"),
+    mimariToolboxFlyout: document.getElementById("mimari-toolbox-flyout"),
+    bGazAlarm: document.getElementById("bGazAlarm"),
+    bCoAlarm: document.getElementById("bCoAlarm"),
+    bDepremAlarm: document.getElementById("bDepremAlarm"),
+    bYanginTupu: document.getElementById("bYanginTupu"),
     bServisKutusu: document.getElementById("bServisKutusu"),
     bSayac: document.getElementById("bSayac"),
     bVana: document.getElementById("bVana"),
@@ -739,7 +748,7 @@ export function setDrawingMode(mode) {
     setState({ currentDrawingMode: mode });
 
     // Hangi modların hangi kategoriye ait olduğunu belirle
-    const architecturalModes = ['drawWall', 'drawRoom', 'drawDoor', 'drawWindow', 'drawColumn', 'drawBeam', 'drawStairs', 'drawSymmetry'];
+    const architecturalModes = ['drawWall', 'drawRoom', 'drawDoor', 'drawWindow', 'drawColumn', 'drawBeam', 'drawStairs', 'drawSymmetry', 'drawArchDevice'];
     const plumbingModes = ['plumbingV2'];
 
     // KARMA moduna geçiş - mevcut çizim modunu koru
@@ -894,7 +903,7 @@ export function isObjectInteractable(objectType) {
 
     // Mimari nesneler listesi
     const architecturalObjects = [
-        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'vent', 'column', 'beam', 'stair', 'stairs', 'arcControl', 'guide', 'textAnnotation' // guide eklendi, textAnnotation eklendi
+        'wall', 'door', 'window', 'room', 'roomName', 'roomArea', 'vent', 'column', 'beam', 'stair', 'stairs', 'arcControl', 'guide', 'textAnnotation', 'archDevice' // guide eklendi, textAnnotation eklendi, archDevice eklendi
     ];
 
     // Tesisat nesneleri listesi - GÜNCELLENDİ
@@ -970,6 +979,13 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     dom.bColumn.classList.toggle("active", newMode === "drawColumn");
     dom.bBeam.classList.toggle("active", newMode === "drawBeam");
     dom.bStairs.classList.toggle("active", newMode === "drawStairs");
+    if (dom.bMimariNesneler) {
+        dom.bMimariNesneler.classList.toggle("active", newMode === "drawArchDevice");
+    }
+    // Aktif değilse seçili cihaz tipini de temizle
+    if (newMode !== "drawArchDevice" && state.archDevicePlacementKind) {
+        state.archDevicePlacementKind = null;
+    }
     // Tesisat blokları - plumbingV2 modunda activeTool'a göre göster
     const isPlumbingV2 = newMode === "plumbingV2";
     const activeTool = plumbingManager?.activeTool;
@@ -1344,6 +1360,49 @@ function initialize() {
             }
             setMode("drawStairs", true);
         });
+    }
+
+    // --- Mimari Nesneler (mahal içi cihazlar) flyout + butonlar ---
+    function closeMimariToolboxFlyout() {
+        if (dom.mimariToolboxFlyout) dom.mimariToolboxFlyout.classList.remove('open');
+        if (dom.bMimariNesneler) dom.bMimariNesneler.classList.remove('flyout-open');
+    }
+
+    const _startArchDevicePlacement = (kind) => {
+        if (plumbingManager.interactionManager) plumbingManager.interactionManager.boruCizimAktif = false;
+        if (state.currentDrawingMode !== "KARMA") {
+            setDrawingMode("MİMARİ");
+        }
+        state.archDevicePlacementKind = kind;
+        setMode("drawArchDevice", true);
+        closeMimariToolboxFlyout();
+    };
+
+    if (dom.bMimariNesneler && dom.mimariToolboxFlyout) {
+        dom.bMimariNesneler.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = dom.mimariToolboxFlyout.classList.toggle('open');
+            dom.bMimariNesneler.classList.toggle('flyout-open', isOpen);
+        });
+        document.addEventListener("click", (e) => {
+            if (!dom.mimariToolboxFlyout.classList.contains('open')) return;
+            if (dom.mimariToolboxFlyout.contains(e.target)) return;
+            if (dom.bMimariNesneler.contains(e.target)) return;
+            closeMimariToolboxFlyout();
+        });
+    }
+
+    if (dom.bGazAlarm) {
+        dom.bGazAlarm.addEventListener("click", () => _startArchDevicePlacement(ARCH_DEVICE_KINDS.GAS_ALARM));
+    }
+    if (dom.bCoAlarm) {
+        dom.bCoAlarm.addEventListener("click", () => _startArchDevicePlacement(ARCH_DEVICE_KINDS.CO_ALARM));
+    }
+    if (dom.bDepremAlarm) {
+        dom.bDepremAlarm.addEventListener("click", () => _startArchDevicePlacement(ARCH_DEVICE_KINDS.EARTHQUAKE));
+    }
+    if (dom.bYanginTupu) {
+        dom.bYanginTupu.addEventListener("click", () => _startArchDevicePlacement(ARCH_DEVICE_KINDS.FIRE_EXT));
     }
 
     // Tesisat butonları - KARMA modunda değilse TESİSAT moduna geç

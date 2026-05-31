@@ -2,6 +2,7 @@
 import { createColumn, onPointerDown as onPointerDownColumn, isPointInColumn } from '../architectural-objects/columns.js';
 import { createBeam, onPointerDown as onPointerDownBeam } from '../architectural-objects/beams.js';
 import { createStairs, onPointerDown as onPointerDownStairs, recalculateStepCount } from '../architectural-objects/stairs.js';
+import { createArchDevice, onPointerDownArchDevice } from '../architectural-objects/arch-devices.js';
 import { plumbingManager, TESISAT_MODLARI } from '../plumbing_v2/plumbing-manager.js';
 import { onPointerDownDraw as onPointerDownDrawWall, onPointerDownSelect as onPointerDownSelectWall, wallExists } from '../wall/wall-handler.js';
 import { onPointerDownDraw as onPointerDownDrawDoor, onPointerDownSelect as onPointerDownSelectDoor } from '../architectural-objects/door-handler.js';
@@ -180,12 +181,12 @@ export function onPointerDown(e) {
 
         // CTRL ile multi-select modu (sadece CTRL basılıyken, body'ye tıklandığında)
         if (currentModifierKeys.ctrl && !currentModifierKeys.alt && !currentModifierKeys.shift && clickedObject &&
-            ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) &&
+            ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe', 'archDevice'].includes(clickedObject.type) &&
             clickedObject.handle === 'body') {
 
             let currentGroup = [...state.selectedGroup];
             if (currentGroup.length === 0 && state.selectedObject &&
-                ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(state.selectedObject.type)) {
+                ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe', 'archDevice'].includes(state.selectedObject.type)) {
                 currentGroup.push(state.selectedObject);
             }
 
@@ -207,7 +208,7 @@ export function onPointerDown(e) {
         }
 
         if (!currentModifierKeys.ctrl && clickedObject &&
-            ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) &&
+            ['column', 'beam', 'stairs', 'door', 'window', 'plumbingBlock', 'plumbingPipe', 'archDevice'].includes(clickedObject.type) &&
             state.selectedGroup.length > 0) {
             // (selectedGroup'u temizle - aşağıda yapılıyor)
         }
@@ -226,14 +227,14 @@ export function onPointerDown(e) {
             const currentFloorId = state.currentFloor.id;
             const obj = clickedObject.object;
 
-            if (['wall', 'door', 'window', 'vent', 'column', 'beam', 'stairs', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type)) {
+            if (['wall', 'door', 'window', 'vent', 'column', 'beam', 'stairs', 'plumbingBlock', 'plumbingPipe', 'archDevice'].includes(clickedObject.type)) {
                 if (clickedObject.type === 'wall' && obj.floorId && obj.floorId !== currentFloorId) {
                     clickedObject = null;
                 }
                 else if (['door', 'window', 'vent'].includes(clickedObject.type) && clickedObject.wall?.floorId && clickedObject.wall.floorId !== currentFloorId) {
                     clickedObject = null;
                 }
-                else if (['column', 'beam', 'stairs', 'plumbingBlock', 'plumbingPipe'].includes(clickedObject.type) && obj.floorId && obj.floorId !== currentFloorId) {
+                else if (['column', 'beam', 'stairs', 'plumbingBlock', 'plumbingPipe', 'archDevice'].includes(clickedObject.type) && obj.floorId && obj.floorId !== currentFloorId) {
                     clickedObject = null;
                 }
             }
@@ -319,6 +320,7 @@ export function onPointerDown(e) {
                     case 'column': dragInfo = onPointerDownColumn(clickedObject, pos, snappedPos, e); break;
                     case 'beam': dragInfo = onPointerDownBeam(clickedObject, pos, snappedPos, e); break;
                     case 'stairs': dragInfo = onPointerDownStairs(clickedObject, pos, snappedPos, e); break;
+                    case 'archDevice': dragInfo = onPointerDownArchDevice(clickedObject, pos, snappedPos, e); break;
                     case 'plumbingBlock': {
                         // v2'de plumbingManager üzerinden yönetiliyor
                         const block = clickedObject.object;
@@ -423,6 +425,21 @@ export function onPointerDown(e) {
             }
             setState({ startPoint: null });
         }
+        // --- Mimari Cihaz Yerleştirme (Mahal İçi Cihazlar) ---
+    } else if (state.currentMode === "drawArchDevice") {
+        const kind = state.archDevicePlacementKind;
+        if (kind) {
+            const cx = snappedPos.roundedX;
+            const cy = snappedPos.roundedY;
+            const newDevice = createArchDevice(kind, cx, cy);
+            if (!state.archDevices) state.archDevices = [];
+            state.archDevices.push(newDevice);
+            geometryChanged = true;
+            objectJustCreated = true;
+        }
+        // Tek yerleştirme — sonrasında seç moduna geri dön
+        setMode("select");
+
         // --- Kiriş Çizim Modu ---
     } else if (state.currentMode === "drawBeam") {
         if (!state.startPoint) {

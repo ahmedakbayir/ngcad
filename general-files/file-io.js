@@ -147,7 +147,14 @@ function saveProject() {
             description: r.description || ''
         })),
         columns: state.columns,
-        beams: state.beams, 
+        beams: state.beams,
+        archDevices: (state.archDevices || []).map(d => ({
+            type: 'archDevice',
+            kind: d.kind,
+            center: d.center,
+            rotation: d.rotation || 0,
+            floorId: d.floorId
+        })),
         stairs: state.stairs.map(s => ({
             type: s.type,
             id: s.id,
@@ -389,6 +396,13 @@ function loadJSONProject(fileContent) {
     // Kolonları, Kirişleri ve Merdivenleri geri yükle
     const restoredColumns = projectData.columns || [];
     const restoredBeams = projectData.beams || [];
+    const restoredArchDevices = (projectData.archDevices || []).map(d => ({
+        type: 'archDevice',
+        kind: d.kind,
+        center: { x: d.center?.x ?? 0, y: d.center?.y ?? 0 },
+        rotation: d.rotation || 0,
+        floorId: d.floorId
+    }));
     const restoredStairs = (projectData.stairs || []).map(s => ({
          type: s.type || 'stairs',
          id: s.id || `stair_${Date.now()}_${Math.random().toString(16).slice(2)}`,
@@ -431,6 +445,7 @@ function loadJSONProject(fileContent) {
         columns: restoredColumns,
         beams: restoredBeams,
         stairs: restoredStairs,
+        archDevices: restoredArchDevices,
         guides: restoredGuides,
         textAnnotations: restoredTextAnnotations,
         floors: restoredFloors,

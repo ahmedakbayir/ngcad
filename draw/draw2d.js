@@ -22,6 +22,7 @@ import { drawTextAnnotations, drawTextAnnotationGhost } from '../architectural-o
 import { getDoorPlacement, isSpaceForDoor } from '../architectural-objects/door-handler.js';
 import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/window-handler.js';
 import { getColumnCorners } from '../architectural-objects/columns.js';
+import { drawArchDevice } from './draw-arch-devices.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
@@ -259,6 +260,9 @@ export function draw2D() {
     const beams = currentFloorId ? (state.beams || []).filter(b => b.floorId === currentFloorId) : (state.beams || []);
     const stairs = currentFloorId ? (state.stairs || []).filter(s => s.floorId === currentFloorId) : (state.stairs || []);
     const columns = currentFloorId ? (state.columns || []).filter(c => c.floorId === currentFloorId) : (state.columns || []);
+    const archDevices = currentFloorId
+        ? (state.archDevices || []).filter(d => !d.floorId || d.floorId === currentFloorId)
+        : (state.archDevices || []);
     const plumbingBlocks = currentFloorId ? (state.plumbingBlocks || []).filter(pb => pb.floorId === currentFloorId) : (state.plumbingBlocks || []);
 
     // Sadece aktif kata ait node'ları filtrele (duvarlardan topla)
@@ -427,6 +431,15 @@ export function draw2D() {
             state.selectedGroup.some(item => item.type === "stairs" && item.object === stair)
         );
         drawStairs(stair, isSelected);
+    });
+
+    // 4.8. MAHAL İÇİ CİHAZLAR (Alarm cihazları + yangın tüpü)
+    if (showArch) (archDevices || []).forEach(device => {
+        const isSelected = !!(
+            (selectedObject && selectedObject.type === "archDevice" && selectedObject.object === device) ||
+            state.selectedGroup.some(item => item.type === "archDevice" && item.object === device)
+        );
+        drawArchDevice(device, isSelected);
     });
 
     // // 5. Atomik Semboller

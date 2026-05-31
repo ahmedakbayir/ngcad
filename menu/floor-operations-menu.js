@@ -121,6 +121,7 @@ export function copyFloorArchitecture() {
         beams: state.beams.filter(b => b.floorId === currentFloorId),
         stairs: state.stairs.filter(s => s.floorId === currentFloorId),
         rooms: state.rooms.filter(r => r.floorId === currentFloorId),
+        archDevices: (state.archDevices || []).filter(d => !d.floorId || d.floorId === currentFloorId),
         textAnnotations: (state.textAnnotations || []).filter(t => !t.floorId || t.floorId === currentFloorId)
     };
 
@@ -163,6 +164,9 @@ export function pasteFloorArchitecture(clearExisting = true) {
         state.beams = state.beams.filter(b => b.floorId !== currentFloorId);
         state.stairs = state.stairs.filter(s => s.floorId !== currentFloorId);
         state.rooms = state.rooms.filter(r => r.floorId !== currentFloorId);
+        if (state.archDevices) {
+            state.archDevices = state.archDevices.filter(d => d.floorId !== currentFloorId);
+        }
         if (state.textAnnotations) {
             state.textAnnotations = state.textAnnotations.filter(t => t.floorId && t.floorId !== currentFloorId);
         }
@@ -288,6 +292,18 @@ export function pasteFloorArchitecture(clearExisting = true) {
         state.rooms.push(newRoom);
     });
 
+    // Mimari cihazları (alarm + yangın tüpü) yapıştır
+    if (floorClipboard.archDevices && floorClipboard.archDevices.length > 0) {
+        if (!state.archDevices) state.archDevices = [];
+        floorClipboard.archDevices.forEach(devData => {
+            state.archDevices.push({
+                ...devData,
+                center: { x: devData.center.x, y: devData.center.y },
+                floorId: currentFloorId
+            });
+        });
+    }
+
     // Metin notlarını yapıştır
     if (floorClipboard.textAnnotations && floorClipboard.textAnnotations.length > 0) {
         if (!state.textAnnotations) state.textAnnotations = [];
@@ -355,6 +371,9 @@ function pasteToAllFloors() {
         state.beams = state.beams.filter(b => b.floorId !== floorId);
         state.stairs = state.stairs.filter(s => s.floorId !== floorId);
         state.rooms = state.rooms.filter(r => r.floorId !== floorId);
+        if (state.archDevices) {
+            state.archDevices = state.archDevices.filter(d => d.floorId !== floorId);
+        }
 
         // Her kat için node mapping
         const nodeMap = new Map();
@@ -475,6 +494,18 @@ function pasteToAllFloors() {
             state.rooms.push(newRoom);
         });
 
+        // Mimari cihazları yapıştır
+        if (floorClipboard.archDevices && floorClipboard.archDevices.length > 0) {
+            if (!state.archDevices) state.archDevices = [];
+            floorClipboard.archDevices.forEach(devData => {
+                state.archDevices.push({
+                    ...devData,
+                    center: { x: devData.center.x, y: devData.center.y },
+                    floorId: floorId
+                });
+            });
+        }
+
         pastedFloorCount++;
     });
 
@@ -518,6 +549,9 @@ function clearFloorArchitecture() {
     state.beams = state.beams.filter(b => b.floorId !== currentFloorId);
     state.stairs = state.stairs.filter(s => s.floorId !== currentFloorId);
     state.rooms = state.rooms.filter(r => r.floorId !== currentFloorId);
+    if (state.archDevices) {
+        state.archDevices = state.archDevices.filter(d => d.floorId !== currentFloorId);
+    }
 
     setState({ selectedObject: null, selectedGroup: [] });
 
@@ -539,6 +573,7 @@ function clearAllFloorsArchitecture() {
     state.stairs = [];
     state.rooms = [];
     state.nodes = [];
+    state.archDevices = [];
     if (state.textAnnotations) state.textAnnotations = [];
 
     setState({ selectedObject: null, selectedGroup: [] });
