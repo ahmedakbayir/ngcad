@@ -151,6 +151,11 @@ body.light-mode {
 #pIso {
     flex: 0 1 0;
     display: none;
+    /* z-index .draggable-group (100000) üstünde olmalı ki sürüklenebilir araç
+       çubukları izometri panelinin üzerine taşmasın. position:relative olmadan
+       z-index uygulanmaz. */
+    position: relative;
+    z-index: 100002;
 }
 
 .main.show-iso #pIso {
@@ -332,6 +337,9 @@ body.light-mode {
     display: none;
     margin: 0 3px;
     border-radius: 5px;
+    /* İzometri paneliyle birlikte araç çubuklarının üstünde kalsın ki sürüklenebilir olsun */
+    position: relative;
+    z-index: 100002;
 }
 
 .main.show-3d #splitter {
