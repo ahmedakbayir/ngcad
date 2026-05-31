@@ -341,61 +341,57 @@ export function renderMiniPanel() {
 
 /**
  * Kat panelinin pozisyonunu ekran sınırlarına göre ayarlar
+ * Tüm kat butonları header'lar arasına sığmıyorsa panel bir alt satıra iner.
  */
 function adjustFloorPanelPosition() {
     if (!miniPanel) return;
 
     const viewportWidth = window.innerWidth;
+    const PADDING = 8; // header ile panel arası minimum boşluk
 
-    // Sol ve sağ boşluk oranları (ekranın %26'sı)
-    const leftLimit = viewportWidth * 0.26; // Soldan %26 boşluk
-    const rightLimit = viewportWidth * 0.74; // Sağdan %26 boşluk (ekranın %74'üne kadar)
+    // Gerçek header rect'lerini ölç
+    const leftHeader = document.getElementById('drawing-mode-selector');
+    const rightHeader = document.getElementById('viewing-mode-selector');
 
-    // Kullanılabilir maksimum genişlik
-    const maxAvailableWidth = rightLimit - leftLimit;
+    const leftEdge = leftHeader ? leftHeader.getBoundingClientRect().right + PADDING : 0;
+    const rightEdge = rightHeader ? rightHeader.getBoundingClientRect().left - PADDING : viewportWidth;
 
-    // Panele maksimum genişlik uygula
-    if (maxAvailableWidth > 0) {
-        miniPanel.style.maxWidth = `${maxAvailableWidth}px`;
-    }
+    const availableWidth = rightEdge - leftEdge;
+    const availableCenter = (leftEdge + rightEdge) / 2;
 
-    // Önce paneli merkeze al
-    miniPanel.style.left = '50%';
+    // Panelin doğal (içerik) genişliğini ölç:
+    // maxWidth'i geçici kaldır, list'in scrollWidth'ini (kırpılmamış tam genişlik) al,
+    // panel chrome'unu (expand butonu + ok'lar + padding) ekle.
+    const floorList = miniPanel.querySelector('#floor-mini-list');
+    const prevMaxWidth = miniPanel.style.maxWidth;
+    miniPanel.style.maxWidth = 'none';
+    const listNaturalWidth = floorList ? floorList.scrollWidth : 0;
+    const panelRect = miniPanel.getBoundingClientRect();
+    const listRect = floorList ? floorList.getBoundingClientRect() : { width: 0 };
+    const chromeWidth = panelRect.width - listRect.width; // expand btn + ok'lar + padding/border
+    const naturalWidth = listNaturalWidth + chromeWidth;
+    miniPanel.style.maxWidth = prevMaxWidth;
+
     miniPanel.style.transform = 'translateX(-50%)';
 
-    // Panelin güncel pozisyonunu kontrol et
-    const panelRect = miniPanel.getBoundingClientRect();
-    const panelLeft = panelRect.left;
-    const panelRight = panelRect.right;
-    const panelWidth = panelRect.width;
-
-    let adjustedLeft = null;
-
-    // Sol taraftan kontrol - ekranın %26'sından sola gitmesin
-    if (panelLeft < leftLimit) {
-        // Sol sınırı aşıyor, paneli sağa kaydır
-        const newCenterPx = leftLimit + (panelWidth / 2);
-        adjustedLeft = (newCenterPx / viewportWidth) * 100;
+    if (naturalWidth > availableWidth) {
+        // Tüm kat butonları sığmıyor → bir alt satıra in
+        const headerHeight = Math.max(
+            leftHeader ? leftHeader.getBoundingClientRect().bottom : 0,
+            rightHeader ? rightHeader.getBoundingClientRect().bottom : 0,
+            42
+        );
+        miniPanel.style.top = `${headerHeight + 2}px`;
+        miniPanel.style.left = '50%';
+        miniPanel.style.maxWidth = `${viewportWidth - 2 * PADDING}px`;
+        return;
     }
 
-    // Sağ taraftan kontrol - ekranın %74'ünden sağa gitmesin
-    if (panelRight > rightLimit) {
-        // Sağ sınırı aşıyor, paneli sola kaydır
-        const newCenterPx = rightLimit - (panelWidth / 2);
-        const newLeftPercent = (newCenterPx / viewportWidth) * 100;
-
-        // Eğer sol kontrol de ayarlama yaptıysa, ikisinin ortalamasını al
-        if (adjustedLeft !== null) {
-            adjustedLeft = Math.max(adjustedLeft, newLeftPercent);
-        } else {
-            adjustedLeft = newLeftPercent;
-        }
-    }
-
-    // Ayarlama yapılacaksa uygula
-    if (adjustedLeft !== null) {
-        miniPanel.style.left = `${adjustedLeft}%`;
-    }
+    // Sığıyor → üst satırda kal, header'lar arası bölgenin merkezine yerleştir
+    miniPanel.style.top = '0';
+    miniPanel.style.maxWidth = `${availableWidth}px`;
+    const centerPercent = (availableCenter / viewportWidth) * 100;
+    miniPanel.style.left = `${centerPercent}%`;
 }
 
 

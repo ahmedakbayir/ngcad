@@ -91,7 +91,10 @@ export function maybeShowQuickActionButton(interactionManager, worldPoint, hintP
 
     _mode = 'pipe';
     _pipeId = pipe.id;
-    _anchorWorld = { x: worldPoint.x, y: worldPoint.y };
+    // Anchor olarak tıklama noktasını değil borunun p2 ucunu kullan; aksi
+    // takdirde gövde ortasına tıklayınca buton boru üstünde kalıyor.
+    // Drawing modu da aynı şekilde p2'yi anchor alır → tutarlı yerleşim.
+    _anchorWorld = { x: pipe.p2.x, y: pipe.p2.y };
     el.style.display = 'flex';
     updateQuickActionButtonPosition();
 }
