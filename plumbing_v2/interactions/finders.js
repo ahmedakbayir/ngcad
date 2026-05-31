@@ -69,10 +69,18 @@ export function findObjectAt(manager, point) {
         return zMax > currentFloor.bottomElevation && zMin < currentFloor.topElevation;
     };
 
+    const selectedObj = manager.interactionManager?.selectedObject || null;
+
     // 2D / hafif blend (t<=0.1): eski tip-öncelikli davranış (komponent → boru, ilk bulunan döner)
     if (t <= 0.1) {
         for (const comp of manager.components) {
             if (!sameFloor(comp)) continue;
+            // Vana doğrudan tıklanamaz: yalnızca etiketten veya
+            // özellikler panelindeki bağlı nesnelerden seçilir. Boru ucundaki
+            // vana, alttaki borunun uçtan tutulup taşınmasını engellemesin.
+            // İstisna: zaten seçili olan vana — etiketten seçildikten sonra
+            // gövdesinden tutup taşınabilsin.
+            if (comp.type === 'vana' && comp !== selectedObj) continue;
             if (comp.containsPoint && comp.containsPoint(point)) return comp;
         }
         const worldToleranceLegacy = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
@@ -160,12 +168,14 @@ export function findObjectAt(manager, point) {
             continue;
         }
 
-        // VANA: drawVana 9.6×9.6 cm bowtie çiziyor (config'deki 6×12 kullanılmıyor).
-        // Hit-area görselin iç kısmına sıkıca oturtuluyor — kendi alanı dışında
-        // tıklama vananı seçmemeli. Renderer sadece rotation + Z shift uyguluyor
-        // (özel skew yok), o yüzden Z compensation + ters rotasyon yeter.
+        // VANA: doğrudan tıklanamaz. Boru ucuna oturmuş vana, alttaki borunun
+        // uçtan tutulup taşınmasını engellemesin. Vana seçimi yalnızca etiketten
+        // veya özellikler panelindeki bağlı nesneler listesinden yapılır.
+        // İstisna: zaten seçili olan vana gövdesinden tutulup taşınabilir.
         if (comp.type === 'vana') {
-            const halfWidth  = 4;  // <9.6/2=4.8 görsele göre iç kısım
+            if (comp !== selectedObj) continue;
+            // Seçili vana için hassas lokal-frame hit-test (9.6×9.6 bowtie iç kısmı)
+            const halfWidth  = 4;
             const halfHeight = 4;
             const dxc = point.x - (comp.x + zBase * t);
             const dyc = point.y - (comp.y - zBase * t);
@@ -179,7 +189,7 @@ export function findObjectAt(manager, point) {
                 kind: 'component',
                 distEdge: 0,
                 distCenter: Math.hypot(localX, localY),
-                frontScore: zBase + 5  // boru üstünde, hafif öne
+                frontScore: zBase + 5
             });
             continue;
         }

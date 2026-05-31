@@ -630,73 +630,42 @@ const dx = pipe.p2.x - pipe.p1.x;
      * @returns {boolean} - Kapama sembolü gösterilmeli mi?
      */
     checkEndCap(manager) {
-        // Manager yoksa hiçbir şey gösterme
-        if (!manager) {
-            return false;
-        }
+        if (!manager) return false;
+        // KURAL: Kapama sembolü yalnızca SONLANMA vanaları (BRANŞMAN, YAN_BİNA)
+        // için gösterilir. AKV/EMNIYET/CIHAZ/SELENOID gibi ara vanalar hiçbir
+        // koşulda kapama göstermez.
+        if (!this.isSonlanma()) return false;
 
-        // *** SONLANMA VANALARI İÇİN BASİTLEŞTİRİLMİŞ MANTIK ***
-        // Sonlanma vanası ise ve boruya bağlı ise, DAIMA kapama göster
-        // fromEnd kontrolü yapmıyoruz çünkü drag sırasında geçici olarak null olabiliyor
-        if (this.isSonlanma() && this.bagliBoruId) {
-            const pipe = manager.findPipeById(this.bagliBoruId);
-            if (pipe) {
-                return true; // Boruya bağlı sonlanma vanası = daima kapama göster
-            }
-        }
-
-        // *** ARA VANALAR İÇİN MEVCUT MANTIK ***
-        // Boru ucunda olmalı (fromEnd set)
-        if (!this.bagliBoruId || !this.fromEnd) {
-            return false;
-        }
+        // Boruya bağlı ve bir uca yapışık olmalı
+        if (!this.bagliBoruId || !this.fromEnd) return false;
 
         const pipe = manager.findPipeById(this.bagliBoruId);
-        if (!pipe) {
-            return false;
-        }
+        if (!pipe) return false;
 
-        // Vananın hangi uçta olduğunu belirle
+        // Vananın yapışık olduğu uç gerçekten boş mu? (hat orada sonlanıyor mu?)
+        // Köşe yapıp devam eden hatlarda kapama gösterilmemeli.
         const endpoint = this.fromEnd; // 'p1' veya 'p2'
-        const endPoint = pipe[endpoint]; // Boru uç noktası {x, y, z}
-
-        // Boru ucu boş mu kontrol et (sadece 1 boru var mı?)
-        const tolerance = 1; // 1 cm tolerans
+        const endPoint = pipe[endpoint];
+        const tolerance = 1; // cm
         let pipeCount = 0;
 
         for (const otherPipe of manager.pipes) {
-            if (otherPipe.floorId && pipe.floorId && otherPipe.floorId !== pipe.floorId) {
-                continue;
-            }
-
+            if (otherPipe.floorId && pipe.floorId && otherPipe.floorId !== pipe.floorId) continue;
             const distP1 = Math.hypot(endPoint.x - otherPipe.p1.x, endPoint.y - otherPipe.p1.y);
             const distP2 = Math.hypot(endPoint.x - otherPipe.p2.x, endPoint.y - otherPipe.p2.y);
-
-            if (distP1 < tolerance || distP2 < tolerance) {
-                pipeCount++;
-            }
-
-            if (pipeCount >= 2) {
-                return false; // Birden fazla boru var, boş değil
-            }
+            if (distP1 < tolerance || distP2 < tolerance) pipeCount++;
+            if (pipeCount >= 2) return false; // başka boru var → hat devam ediyor
         }
+        if (pipeCount !== 1) return false; // kendisi bile yoksa anomali
 
-        // Tam 1 boru olmalı (kendisi)
-        if (pipeCount !== 1) {
-            return false;
-        }
-
-        // Fleks bağlantısı var mı kontrol et (cihaz veya sayaç)
+        // O uca cihaz/sayaç fleksi bağlıysa hat sonu değil
         for (const comp of manager.components) {
             if ((comp.type === 'cihaz' || comp.type === 'sayac') && comp.fleksBaglanti) {
-                if (comp.fleksBaglanti.boruId === pipe.id &&
-                    comp.fleksBaglanti.endpoint === endpoint) {
-                    return false; // Fleks bağlantısı var, boş değil
+                if (comp.fleksBaglanti.boruId === pipe.id && comp.fleksBaglanti.endpoint === endpoint) {
+                    return false;
                 }
             }
         }
-
-        // Tüm kontroller geçti, kapama sembolü göster
         return true;
     }
 
@@ -706,12 +675,11 @@ const dx = pipe.p2.x - pipe.p1.x;
      * @param {object} manager - PlumbingManager instance
      */
     updateEndCapStatus(manager) {
-        // Sonlanma vanaları için basitleştirilmiş mantık: DAIMA true
-        if (this.isSonlanma()) {
-            this.showEndCap = true;
-        } else {
-            this.showEndCap = this.checkEndCap(manager);
-        }
+        // Tek kural: checkEndCap (yalnızca sonlanma vanası + gerçekten boş uç).
+        // "Sonlanma → daima true" kestirmesi, köşe yapıp devam eden hatlarda ve
+        // ara vana yanlışlıkla sonlanma sınıfında kalmışsa kapamayı yanlış
+        // gösteriyordu.
+        this.showEndCap = this.checkEndCap(manager);
     }
 
     /**

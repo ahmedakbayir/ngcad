@@ -879,15 +879,22 @@ export function handleDrag(interactionManager, point, event = null) {
         });
 
         // Her nesne yeni boru üzerinde sığabiliyor mu? (uç boşlukları kontrolü)
+        // Anchored end (vana o uca yapışık — sonlanma vanası ya da uç-tutturulmuş
+        // ara vana) için minEdge zorunlu değildir; yalnızca diğer uçta standart
+        // boşluk ve vananın boru içinde fiziksel olarak sığması aranır. Aksi halde
+        // hat ucundaki vana, kullanıcının boruyu uçtan tutup uzatma/kısaltma
+        // niyetini engellerdi.
         let constraintsOk = true;
         for (const plan of objectPlans) {
             const minEdge = plan.halfWidth + MIN_EDGE_DISTANCE;
             const distFromP1 = plan.newDistFromP1;
             const distFromP2 = newLength - distFromP1;
-            if (distFromP1 < minEdge || distFromP2 < minEdge) {
-                constraintsOk = false;
-                break;
-            }
+            const skipP1Edge = plan.newFromEnd === 'p1';
+            const skipP2Edge = plan.newFromEnd === 'p2';
+            if (!skipP1Edge && distFromP1 < minEdge) { constraintsOk = false; break; }
+            if (!skipP2Edge && distFromP2 < minEdge) { constraintsOk = false; break; }
+            // Anchored uçta da vana merkezi boru içinde kalsın
+            if (distFromP1 < 0 || distFromP2 < 0) { constraintsOk = false; break; }
         }
 
         // P2 sürüklenirken uç parça (P2 ile hareket eden) ile sabit nesne
