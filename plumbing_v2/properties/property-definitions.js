@@ -3,7 +3,7 @@ import { MAHAL_LISTESI, WALL_HEIGHT, state } from '../../general-files/main.js';
 import { getFloorAtElevation } from '../../floor/floor-handler.js';
 import { addDoorToWall, addWindowToWall, addVentToWall, addColumnToWall, flipArcWall } from '../../wall/wall-panel.js';
 import { recalculateStepCount } from '../../architectural-objects/stairs.js';
-import { getUnitRoomsForRoom, getUnitBoundaryPerimeter, invalidateBirimCache, resolveBirimNoForRoom, syncBirimState, findSayacEnteringRoomUnit } from '../../draw/draw-birim-labels.js';
+import { getUnitRoomsForRoom, getUnitBoundaryPerimeter, invalidateBirimCache, resolveBirimNoForRoom, syncBirimState, syncBransmanToRooms, findSayacEnteringRoomUnit } from '../../draw/draw-birim-labels.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 import { getHatRowForPipe, getCumulativeLossForHat } from '../utils/pipe-calculations.js';
 import { TOPRAKLAMA_YONTEMLERI } from '../objects/pipe-fitting.js';
@@ -376,7 +376,7 @@ function _autoAssignByFloorPattern(vana, manager) {
         }
     }
 
-    try { syncBirimState(); invalidateBirimCache(); } catch (e) { console.error(e); }
+    try { syncBransmanToRooms(); syncBirimState(); invalidateBirimCache(); } catch (e) { console.error(e); }
 }
 
 /** P1/P2 koordinat span'ı: değişen siyah, değişmeyen gri */
@@ -935,6 +935,12 @@ export const PROPERTY_DEFS = {
         options: VANA_TIPLERI_LISTESI.map(id => ({ value: id, label: VANA_TIP_ETIKETLERI[id] || id })),
         default: 'BRANSMAN',
         optionsAreObjects: true,
+        afterChange: () => {
+            // BRANSMAN ↔ diğer tip geçişlerinde 3 m proximity ataması yeniden değerlendirilmeli.
+            syncBransmanToRooms();
+            syncBirimState();
+            invalidateBirimCache();
+        },
     },
     vanaCap: {
         label: 'Çap',
@@ -1031,6 +1037,11 @@ export const PROPERTY_DEFS = {
             }
             if (panelEl?._refresh) panelEl._refresh();
             if (manager) recomputeAllPressures(manager);
+            // İlerde modu açılan/kapatılan vana proximity ataması dışında kalır;
+            // diğer vanalar etkilenmese de tutarlılık için tekrar değerlendir.
+            syncBransmanToRooms();
+            syncBirimState();
+            invalidateBirimCache();
         },
     },
 
@@ -1056,6 +1067,20 @@ export const PROPERTY_DEFS = {
         placeholder: 'No...',
         visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN',
         disabledFn: (obj) => !!obj.ilerdeKullanim,
+        afterChange: (obj, manager) => {
+            // BRANSMAN → bağlı sayaç senkronu (text input ⇅ butonunu atlatır)
+            if (manager) {
+                const sayac = _findSayacForBransman(obj, manager);
+                if (sayac) {
+                    sayac.birimNo = String(obj.birimNo ?? '');
+                    if (!sayac.birimTipi && obj.birimTipi) sayac.birimTipi = obj.birimTipi;
+                }
+            }
+            // 3 m içindeki birimlere yaz, sonra sayaç (varsa) otoriter senkronu
+            syncBransmanToRooms();
+            syncBirimState();
+            invalidateBirimCache();
+        },
         inlineButtons: [
             {
                 label: '⇅',

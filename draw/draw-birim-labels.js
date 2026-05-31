@@ -503,6 +503,104 @@ export function syncBirimState() {
 // Geriye dönük uyum: tohumlama ayrı bir çağrı olarak da kullanılabilir
 export function seedSayacFromRooms() { return syncBirimState(); }
 
+// 3 m içindeki BRANSMAN vanalarının birim no'su, bir kattaki dairelerin
+// giriş kapısına en yakın olanı seçilerek o dairenin BİRİM NO'suna yazılır.
+// Sayaç bağlanmamış (downstream) BRANSMAN'lar için syncBirimState'in pipe-tree
+// yolu çalışmaz; bu fonksiyon proximity tabanlı olarak boşluğu kapatır.
+const BRANSMAN_DOOR_MAX_DIST_CM = 300; // 3 m
+
+export function syncBransmanToRooms() {
+    const pm = plumbingManager;
+    if (!pm?.components) return false;
+    const { rooms = [], doors = [], walls = [] } = state;
+    if (!rooms.length || !doors.length) return false;
+
+    // Kat → birim no dolu BRANSMAN vanaları (ilerde kullanım hariç)
+    const vanasByFloor = new Map();
+    for (const c of pm.components) {
+        if (c.type !== 'vana' || c.vanaTipi !== 'BRANSMAN') continue;
+        if (c.ilerdeKullanim) continue;
+        const no = String(c.birimNo ?? '').trim();
+        if (!no) continue;
+        const fid = c.floorId ?? null;
+        if (!vanasByFloor.has(fid)) vanasByFloor.set(fid, []);
+        vanasByFloor.get(fid).push(c);
+    }
+    if (!vanasByFloor.size) return false;
+
+    let changed = false;
+    for (const [floorId, vanas] of vanasByFloor.entries()) {
+        const fRooms = rooms.filter(r => !floorId || !r.floorId || r.floorId === floorId);
+        const fDoors = doors.filter(d => !floorId || !d.floorId || d.floorId === floorId);
+        const fWalls = walls.filter(w => !floorId || !w.floorId || w.floorId === floorId);
+        if (!fRooms.length || !fDoors.length) continue;
+        const separators = fRooms.filter(r => SEPARATOR_NAMES.has((r.name || '').toUpperCase().trim()));
+
+        // Birim girişi kapıları (sahanlığa veya dış cepheye bakan) — birim odalarına göre grupla
+        // Aynı birim birden fazla giriş kapısına sahip olabilir; en yakın vana hepsi üzerinde aranır.
+        const unitEntries = []; // { unitRooms, entranceDoors: [{cx,cy}] }
+        for (const door of fDoors) {
+            const wall = door.wall;
+            if (!wall || !wall.p1 || !wall.p2) continue;
+            const adjacent = getRoomsAdjacentToWall(wall, fRooms);
+            let startRoom = null;
+            if (adjacent.length === 2) {
+                const sepAdj = adjacent.filter(r => separators.includes(r));
+                const nonSepAdj = adjacent.filter(r => !separators.includes(r));
+                if (sepAdj.length === 1 && nonSepAdj.length === 1) startRoom = nonSepAdj[0];
+            } else if (adjacent.length === 1 && !separators.includes(adjacent[0])) {
+                startRoom = adjacent[0];
+            }
+            if (!startRoom) continue;
+
+            const wallLen = Math.hypot(wall.p2.x - wall.p1.x, wall.p2.y - wall.p1.y);
+            if (wallLen < 0.01) continue;
+            const wdx = (wall.p2.x - wall.p1.x) / wallLen;
+            const wdy = (wall.p2.y - wall.p1.y) / wallLen;
+            const cx = wall.p1.x + wdx * door.pos;
+            const cy = wall.p1.y + wdy * door.pos;
+
+            // Bu giriş, mevcut bir birime mi ait? (birim odaları kesişimine bak)
+            let entry = null;
+            for (const e of unitEntries) {
+                if (e.unitRooms.includes(startRoom)) { entry = e; break; }
+            }
+            if (entry) {
+                entry.entranceDoors.push({ cx, cy });
+            } else {
+                const unitRooms = traverseUnit(startRoom, separators, fWalls, fDoors, fRooms);
+                if (!classifyUnit(unitRooms)) continue; // birim harici (BIRIM_DISI vb.)
+                unitEntries.push({ unitRooms, entranceDoors: [{ cx, cy }] });
+            }
+        }
+        if (!unitEntries.length) continue;
+
+        // Her birim için: tüm giriş kapılarına en yakın olan BRANSMAN vanası
+        // 3 m içinde ise birim no'sunu birim odalarına yaz.
+        for (const { unitRooms, entranceDoors } of unitEntries) {
+            let best = null;
+            let bestDist = Infinity;
+            for (const v of vanas) {
+                const vx = v.x ?? 0;
+                const vy = v.y ?? 0;
+                for (const ed of entranceDoors) {
+                    const d = Math.hypot(vx - ed.cx, vy - ed.cy);
+                    if (d < bestDist) { bestDist = d; best = v; }
+                }
+            }
+            if (!best || bestDist > BRANSMAN_DOOR_MAX_DIST_CM) continue;
+            const no = String(best.birimNo).trim();
+            if (!no) continue;
+            for (const r of unitRooms) {
+                const cur = (r.birimNo ?? '').toString();
+                if (cur !== no) { r.birimNo = no; changed = true; }
+            }
+        }
+    }
+    if (changed) invalidateBirimCache();
+    return changed;
+}
+
 // Bir oda verildiğinde, birim için atanmış birimNo'yu çöz (sayaç önceliğine göre)
 export function resolveBirimNoForRoom(room) {
     if (!room) return { no: '', assigned: false };

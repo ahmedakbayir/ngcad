@@ -19,6 +19,7 @@ import { getFloorIdForZ } from '../../floor/floor-handler.js';
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 import { ensureRegulatorAccessories } from '../objects/regulator-accessories.js';
+import { syncBransmanToRooms, invalidateBirimCache } from '../../draw/draw-birim-labels.js';
 
 /**
  * Bileşeni yerleştir
@@ -498,6 +499,14 @@ export function handleVanaPlacement(vanaPreview) {
     this.manager.components.push(vana);
     vana.updateEndCapStatus(this.manager);
     this.manager.saveToState();
+
+    // BRANSMAN ise: kat içindeki dairelerin giriş kapısına ≤3 m olanı varsa
+    // birim no proximity senkronu (yeni eklenen vana yakındaki bir dairenin
+    // birim no'sunu otoriter olarak alır).
+    if (vana.vanaTipi === 'BRANSMAN') {
+        syncBransmanToRooms();
+        invalidateBirimCache();
+    }
 
     // Temizlik
     this.vanaPreview = null;
