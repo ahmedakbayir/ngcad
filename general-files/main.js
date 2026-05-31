@@ -353,7 +353,7 @@ export let state = {
     lastUsedMode: "select", // Son kullanılan da "SEÇ"
     currentDrawingMode: "KARMA", // MİMARİ, TESİSAT, KARMA - Hangi tip nesnelerle çalışılabilir
     currentPlumbingBlockType: 'SERVIS_KUTUSU', // Aktif tesisat bloğu tipi
-    plumbingColorMode: "diameter",
+    plumbingColorMode: "topology",
     startPoint: null,
     nodes: [],
     walls: [],
