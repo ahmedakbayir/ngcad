@@ -561,14 +561,33 @@ export const LabelMixin = {
         const objHalf = { hw: objClip, hh: objClip };
         
         const connectionPoint = this._findBestConnectionPoint(objCenter, labelCenter, objHalf);
-        
+
         const startX = connectionPoint.x;
         const startY = connectionPoint.y;
-        const endX = labelCenter.x;
-        const endY = labelCenter.y;
+        // Bitiş etiket kutusunun kenarında durmalı (merkeze değil); aksi takdirde
+        // yarı şeffaf arka plandan altta kalan çizgi görünür.
+        let endX = labelCenter.x;
+        let endY = labelCenter.y;
+        {
+            const dxL = labelCenter.x - startX;
+            const dyL = labelCenter.y - startY;
+            const distL = Math.hypot(dxL, dyL);
+            if (distL > 0.1) {
+                const ux = dxL / distL;
+                const uy = dyL / distL;
+                const tLab = Math.min(
+                    Math.abs(ux) > 1e-6 ? (boxW / 2) / Math.abs(ux) : Infinity,
+                    Math.abs(uy) > 1e-6 ? (boxH / 2) / Math.abs(uy) : Infinity
+                );
+                if (isFinite(tLab)) {
+                    endX = labelCenter.x - ux * tLab;
+                    endY = labelCenter.y - uy * tLab;
+                }
+            }
+        }
 
         const dist = Math.hypot(endX - startX, endY - startY);
-        
+
         if (dist > 0.1) {
             ctx.strokeStyle = connColor;
             ctx.lineWidth = 0.5 / zoom;
@@ -649,14 +668,33 @@ export const LabelMixin = {
         const objHalf = { hw: objClip, hh: objClip };
         
         const connectionPoint = this._findBestConnectionPoint(objCenter, labelCenter, objHalf);
-        
+
         const startX = connectionPoint.x;
         const startY = connectionPoint.y;
-        const endX = labelCenter.x;
-        const endY = labelCenter.y;
+        // Bitiş etiket kutusunun kenarında durmalı (merkeze değil); aksi takdirde
+        // yarı şeffaf arka plandan altta kalan çizgi görünür.
+        let endX = labelCenter.x;
+        let endY = labelCenter.y;
+        {
+            const dxL = labelCenter.x - startX;
+            const dyL = labelCenter.y - startY;
+            const distL = Math.hypot(dxL, dyL);
+            if (distL > 0.1) {
+                const ux = dxL / distL;
+                const uy = dyL / distL;
+                const tLab = Math.min(
+                    Math.abs(ux) > 1e-6 ? (boxW / 2) / Math.abs(ux) : Infinity,
+                    Math.abs(uy) > 1e-6 ? (boxH / 2) / Math.abs(uy) : Infinity
+                );
+                if (isFinite(tLab)) {
+                    endX = labelCenter.x - ux * tLab;
+                    endY = labelCenter.y - uy * tLab;
+                }
+            }
+        }
 
         const dist = Math.hypot(endX - startX, endY - startY);
-        
+
         if (dist > 0.1) {
             ctx.strokeStyle = connColor;
             ctx.lineWidth = 0.5 / zoom;
@@ -887,12 +925,34 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
         const objHalf = { hw: 5, hh: 5 };
         
         const connectionPoint = this._findBestConnectionPoint(objCenter, labelCenter, objHalf);
-        
+
+        // Bitiş etiket kutusunun kenarında durmalı (merkeze değil); aksi takdirde
+        // yarı şeffaf arka plandan altta kalan çizgi görünür.
+        let pipeLabelEndX = labelCenter.x;
+        let pipeLabelEndY = labelCenter.y;
+        {
+            const dxL = labelCenter.x - connectionPoint.x;
+            const dyL = labelCenter.y - connectionPoint.y;
+            const distL = Math.hypot(dxL, dyL);
+            if (distL > 0.1) {
+                const ux = dxL / distL;
+                const uy = dyL / distL;
+                const tLab = Math.min(
+                    Math.abs(ux) > 1e-6 ? (boxW / 2) / Math.abs(ux) : Infinity,
+                    Math.abs(uy) > 1e-6 ? (boxH / 2) / Math.abs(uy) : Infinity
+                );
+                if (isFinite(tLab)) {
+                    pipeLabelEndX = labelCenter.x - ux * tLab;
+                    pipeLabelEndY = labelCenter.y - uy * tLab;
+                }
+            }
+        }
+
         ctx.strokeStyle = connColor;
         ctx.lineWidth = 0.5 / zoom;
         ctx.beginPath();
         ctx.moveTo(connectionPoint.x, connectionPoint.y);
-        ctx.lineTo(labelCenter.x, labelCenter.y);
+        ctx.lineTo(pipeLabelEndX, pipeLabelEndY);
         ctx.stroke();
 
         // ─── YARI ŞEFFAF ARKA PLAN KUTUSU ───
