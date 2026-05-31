@@ -7,8 +7,9 @@ import { saveState } from '../../general-files/history.js';
 import { handlePipeCopy, handlePipeCut, handleSayacIcTesisatCopy, handlePipePaste } from './keyboard-handler.js';
 import { findBoruGovdeAt, findObjectAt } from './finders.js';
 import { Boru } from '../objects/pipe.js';
-import { setMode, setDrawingMode, state } from '../../general-files/main.js';
+import { setMode, setDrawingMode, setState, state } from '../../general-files/main.js';
 import { draw2D } from '../../draw/draw2d.js';
+import { getOrCreateNode } from '../../draw/geometry.js';
 import { relayoutAllLabels } from '../renderer/renderer-labels.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 import { placeMenuInViewport, setupSubmenuPositioning } from '../../menu/menu-positioning.js';
@@ -934,6 +935,55 @@ function initMenu() {
     document.getElementById('ctx-tesisat-eksilt-tumu')?.addEventListener('click', () => {
         if (!menuState) return;
         deleteAllPlumbing(menuState.interactionManager.manager);
+        hide();
+    });
+
+    // ── Referans Ekle: Nokta / Yatay / Düşey / Açısal / Serbest / Temizle ──
+    document.getElementById('plumbing-ref-point')?.addEventListener('click', () => {
+        if (!menuState?.worldPos) { hide(); return; }
+        if (!state.guides) state.guides = [];
+        state.guides.push({ type: 'guide', subType: 'point', x: menuState.worldPos.x, y: menuState.worldPos.y });
+        saveState();
+        hide();
+    });
+
+    document.getElementById('plumbing-ref-horizontal')?.addEventListener('click', () => {
+        if (!menuState?.worldPos) { hide(); return; }
+        if (!state.guides) state.guides = [];
+        state.guides.push({ type: 'guide', subType: 'horizontal', y: menuState.worldPos.y });
+        saveState();
+        hide();
+    });
+
+    document.getElementById('plumbing-ref-vertical')?.addEventListener('click', () => {
+        if (!menuState?.worldPos) { hide(); return; }
+        if (!state.guides) state.guides = [];
+        state.guides.push({ type: 'guide', subType: 'vertical', x: menuState.worldPos.x });
+        saveState();
+        hide();
+    });
+
+    document.getElementById('plumbing-ref-angular')?.addEventListener('click', () => {
+        if (!menuState?.worldPos) { hide(); return; }
+        setMode('drawGuideAngular', true);
+        setState({ startPoint: getOrCreateNode(menuState.worldPos.x, menuState.worldPos.y) });
+        hide();
+    });
+
+    document.getElementById('plumbing-ref-free')?.addEventListener('click', () => {
+        if (!menuState?.worldPos) { hide(); return; }
+        setMode('drawGuideFree', true);
+        setState({ startPoint: getOrCreateNode(menuState.worldPos.x, menuState.worldPos.y) });
+        hide();
+    });
+
+    document.getElementById('plumbing-ref-clear-all')?.addEventListener('click', () => {
+        if (state.guides && state.guides.length > 0) {
+            if (confirm(`${state.guides.length} adet referans çizgisi silinecek. Emin misiniz?`)) {
+                state.guides = [];
+                saveState();
+            }
+        }
         hide();
     });
 
