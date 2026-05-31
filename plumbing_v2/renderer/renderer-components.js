@@ -842,7 +842,7 @@ export const ComponentMixin = {
         }
 
         if (manager) {
-            this.drawWavyConnectionLine(ctx, leftRakorScreen, zoom, manager, targetScreen, null);
+            this.drawWavyConnectionLine(ctx, leftRakorScreen, zoom, manager, targetScreen, null, comp);
         }
 
         // --- 2. SİHİRLİ MATRİS İLE SETİ BÜKME ---
@@ -857,14 +857,12 @@ export const ComponentMixin = {
         getShadow(ctx);
 
         // --- 3. RİJİT ÇIKIŞ BORUSUNUN ÇİZİMİ ---
-        let rijitColorGroup = 'TURQUAZ';
         let rightAnchor_lx = connectionOffset;
         let rightAnchor_ly = pivotY;
 
         if (manager && comp.cikisBagliBoruId) {
             const cikisBoru = manager.findPipeById(comp.cikisBagliBoruId);
             if (cikisBoru) {
-                rijitColorGroup = cikisBoru.colorGroup || 'TURQUAZ';
                 const wX = comp.x + connectionOffset * cos - pivotY * sin;
                 const wY = comp.y + connectionOffset * sin + pivotY * cos;
                 const d1 = Math.hypot(cikisBoru.p1.x - wX, cikisBoru.p1.y - wY);
@@ -878,10 +876,12 @@ export const ComponentMixin = {
             }
         }
 
-        const rijitRenk = this.getRenkByGroup(rijitColorGroup, 'boru', 1);
+        // Sayaç çıkış rijit hattı: giriş fleksi ile aynı görünüm (ince + tema rengi)
+        // dark=beyaz, light=siyah — fleks ile tutarlı
+        const rijitRenk = isLightMode() ? '#000' : '#fff';
 
-        // ÇÖZÜM: Siyah çamurlu çerçeve eklemeden, orijinal normal boru kalınlığına (4) çektik
-        ctx.lineWidth = 4 / zoom;
+        // Dünya birimi: zoom'la birlikte ölçeklenir, uzaklaşınca incelir
+        ctx.lineWidth = 1.2;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.strokeStyle = rijitRenk;

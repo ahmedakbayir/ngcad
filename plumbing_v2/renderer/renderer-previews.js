@@ -2,7 +2,7 @@
 // Preview ve ghost çizim metodları
 
 import { getRenkGruplari } from '../objects/pipe.js';
-import { state, getAdjustedColor } from '../../general-files/main.js';
+import { state, getAdjustedColor, isLightMode } from '../../general-files/main.js';
 
 export const PreviewMixin = {
     getRenkByGroup(colorGroup, tip, opacity) {
@@ -452,9 +452,8 @@ export const PreviewMixin = {
         const fleksBitisScreenX = fleksBitis.x + (cihazZ * t);
         const fleksBitisScreenY = fleksBitis.y - (cihazZ * t);
 
-        // Fleks rengini borunun colorGroup'una göre ayarla
-        const colorGroup = boru?.colorGroup || 'YELLOW';
-        const fleksRenk = this.getRenkByGroup(colorGroup, 'fleks', 1);
+        // Fleks rengi tema bazlı: dark=beyaz, light=siyah
+        const fleksRenk = isLightMode() ? '#000' : '#fff';
 
         ctx.globalAlpha = 0.6;
         ctx.strokeStyle = fleksRenk;

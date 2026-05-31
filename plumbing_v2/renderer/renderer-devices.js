@@ -582,16 +582,6 @@ export const DeviceMixin = {
 
     drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint = null, deviceCenter = null, comp = null) {
         let closestPipeEnd = targetPoint;
-        let pipeDirection = null;
-        let colorGroup = 'YELLOW'; // Varsayılan renk grubu
-
-        // ÖNCE: Eğer cihaz ve fleks bağlantısı varsa, O borunun rengini kullan!
-        if (comp && comp.fleksBaglanti?.boruId) {
-            const fleksBoru = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
-            if (fleksBoru) {
-                colorGroup = fleksBoru.colorGroup || 'YELLOW';
-            }
-        }
 
         // KRITIK: connectionPoint'i cihazın içine doğru uzat (15 cm)
         let adjustedConnectionPoint = connectionPoint;
@@ -616,42 +606,19 @@ export const DeviceMixin = {
             const currentFloorId = state.currentFloor?.id;
             const pipes = (manager.pipes || []).filter(p => p.floorId === currentFloorId);
             let minDist = Infinity;
-            let closestPipe = null;
 
-            // En yakın boru ucunu bul
             for (const pipe of pipes) {
                 const dist1 = Math.hypot(pipe.p1.x - connectionPoint.x, pipe.p1.y - connectionPoint.y);
                 if (dist1 < minDist) {
                     minDist = dist1;
                     closestPipeEnd = { x: pipe.p1.x, y: pipe.p1.y };
-                    closestPipe = pipe;
-                    const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
-                    if (pipeLength > 0) {
-                        pipeDirection = {
-                            x: (pipe.p2.x - pipe.p1.x) / pipeLength,
-                            y: (pipe.p2.y - pipe.p1.y) / pipeLength
-                        };
-                    }
                 }
 
                 const dist2 = Math.hypot(pipe.p2.x - connectionPoint.x, pipe.p2.y - connectionPoint.y);
                 if (dist2 < minDist) {
                     minDist = dist2;
                     closestPipeEnd = { x: pipe.p2.x, y: pipe.p2.y };
-                    closestPipe = pipe;
-                    const pipeLength = Math.hypot(pipe.p2.x - pipe.p1.x, pipe.p2.y - pipe.p1.y);
-                    if (pipeLength > 0) {
-                        pipeDirection = {
-                            x: (pipe.p1.x - pipe.p2.x) / pipeLength,
-                            y: (pipe.p1.y - pipe.p2.y) / pipeLength
-                        };
-                    }
                 }
-            }
-
-            // En yakın borunun renk grubunu al
-            if (closestPipe) {
-                colorGroup = closestPipe.colorGroup || 'YELLOW';
             }
         }
 
@@ -671,14 +638,14 @@ export const DeviceMixin = {
 
             ctx.save();
 
-            // Fleks rengini renk grubuna göre ayarla
-            const fleksRenk = this.getRenkByGroup(colorGroup, 'fleks', 1);
-            const adjustedColor = getAdjustedColor(fleksRenk, 'cihaz');
+            // Tüm cihaz fleksleri tema rengi: dark=beyaz, light=siyah
+            const adjustedColor = isLightMode() ? '#000' : '#fff';
             ctx.strokeStyle = adjustedColor;
             // Zoom-bağımsız: setTransform scale ile çarpılınca ekranda sabit
             // kalınlık verir. Eski sabit "1" izometride state.zoom düşünce
             // abartılı kalınlaşıyordu.
-            ctx.lineWidth = 1 / (zoom || 1);
+            // Sayaç için dünya birimi (uzaklaşınca incelir); diğer cihazlar ekrana sabit
+            ctx.lineWidth = (comp && comp.type === 'sayac') ? 1.2 : 1 / (zoom || 1);
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
 
