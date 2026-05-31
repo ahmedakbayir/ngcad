@@ -394,21 +394,35 @@ export class InteractionManager {
 
         if (!best) return null;
 
-        // Sayaç-paste: yalnızca serbest boru ucu kabul edilir
-        // (body, corner veya dolu uç → snap iptal, kullanıcı geçerli uca yaklaşsın).
+        // Sayaç-paste: yalnızca serbest boru ucu kabul edilir. 2D projeksiyonda
+        // T-junction (corner) ve dikey iniş borusunun alt ucu aynı (x,y)'ye
+        // düşer; corner snap önde olduğu için endpoint check düşüyor ve sayaç
+        // bran̦şmana yapışmıyordu. Çözüm: best ne olursa olsun, mouse'a en yakın
+        // PROJEKSİYONDAKİ GERÇEKTEN SERBEST ucu ara; bulunursa best'i onunla
+        // değiştir, yoksa snap iptal.
         if (isSayacPaste) {
-            if (best.type !== 'endpoint' || !best.pipeId) return null;
-            const tPipe = this.manager.pipes.find(p => p.id === best.pipeId);
-            if (!tPipe) return null;
-            const isP1 = Math.hypot(tPipe.p1.x - best.x, tPipe.p1.y - best.y, (tPipe.p1.z || 0) - best.z) < 0.5;
-            const tUc = isP1 ? 'p1' : 'p2';
-            const tBag = tUc === 'p1' ? tPipe.baslangicBaglanti : tPipe.bitisBaglanti;
-            if (tBag && tBag.hedefId) return null;
-            const tPt = tUc === 'p1' ? tPipe.p1 : tPipe.p2;
-            if (!this.manager.isTrulyFreeEndpoint(tPt, 1)) return null;
-            if (this.hasMeterAtEndpoint(tPipe.id, tUc)) return null;
-            if (this.hasDeviceAtEndpoint && this.hasDeviceAtEndpoint(tPipe.id, tUc)) return null;
-            best.targetEnd = tUc;
+            let freeBest = null;
+            let freeBestDist = TOLERANCE;
+            for (const pipe of this.manager.pipes) {
+                if (excludeIds.has(pipe.id)) continue;
+                for (const ucKey of ['p1', 'p2']) {
+                    const ep = pipe[ucKey];
+                    const epz = ep.z || 0;
+                    const epx = ep.x + epz * t3d;
+                    const epy = ep.y - epz * t3d;
+                    const d = Math.hypot(point.x - epx, point.y - epy);
+                    if (d >= freeBestDist) continue;
+                    const tBag = ucKey === 'p1' ? pipe.baslangicBaglanti : pipe.bitisBaglanti;
+                    if (tBag && tBag.hedefId) continue;
+                    if (!this.manager.isTrulyFreeEndpoint(ep, 1)) continue;
+                    if (this.hasMeterAtEndpoint(pipe.id, ucKey)) continue;
+                    if (this.hasDeviceAtEndpoint && this.hasDeviceAtEndpoint(pipe.id, ucKey)) continue;
+                    freeBestDist = d;
+                    freeBest = { x: ep.x, y: ep.y, z: epz, type: 'endpoint', pipeId: pipe.id, targetEnd: ucKey };
+                }
+            }
+            if (!freeBest) return null;
+            best = freeBest;
         }
 
         // Kesişim kontrolü: yapıştırılacak borular mevcut borularla çakışıyor mu?
