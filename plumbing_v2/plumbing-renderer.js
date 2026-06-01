@@ -236,11 +236,16 @@ export class PlumbingRenderer {
                         ctx.rotate(manager.tempComponent.rotation * Math.PI / 180);
                     }
 
-                    // Cihaz tipine göre çiz
-                    if (manager.tempComponent.cihazTipi === 'KOMBI') {
-                        this.drawKombi(ctx, manager.tempComponent, manager);
-                    } else if (manager.tempComponent.cihazTipi === 'OCAK') {
-                        this.drawOcak(ctx, manager.tempComponent, manager);
+                    // Cihaz tipine göre çiz — tüm yakıcı cihaz tipleri ghost'ta
+                    // gövde çizmeli; aksi takdirde sadece fleks+vana hayaleti
+                    // görünür (SOBA/SOFBEN/KAZAN/TICARI hatası).
+                    switch (manager.tempComponent.cihazTipi) {
+                        case 'KOMBI':  this.drawKombi(ctx, manager.tempComponent, manager);  break;
+                        case 'OCAK':   this.drawOcak(ctx, manager.tempComponent, manager);   break;
+                        case 'SOBA':   this.drawSoba(ctx, manager.tempComponent, manager);   break;
+                        case 'SOFBEN': this.drawSofben(ctx, manager.tempComponent, manager); break;
+                        case 'KAZAN':  this.drawKazan(ctx, manager.tempComponent, manager);  break;
+                        case 'TICARI': this.drawTicari(ctx, manager.tempComponent, manager); break;
                     }
 
                     ctx.restore();

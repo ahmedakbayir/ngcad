@@ -34,7 +34,7 @@ const DEFAULT_KOMBI = [
     { marka: 'ECA',         model: 'CITIUS PREMIX 24 HM',                   kw: 24   },
     { marka: 'ECA',         model: 'CONFEO PREMİX P 30',                    kw: 30   },
     { marka: 'ECA',         model: 'PROTEUS PREMIX X 30 HM',                kw: 29.6 },
-    { marka: 'ECA',         model: 'PROTEUS PREMIX H2 BLEND READY 30 HM DG',kw: 30   },
+    { marka: 'ECA',         model: 'PROTEUS PREMIX H2 BLEND READY 30 HM DG'                 ,kw: 30   },
     { marka: 'DAIKIN',      model: 'D2CPX024',                              kw: 24.1 },
     { marka: 'DAIKIN',      model: 'EHYKOMB33AA',                           kw: 32.7 },
     { marka: 'DAIKIN',      model: 'VZ Premix 30 kW D2CPX030',              kw: 29.8 },
@@ -88,11 +88,25 @@ const DEFAULT_SOFBEN = [
 ];
 
 const DEFAULT_KAZAN = [
-    { marka: 'BOSCH',      model: 'Condens 5000 W 75 kW',                   kw: 75   },
-    { marka: 'BOSCH',      model: 'Condens 7000 W 100 kW',                  kw: 100  },
-    { marka: 'BAYMAK',     model: 'Magnus Plus 50',                         kw: 50   },
-    { marka: 'BUDERUS',    model: 'Logano Plus GB312 90',                   kw: 90   },
-    { marka: 'VİESSMANN',  model: 'Vitocrossal 200 CM2 87 kW',              kw: 87   },
+    {marka:'VAİLLANT',              model:'VKK 2006/3-E'                        ,kw:196.8},
+    {marka:'VAİLLANT',              model:'VKK 2406/3-E'                        ,kw:236.2},
+    {marka:'RİMA',                  model:'ONGAS 307'                           ,kw:187},
+    {marka:'RİMA',                  model:'ONGAS 608 P'                         ,kw:530},
+    {marka:'ERENSAN ISI MÜHENDİSİ', model:'DB 2500 Seri No:91400351'            ,kw:2907},
+    {marka:'ERENSAN ISI MÜHENDİSİ', model:'EUROMAX 2330'                        ,kw:2330},
+    {marka:'ERENSAN ISI MÜHENDİSİ', model:'NA R 1600'                           ,kw:1860},
+    {marka:'KUBUŞ ISI CİHAZLARI',   model:'YGSK 175'                            ,kw:203},
+    {marka:'KUBUŞ ISI CİHAZLARI',   model:'TSSKG 700'                           ,kw:814},
+    {marka:'KUBUŞ ISI CİHAZLARI',   model:'TSSKG 550'                           ,kw:639.5},
+    {marka:'BOSCH',                 model:'UT-L 18'                             ,kw:2500},
+    {marka:'Wolf',                  model:'MGK-2 470'                           ,kw:467.1},
+    {marka:'Wolf',                  model:'MGK-2 130'                           ,kw:126},
+    {marka:'Wolf',                  model:'MGK-2 300'                           ,kw:294},
+    {marka:'REMEHA',                model:'GAS 620 ACE-710 (Entegre Brülörlü)'  ,kw:700},
+    {marka:'REMEHA',                model:'GAS 320 ACE-430 (Entegre Brülörlü)'  ,kw:424.5},
+    {marka:'ALFA',                  model:'ALFAMIX Y 520'                       ,kw:505.6},
+    {marka:'MEKSİS',                model:'MSSK-400 Seri No:17666-1 ve 17666-2' ,kw:465},
+    {marka:'MEKSİS',                model:'ALU-MEK X-TREME 710'                 ,kw:711.3},
 ];
 
 const DEFAULT_TICARI = [
