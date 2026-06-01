@@ -12,7 +12,7 @@ import { Sayac, createSayac } from './objects/meter.js';
 import { Vana, createVana } from './objects/valve.js';
 import { Regulator, createRegulator } from './objects/regulator.js';
 import { PipeFitting, createPipeFitting, FITTING_DEFS } from './objects/pipe-fitting.js';
-import { Cihaz, createCihaz } from './objects/device.js';
+import { Cihaz, createCihaz, CIHAZ_TIPLERI } from './objects/device.js';
 import { recomputeAllPressures } from './utils/pressure-recompute.js';
 import { Baca, createBaca } from './objects/chimney.js';
 import { initVerticalPanelListeners } from './interactions/vertical-panel-handler.js';
@@ -463,15 +463,14 @@ export class PlumbingManager {
     }
 
     /**
-     * Boş bir boru ucuna "Kombi" veya "Ocak" gibi bir cihaz yerleştirir.
+     * Boş bir boru ucuna cihaz yerleştirir.
      * handleCihazEkleme ile tam entegre - vana, fleks otomatik eklenir
-     * @param {string} deviceType - Yerleştirilecek cihazın tipi ('KOMBI', 'OCAK', vb.)
+     * @param {string} deviceType - Yerleştirilecek cihazın tipi (KOMBI, OCAK, SOBA, SOFBEN, KAZAN, TICARI)
      * @param {object} boruUcuInfo - Opsiyonel boru ucu bilgisi {pipe, end, point}
      */
     placeDeviceAtOpenEnd(deviceType, boruUcuInfo = null) {
-        // Sadece 'KOMBI' ve 'OCAK' tiplerine izin ver
-        if (deviceType !== 'KOMBI' && deviceType !== 'OCAK') {
-            // console.warn(`Unsupported device type for automatic placement: ${deviceType}`);
+        // Geçerli bir cihaz tipi mi?
+        if (!CIHAZ_TIPLERI[deviceType]) {
             return false;
         }
 
@@ -501,7 +500,8 @@ export class PlumbingManager {
         // Cihazı oluştur; yön = boş uca gelen SON yatay segmentin "dışa" yönü.
         // Borunun kendisi yatay ise borunun yönü, dikey ise yukarı zincirde
         // bulunan ilk yatay segmentin yönü kullanılır. Yatay segment yoksa +Y.
-        const DEVICE_HALF = 15;
+        const cfg = CIHAZ_TIPLERI[deviceType] || CIHAZ_TIPLERI.KOMBI;
+        const DEVICE_HALF = Math.max(cfg.width, cfg.height) / 2;
         const FLEKS_UZUNLUK = 15;
         const dir = _getOutwardHorizontalDir(this, targetPipe, targetEnd) || { x: 0, y: 1 };
         const devX = targetPoint.x + dir.x * (DEVICE_HALF + FLEKS_UZUNLUK);

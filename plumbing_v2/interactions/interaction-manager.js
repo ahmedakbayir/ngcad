@@ -56,7 +56,11 @@ import {
     startRotation,
     handleRotation,
     endRotation,
-    updateConnectedPipe
+    updateConnectedPipe,
+    findResizeHandleCorner,
+    startResize,
+    updateResize,
+    endResize
 } from './rotation-handler.js';
 
 // Selection handlers
@@ -204,6 +208,11 @@ export class InteractionManager {
         // Döndürme durumu
         this.isRotating = false;
         this.rotationOffset = 0;
+
+        // Yeniden boyutlandırma (KAZAN/TICARI köşe)
+        this.isResizing = false;
+        this.resizeCorner = null;
+        this.resizeStart = null;
 
         // Seçili nesne
         this.selectedObject = null;
@@ -610,6 +619,20 @@ export class InteractionManager {
 
     updateConnectedPipe(result) {
         return updateConnectedPipe(result, this.manager);
+    }
+
+    // KAZAN/TICARI köşe yeniden boyutlandırma
+    findResizeHandleCorner(obj, point, tolerance = 8) {
+        return findResizeHandleCorner(obj, point, tolerance);
+    }
+    startResize(obj, corner, point) {
+        return startResize(this, obj, corner, point);
+    }
+    handleResize(point) {
+        return updateResize(this, point);
+    }
+    endResize() {
+        return endResize(this, this.manager);
     }
 
     /**

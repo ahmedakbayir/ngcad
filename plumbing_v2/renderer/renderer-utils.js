@@ -369,7 +369,18 @@ function getEszamanFaktor(tipKey, count) {
 }
 
 /** Sayaç sonrası: her tip için minimum debi (m³/h). En az 1 cihaz varsa uygulanır. */
-const MIN_DEBI_TIP = { ocak: 1.6, kombi: 2.5 };
+// Min debi (m³/h). KAZAN ve TICARI için min yok — 'other' grubuna düşerler ve
+// hesaplanan değer aynen kullanılır. SOBA için baca tipine göre değişir
+// (cihaz başına hesaplanır, aşağıda _cihazMinDebi'ye bakılır).
+// "tekTip" aggregate min'i için statik değerler (SOBA bacalı varsayımıyla 1.20).
+// Per-cihaz hesaplamada (_cihazMinDebiForCalc) baca tipine göre yeniden değerlendirilir.
+const MIN_DEBI_TIP = { ocak: 1.6, kombi: 2.5, sofben: 2.2, soba: 1.20 };
+
+function _cihazMinDebiForCalc(c) {
+    const tip = (c?.cihazTipi || '').toUpperCase();
+    if (tip === 'SOBA') return c?.bacaTipi === 'Hermetik' ? 0.70 : 1.20;
+    return MIN_DEBI_TIP[tip.toLowerCase()] ?? 0;
+}
 
 /**
  * TS 7363:2018 Çizelge 6 — Bağımsız birimler (n=1…100)
@@ -505,7 +516,8 @@ export function computePipeDebileri(manager) {
             if (sayacSonrasiIds.has(pipeId)) {
                 const tip    = (c.cihazTipi || '').toUpperCase();
                 const tipKey = ['OCAK','KOMBI','SOBA','SOFBEN'].includes(tip) ? tip.toLowerCase() : 'other';
-                const minM3h = Math.max(m3h, MIN_DEBI_TIP[tipKey] ?? 0);
+                // SOBA için min debi baca tipine göre değişir; KAZAN/TICARI 'other'a düşer → min 0
+                const minM3h = Math.max(m3h, _cihazMinDebiForCalc(c));
                 pipe._db[tipKey].count++;
                 pipe._db[tipKey].totalM3h += minM3h;
                 pipe._directDebi += minM3h;

@@ -132,7 +132,7 @@ export function handlePointerMove(e) {
     }
 
     // ── Yapıştırma modu: snap noktası hesapla ve önizlemeyi güncelle ─────────
-    if (!this.manager.activeTool && !this.isDragging && !this.isRotating && !this.boruCizimAktif) {
+    if (!this.manager.activeTool && !this.isDragging && !this.isRotating && !this.isResizing && !this.boruCizimAktif) {
         if (this.cutPipes || this.copiedPipes) {
             this.pasteSnapPoint = this._findPasteSnapPoint(point);
             draw2D();
@@ -574,6 +574,12 @@ export function handlePointerMove(e) {
     // 3. Döndürme
     if (this.isRotating && this.dragObject) {
         this.handleRotation(point);
+        return true;
+    }
+
+    // 3b. Yeniden boyutlandırma (KAZAN/TICARI)
+    if (this.isResizing && this.dragObject) {
+        this.handleResize(point);
         return true;
     }
 

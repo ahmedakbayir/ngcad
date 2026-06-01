@@ -637,6 +637,12 @@ export const dom = {
     bTopraklama: document.getElementById("bTopraklama"),
     bKombi: document.getElementById("bKombi"),
     bOcak: document.getElementById("bOcak"),
+    bDigerCihaz: document.getElementById("bDigerCihaz"),
+    digerCihazFlyout: document.getElementById("diger-cihaz-flyout"),
+    bSoba: document.getElementById("bSoba"),
+    bSofben: document.getElementById("bSofben"),
+    bKazan: document.getElementById("bKazan"),
+    bTicari: document.getElementById("bTicari"),
     bBaca: document.getElementById("bBaca"),
     bBoru: document.getElementById("bBoru"),
     lengthInput: document.getElementById("length-input"),
@@ -1008,6 +1014,15 @@ export function setMode(mode, forceSet = false) { // forceSet parametresi eklend
     }
     dom.bKombi.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'KOMBI');
     dom.bOcak.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'OCAK');
+    if (dom.bSoba)   dom.bSoba.classList.toggle("active",   isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'SOBA');
+    if (dom.bSofben) dom.bSofben.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'SOFBEN');
+    if (dom.bKazan)  dom.bKazan.classList.toggle("active",  isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'KAZAN');
+    if (dom.bTicari) dom.bTicari.classList.toggle("active", isPlumbingV2 && activeTool === 'cihaz' && plumbingManager?.tempComponent?.cihazTipi === 'TICARI');
+    if (dom.bDigerCihaz) {
+        const tip = plumbingManager?.tempComponent?.cihazTipi;
+        const digerActive = isPlumbingV2 && activeTool === 'cihaz' && ['SOBA','SOFBEN','KAZAN','TICARI'].includes(tip);
+        dom.bDigerCihaz.classList.toggle("active", digerActive);
+    }
     dom.bBaca.classList.toggle("active", isPlumbingV2 && activeTool === 'baca');
     dom.bBoru.classList.toggle("active", isPlumbingV2 && activeTool === 'boru');
     dom.bSymmetry.classList.toggle("active", newMode === "drawSymmetry");
@@ -1536,6 +1551,43 @@ function initialize() {
             setMode("plumbingV2", true);
         });
     }
+    // Diğer yakıcı cihazlar flyout
+    function closeDigerCihazFlyout() {
+        if (dom.digerCihazFlyout) dom.digerCihazFlyout.classList.remove('open');
+        if (dom.bDigerCihaz) dom.bDigerCihaz.classList.remove('flyout-open');
+    }
+    if (dom.bDigerCihaz && dom.digerCihazFlyout) {
+        dom.bDigerCihaz.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = dom.digerCihazFlyout.classList.toggle('open');
+            dom.bDigerCihaz.classList.toggle('flyout-open', isOpen);
+        });
+        document.addEventListener("click", (e) => {
+            if (!dom.digerCihazFlyout.classList.contains('open')) return;
+            if (dom.digerCihazFlyout.contains(e.target)) return;
+            if (dom.bDigerCihaz.contains(e.target)) return;
+            closeDigerCihazFlyout();
+        });
+    }
+    const _bindCihazBtn = (btn, tipi) => {
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+            if (plumbingManager.interactionManager) {
+                plumbingManager.interactionManager.previousMode = state.currentMode;
+                plumbingManager.interactionManager.previousDrawingMode = state.currentDrawingMode;
+                plumbingManager.interactionManager.previousActiveTool = plumbingManager.activeTool;
+            }
+            plumbingManager.interactionManager?.cancelCurrentAction();
+            if (state.currentDrawingMode !== "KARMA") setDrawingMode("TESİSAT");
+            plumbingManager.startPlacement(TESISAT_MODLARI.CIHAZ, { cihazTipi: tipi });
+            setMode("plumbingV2", true);
+            closeDigerCihazFlyout();
+        });
+    };
+    _bindCihazBtn(dom.bSoba,   'SOBA');
+    _bindCihazBtn(dom.bSofben, 'SOFBEN');
+    _bindCihazBtn(dom.bKazan,  'KAZAN');
+    _bindCihazBtn(dom.bTicari, 'TICARI');
     if (dom.bBaca) {
         dom.bBaca.addEventListener("click", () => {
             // Önceki modu kaydet

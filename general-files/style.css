@@ -491,6 +491,17 @@ body.light-mode .group-label {
     height: 22px;
 }
 
+/* Diğer Yakıcı Cihazlar flyout: ikonlar daha büyük, etiketler daha okunaklı */
+.tesisat-flyout.cihaz-flyout-large .flyout-btn svg {
+    width: 36px;
+    height: 36px;
+}
+.tesisat-flyout.cihaz-flyout-large .flyout-btn {
+    min-width: 78px;
+    padding: 8px 10px;
+    font-size: 11px;
+}
+
 /* Mimari nesneler flyout: ikonların iç metni okunsun diye biraz büyük */
 #mimari-toolbox-flyout .flyout-btn svg {
     width: 30px;

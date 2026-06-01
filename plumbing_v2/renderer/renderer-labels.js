@@ -1322,6 +1322,19 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
             if (comp.marka) lines.push({ text: comp.marka, sub: true });
             if (comp.model) lines.push({ text: comp.model, sub: true });
             if (comp.yedekCihaz) lines.push({ text: 'Yedek Cihaz', sub: true });
+        } else if (['SOBA', 'SOFBEN', 'KAZAN', 'TICARI'].includes(comp.cihazTipi)) {
+            const NAMES = { SOBA: 'Soba', SOFBEN: 'Şofben', KAZAN: 'Kazan', TICARI: 'Ticari Cihaz' };
+            const baca = comp.bacaTipi ? `${comp.bacaTipi} ` : '';
+            lines.push({ text: `${baca}${NAMES[comp.cihazTipi]}`, bold: true });
+            if (comp.marka) lines.push({ text: comp.marka, sub: true });
+            if (comp.model) lines.push({ text: comp.model, sub: true });
+            const kcal = parseFloat(comp.kapasiteKcal);
+            const kw = parseFloat(comp.kapasiteKW);
+            if (!isNaN(kcal) && kcal > 0) {
+                const kwStr = (!isNaN(kw) && kw > 0) ? ` (${kw} kW)` : '';
+                lines.push({ text: `${Math.round(kcal).toLocaleString('tr-TR')} kcal/h${kwStr}`, sub: true });
+            }
+            if (comp.yedekCihaz) lines.push({ text: 'Yedek Cihaz', sub: true });
         } else {
             return;
         }
@@ -1335,7 +1348,9 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
         if (lines.length === 0) return;
 
         const config = CIHAZ_TIPLERI[comp.cihazTipi] || { width: 30, height: 30 };
-        const hh = (config.height || config.width) / 2;
+        const _hCm = parseFloat(comp.heightCm);
+        const actualH = (config.resizable && Number.isFinite(_hCm) && _hCm > 0) ? _hCm : (config.height || config.width);
+        const hh = actualH / 2;
 
         const cx = sc.x;
         const cy = sc.y;

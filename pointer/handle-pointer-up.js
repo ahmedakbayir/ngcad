@@ -38,6 +38,10 @@ export function handlePointerUp(e) {
         this.endRotation();
         return true;
     }
+    if (this.isResizing) {
+        this.endResize();
+        return true;
+    }
     if (this.isDragging) {
         this.endDrag();
         return true;

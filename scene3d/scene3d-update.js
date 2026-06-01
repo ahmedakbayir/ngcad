@@ -399,11 +399,15 @@ export function update3DScene() {
                     }
 
                     // Bileşeni block formatına dönüştür
+                    const _wCm = comp.type === 'cihaz' ? parseFloat(comp.widthCm)  : NaN;
+                    const _hCm = comp.type === 'cihaz' ? parseFloat(comp.heightCm) : NaN;
                     const block = {
                         center: { x: comp.x, y: comp.y },
                         rotation: comp.rotation || 0,
                         blockType: resolvedBlockType,
-                        floorId: comp.floorId
+                        floorId: comp.floorId,
+                        widthCm:  Number.isFinite(_wCm) && _wCm > 0 ? _wCm : null,
+                        heightCm: Number.isFinite(_hCm) && _hCm > 0 ? _hCm : null,
                     };
 
                     const m = createPlumbingBlockMesh(block, plumbingMaterial);

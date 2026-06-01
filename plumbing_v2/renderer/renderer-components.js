@@ -188,6 +188,10 @@ export const ComponentMixin = {
             if (comp.type === 'servis_kutusu' || comp.type === 'cihaz' || comp.type === 'sayac') {
                 this.drawRotationHandles(ctx, comp);
             }
+            // KAZAN/TICARI için köşe yeniden boyutlandırma tutamaçları
+            if (comp.type === 'cihaz' && comp.config?.resizable) {
+                this.drawResizeHandles(ctx, comp);
+            }
         }
         } finally {
             if (persp) {
@@ -1212,6 +1216,34 @@ export const ComponentMixin = {
         // ctx.setLineDash([3, 3]);
         // ctx.strokeRect(-w / 2 - 3, -h / 2 - 3, w + 6, h + 6);
         // ctx.setLineDash([]);
+    },
+
+    /**
+     * KAZAN/TICARI gibi yeniden boyutlandırılabilir cihazlar için 4 köşeye küçük
+     * tutamaç kareleri çiz. drawComponent içinde outer translate+rotate uygulu
+     * olduğu için local koordinatlarda (cihazın merkezi 0,0) çiziyoruz.
+     */
+    drawResizeHandles(ctx, comp) {
+        if (typeof comp.getBoyut !== 'function') return;
+        const { width, height } = comp.getBoyut();
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const HANDLE = 4; // cm — local birim
+        const corners = [
+            { x: -halfW, y: -halfH },
+            { x:  halfW, y: -halfH },
+            { x:  halfW, y:  halfH },
+            { x: -halfW, y:  halfH },
+        ];
+        ctx.fillStyle = isLightMode() ? '#FFFFFF' : '#1F2329';
+        ctx.strokeStyle = isLightMode() ? '#1565C0' : '#90CAF9';
+        ctx.lineWidth = 1.5;
+        for (const c of corners) {
+            ctx.beginPath();
+            ctx.rect(c.x - HANDLE / 2, c.y - HANDLE / 2, HANDLE, HANDLE);
+            ctx.fill();
+            ctx.stroke();
+        }
     },
 
     drawRotationHandles(ctx, comp) {

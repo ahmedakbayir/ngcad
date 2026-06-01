@@ -274,6 +274,15 @@ export function handlePointerDown(e) {
             }
         }
 
+        // Sonra cihaz köşe yeniden boyutlandırma tutamacı (sadece KAZAN/TICARI)
+        if (this.selectedObject && this.selectedObject.type === 'cihaz' && this.selectedObject.config?.resizable) {
+            const corner = this.findResizeHandleCorner(this.selectedObject, point, 8);
+            if (corner) {
+                this.startResize(this.selectedObject, corner, point);
+                return true;
+            }
+        }
+
         // --- GİZMO EKSENİNE TIKLAMA KONTROLÜ ---
         if (this.selectedObject && !this.isDragging) {
             if (this.selectedObject.type === 'boru') {

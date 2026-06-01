@@ -11,6 +11,17 @@ const CUSTOM_COLORS = {
     DEVICE_BLUE: { // Ocak/Kombi - Mavi Yoğunluklu
         light: { 0: '#E3F2FD', 0.3: '#90CAF9', 0.6: '#42A5F5', 1: '#1565C0' },
         dark: { 0: '#E3F2FD', 0.3: '#64B5F6', 0.6: '#1E88E5', 1: '#0D47A1' }
+    },
+    // DİĞER YAKICI CİHAZLAR
+    SOBA_ORANGE: { stroke: '#E65100', fillLight: '#FFE0B2', fillDark: '#5D4037' },
+    SOFBEN_GREEN: { stroke: '#2E7D32', fillLight: '#E8F5E9', fillDark: '#1B5E20' },
+    KAZAN_BLUE:   { stroke: '#0D47A1', fillLight: '#E3F2FD', fillDark: '#0D47A1', frameLight: '#1565C0', frameDark: '#90CAF9' },
+    TICARI_GRAY:  {
+        stroke: '#3A3F46',
+        fillLight: '#C7CDD4',           // açık metalik gümüş
+        fillDark: '#9CA3AB',
+        innerLight: '#6B7079',
+        innerDark: '#3F4750'
     }
 };
 
@@ -29,15 +40,14 @@ export const DeviceMixin = {
     drawCihaz(ctx, comp, manager) {
         const config = CIHAZ_TIPLERI[comp.cihazTipi] || CIHAZ_TIPLERI.KOMBI;
 
-        // Kombi veya Ocak için özel çizim
-        if (comp.cihazTipi === 'KOMBI') {
-            this.drawKombi(ctx, comp, manager);
-            return;
-        }
-
-        if (comp.cihazTipi === 'OCAK') {
-            this.drawOcak(ctx, comp, manager);
-            return;
+        // Tip-bazlı dispatch
+        switch (comp.cihazTipi) {
+            case 'KOMBI':  this.drawKombi(ctx, comp, manager);  return;
+            case 'OCAK':   this.drawOcak(ctx, comp, manager);   return;
+            case 'SOBA':   this.drawSoba(ctx, comp, manager);   return;
+            case 'SOFBEN': this.drawSofben(ctx, comp, manager); return;
+            case 'KAZAN':  this.drawKazan(ctx, comp, manager);  return;
+            case 'TICARI': this.drawTicari(ctx, comp, manager); return;
         }
 
         // Diğer cihazlar için eski stil çizim
@@ -299,6 +309,266 @@ export const DeviceMixin = {
             ctx.arc(pos.x, pos.y, burnerRadius, 0, Math.PI * 2);
             ctx.fill();
         });
+
+        ctx.restore();
+    },
+
+    // ─── Fleks çizimi yardımcısı (yeni cihazlar için) ────────────────────────
+    _drawCihazFleks(ctx, comp, manager) {
+        const zoom = state.zoom || 1;
+        if (!manager) return;
+        ctx.save();
+        if (comp.rotation) ctx.rotate(-comp.rotation * Math.PI / 180);
+        ctx.translate(-comp.x, -comp.y);
+
+        const _t3d = state.viewBlendFactor || 0;
+        let targetPoint = null;
+        if (comp.fleksBaglanti?.boruId && comp.fleksBaglanti?.endpoint) {
+            const pipe = manager.pipes.find(p => p.id === comp.fleksBaglanti.boruId);
+            if (pipe) {
+                const raw = comp.getFleksBaglantiNoktasi(pipe);
+                if (raw) {
+                    const pipeZ = (comp.fleksBaglanti.endpoint === 'p1' ? pipe.p1.z : pipe.p2.z) || 0;
+                    const devZ = comp.z || 0;
+                    const zDiff = (pipeZ - devZ) * _t3d;
+                    targetPoint = { x: raw.x + zDiff, y: raw.y - zDiff };
+                }
+            }
+        }
+        const connectionPoint = comp.getGirisNoktasi();
+        const deviceCenter = { x: comp.x, y: comp.y };
+        this.drawWavyConnectionLine(ctx, connectionPoint, zoom, manager, targetPoint, deviceCenter, comp);
+        ctx.restore();
+    },
+
+    // ─── SOBA ─ Soba: yatay dikdörtgen + iç bölmeler (radyatör görünümü) ─────
+    drawSoba(ctx, comp, manager) {
+        const zoom = state.zoom || 1;
+        this._drawCihazFleks(ctx, comp, manager);
+
+        ctx.save();
+        // drawComponent zaten outer translate+rotate uyguladı; tekrar rotate ETME.
+
+        const { width, height } = comp.getBoyut();
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const c = CUSTOM_COLORS.SOBA_ORANGE;
+        const fill = isLightMode() ? c.fillLight : c.fillDark;
+
+        // Gövde
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : c.stroke;
+        ctx.lineWidth = (comp.isSelected ? 2.5 : 1.5) / zoom;
+        ctx.beginPath();
+        ctx.rect(-halfW, -halfH, width, height);
+        ctx.fill();
+        ctx.stroke();
+
+        // İç bölmeler (radyatör segmentleri) — 5 dilim
+        const segments = 5;
+        const segW = width / segments;
+        ctx.lineWidth = 1 / zoom;
+        for (let i = 1; i < segments; i++) {
+            const x = -halfW + i * segW;
+            ctx.beginPath();
+            ctx.moveTo(x, -halfH);
+            ctx.lineTo(x, halfH);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    },
+
+    // ─── ŞOFBEN ─ Tek halka + G harfi (kombiye benzer, iç panel olmadan) ─────
+    drawSofben(ctx, comp, manager) {
+        const zoom = state.zoom || 1;
+        this._drawCihazFleks(ctx, comp, manager);
+
+        ctx.save();
+        // drawComponent zaten outer rotate uyguladı; tekrar rotate ETME.
+
+        const c = CUSTOM_COLORS.SOFBEN_GREEN;
+        const fill = isLightMode() ? c.fillLight : c.fillDark;
+        const radius = 14;
+
+        getShadow(ctx);
+
+        ctx.fillStyle = fill;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : c.stroke;
+        ctx.lineWidth = (comp.isSelected ? 2.5 : 1.5) / zoom;
+        ctx.stroke();
+
+        // "G" harfi
+        ctx.fillStyle = c.stroke;
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('G', 0, 1);
+
+        ctx.restore();
+    },
+
+    // ─── KAZAN ─ Dikdörtgen + sol/giriş tarafında küçük bağlantı dikdörtgeni ─
+    drawKazan(ctx, comp, manager) {
+        const zoom = state.zoom || 1;
+        this._drawCihazFleks(ctx, comp, manager);
+
+        ctx.save();
+        // drawComponent zaten outer rotate uyguladı; tekrar rotate ETME.
+
+        const { width, height } = comp.getBoyut();
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const c = CUSTOM_COLORS.KAZAN_BLUE;
+        const fill = isLightMode() ? c.fillLight : c.fillDark;
+        const frameColor = isLightMode() ? c.frameLight : c.frameDark;
+        const strokeColor = comp.isSelected ? CUSTOM_COLORS.SELECTED : c.stroke;
+
+        // Arka bağlantı dikdörtgeni (sol kenarda, daha küçük)
+        const connW = Math.max(8, Math.min(15, width * 0.15));
+        const connH = Math.min(height * 0.6, 30);
+        const connX = -halfW - connW * 0.6;
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = (comp.isSelected ? 2.5 : 1.5) / zoom;
+        ctx.beginPath();
+        ctx.rect(connX, -connH / 2, connW, connH);
+        ctx.fill();
+        ctx.stroke();
+
+        // Ana gövde
+        ctx.beginPath();
+        ctx.rect(-halfW, -halfH, width, height);
+        ctx.fill();
+        ctx.stroke();
+
+        // İç çerçeve (dış kenardan biraz içeri, kazanı belirgin kılar)
+        const framePad = Math.max(2, Math.min(width, height) * 0.06);
+        const innerW = width - framePad * 2;
+        const innerH = height - framePad * 2;
+        if (innerW > 0 && innerH > 0) {
+            ctx.strokeStyle = frameColor;
+            ctx.lineWidth = 1 / zoom;
+            ctx.beginPath();
+            ctx.rect(-halfW + framePad, -halfH + framePad, innerW, innerH);
+            ctx.stroke();
+        }
+
+        // "kazan" etiketi
+        ctx.fillStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : (isLightMode() ? c.stroke : '#E3F2FD');
+        ctx.font = `bold ${Math.min(height * 0.3, 14)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('kazan', 0, 0);
+
+        ctx.restore();
+    },
+
+    // ─── TİCARİ ─ Dikdörtgen + içine yerleştirilmiş yapılandırılabilir şekiller ─
+    drawTicari(ctx, comp, manager) {
+        const zoom = state.zoom || 1;
+        this._drawCihazFleks(ctx, comp, manager);
+
+        ctx.save();
+
+        const { width, height } = comp.getBoyut();
+        const halfW = width / 2;
+        const halfH = height / 2;
+        const c = CUSTOM_COLORS.TICARI_GRAY;
+        const strokeColor = comp.isSelected ? CUSTOM_COLORS.SELECTED : c.stroke;
+
+        // Açık metalik gradient (fırçalanmış alüminyum benzeri)
+        const grad = ctx.createLinearGradient(0, -halfH, 0, halfH);
+        if (isLightMode()) {
+            grad.addColorStop(0, '#E8ECF0');
+            grad.addColorStop(0.5, c.fillLight);
+            grad.addColorStop(1, '#A8B0B8');
+        } else {
+            grad.addColorStop(0, '#C7CDD4');
+            grad.addColorStop(0.5, c.fillDark);
+            grad.addColorStop(1, '#7A8089');
+        }
+
+        // Ana gövde
+        ctx.fillStyle = grad;
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = (comp.isSelected ? 2.5 : 1.5) / zoom;
+        ctx.beginPath();
+        ctx.rect(-halfW, -halfH, width, height);
+        ctx.fill();
+        ctx.stroke();
+
+        // Dış çerçeve — gövdenin biraz dışında ince bir kenarlık
+        const outerPad = Math.max(1.5, Math.min(width, height) * 0.04);
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1 / zoom;
+        ctx.beginPath();
+        ctx.rect(-halfW - outerPad, -halfH - outerPad, width + outerPad * 2, height + outerPad * 2);
+        ctx.stroke();
+
+        // İç şekiller — özellikten oku
+        const sekilTipi = comp.ticariSekilTipi || 'cizgi';   // kare | daire | cizgi | bos
+        if (sekilTipi !== 'bos') {
+            const cols = Math.max(1, parseInt(comp.ticariEnSayisi, 10) || 1);
+            const rows = Math.max(1, parseInt(comp.ticariBoySayisi, 10) || 4);
+            const sekilBoy = Math.max(1, parseFloat(comp.ticariSekilBoyutu) || 60); // cm
+            const kalinlikCm = Math.max(0.1, parseFloat(comp.ticariCizgiKalinlik) || 2);
+
+            // Şeklin X ve Y eksenlerindeki ölçüsü — kare/daire kare olarak,
+            // çizgi şeklinde X=uzunluk, Y=kalınlık.
+            const shapeW = (sekilTipi === 'cizgi') ? sekilBoy : sekilBoy;
+            const shapeH = (sekilTipi === 'cizgi') ? kalinlikCm : sekilBoy;
+
+            // Eşit dağılım: N şekil için N+1 eşit aralık. Kenar boşluğu = iç
+            // boşluk. Şekil boyutu cihaz boyutuna eşitse gap=0 → kenara değer.
+            const gapX = (width  - cols * shapeW) / (cols + 1);
+            const gapY = (height - rows * shapeH) / (rows + 1);
+
+            ctx.fillStyle = isLightMode() ? c.innerLight : c.innerDark;
+            ctx.strokeStyle = strokeColor;
+            const innerStroke = Math.max(0.4, Math.min(width, height) * 0.012);
+            ctx.lineWidth = innerStroke;
+
+            for (let r = 0; r < rows; r++) {
+                for (let col = 0; col < cols; col++) {
+                    // Şekil merkezi: kenardan (gap + shape/2) ile başlar,
+                    // sonraki şekiller (gap + shape) ile ilerler.
+                    const cx = -halfW + gapX + shapeW / 2 + col * (shapeW + gapX);
+                    const cy = -halfH + gapY + shapeH / 2 + r   * (shapeH + gapY);
+
+                    if (sekilTipi === 'daire') {
+                        const radius = sekilBoy / 2;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+                    } else if (sekilTipi === 'cizgi') {
+                        // Yatay çizgi: kalınlık ticariCizgiKalinlik parametresinden.
+                        // Çizgi şekli kalınlık × uzunluk dikdörtgen olarak yerleşir;
+                        // boş alan eşit dağıtılır.
+                        ctx.beginPath();
+                        ctx.moveTo(cx - sekilBoy / 2, cy);
+                        ctx.lineTo(cx + sekilBoy / 2, cy);
+                        ctx.lineWidth = kalinlikCm;
+                        ctx.strokeStyle = isLightMode() ? c.innerLight : c.innerDark;
+                        ctx.stroke();
+                        ctx.lineWidth = innerStroke;
+                        ctx.strokeStyle = strokeColor;
+                    } else {
+                        // kare (default)
+                        ctx.beginPath();
+                        ctx.rect(cx - sekilBoy / 2, cy - sekilBoy / 2, sekilBoy, sekilBoy);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
 
         ctx.restore();
     },

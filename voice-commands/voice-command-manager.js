@@ -559,6 +559,14 @@ export class VoiceCommandManager {
                 return this._addCihaz(cmd, 'KOMBI');
             case 'ocak':
                 return this._addCihaz(cmd, 'OCAK');
+            case 'soba':
+                return this._addCihaz(cmd, 'SOBA');
+            case 'sofben':
+                return this._addCihaz(cmd, 'SOFBEN');
+            case 'kazan':
+                return this._addCihaz(cmd, 'KAZAN');
+            case 'ticari':
+                return this._addCihaz(cmd, 'TICARI');
             default:
                 return { success: false, message: `Bilinmeyen bileşen: ${cmd.object}` };
         }

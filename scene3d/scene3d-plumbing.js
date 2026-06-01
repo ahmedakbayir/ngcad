@@ -277,15 +277,15 @@ function createOcakMesh(block, material) {
 function createGenericCihazMesh(block, material) {
     const cfg = (CIHAZ_TIPLERI && CIHAZ_TIPLERI[block.blockType]) || { width: 40, height: 40, depth: 40, color: 0xC0C0C0 };
 
-    const geometry = createRoundedBoxGeometry(
-        cfg.width || 40,
-        cfg.depth || 40,   // Yükseklik (dik eksen)
-        cfg.height || 40,  // Derinlik (yatay)
-        2
-    );
+    // Resizable cihazlar (KAZAN, TICARI) widthCm/heightCm ile override edilebilir
+    const w = (cfg.resizable && Number.isFinite(block.widthCm))  ? block.widthCm  : (cfg.width || 40);
+    const h = (cfg.resizable && Number.isFinite(block.heightCm)) ? block.heightCm : (cfg.height || 40);
+    const d = cfg.depth || 40;
+
+    const geometry = createRoundedBoxGeometry(w, d, h, 2);
 
     geometry.rotateX(-Math.PI / 2);
-    geometry.translate(0, (cfg.height || 40) / 2, 0);
+    geometry.translate(0, h / 2, 0);
 
     const mesh = new THREE.Mesh(geometry, material.clone());
     if (cfg.color) mesh.material.color.setHex(cfg.color);

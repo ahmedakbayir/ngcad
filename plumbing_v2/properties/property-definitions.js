@@ -430,15 +430,22 @@ function _isDN65Plus(cap) {
     return parseInt((cap || '').replace('DN', '') || '0') >= 65;
 }
 
-const _CIHAZ_MIN_DEBI = { OCAK: 1.6, KOMBI: 2.5 };
+// Min debi (m³/h). KAZAN ve TICARI için min yok — hesaplanan değer aynen kullanılır.
+// SOBA için baca tipine göre değişir (hermetik 0.70, bacalı 1.20).
+const _CIHAZ_MIN_DEBI = { OCAK: 1.6, KOMBI: 2.5, SOFBEN: 2.2 };
+
+export function _cihazMinDebi(obj) {
+    const tip = (obj?.cihazTipi || '').toUpperCase();
+    if (tip === 'SOBA') return obj?.bacaTipi === 'Hermetik' ? 0.70 : 1.20;
+    return _CIHAZ_MIN_DEBI[tip] ?? 0;
+}
 
 function _cihazDebiHesapla(obj) {
     const kcal = parseFloat(obj.kapasiteKcal);
     const verim = (parseFloat(obj.verim) || 100) / 100;
     if (isNaN(kcal) || kcal <= 0) return null;
     const raw = kcal / 8250 / verim;
-    const min = _CIHAZ_MIN_DEBI[(obj.cihazTipi || '').toUpperCase()] ?? 0;
-    return Math.max(raw, min);
+    return Math.max(raw, _cihazMinDebi(obj));
 }
 
 /**
@@ -1840,6 +1847,280 @@ export const PROPERTY_DEFS = {
         disabled: true,
     },
 
+    // ════════════════════════════════════════════════════════
+    // DİĞER YAKICI CİHAZLAR — Ortak property üretici
+    //   Her cihaz tipi için aynı şablonu (kapasite, marka/model, baca, vb.)
+    //   key prefix ile çoğaltıyoruz.
+    // ════════════════════════════════════════════════════════
+
+    // ─── SOBA ───
+    soba_sec_kapasite: { type: 'section', label: 'Kapasite' },
+    sobaKapasiteKcal: {
+        // Varsayılan baca tipi 'Bacalı' → 9900 kcal/h. Hermetik seçilirse afterChange ile 5800'e çekilir.
+        label: 'Kapasite (Kcal/h)', type: 'text', inputType: 'number', step: '100', min: '0',
+        key: 'kapasiteKcal', default: '9900', placeholder: 'kcal/h', precision: 0,
+        afterChange: (obj, _manager, panelEl) => {
+            const kcal = parseFloat(obj.kapasiteKcal);
+            if (!isNaN(kcal)) {
+                obj.kapasiteKW = parseFloat((kcal / 860).toFixed(2));
+                const kwEl = panelEl.querySelector('[data-prop-key="kapasiteKW"]');
+                if (kwEl) kwEl.value = obj.kapasiteKW;
+            }
+            _refreshCihazDebi(obj, panelEl);
+        },
+    },
+    sobaKapasiteKW: {
+        label: 'Kapasite (kW)', type: 'text', inputType: 'number', step: '1', min: '0',
+        key: 'kapasiteKW', default: '11.51', placeholder: 'kW', precision: 2,
+        afterChange: (obj, _manager, panelEl) => {
+            const kw = parseFloat(obj.kapasiteKW);
+            if (!isNaN(kw)) {
+                obj.kapasiteKcal = Math.round(kw * 860);
+                const kcalEl = panelEl.querySelector('[data-prop-key="kapasiteKcal"]');
+                if (kcalEl) kcalEl.value = obj.kapasiteKcal;
+            }
+            _refreshCihazDebi(obj, panelEl);
+        },
+    },
+    sobaVerim: {
+        label: 'Verim (%)', type: 'text', inputType: 'number', step: '1', min: '0', max: '100',
+        key: 'verim', default: '100', placeholder: '%', precision: 0,
+        afterChange: (obj, _manager, panelEl) => _refreshCihazDebi(obj, panelEl),
+    },
+    soba_sec_urun: { type: 'section', label: 'Ürün' },
+    sobaMarka: {
+        label: 'Marka', type: 'select', key: 'marka',
+        options: (obj) => getMarkaList('SOBA', obj?.marka || ''),
+        placeholder: 'Marka seçin...',
+        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
+    },
+    sobaModel: {
+        label: 'Model', type: 'select', key: 'model',
+        options: (obj) => getModelList('SOBA', obj?.marka, obj?.model || ''),
+        placeholder: 'Model seçin...',
+        disabledFn: (obj) => !obj?.marka,
+        afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
+    },
+    sobaBacaTipi: {
+        label: 'Baca Tipi', type: 'select', key: 'bacaTipi',
+        options: BACA_TIPLERI, default: 'Bacalı',
+        afterChange: (obj, _manager, panelEl) => {
+            // Baca tipine göre varsayılan kapasite. Kullanıcı özelleştirmediyse de
+            // anlaşılır olsun diye her zaman güncelle (kullanıcı yine üzerine yazabilir).
+            const isHermetik = obj.bacaTipi === 'Hermetik';
+            obj.kapasiteKcal = isHermetik ? 5800 : 9900;
+            obj.kapasiteKW = parseFloat((obj.kapasiteKcal / 860).toFixed(2));
+            const kcalEl = panelEl?.querySelector('[data-prop-key="kapasiteKcal"]');
+            if (kcalEl) kcalEl.value = obj.kapasiteKcal;
+            const kwEl = panelEl?.querySelector('[data-prop-key="kapasiteKW"]');
+            if (kwEl) kwEl.value = obj.kapasiteKW;
+            _refreshCihazDebi(obj, panelEl);
+        },
+    },
+
+    // ─── ŞOFBEN ───
+    sofben_sec_kapasite: { type: 'section', label: 'Kapasite' },
+    sofbenKapasiteKcal: {
+        label: 'Kapasite (Kcal/h)', type: 'text', inputType: 'number', step: '100', min: '0',
+        key: 'kapasiteKcal', default: '18150', placeholder: 'kcal/h', precision: 0,
+        afterChange: (obj, _manager, panelEl) => {
+            const kcal = parseFloat(obj.kapasiteKcal);
+            if (!isNaN(kcal)) {
+                obj.kapasiteKW = parseFloat((kcal / 860).toFixed(2));
+                const kwEl = panelEl.querySelector('[data-prop-key="kapasiteKW"]');
+                if (kwEl) kwEl.value = obj.kapasiteKW;
+            }
+            _refreshCihazDebi(obj, panelEl);
+        },
+    },
+    sofbenKapasiteKW: {
+        label: 'Kapasite (kW)', type: 'text', inputType: 'number', step: '1', min: '0',
+        key: 'kapasiteKW', default: '21.10', placeholder: 'kW', precision: 2,
+        afterChange: (obj, _manager, panelEl) => {
+            const kw = parseFloat(obj.kapasiteKW);
+            if (!isNaN(kw)) {
+                obj.kapasiteKcal = Math.round(kw * 860);
+                const kcalEl = panelEl.querySelector('[data-prop-key="kapasiteKcal"]');
+                if (kcalEl) kcalEl.value = obj.kapasiteKcal;
+            }
+            _refreshCihazDebi(obj, panelEl);
+        },
+    },
+    sofbenVerim: {
+        label: 'Verim (%)', type: 'text', inputType: 'number', step: '1', min: '0', max: '100',
+        key: 'verim', default: '100', placeholder: '%', precision: 0,
+        afterChange: (obj, _manager, panelEl) => _refreshCihazDebi(obj, panelEl),
+    },
+    sofben_sec_urun: { type: 'section', label: 'Ürün' },
+    sofbenMarka: {
+        label: 'Marka', type: 'select', key: 'marka',
+        options: (obj) => getMarkaList('SOFBEN', obj?.marka || ''),
+        placeholder: 'Marka seçin...',
+        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
+    },
+    sofbenModel: {
+        label: 'Model', type: 'select', key: 'model',
+        options: (obj) => getModelList('SOFBEN', obj?.marka, obj?.model || ''),
+        placeholder: 'Model seçin...',
+        disabledFn: (obj) => !obj?.marka,
+        afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
+    },
+    sofbenBacaTipi: {
+        label: 'Baca Tipi', type: 'select', key: 'bacaTipi',
+        options: BACA_TIPLERI, default: 'Hermetik',
+    },
+
+    // ─── KAZAN ───
+    kazan_sec_kapasite: { type: 'section', label: 'Kapasite' },
+    kazanKapasiteKcal: {
+        label: 'Kapasite (Kcal/h)', type: 'text', inputType: 'number', step: '100', min: '0',
+        key: 'kapasiteKcal', default: '74250', placeholder: 'kcal/h', precision: 0,
+        afterChange: (obj, _manager, panelEl) => {
+            const kcal = parseFloat(obj.kapasiteKcal);
+            if (!isNaN(kcal)) {
+                obj.kapasiteKW = parseFloat((kcal / 860).toFixed(2));
+                const kwEl = panelEl.querySelector('[data-prop-key="kapasiteKW"]');
+                if (kwEl) kwEl.value = obj.kapasiteKW;
+            }
+            _refreshCihazDebi(obj, panelEl);
+        },
+    },
+    kazanKapasiteKW: {
+        label: 'Kapasite (kW)', type: 'text', inputType: 'number', step: '1', min: '0',
+        key: 'kapasiteKW', default: '86.34', placeholder: 'kW', precision: 2,
+        afterChange: (obj, _manager, panelEl) => {
+            const kw = parseFloat(obj.kapasiteKW);
+            if (!isNaN(kw)) {
+                obj.kapasiteKcal = Math.round(kw * 860);
+                const kcalEl = panelEl.querySelector('[data-prop-key="kapasiteKcal"]');
+                if (kcalEl) kcalEl.value = obj.kapasiteKcal;
+            }
+            _refreshCihazDebi(obj, panelEl);
+        },
+    },
+    kazanVerim: {
+        label: 'Verim (%)', type: 'text', inputType: 'number', step: '1', min: '0', max: '100',
+        key: 'verim', default: '90', placeholder: '%', precision: 0,
+        afterChange: (obj, _manager, panelEl) => _refreshCihazDebi(obj, panelEl),
+    },
+    kazan_sec_urun: { type: 'section', label: 'Ürün' },
+    kazanMarka: {
+        label: 'Marka', type: 'select', key: 'marka',
+        options: (obj) => getMarkaList('KAZAN', obj?.marka || ''),
+        placeholder: 'Marka seçin...',
+        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
+    },
+    kazanModel: {
+        label: 'Model', type: 'select', key: 'model',
+        options: (obj) => getModelList('KAZAN', obj?.marka, obj?.model || ''),
+        placeholder: 'Model seçin...',
+        disabledFn: (obj) => !obj?.marka,
+        afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
+    },
+    kazanBacaTipi: {
+        label: 'Baca Tipi', type: 'select', key: 'bacaTipi',
+        options: BACA_TIPLERI, default: 'Bacalı',
+    },
+    kazan_sec_boyut: { type: 'section', label: 'Boyut (cm)' },
+    kazanWidth: {
+        label: 'Genişlik', type: 'text', inputType: 'number', step: '5', min: '20',
+        key: 'widthCm', default: '80', placeholder: 'cm', precision: 0,
+    },
+    kazanHeight: {
+        label: 'Derinlik', type: 'text', inputType: 'number', step: '5', min: '20',
+        key: 'heightCm', default: '50', placeholder: 'cm', precision: 0,
+    },
+
+    // ─── TİCARİ CİHAZ ───
+    ticari_sec_kapasite: { type: 'section', label: 'Kapasite' },
+    ticariKapasiteKcal: {
+        label: 'Kapasite (Kcal/h)', type: 'text', inputType: 'number', step: '100', min: '0',
+        key: 'kapasiteKcal', default: '15000', placeholder: 'kcal/h', precision: 0,
+        afterChange: (obj, _manager, panelEl) => {
+            const kcal = parseFloat(obj.kapasiteKcal);
+            if (!isNaN(kcal)) {
+                obj.kapasiteKW = parseFloat((kcal / 860).toFixed(2));
+                const kwEl = panelEl.querySelector('[data-prop-key="kapasiteKW"]');
+                if (kwEl) kwEl.value = obj.kapasiteKW;
+            }
+            _refreshCihazDebi(obj, panelEl);
+        },
+    },
+    ticariKapasiteKW: {
+        label: 'Kapasite (kW)', type: 'text', inputType: 'number', step: '1', min: '0',
+        key: 'kapasiteKW', default: '17.44', placeholder: 'kW', precision: 2,
+        afterChange: (obj, _manager, panelEl) => {
+            const kw = parseFloat(obj.kapasiteKW);
+            if (!isNaN(kw)) {
+                obj.kapasiteKcal = Math.round(kw * 860);
+                const kcalEl = panelEl.querySelector('[data-prop-key="kapasiteKcal"]');
+                if (kcalEl) kcalEl.value = obj.kapasiteKcal;
+            }
+            _refreshCihazDebi(obj, panelEl);
+        },
+    },
+    ticariVerim: {
+        label: 'Verim (%)', type: 'text', inputType: 'number', step: '1', min: '0', max: '100',
+        key: 'verim', default: '90', placeholder: '%', precision: 0,
+        afterChange: (obj, _manager, panelEl) => _refreshCihazDebi(obj, panelEl),
+    },
+    ticari_sec_urun: { type: 'section', label: 'Ürün' },
+    ticariMarka: {
+        label: 'Marka', type: 'select', key: 'marka',
+        options: (obj) => getMarkaList('TICARI', obj?.marka || ''),
+        placeholder: 'Marka seçin...',
+        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
+    },
+    ticariModel: {
+        label: 'Model', type: 'select', key: 'model',
+        options: (obj) => getModelList('TICARI', obj?.marka, obj?.model || ''),
+        placeholder: 'Model seçin...',
+        disabledFn: (obj) => !obj?.marka,
+        afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
+    },
+    ticariBacaTipi: {
+        label: 'Baca Tipi', type: 'select', key: 'bacaTipi',
+        options: BACA_TIPLERI, default: 'Atmosferik',
+    },
+    ticari_sec_boyut: { type: 'section', label: 'Boyut (cm)' },
+    ticariWidth: {
+        label: 'Genişlik', type: 'text', inputType: 'number', step: '5', min: '20',
+        key: 'widthCm', default: '80', placeholder: 'cm', precision: 0,
+    },
+    ticariHeight: {
+        label: 'Derinlik', type: 'text', inputType: 'number', step: '5', min: '20',
+        key: 'heightCm', default: '30', placeholder: 'cm', precision: 0,
+    },
+
+    ticari_sec_icerik: { type: 'section', label: 'İç Yerleşim' },
+    ticariSekilTipi: {
+        label: 'Şekil',
+        type: 'select',
+        key: 'ticariSekilTipi',
+        options: ['kare', 'daire', 'cizgi', 'bos'],
+        default: 'cizgi',
+    },
+    ticariEnSayisi: {
+        label: 'Enine Adet',
+        type: 'text', inputType: 'number', step: '1', min: '1', max: '20',
+        key: 'ticariEnSayisi', default: '1', placeholder: 'adet', precision: 0,
+    },
+    ticariBoySayisi: {
+        label: 'Boyuna Adet',
+        type: 'text', inputType: 'number', step: '1', min: '1', max: '20',
+        key: 'ticariBoySayisi', default: '4', placeholder: 'adet', precision: 0,
+    },
+    ticariSekilBoyutu: {
+        label: 'Şekil Boyutu (cm)',
+        type: 'text', inputType: 'number', step: '1', min: '0.5',
+        key: 'ticariSekilBoyutu', default: '60', placeholder: 'cm', precision: 1,
+    },
+    ticariCizgiKalinlik: {
+        label: 'Çizgi Kalınlığı (cm)',
+        type: 'text', inputType: 'number', step: '0.5', min: '0.1',
+        key: 'ticariCizgiKalinlik', default: '2', placeholder: 'cm', precision: 1,
+    },
+
     // ─── MİMARİ NESNELER ─────────────────────────────────────────────────────
 
     // Oda (room)
@@ -2372,6 +2653,62 @@ export const OBJECT_PROPERTIES = {
         'ocakMuhafaza',
         'ocakYedekCihaz',
     ],
+    cihaz_soba: [
+        'soba_sec_urun',
+        'sobaMarka',
+        'sobaModel',
+        'sobaBacaTipi',
+        'soba_sec_kapasite',
+        'sobaKapasiteKcal',
+        'sobaKapasiteKW',
+        'sobaVerim',
+        'cihazDebi',
+    ],
+    cihaz_sofben: [
+        'sofben_sec_urun',
+        'sofbenMarka',
+        'sofbenModel',
+        'sofbenBacaTipi',
+        'sofben_sec_kapasite',
+        'sofbenKapasiteKcal',
+        'sofbenKapasiteKW',
+        'sofbenVerim',
+        'cihazDebi',
+    ],
+    cihaz_kazan: [
+        'kazan_sec_urun',
+        'kazanMarka',
+        'kazanModel',
+        'kazanBacaTipi',
+        'kazan_sec_kapasite',
+        'kazanKapasiteKcal',
+        'kazanKapasiteKW',
+        'kazanVerim',
+        'cihazDebi',
+        'kazan_sec_boyut',
+        'kazanWidth',
+        'kazanHeight',
+    ],
+    cihaz_ticari: [
+        'ticari_sec_urun',
+        'ticariMarka',
+        'ticariModel',
+        'ticariBacaTipi',
+        'ticari_sec_kapasite',
+        'ticariKapasiteKcal',
+        'ticariKapasiteKW',
+        'ticariVerim',
+        'cihazDebi',
+        'ticari_sec_boyut',
+        'ticariWidth',
+        'ticariHeight',
+        'ticari_sec_icerik',
+        'ticariSekilTipi',
+        'ticariEnSayisi',
+        'ticariBoySayisi',
+        'ticariSekilBoyutu',
+        'ticariCizgiKalinlik',
+    ],
 
     // Mimari nesneler
     room: [
@@ -2450,7 +2787,15 @@ export function getPropertiesForObject(obj) {
 /** Panel başlığı için nesne etiketi */
 export function getObjectLabel(obj) {
     if (obj.type === 'cihaz') {
-        return { KOMBI: 'Kombi', OCAK: 'Ocak' }[obj.cihazTipi] || 'Cihaz';
+        const LABELS = {
+            KOMBI: 'Kombi',
+            OCAK: 'Ocak',
+            SOBA: 'Soba',
+            SOFBEN: 'Şofben',
+            KAZAN: 'Kazan',
+            TICARI: 'Ticari Cihaz',
+        };
+        return LABELS[obj.cihazTipi] || 'Cihaz';
     }
     return getObjectTypeLabel(obj.type);
 }

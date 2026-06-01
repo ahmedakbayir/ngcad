@@ -870,13 +870,15 @@ function initMenu() {
     // ── Cihaz — aktif çizimde son borunun açık ucuna otomatik yerleştir.
     // Cihaz terminal; placeDeviceAtOpenEnd setMode("select") yapıp çizimi
     // sonlandırır. Aksi halde ghost mod.
-    ['KOMBI', 'OCAK'].forEach(tip => {
+    ['KOMBI', 'OCAK', 'SOBA', 'SOFBEN', 'KAZAN', 'TICARI'].forEach(tip => {
         document.getElementById(`plumbing-cihaz-${tip}`)?.addEventListener('click', () => {
             if (!menuState) return;
             const im = menuState.interactionManager;
             const open = lastDrawnOpenEnd(menuState);
             if (open) {
                 im.manager.placeDeviceAtOpenEnd(tip, open);
+                // Cihaz terminal; aktif boru çizimi varsa kesin sonlandır.
+                try { im.cancelCurrentAction?.(); } catch { /* sessiz */ }
             } else {
                 autoPlaceCihaz(im, tip);
             }
@@ -885,12 +887,15 @@ function initMenu() {
     });
 
     // ── İniş + Cihaz — aktif çizimde son boruya iniş, sonra cihaz
-    ['KOMBI', 'OCAK'].forEach(tip => {
+    ['KOMBI', 'OCAK', 'SOBA', 'SOFBEN', 'KAZAN', 'TICARI'].forEach(tip => {
         document.getElementById(`plumbing-inis-${tip}`)?.addEventListener('click', () => {
             if (!menuState) return;
+            const im = menuState.interactionManager;
             const open = lastDrawnOpenEnd(menuState);
             const pipe = open ? open.pipe : getPipeTarget(menuState);
-            if (pipe) placeInisVeCihaz(menuState.interactionManager, pipe, tip);
+            if (pipe) placeInisVeCihaz(im, pipe, tip);
+            // İniş + cihaz da terminal: aktif çizimi sonlandır.
+            try { im.cancelCurrentAction?.(); } catch { /* sessiz */ }
             hide();
         });
     });

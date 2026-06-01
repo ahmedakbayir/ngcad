@@ -59,6 +59,7 @@ const CIHAZ_KUCUK = {
     SOFBEN: 'şofben',
     SOBA:   'soba',
     KAZAN:  'kazan',
+    TICARI: 'ticari cihaz',
 };
 const CIHAZ_BUYUK = {
     KOMBI:  'Kombi',
@@ -66,6 +67,7 @@ const CIHAZ_BUYUK = {
     SOFBEN: 'Şofben',
     SOBA:   'Soba',
     KAZAN:  'Kazan',
+    TICARI: 'Ticari Cihaz',
 };
 export function cihazAdSmall(cihazTipi) {
     return CIHAZ_KUCUK[(cihazTipi || '').toUpperCase()] || 'cihaz';

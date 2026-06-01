@@ -258,6 +258,10 @@ const INTENT_KALIPLARI = [
     { patterns: ['sayaç ekle', 'sayaç koy'], result: { type: 'add', object: 'sayac' } },
     { patterns: ['kombi ekle', 'kombi koy'], result: { type: 'add', object: 'kombi' } },
     { patterns: ['ocak ekle', 'ocak koy'], result: { type: 'add', object: 'ocak' } },
+    { patterns: ['soba ekle', 'soba koy'], result: { type: 'add', object: 'soba' } },
+    { patterns: ['şofben ekle', 'sofben ekle', 'şofben koy'], result: { type: 'add', object: 'sofben' } },
+    { patterns: ['kazan ekle', 'kazan koy'], result: { type: 'add', object: 'kazan' } },
+    { patterns: ['ticari ekle', 'ticari cihaz ekle', 'ticari koy'], result: { type: 'add', object: 'ticari' } },
 
     // Önceki / Sonraki hat seçimi
     { patterns: ['önceki hattı seç', 'önceki hat', 'öncekini seç'], result: { type: 'select_adjacent', direction: 'prev' } },
@@ -528,6 +532,23 @@ export function parseVoiceCommand(text) {
     // Ocak ekle - "ocak" tek başına da yeterli
     if (matchAny(clean, ['ocak ekle', 'ocak koy', 'ocak yerleştir', 'ocak bağla']) || clean === 'ocak') {
         return { type: 'add', object: 'ocak', raw: text };
+    }
+
+    // Soba ekle
+    if (matchAny(clean, ['soba ekle', 'soba koy', 'soba yerleştir', 'soba bağla']) || clean === 'soba') {
+        return { type: 'add', object: 'soba', raw: text };
+    }
+    // Şofben ekle
+    if (matchAny(clean, ['şofben ekle', 'sofben ekle', 'şofben koy', 'sofben koy', 'şofben yerleştir', 'şofben bağla']) || clean === 'şofben' || clean === 'sofben') {
+        return { type: 'add', object: 'sofben', raw: text };
+    }
+    // Kazan ekle
+    if (matchAny(clean, ['kazan ekle', 'kazan koy', 'kazan yerleştir', 'kazan bağla']) || clean === 'kazan') {
+        return { type: 'add', object: 'kazan', raw: text };
+    }
+    // Ticari cihaz ekle
+    if (matchAny(clean, ['ticari ekle', 'ticari koy', 'ticari cihaz ekle', 'ticari cihaz koy', 'ticari yerleştir']) || clean === 'ticari' || clean === 'ticari cihaz') {
+        return { type: 'add', object: 'ticari', raw: text };
     }
 
     // ── 3a2. ÖNCEKİ / SONRAKİ HAT SEÇİMİ ──
@@ -1015,7 +1036,7 @@ export function commandToText(cmd) {
         }
 
         case 'add': {
-            const objNames = { vana: 'Vana', sayac: 'Sayaç', kombi: 'Kombi', ocak: 'Ocak' };
+            const objNames = { vana: 'Vana', sayac: 'Sayaç', kombi: 'Kombi', ocak: 'Ocak', soba: 'Soba', sofben: 'Şofben', kazan: 'Kazan', ticari: 'Ticari Cihaz' };
             const name = objNames[cmd.object] || cmd.object;
             if (cmd.position === 'middle') return `${name} Ekle (ortaya)`;
             if (cmd.position === 'start') return `${name} Ekle (başa)`;

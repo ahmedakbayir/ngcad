@@ -73,6 +73,35 @@ const DEFAULT_KOMBI = [
     { marka: 'DEMİRDÖKÜM',  model: 'ademiX P 24/28-AS/1 (H-TR)',            kw: 23.9 },
 ];
 
+const DEFAULT_SOBA = [
+    { marka: 'AYAS',       model: 'Doğalgaz Sobası 5 kW',                   kw: 5    },
+    { marka: 'AYAS',       model: 'Doğalgaz Sobası 7 kW',                   kw: 7    },
+    { marka: 'KARABULUT',  model: 'KRB-DG-5',                               kw: 5    },
+    { marka: 'KARABULUT',  model: 'KRB-DG-7',                               kw: 7    },
+];
+
+const DEFAULT_SOFBEN = [
+    { marka: 'BAYMAK',     model: 'Şofben 14 kW',                           kw: 14   },
+    { marka: 'BAYMAK',     model: 'Şofben 19 kW',                           kw: 19   },
+    { marka: 'DEMİRDÖKÜM', model: 'Şofben Lawa 24',                         kw: 24   },
+    { marka: 'ECA',        model: 'Confeo Şofben',                          kw: 19   },
+];
+
+const DEFAULT_KAZAN = [
+    { marka: 'BOSCH',      model: 'Condens 5000 W 75 kW',                   kw: 75   },
+    { marka: 'BOSCH',      model: 'Condens 7000 W 100 kW',                  kw: 100  },
+    { marka: 'BAYMAK',     model: 'Magnus Plus 50',                         kw: 50   },
+    { marka: 'BUDERUS',    model: 'Logano Plus GB312 90',                   kw: 90   },
+    { marka: 'VİESSMANN',  model: 'Vitocrossal 200 CM2 87 kW',              kw: 87   },
+];
+
+const DEFAULT_TICARI = [
+    { marka: 'RATIONAL',   model: 'iCombi Pro 6-2/1',                       kw: 17.6 },
+    { marka: 'ELECTROLUX', model: 'Air-O-Steam Touchline 6 GN 1/1',         kw: 17   },
+    { marka: 'MBM',        model: 'Endüstriyel Gazlı Ocak 4 Gözlü',         kw: 28   },
+    { marka: 'INOKSAN',    model: 'Endüstriyel Fırın FG',                   kw: 22   },
+];
+
 const DEFAULT_OCAK = [
     { marka: 'ARÇELİK',    model: 'BFG04H12X',                              kw: 8.3  },
     { marka: 'ARÇELİK',    model: 'BFG04H11X',                              kw: 7.9  },
@@ -99,7 +128,7 @@ const DEFAULT_OCAK = [
     { marka: 'ALVEUS',     model: 'GLS 640 bl',                             kw: 6.35 },
 ];
 
-export const CIHAZ_KATALOG_TIPLERI = ['KOMBI', 'OCAK'];
+export const CIHAZ_KATALOG_TIPLERI = ['KOMBI', 'OCAK', 'SOBA', 'SOFBEN', 'KAZAN', 'TICARI'];
 
 function _normTip(tip) {
     return String(tip || '').toUpperCase();
@@ -112,8 +141,12 @@ function _cloneList(list) {
 /** Sıfırdan demo katalog döndürür (yeni proje veya eksik state için). */
 export function getDefaultCihazKatalog() {
     return {
-        KOMBI: _cloneList(DEFAULT_KOMBI),
-        OCAK:  _cloneList(DEFAULT_OCAK),
+        KOMBI:  _cloneList(DEFAULT_KOMBI),
+        OCAK:   _cloneList(DEFAULT_OCAK),
+        SOBA:   _cloneList(DEFAULT_SOBA),
+        SOFBEN: _cloneList(DEFAULT_SOFBEN),
+        KAZAN:  _cloneList(DEFAULT_KAZAN),
+        TICARI: _cloneList(DEFAULT_TICARI),
     };
 }
 

@@ -15,6 +15,8 @@
 import { TESISAT_CONSTANTS } from '../interactions/tesisat-snap.js';
 
 // Cihaz Tipleri
+//   resizable: true → kullanıcı widthCm/heightCm ile özelleştirebilir
+//   width/height = varsayılan (cm)
 export const CIHAZ_TIPLERI = {
     KOMBI: {
         id: 'KOMBI',
@@ -24,6 +26,7 @@ export const CIHAZ_TIPLERI = {
         depth: 29,
         mountType: 'wall',
         bacaGerekli: true,
+        resizable: false,
         color: 0xC0C0C0
     },
     OCAK: {
@@ -34,47 +37,52 @@ export const CIHAZ_TIPLERI = {
         depth: 59,
         mountType: 'floor',
         bacaGerekli: false,
+        resizable: false,
         color: 0x808080
     },
     SOBA: {
         id: 'SOBA',
         name: 'Soba',
-        width: 30,  // %75 küçültüldü (40 → 30)
-        height: 30, // %75 küçültüldü (40 → 30)
-        depth: 60,
+        width: 60,
+        height: 20,
+        depth: 30,
         mountType: 'floor',
         bacaGerekli: true,
-        color: 0x8B4513
+        resizable: false,
+        color: 0xE65100  // turuncu
     },
     SOFBEN: {
         id: 'SOFBEN',
         name: 'Şofben',
-        width: 35,
-        height: 60,
+        width: 30,
+        height: 30,
         depth: 25,
         mountType: 'wall',
         bacaGerekli: true,
-        color: 0xF5F5F5
+        resizable: false,
+        color: 0x2E7D32  // yeşil
     },
     KAZAN: {
         id: 'KAZAN',
         name: 'Kazan',
         width: 80,
-        height: 100,
+        height: 50,
         depth: 80,
         mountType: 'floor',
         bacaGerekli: true,
-        color: 0x696969
+        resizable: true,
+        color: 0x1565C0  // mavi
     },
     TICARI: {
         id: 'TICARI',
         name: 'Ticari Cihaz',
-        width: 100,
-        height: 100,
+        width: 80,
+        height: 30,
         depth: 100,
         mountType: 'floor',
-        bacaGerekli: true,
-        color: 0x4682B4
+        bacaGerekli: false,
+        resizable: true,
+        color: 0xB8BFC7  // açık metalik gümüş gri
     }
 };
 
@@ -103,6 +111,11 @@ export class Cihaz {
         this.config = CIHAZ_TIPLERI[tip] || CIHAZ_TIPLERI.KOMBI;
         this.floorId = options.floorId || null;
 
+        // Yeniden boyutlandırılabilir cihazlar (KAZAN, TICARI) için override
+        // null/undefined ise config varsayılanları kullanılır.
+        this.widthCm  = (this.config.resizable && Number.isFinite(options.widthCm))  ? options.widthCm  : null;
+        this.heightCm = (this.config.resizable && Number.isFinite(options.heightCm)) ? options.heightCm : null;
+
         // Fleks bağlantısı
         this.fleksBaglanti = {
             boruId: null,
@@ -118,12 +131,28 @@ export class Cihaz {
     }
 
     /**
+     * Cihaz boyutu (override varsa onu kullan).
+     * widthCm/heightCm panelden string olarak da gelebilir; parseFloat ile aç.
+     */
+    getBoyut() {
+        if (!this.config.resizable) {
+            return { width: this.config.width, height: this.config.height };
+        }
+        const wRaw = parseFloat(this.widthCm);
+        const hRaw = parseFloat(this.heightCm);
+        const w = Number.isFinite(wRaw) && wRaw > 0 ? wRaw : this.config.width;
+        const h = Number.isFinite(hRaw) && hRaw > 0 ? hRaw : this.config.height;
+        return { width: w, height: h };
+    }
+
+    /**
      * Giriş offset hesapla (fleks bağlantı noktası)
      */
     hesaplaGirisOffset() {
+        const { width } = this.getBoyut();
         // Default: sol kenar ortası
         return {
-            x: -this.config.width / 2,
+            x: -width / 2,
             y: 0
         };
     }
@@ -180,7 +209,7 @@ export class Cihaz {
      * Cihaz köşeleri
      */
     getKoseler() {
-        const { width, height } = this.config;
+        const { width, height } = this.getBoyut();
         const halfW = width / 2;
         const halfH = height / 2;
 
@@ -472,6 +501,13 @@ export class Cihaz {
             muhafazaGrupla: this.muhafazaGrupla,
             yedekCihaz: this.yedekCihaz,
             yogusmali: this.yogusmali,
+            widthCm: this.widthCm,
+            heightCm: this.heightCm,
+            ticariSekilTipi: this.ticariSekilTipi,
+            ticariEnSayisi: this.ticariEnSayisi,
+            ticariBoySayisi: this.ticariBoySayisi,
+            ticariSekilBoyutu: this.ticariSekilBoyutu,
+            ticariCizgiKalinlik: this.ticariCizgiKalinlik,
             description: this.description ?? ''
         };
     }
@@ -507,6 +543,17 @@ export class Cihaz {
         if (data.muhafazaGrupla !== undefined) cihaz.muhafazaGrupla = data.muhafazaGrupla;
         if (data.yedekCihaz !== undefined) cihaz.yedekCihaz = data.yedekCihaz;
         if (data.yogusmali !== undefined) cihaz.yogusmali = data.yogusmali;
+        if (cihaz.config.resizable) {
+            const w = parseFloat(data.widthCm);
+            const h = parseFloat(data.heightCm);
+            cihaz.widthCm  = Number.isFinite(w) && w > 0 ? w : null;
+            cihaz.heightCm = Number.isFinite(h) && h > 0 ? h : null;
+        }
+        if (data.ticariSekilTipi !== undefined) cihaz.ticariSekilTipi = data.ticariSekilTipi;
+        if (data.ticariEnSayisi !== undefined) cihaz.ticariEnSayisi = data.ticariEnSayisi;
+        if (data.ticariBoySayisi !== undefined) cihaz.ticariBoySayisi = data.ticariBoySayisi;
+        if (data.ticariSekilBoyutu !== undefined) cihaz.ticariSekilBoyutu = data.ticariSekilBoyutu;
+        if (data.ticariCizgiKalinlik !== undefined) cihaz.ticariCizgiKalinlik = data.ticariCizgiKalinlik;
         cihaz.description = data.description ?? '';
         return cihaz;
     }

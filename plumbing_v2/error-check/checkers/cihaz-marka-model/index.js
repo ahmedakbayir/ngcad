@@ -30,7 +30,7 @@ import {
 import { saveState } from '../../../../general-files/history.js';
 import { draw2D } from '../../../../draw/draw2d.js';
 
-const CIHAZ_TIPLERI_KONTROL = new Set(['KOMBI', 'OCAK']);
+const CIHAZ_TIPLERI_KONTROL = new Set(['KOMBI', 'OCAK', 'SOBA', 'SOFBEN', 'KAZAN', 'TICARI']);
 
 function _prefixForCihaz(manager, cihaz) {
     const sayac = findMeterUpstream(
