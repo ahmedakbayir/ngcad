@@ -49,7 +49,7 @@ export const CIHAZ_TIPLERI = {
         mountType: 'floor',
         bacaGerekli: true,
         resizable: false,
-        color: 0xE65100  // turuncu
+        color: 0x1976D2  // mavi (evsel cihaz)
     },
     SOFBEN: {
         id: 'SOFBEN',
@@ -60,7 +60,7 @@ export const CIHAZ_TIPLERI = {
         mountType: 'wall',
         bacaGerekli: true,
         resizable: false,
-        color: 0x2E7D32  // yeşil
+        color: 0x1565C0  // mavi (evsel cihaz)
     },
     KAZAN: {
         id: 'KAZAN',
@@ -71,7 +71,7 @@ export const CIHAZ_TIPLERI = {
         mountType: 'floor',
         bacaGerekli: true,
         resizable: true,
-        color: 0x1565C0  // mavi
+        color: 0x8A9099  // gri (ticari cihaza yakın)
     },
     TICARI: {
         id: 'TICARI',

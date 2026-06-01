@@ -139,13 +139,31 @@ export function findObjectAt(manager, point) {
             const maxLocalY =  halfHeight + 1;
             const pivotY = -halfHeight - nutH - (cfg.rijitUzunluk || 0);
 
+            // drawSayac matrisi pipeZ kullanıyor (comp.z DEĞİL). 3D/iso görünümde
+            // gövde pipe seviyesine asıldığı için hit-test'i de pipeZ ile yap;
+            // aksi takdirde tıklama alanı görünür gövdeden cm'lerce kayık olur.
+            let pipeZ = zBase;
+            if (comp.cikisBagliBoruId) {
+                const pipe = manager.findPipeById?.(comp.cikisBagliBoruId)
+                    || manager.pipes?.find(p => p.id === comp.cikisBagliBoruId);
+                if (pipe) pipeZ = (pipe.p1?.z ?? pipe.p2?.z ?? zBase);
+            } else if (comp.fleksBaglanti?.boruId) {
+                const pipe = manager.findPipeById?.(comp.fleksBaglanti.boruId)
+                    || manager.pipes?.find(p => p.id === comp.fleksBaglanti.boruId);
+                if (pipe) {
+                    const ep = comp.fleksBaglanti.endpoint;
+                    const zEp = ep === 'p1' ? pipe.p1?.z : ep === 'p2' ? pipe.p2?.z : null;
+                    pipeZ = zEp != null ? zEp : (pipe.p1?.z ?? pipe.p2?.z ?? zBase);
+                }
+            }
+
             // drawSayac transform(a, b, c, d, e, f) — birebir aynı katsayılar:
             const a = cosR;
             const b = sinR;
             const c = -sinR * (1 - t) - t * t;
             const d = cosR * (1 - t) + t * t;
-            const e = comp.x - pivotY * t * sinR + zBase * t + pivotY * t * t;
-            const f = comp.y + pivotY * t * cosR - zBase * t - pivotY * t * t;
+            const e = comp.x - pivotY * t * sinR + pipeZ * t + pivotY * t * t;
+            const f = comp.y + pivotY * t * cosR - pipeZ * t - pivotY * t * t;
             const det = a * d - b * c;
             if (Math.abs(det) < 1e-6) continue;
 

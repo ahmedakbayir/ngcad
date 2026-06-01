@@ -427,12 +427,15 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
             hw = cfg.width / 2;
             hh = cfg.height / 2;
         } else if (comp.type === 'cihaz') {
-            const cfg = CIHAZ_TIPLERI[comp.cihazTipi] || { width: 30, height: 30 };
-            hw = cfg.width / 2;
-            hh = cfg.height / 2;
+            // Resizable cihazlar (KAZAN, TICARI) için kullanıcı boyutu
+            const boyut = (typeof comp.getBoyut === 'function')
+                ? comp.getBoyut()
+                : (CIHAZ_TIPLERI[comp.cihazTipi] || { width: 30, height: 30 });
+            hw = boyut.width / 2;
+            hh = boyut.height / 2;
         } else {
-            hw = (comp.config?.width  || 8) / 1.5;
-            hh = (comp.config?.height || 8) / 1.5;
+            hw = (comp.config?.width  || 8) / 2;
+            hh = (comp.config?.height || 8) / 2;
         }
 
         const angle = (comp.rotation || 0) * Math.PI / 180;
@@ -443,11 +446,65 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
             { lx: -hw, ly: -hh }, { lx:  hw, ly: -hh },
             { lx:  hw, ly:  hh }, { lx: -hw, ly:  hh },
         ];
-        const projected = localCorners.map(c => {
-            const rx = cos * c.lx - sin * c.ly;
-            const ry = sin * c.lx + cos * c.ly;
-            return toIsometric(comp.x + rx, comp.y + ry, wz);
-        });
+
+        let projected;
+        if (comp.type === 'sayac') {
+            // Sayaç iso'da drawSayac magic matrisi ile pipe Z seviyesine asılır;
+            // gövdenin GERÇEK dünya konumunu o matrisle hesapla, sonra düz iso
+            // projeksiyonu uygula (komponentleri çizen line-294 matrisi z'siz
+            // çalıştığı için toIsometric'in z çıkarması bu noktada YANLIŞ).
+            const cfg = comp.config || SAYAC_CONFIG;
+            const sayacH = cfg.height;
+            const nutH = cfg.nutHeight || 0;
+            const rijit = cfg.rijitUzunluk || 0;
+            const pivotY = -sayacH / 2 - nutH - rijit;
+
+            let pipeZ = comp.z || 0;
+            if (comp.cikisBagliBoruId) {
+                const pipe = proxyManager.findPipeById?.(comp.cikisBagliBoruId);
+                if (pipe) pipeZ = (pipe.p1?.z ?? pipe.p2?.z ?? 0);
+            } else if (comp.fleksBaglanti?.boruId) {
+                const pipe = proxyManager.findPipeById?.(comp.fleksBaglanti.boruId);
+                if (pipe) {
+                    const ep = comp.fleksBaglanti.endpoint;
+                    const zEp = ep === 'p1' ? pipe.p1?.z : ep === 'p2' ? pipe.p2?.z : null;
+                    pipeZ = zEp != null ? zEp : (pipe.p1?.z ?? pipe.p2?.z ?? 0);
+                }
+            }
+
+            // Magic matrix at t=1: [a=cos, b=sin, c=-1, d=1, e, f]
+            // (lx, ly) → (cos*lx - ly + e, sin*lx + ly + f)
+            const e = comp.x - pivotY * sin + pipeZ + pivotY;
+            const f = comp.y + pivotY * cos - pipeZ - pivotY;
+            const cos30 = Math.cos(Math.PI / 6);
+            const sin30 = Math.sin(Math.PI / 6);
+            projected = localCorners.map(c => {
+                const wx = cos * c.lx - c.ly + e;
+                const wy = sin * c.lx + c.ly + f;
+                return { isoX: (wx + wy) * cos30, isoY: (wy - wx) * sin30 };
+            });
+        } else if (comp.type === 'cihaz') {
+            // Cihaz iso'da _computeCihazPerspSchematic ile pipe doğrultusunda
+            // kayar; gövdenin gerçek konumunu kullan.
+            const sch = plumbingManager?.renderer?._computeCihazPerspSchematic
+                ?.call(plumbingManager.renderer, comp, proxyManager, 1);
+            const cx = sch ? sch.x : comp.x;
+            const cy = sch ? sch.y : comp.y;
+            const cz = sch ? (sch.z || 0) : wz;
+            const cRot = sch ? (sch.rotation || 0) * Math.PI / 180 : angle;
+            const cCos = Math.cos(cRot), cSin = Math.sin(cRot);
+            projected = localCorners.map(c => {
+                const rx = cCos * c.lx - cSin * c.ly;
+                const ry = cSin * c.lx + cCos * c.ly;
+                return toIsometric(cx + rx, cy + ry, cz);
+            });
+        } else {
+            projected = localCorners.map(c => {
+                const rx = cos * c.lx - sin * c.ly;
+                const ry = sin * c.lx + cos * c.ly;
+                return toIsometric(comp.x + rx, comp.y + ry, wz);
+            });
+        }
 
         const xs = projected.map(p => p.isoX);
         const ys = projected.map(p => p.isoY);
@@ -500,7 +557,7 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
         const h = box.maxY - box.minY;
 
         ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 0.6;
         ctx.setLineDash([4, 3]);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';

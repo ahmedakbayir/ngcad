@@ -32,12 +32,16 @@ function _aabb(comp, t) {
     } else if (comp.type === 'vana' || comp.type === 'regulator'
         || comp.type === 'filtre' || comp.type === 'izolasyon_flansi'
         || comp.type === 'kompansator' || comp.type === 'manometre') {
-        hw = (comp.config?.width  || 8) / 1.5;
-        hh = (comp.config?.height || 8) / 1.5;
+        hw = (comp.config?.width  || 8) / 2;
+        hh = (comp.config?.height || 8) / 2;
     } else if (comp.type === 'cihaz') {
-        const cfg = CIHAZ_TIPLERI[comp.cihazTipi] || { width: 30, height: 30 };
-        hw = cfg.width  / 2;
-        hh = cfg.height / 2;
+        // Resizable cihazlar (KAZAN, TICARI) için kullanıcı boyutu;
+        // diğerleri için config default'u
+        const boyut = (typeof comp.getBoyut === 'function')
+            ? comp.getBoyut()
+            : (CIHAZ_TIPLERI[comp.cihazTipi] || { width: 30, height: 30 });
+        hw = boyut.width  / 2;
+        hh = boyut.height / 2;
     } else {
         hw = hh = 10;
     }
@@ -154,9 +158,9 @@ export const EnclosureMixin = {
             const w = box.maxX - box.minX;
             const h = box.maxY - box.minY;
 
-            // Kesikli çerçeve
+            // Kesikli çerçeve — ince
             ctx.strokeStyle = strokeColor;
-            ctx.lineWidth   = 1.2 / zoom;
+            ctx.lineWidth   = 0.6 / zoom;
             ctx.setLineDash([4 / zoom, 3 / zoom]);
             ctx.lineCap     = 'round';
             ctx.lineJoin    = 'round';

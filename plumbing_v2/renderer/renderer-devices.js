@@ -12,10 +12,29 @@ const CUSTOM_COLORS = {
         light: { 0: '#E3F2FD', 0.3: '#90CAF9', 0.6: '#42A5F5', 1: '#1565C0' },
         dark: { 0: '#E3F2FD', 0.3: '#64B5F6', 0.6: '#1E88E5', 1: '#0D47A1' }
     },
-    // DİĞER YAKICI CİHAZLAR
-    SOBA_ORANGE: { stroke: '#E65100', fillLight: '#FFE0B2', fillDark: '#5D4037' },
-    SOFBEN_GREEN: { stroke: '#2E7D32', fillLight: '#E8F5E9', fillDark: '#1B5E20' },
-    KAZAN_BLUE:   { stroke: '#0D47A1', fillLight: '#E3F2FD', fillDark: '#0D47A1', frameLight: '#1565C0', frameDark: '#90CAF9' },
+    // DİĞER YAKICI CİHAZLAR — evsel cihazlar (Ocak/Kombi/Şofben/Soba) mavi aileden
+    SOBA_BLUE: {
+        stroke: '#0D47A1',
+        fillLight: '#90CAF9',
+        fillDark: '#1976D2',
+        frameLight: '#1565C0',
+        frameDark: '#42A5F5',
+    },
+    SOFBEN_BLUE: {
+        stroke: '#0D47A1',
+        fillLight: '#42A5F5',
+        fillDark: '#1565C0',
+        gradientLight: { 0: '#BBDEFB', 0.6: '#42A5F5', 1: '#1565C0' },
+        gradientDark:  { 0: '#64B5F6', 0.6: '#1E88E5', 1: '#0D47A1' },
+    },
+    // Kazan — ticari cihaz gri tonuna yakın
+    KAZAN_GRAY:   {
+        stroke: '#34383F',
+        fillLight: '#B8BFC7',
+        fillDark: '#8A9099',
+        frameLight: '#5A6068',
+        frameDark: '#3A4048',
+    },
     TICARI_GRAY:  {
         stroke: '#3A3F46',
         fillLight: '#C7CDD4',           // açık metalik gümüş
@@ -352,8 +371,9 @@ export const DeviceMixin = {
         const { width, height } = comp.getBoyut();
         const halfW = width / 2;
         const halfH = height / 2;
-        const c = CUSTOM_COLORS.SOBA_ORANGE;
+        const c = CUSTOM_COLORS.SOBA_BLUE;
         const fill = isLightMode() ? c.fillLight : c.fillDark;
+        const frameColor = isLightMode() ? c.frameLight : c.frameDark;
 
         // Gövde
         ctx.fillStyle = fill;
@@ -367,6 +387,7 @@ export const DeviceMixin = {
         // İç bölmeler (radyatör segmentleri) — 5 dilim
         const segments = 5;
         const segW = width / segments;
+        ctx.strokeStyle = frameColor;
         ctx.lineWidth = 1 / zoom;
         for (let i = 1; i < segments; i++) {
             const x = -halfW + i * segW;
@@ -387,25 +408,44 @@ export const DeviceMixin = {
         ctx.save();
         // drawComponent zaten outer rotate uyguladı; tekrar rotate ETME.
 
-        const c = CUSTOM_COLORS.SOFBEN_GREEN;
-        const fill = isLightMode() ? c.fillLight : c.fillDark;
+        const c = CUSTOM_COLORS.SOFBEN_BLUE;
         const radius = 14;
 
         getShadow(ctx);
 
-        ctx.fillStyle = fill;
+        // Canlı yeşil radial gradient (kombi paterni)
+        const stops = isLightMode() ? c.gradientLight : c.gradientDark;
+        const gradient = ctx.createRadialGradient(-4, -4, 0, 0, 0, radius);
+        if (comp.isSelected) {
+            gradient.addColorStop(0, '#FFFFFF');
+            gradient.addColorStop(0.3, '#E0E0E0');
+            gradient.addColorStop(0.7, '#A0A0A0');
+            gradient.addColorStop(1, '#606060');
+        } else {
+            gradient.addColorStop(0, stops[0]);
+            gradient.addColorStop(0.6, stops[0.6]);
+            gradient.addColorStop(1, stops[1]);
+        }
+
+        ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(0, 0, radius, 0, Math.PI * 2);
         ctx.fill();
+
+        // Gölgeyi tamamen kapat — aksi takdirde G harfi 0.5px ofsetli gölge ile
+        // sisli görünür.
         ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.shadowColor = 'rgba(0,0,0,0)';
 
         ctx.strokeStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : c.stroke;
         ctx.lineWidth = (comp.isSelected ? 2.5 : 1.5) / zoom;
         ctx.stroke();
 
-        // "G" harfi
-        ctx.fillStyle = c.stroke;
-        ctx.font = 'bold 16px Arial';
+        // "G" harfi — beyaz, kombiyle tutarlı
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 18px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('G', 0, 1);
@@ -424,7 +464,7 @@ export const DeviceMixin = {
         const { width, height } = comp.getBoyut();
         const halfW = width / 2;
         const halfH = height / 2;
-        const c = CUSTOM_COLORS.KAZAN_BLUE;
+        const c = CUSTOM_COLORS.KAZAN_GRAY;
         const fill = isLightMode() ? c.fillLight : c.fillDark;
         const frameColor = isLightMode() ? c.frameLight : c.frameDark;
         const strokeColor = comp.isSelected ? CUSTOM_COLORS.SELECTED : c.stroke;
@@ -460,7 +500,7 @@ export const DeviceMixin = {
         }
 
         // "kazan" etiketi
-        ctx.fillStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : (isLightMode() ? c.stroke : '#E3F2FD');
+        ctx.fillStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : (isLightMode() ? c.stroke : '#FFFFFF');
         ctx.font = `bold ${Math.min(height * 0.3, 14)}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
