@@ -13,7 +13,7 @@ import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
 import { ensureTopraklama, ensureMuhafaza } from './fix.js';
 import {
-    hatNoForComp, floorNameById,
+    hatNoForComp, hatNoForPipe, floorNameById,
     vanaHatLabel, sayacHatLabel, cihazHatLabel, hatPrefix,
 } from '../../checker-utils.js';
 import { state } from '../../../../general-files/main.js';
@@ -150,11 +150,40 @@ function isComponentAtmosphereOpen(comp) {
 // ─── Muhafaza Kuralları ───────────────────────────────────────────────────
 // Atmosfere açık olan vana/sayaç/cihaz/regülatör/manometre muhafazalı olmalı.
 
+// Emniyet vanası sayaç öncesi kolonda olduğu için hatMap'ten çıkarılabilir;
+// bu durumda downstream sayacın çıkış borusunun hat numarasını kullanırız.
+function _hatNoForEmniyetVana(manager, vana) {
+    const direct = hatNoForComp(manager, vana);
+    if (direct != null) return direct;
+    if (!vana?.bagliBoruId || !manager?.pipes) return null;
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    for (const s of (manager.components || [])) {
+        if (s.type !== 'sayac') continue;
+        let cursor = s.fleksBaglanti?.boruId;
+        const seen = new Set();
+        while (cursor && !seen.has(cursor)) {
+            seen.add(cursor);
+            if (cursor === vana.bagliBoruId) {
+                return s.cikisBagliBoruId ? hatNoForPipe(manager, s.cikisBagliBoruId) : null;
+            }
+            const p = pipeMap.get(cursor);
+            const par = p?.baslangicBaglanti;
+            if (par?.tip === 'boru' && par.hedefId) cursor = par.hedefId;
+            else break;
+        }
+    }
+    return null;
+}
+
 function _muhafazaLabelFor(manager, c) {
     if (c.type === 'vana') {
         if (c.vanaTipi === 'AKV') {
             const hatNo = hatNoForComp(manager, c);
             return hatNo != null ? `${hatNo} nolu hattaki AKV` : 'AKV';
+        }
+        if (c.vanaTipi === 'EMNIYET') {
+            const hatNo = _hatNoForEmniyetVana(manager, c);
+            return hatNo != null ? `${hatNo} nolu hattaki Emn.V` : 'Emn.V';
         }
         return vanaHatLabel(manager, c);
     }

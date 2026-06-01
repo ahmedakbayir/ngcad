@@ -18,11 +18,13 @@ import {
     hatNoForPipe,
     hatPrefix,
     birimHatPrefix,
+    sayacHatLabel,
 } from '../../checker-utils.js';
 
 const OCAK_FLEKS_MAX_CM = 150;
 const KOMBI_FLEKS_MAX_CM = 60;
 const KOMBI_GIBI = new Set(['KOMBI', 'SOFBEN', 'SOBA']);
+const EVSEL_CIHAZ_TIPI = new Set(['OCAK', 'KOMBI', 'SOFBEN', 'SOBA']);
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────
 
@@ -281,6 +283,151 @@ function fixEsnekReduksiyon(manager, pipeId, parentCap) {
     return true;
 }
 
+// ─── Birim içi bağlantı tipi: daire/ofis (her şey) / ticari + kazan dairesi (sadece kaynaklı) ───
+function birimBaglantiTipiKurali(manager, out) {
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'sayac') return;
+        const tipi = c.birimTipi;
+        if (tipi !== 'TİCARİ' && tipi !== 'KAZAN DAİRESİ') return;
+        const isKaynakli = c.birimBoruTipi === 'ÇELİK' && c.birimBaglantiTipi === 'KAYNAKLI';
+        if (isKaynakli) return;
+        const label = sayacHatLabel(manager, c);
+        const birimAd = tipi === 'TİCARİ' ? 'ticari' : 'kazan dairesi';
+        out.push({
+            group:   ERROR_GROUP_IDS.TASARIM,
+            errorId: `tasarim-birim-baglanti-${c.id}`,
+            message: `${label} (${birimAd}) için birim içi tesisat sadece kaynaklı olabilir`,
+            floorName: floorNameById(c.floorId),
+            source:  'proje gereği',
+            detail:  'Ticari ve kazan dairesi birimlerinde birim içi tesisat yalnızca kaynaklı çelik olabilir; esnek veya dişli bağlantı kullanılamaz.',
+            targets: [{ type: 'comp', id: c.id }],
+            fix: {
+                description: 'Birim içi tesisat kaynaklı çelik olarak ayarlanacak',
+                apply: () => {
+                    c.birimBoruTipi = 'ÇELİK';
+                    c.birimBaglantiTipi = 'KAYNAKLI';
+                    try { recomputeAllPressures(manager); } catch (_) {}
+                    manager.saveToState?.();
+                    try { draw2D(); } catch (_) {}
+                    return true;
+                },
+            },
+        });
+    });
+
+    // Kolon (servis kutusu) — sadece KAYNAKLI olmalı
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'servis_kutusu') return;
+        const isKaynakli = (!c.kutuBoruTipi || c.kutuBoruTipi === 'ÇELİK')
+            && (!c.kutuBaglantiTipi || c.kutuBaglantiTipi === 'KAYNAKLI');
+        if (isKaynakli) return;
+        out.push({
+            group:   ERROR_GROUP_IDS.TASARIM,
+            errorId: `tasarim-kolon-baglanti-${c.id}`,
+            message: `Kolon tesisatı sadece kaynaklı olabilir`,
+            floorName: floorNameById(c.floorId),
+            source:  'proje gereği',
+            detail:  'Sayaç öncesi kolon hattı yalnızca kaynaklı çelik olabilir; esnek veya dişli bağlantı kullanılamaz.',
+            targets: [{ type: 'comp', id: c.id }],
+            fix: {
+                description: 'Kolon tesisatı kaynaklı çelik olarak ayarlanacak',
+                apply: () => {
+                    c.kutuBoruTipi = 'ÇELİK';
+                    c.kutuBaglantiTipi = 'KAYNAKLI';
+                    try { recomputeAllPressures(manager); } catch (_) {}
+                    manager.saveToState?.();
+                    try { draw2D(); } catch (_) {}
+                    return true;
+                },
+            },
+        });
+    });
+}
+
+// ─── Esnek tesisat sadece 21 mbar olabilir ───
+function esnekBasincKurali(manager, out) {
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'sayac') return;
+        if (c.birimBoruTipi !== 'ESNEK') return;
+        const basinc = String(c.basinc ?? '').trim();
+        if (basinc === '21') return;
+        const label = sayacHatLabel(manager, c);
+        out.push({
+            group:   ERROR_GROUP_IDS.TASARIM,
+            errorId: `tasarim-esnek-basinc-${c.id}`,
+            message: `${label} için esnek tesisat sadece 21 mbar olabilir`,
+            floorName: floorNameById(c.floorId),
+            source:  'proje gereği',
+            detail:  'Esnek (ondüleli) tesisat yalnızca 21 mbar tasarım basıncında kullanılabilir.',
+            targets: [{ type: 'comp', id: c.id }],
+            fix: {
+                description: 'Sayaç basıncı 21 mbar yapılacak',
+                apply: () => {
+                    c.basinc = '21';
+                    try { recomputeAllPressures(manager); } catch (_) {}
+                    manager.saveToState?.();
+                    try { draw2D(); } catch (_) {}
+                    return true;
+                },
+            },
+        });
+    });
+}
+
+// ─── Esnek tesisatta sadece evsel cihazlar (ocak, kombi, soba, şofben) bulunabilir ───
+function esnekEvselCihazKurali(manager, out) {
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'cihaz') return;
+        const tip = String(c.cihazTipi || '').toUpperCase();
+        if (EVSEL_CIHAZ_TIPI.has(tip)) return;
+        const sayac = findMeterUpstream(manager, c.fleksBaglanti?.boruId || c.bagliBoruId);
+        if (!sayac) return;
+        if (sayac.birimBoruTipi !== 'ESNEK') return;
+        const label = cihazHatLabel(manager, c);
+        out.push({
+            group:   ERROR_GROUP_IDS.TASARIM,
+            errorId: `tasarim-esnek-cihaz-${c.id}`,
+            message: `${label} esnek tesisatta bulunamaz`,
+            floorName: floorNameById(c.floorId || sayac.floorId),
+            source:  'proje gereği',
+            detail:  'Esnek (ondüleli) tesisatta yalnızca evsel cihazlar (ocak, kombi, soba, şofben) bulunabilir; kazan ve ticari cihazlar esnek tesisatta kullanılamaz.',
+            targets: [{ type: 'comp', id: c.id }],
+            fix: null,
+        });
+    });
+}
+
+// ─── Ticari cihaz varsa birim ticari olmalıdır ───
+function ticariCihazBirimKurali(manager, out) {
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'cihaz') return;
+        const tip = String(c.cihazTipi || '').toUpperCase();
+        if (tip !== 'TICARI') return;
+        const sayac = findMeterUpstream(manager, c.fleksBaglanti?.boruId || c.bagliBoruId);
+        if (!sayac) return;
+        if (sayac.birimTipi === 'TİCARİ') return;
+        const label = cihazHatLabel(manager, c);
+        out.push({
+            group:   ERROR_GROUP_IDS.TASARIM,
+            errorId: `tasarim-ticari-birim-${c.id}`,
+            message: `${label} için birim tipi ticari olmalıdır`,
+            floorName: floorNameById(c.floorId || sayac.floorId),
+            source:  'proje gereği',
+            detail:  'Ticari cihaz bulunan birimin tipi TİCARİ olmalıdır.',
+            targets: [{ type: 'comp', id: c.id }, { type: 'comp', id: sayac.id }],
+            fix: {
+                description: 'Sayaçtaki birim tipi TİCARİ olarak ayarlanacak',
+                apply: () => {
+                    sayac.birimTipi = 'TİCARİ';
+                    manager.saveToState?.();
+                    try { draw2D(); } catch (_) {}
+                    return true;
+                },
+            },
+        });
+    });
+}
+
 // ─── Toplu checker ────────────────────────────────────────────────────────
 
 function tasarimChecker({ manager }) {
@@ -291,6 +438,10 @@ function tasarimChecker({ manager }) {
     kombiFleksUzunluk(manager, out);
     ticariCihazTipiKurali(manager, out);
     esnekReduksiyonKurali(manager, out);
+    birimBaglantiTipiKurali(manager, out);
+    esnekBasincKurali(manager, out);
+    esnekEvselCihazKurali(manager, out);
+    ticariCihazBirimKurali(manager, out);
     return out;
 }
 
