@@ -15,6 +15,7 @@ import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 import { placeMenuInViewport, setupSubmenuPositioning } from '../../menu/menu-positioning.js';
 import { drawColumnToAdjacentFloor, drawColumnAllFloors, pasteFloorPlumbingToAllFloors } from './kolon-operations.js';
 import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
+import { ARCH_DEVICE_KINDS } from '../../architectural-objects/arch-devices.js';
 
 let menuEl = null;
 let menuState = null; // { worldPos, pipe, nokta, t, interactionManager }
@@ -1030,6 +1031,42 @@ function initMenu() {
         if (pipe) pasteFloorPlumbingToAllFloors(menuState.interactionManager, pipe, true);
         hide();
     });
+
+    // ── Mimariye Nesne Ekle — sağ tık menüsünden mimari yerleştirme moduna geç
+    // Toolbar butonlarıyla aynı akış: tesisat boru çizimini iptal et, MİMARİ
+    // çizim moduna geç ve uygun draw* modunu zorla ayarla. Kullanıcı bir
+    // sonraki tıklamasında nesneyi yerleştirir (kapı/pencere/menfez bir
+    // duvarı, kolon/cihaz serbest noktayı, kiriş iki uç hedefler).
+    const _enterMimariMode = (modeName) => {
+        if (!menuState) return;
+        if (menuState.interactionManager) menuState.interactionManager.boruCizimAktif = false;
+        if (state.currentDrawingMode !== "KARMA") {
+            setDrawingMode("MİMARİ");
+        }
+        setMode(modeName, true);
+        hide();
+    };
+
+    document.getElementById('mimari-nesne-kapi')?.addEventListener('click', () => _enterMimariMode('drawDoor'));
+    document.getElementById('mimari-nesne-pencere')?.addEventListener('click', () => _enterMimariMode('drawWindow'));
+    document.getElementById('mimari-nesne-kolon')?.addEventListener('click', () => _enterMimariMode('drawColumn'));
+    document.getElementById('mimari-nesne-kiris')?.addEventListener('click', () => _enterMimariMode('drawBeam'));
+    document.getElementById('mimari-nesne-menfez')?.addEventListener('click', () => _enterMimariMode('drawVent'));
+
+    const _startArchDeviceCtx = (kind) => {
+        if (!menuState) return;
+        if (menuState.interactionManager) menuState.interactionManager.boruCizimAktif = false;
+        if (state.currentDrawingMode !== "KARMA") {
+            setDrawingMode("MİMARİ");
+        }
+        state.archDevicePlacementKind = kind;
+        setMode("drawArchDevice", true);
+        hide();
+    };
+
+    document.getElementById('mimari-nesne-alarm')?.addEventListener('click', () => _startArchDeviceCtx(ARCH_DEVICE_KINDS.GAS_ALARM));
+    document.getElementById('mimari-nesne-co')?.addEventListener('click', () => _startArchDeviceCtx(ARCH_DEVICE_KINDS.CO_ALARM));
+    document.getElementById('mimari-nesne-deprem')?.addEventListener('click', () => _startArchDeviceCtx(ARCH_DEVICE_KINDS.EARTHQUAKE));
 
     // ── Hâlâ işlerliği eklenmemiş diğer yeni butonlar (stub) ──────────────
     [
