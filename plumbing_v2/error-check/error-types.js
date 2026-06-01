@@ -11,7 +11,7 @@ export const ERROR_GROUP_IDS = Object.freeze({
     MUHAFAZA:              'MUHAFAZA',
     TESISAT_NESNESI_EKSIK: 'TESISAT_NESNESI_EKSIK',
     TASARIM:               'TASARIM',
-    SAYAC_HATA:            'SAYAC_HATA',
+    MARKA_MODEL_HATA:      'MARKA_MODEL_HATA',
     MAHAL_TANIM:           'MAHAL_TANIM',
 });
 
@@ -26,30 +26,30 @@ export const ERROR_GROUPS = Object.freeze({
         label: 'Boru Hız Hatası',
         order: 20,
     },
-    [ERROR_GROUP_IDS.MUHAFAZA]: {
-        id:    ERROR_GROUP_IDS.MUHAFAZA,
-        label: 'Muhafaza Hatası',
-        order: 40,
+    [ERROR_GROUP_IDS.TASARIM]: {
+        id:    ERROR_GROUP_IDS.TASARIM,
+        label: 'Tasarım Hatası',
+        order: 30,
     },
     [ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK]: {
         id:    ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
         label: 'Tesisat nesnesi eksik',
-        order: 50,
-    },
-    [ERROR_GROUP_IDS.TASARIM]: {
-        id:    ERROR_GROUP_IDS.TASARIM,
-        label: 'Tasarım Hatası',
-        order: 60,
-    },
-    [ERROR_GROUP_IDS.SAYAC_HATA]: {
-        id:    ERROR_GROUP_IDS.SAYAC_HATA,
-        label: 'Sayaç Hatası',
-        order: 70,
+        order: 40,
     },
     [ERROR_GROUP_IDS.MAHAL_TANIM]: {
         id:    ERROR_GROUP_IDS.MAHAL_TANIM,
         label: 'Mahal Tanım Hatası',
-        order: 80,
+        order: 50,
+    },
+    [ERROR_GROUP_IDS.MARKA_MODEL_HATA]: {
+        id:    ERROR_GROUP_IDS.MARKA_MODEL_HATA,
+        label: 'Marka Model Hatası',
+        order: 60,
+    },
+    [ERROR_GROUP_IDS.MUHAFAZA]: {
+        id:    ERROR_GROUP_IDS.MUHAFAZA,
+        label: 'Muhafaza Hatası',
+        order: 70,
     },
 });
 

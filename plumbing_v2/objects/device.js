@@ -503,6 +503,7 @@ export class Cihaz {
             yogusmali: this.yogusmali,
             widthCm: this.widthCm,
             heightCm: this.heightCm,
+            ticariCihazTipi: this.ticariCihazTipi,
             ticariSekilTipi: this.ticariSekilTipi,
             ticariEnSayisi: this.ticariEnSayisi,
             ticariBoySayisi: this.ticariBoySayisi,
@@ -549,6 +550,7 @@ export class Cihaz {
             cihaz.widthCm  = Number.isFinite(w) && w > 0 ? w : null;
             cihaz.heightCm = Number.isFinite(h) && h > 0 ? h : null;
         }
+        if (data.ticariCihazTipi !== undefined) cihaz.ticariCihazTipi = data.ticariCihazTipi;
         if (data.ticariSekilTipi !== undefined) cihaz.ticariSekilTipi = data.ticariSekilTipi;
         if (data.ticariEnSayisi !== undefined) cihaz.ticariEnSayisi = data.ticariEnSayisi;
         if (data.ticariBoySayisi !== undefined) cihaz.ticariBoySayisi = data.ticariBoySayisi;

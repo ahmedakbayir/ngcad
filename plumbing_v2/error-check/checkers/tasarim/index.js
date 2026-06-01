@@ -145,6 +145,25 @@ function ocakFleksUzunluk(manager, out) {
     });
 }
 
+function ticariCihazTipiKurali(manager, out) {
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'cihaz' || c.cihazTipi !== 'TICARI') return;
+        const tip = String(c.ticariCihazTipi || '').trim();
+        if (tip) return;
+        const label = cihazHatLabel(manager, c);
+        out.push({
+            group:   ERROR_GROUP_IDS.TASARIM,
+            errorId: `tasarim-ticari-tip-${c.id}`,
+            message: `${label} için cihaz tipi seçilmelidir`,
+            floorName: floorNameById(c.floorId),
+            source:  'proje gereği',
+            detail:  'Ticari cihazlar için cihaz tipi (Çiller, Brülör, Kazan, Endüstriyel Fırın vb.) panelden seçilmelidir.',
+            targets: [{ type: 'comp', id: c.id }],
+            fix: null,
+        });
+    });
+}
+
 function kombiFleksUzunluk(manager, out) {
     (manager.components || []).forEach(c => {
         if (c.type !== 'cihaz' || !KOMBI_GIBI.has(c.cihazTipi)) return;
@@ -270,6 +289,7 @@ function tasarimChecker({ manager }) {
     regCikisBasinc50(manager, out);
     ocakFleksUzunluk(manager, out);
     kombiFleksUzunluk(manager, out);
+    ticariCihazTipiKurali(manager, out);
     esnekReduksiyonKurali(manager, out);
     return out;
 }

@@ -105,6 +105,32 @@ export const BORU_CAPLARI_TUMU = ['DN15', 'DN20', 'DN25', 'DN32', 'DN40', 'DN50'
 
 export const BACA_TIPLERI = ['Hermetik', 'Bacalı', 'Atmosferik'];
 
+export const TICARI_CIHAZ_TIPLERI = [
+    'Absorbsiyonlu Soğutucu (Çiller)',
+    'Boru Bek',
+    'Boyler-Brülörlü',
+    'Brülör',
+    'Buhar Üretici',
+    'Dış Mekan Isıtıcı',
+    'Elektrik Jeneratörü',
+    'Endüstriyel Çamaşır Yıkama ve Sıkma Cihazı',
+    'Endüstriyel Fırın',
+    'Endüstriyel Kurutma Cihazı',
+    'Endüstriyel Pişirme Cihazları',
+    'Endüstriyel Silindir Ütü Makinası',
+    'Endüstriyel Tekstil Kurutma Fırını',
+    'Hamlaç - Şaluma',
+    'Isı Pompası',
+    'Kat Kaloriferi',
+    'Klima Santrali',
+    'Proses Brülör Bek',
+    'Radyant Bek',
+    'Radyant Isıtıcısı',
+    'Sıcak Hava Üretici',
+    'Şömine',
+    'Termosifon - Depolu Su Isıtıcısı',
+];
+
 export const ARA_VANALAR = ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID'];
 export const SONLANMA_VANALARI = ['BRANSMAN', 'YANBINA'];
 export const VANA_TIPLERI_LISTESI = [...ARA_VANALAR, ...SONLANMA_VANALARI];
@@ -2065,6 +2091,11 @@ export const PROPERTY_DEFS = {
         afterChange: (obj, _manager, panelEl) => _refreshCihazDebi(obj, panelEl),
     },
     ticari_sec_urun: { type: 'section', label: 'Ürün' },
+    ticariCihazTipi: {
+        label: 'Cihaz Tipi', type: 'select', key: 'ticariCihazTipi',
+        options: TICARI_CIHAZ_TIPLERI,
+        placeholder: 'Cihaz tipi seçin...',
+    },
     ticariMarka: {
         label: 'Marka', type: 'select', key: 'marka',
         options: (obj) => getMarkaList('TICARI', obj?.marka || ''),
@@ -2691,6 +2722,7 @@ export const OBJECT_PROPERTIES = {
     ],
     cihaz_ticari: [
         'ticari_sec_urun',
+        'ticariCihazTipi',
         'ticariMarka',
         'ticariModel',
         'ticariBacaTipi',

@@ -103,7 +103,7 @@ function cihazMarkaModelChecker({ manager }) {
 
         if (markaBos) {
             out.push({
-                group:    ERROR_GROUP_IDS.TASARIM,
+                group:    ERROR_GROUP_IDS.MARKA_MODEL_HATA,
                 errorId:  `cihaz-marka-${c.id}`,
                 message:  `${prefix} markası girilmelidir.`,
                 floorName,
@@ -119,7 +119,7 @@ function cihazMarkaModelChecker({ manager }) {
 
         if (modelBos) {
             out.push({
-                group:    ERROR_GROUP_IDS.TASARIM,
+                group:    ERROR_GROUP_IDS.MARKA_MODEL_HATA,
                 errorId:  `cihaz-model-${c.id}`,
                 message:  `${prefix} modeli girilmelidir.`,
                 floorName,

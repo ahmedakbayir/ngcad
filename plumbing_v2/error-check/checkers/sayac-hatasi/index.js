@@ -129,7 +129,7 @@ function sayacTipUyumKurali(manager, out) {
         const kb = birimindePrefix(s);
         // "D2 biriminde kullanılan G16 sayacı Rotary olamaz"
         out.push({
-            group:   ERROR_GROUP_IDS.SAYAC_HATA,
+            group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `sayac-tur-${s.id}`,
             message: `${kb} kullanılan ${tip} sayacı ${turLower} olamaz`,
             floorName: floorNameById(s.floorId),
@@ -170,7 +170,7 @@ function sayacAltDebiKurali(manager, out) {
                 ? `${cihazHatNo} nolu hattaki ${ad}`
                 : ad;
             out.push({
-                group:   ERROR_GROUP_IDS.SAYAC_HATA,
+                group:   ERROR_GROUP_IDS.TASARIM,
                 errorId: `sayac-altdebi-${s.id}-${c.id}`,
                 message: `${bi} ${ad} debisi ${gri(`(${fmt(d)} m³/h)`)} ${lim.tipi} Sayacın okuyabileceği en düşük debiden ${gri(`(${fmt(lim.Qmin)} m³/h)`)} daha aşağıda olduğu için, bu cihaz ve sayaç birlikte kullanılamaz`,
                 floorName: floorNameById(s.floorId),
@@ -226,7 +226,7 @@ function sayacUstDebiKurali(manager, out) {
         // Ana metin önerinin sayacın yeterli olmadığını söyler, alt satırda
         // Qmax karşılaştırması paranteziyle gri olarak gösterilir.
         out.push({
-            group:   ERROR_GROUP_IDS.SAYAC_HATA,
+            group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `sayac-ustdebi-${s.id}`,
             message: `${bi} toplam debi ${gri(`(${fmt(toplam)} m³/h)`)} ${lim.tipi} Sayacın okuyabileceği en yüksek debiden ${gri(`(${fmt(lim.Qmax)} m³/h)`)} daha yukarıda olduğu için ${lim.tipi} yerine ${suggested.Tip} seçebilirsiniz.`,
             floorName: floorNameById(s.floorId),
@@ -271,7 +271,7 @@ function sayacBuyukUyariKurali(manager, out) {
         //  sayaç kullanılabilir. (21 mbar - 9 m³ için G6 sayaç yeterlidir)"
         out.push({
             severity: 'warning',
-            group:    ERROR_GROUP_IDS.SAYAC_HATA,
+            group:    ERROR_GROUP_IDS.TASARIM,
             errorId:  `sayac-buyuk-uyari-${s.id}`,
             message:  `UYARI: ${bi} kullanılan ${s.sayacTipi} Sayacı yerine ${gri(`(${s.basinc} mbar - ${fmt(toplam)} m³/h için)` ) } ${suggested.Tip} kullanılabilir.`,
             floorName: floorNameById(s.floorId),
@@ -302,7 +302,7 @@ function esnekMarkaKurali(manager, out) {
         const sl = sayacindaPrefix(s);
         // "D2 Sayacında esnek tesisat markası girilmelidir"
         out.push({
-            group:   ERROR_GROUP_IDS.SAYAC_HATA,
+            group:   ERROR_GROUP_IDS.MARKA_MODEL_HATA,
             errorId: `sayac-esnek-marka-${s.id}`,
             message: `${sl} esnek tesisat markası girilmelidir`,
             floorName: floorNameById(s.floorId),
