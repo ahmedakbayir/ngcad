@@ -121,7 +121,7 @@ export class PlumbingManager {
                 this.tempComponent = new ServisKutusu(0, 0, {
                     floorId: state.currentFloor?.id,
                     cikisYonu: options.cikisYonu,
-                    z: 1 // YENİ: Servis kutusu daima Z=20 kotunda başlar
+                    z: 10 // Servis kutusu çıkış kotu: 10 cm
                 });
                 break;
 
