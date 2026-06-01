@@ -95,17 +95,19 @@ export function clearLabelAutoPos(pipeId, floorId) {
 
 /**
  * Saklı etiket konumunu (dx, dy) kadar öteler (kat bazlı)
+ * floorId verilmezse aktif katın id'sine düşer — çağıranlar 3bf7345'ten
+ * sonra kat bazlı offset yapısına geçişle uyumlu olsun diye.
  */
 export function translateLabel(id, dx, dy, floorId) {
     if (!dx && !dy) return;
-    const floorKey = _getFloorKey(floorId);
-    
+    if (floorId === undefined) floorId = state.currentFloor?.id ?? null;
+
     const stored = _getOffset(id, floorId);
     if (stored && stored.ax != null) {
         _setOffset(id, floorId, { ax: stored.ax + dx, ay: stored.ay + dy, dir: stored.dir ?? 0 });
         return;
     }
-    
+
     const auto = _getAutoPos(id, floorId);
     if (auto) {
         _setAutoPos(id, floorId, { ax: auto.ax + dx, ay: auto.ay + dy });
