@@ -2118,6 +2118,10 @@ export function applyVerticalPipeInsert() {
     newPipe.colorGroup = pipe.colorGroup || 'YELLOW';
     newPipe.boruCap = pipe.boruCap || 'DN25';
     newPipe.floorId = pipe.floorId;
+    // basinc'ı parent'tan miras al — yoksa isBreak (renderer-utils.computeHatGroups)
+    // basinc undefined ↔ '21' karşılaştırmasını mismatch sayıp araya eklenen düşey
+    // için ayrı hat no üretiyor; downstream zinciri de ayrı section'a düşüyor.
+    if (pipe.basinc != null) newPipe.basinc = pipe.basinc;
 
     const newNode = newPipe.p2; // z+amount konumundaki yeni düğüm
 
@@ -2188,6 +2192,10 @@ export function applyVerticalPipeInsert() {
 
     // Topoloji değişti (yeni düşey boru, çocuklar yeniden bağlandı)
     this.manager.recomputePipeParents();
+    // basinc zincirini de tazele — newPipe.basinc parent'tan miras aldıysa bile
+    // downstream borular eski parent referansından kopup yeni düşeye bağlandığı
+    // için zincir basıncı tutarlılığı recompute ile garanti altına alınır.
+    recomputeAllPressures(this.manager);
 
     // Seçimi yeni düşey boruya aktar — böylece iniş sonrası K/O/S/V-B/V-Y
     // doğrudan yeni hattın açık ucuna yerleşir (tıklama gerektirmez).
