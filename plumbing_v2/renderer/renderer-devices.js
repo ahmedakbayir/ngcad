@@ -499,6 +499,23 @@ export const DeviceMixin = {
             ctx.stroke();
         }
 
+        // Köşe ayakları (sanayi kazanı footprint göstergesi) — local uzayda, rotation ile döner
+        const legLen = Math.max(4, Math.min(12, Math.min(width, height) * 0.15));
+        const legThick = Math.max(1.5, legLen * 0.28);
+        ctx.fillStyle = isLightMode() ? '#3A3A3A' : '#101010';
+        // Sol-üst
+        ctx.fillRect(-halfW, -halfH, legLen, legThick);
+        ctx.fillRect(-halfW, -halfH, legThick, legLen);
+        // Sağ-üst
+        ctx.fillRect(halfW - legLen, -halfH, legLen, legThick);
+        ctx.fillRect(halfW - legThick, -halfH, legThick, legLen);
+        // Sol-alt
+        ctx.fillRect(-halfW, halfH - legThick, legLen, legThick);
+        ctx.fillRect(-halfW, halfH - legLen, legThick, legLen);
+        // Sağ-alt
+        ctx.fillRect(halfW - legLen, halfH - legThick, legLen, legThick);
+        ctx.fillRect(halfW - legThick, halfH - legLen, legThick, legLen);
+
         // "kazan" etiketi
         ctx.fillStyle = comp.isSelected ? CUSTOM_COLORS.SELECTED : (isLightMode() ? c.stroke : '#FFFFFF');
         ctx.font = `bold ${Math.min(height * 0.3, 14)}px Arial`;
@@ -682,21 +699,53 @@ export const DeviceMixin = {
             const screenX2 = segment.x2 + (z2 * t);
             const screenY2 = segment.y2 - (z2 * t);
 
-            // Başlangıç noktası (clipping hesabı ile) - 3D koordinatlarda
+            // İlk segment: baca her zaman cihazın TAM merkezinden çıkar; görsel
+            // başlangıç ise cihazın dönmüş dikdörtgen kenarına projeksiyonla
+            // bulunur. Böylece cihaz resize edilse/döndürülse de baca kopmaz.
             if (index === 0 && parentCihaz) {
                 const cihazZ = parentCihaz.z || 0;
                 const cihazScreenX = parentCihaz.x + (cihazZ * t);
                 const cihazScreenY = parentCihaz.y - (cihazZ * t);
-                const cihazRadius = Math.max(parentCihaz.config.width, parentCihaz.config.height) / 2;
-                const distFromCenter = Math.hypot(screenX1 - cihazScreenX, screenY1 - cihazScreenY);
 
-                if (distFromCenter < cihazRadius) {
-                    const dx = screenX2 - screenX1;
-                    const dy = screenY2 - screenY1;
-                    const angle = Math.atan2(dy, dx);
-                    const startOffset = cihazRadius - distFromCenter;
-                    screenX1 = screenX1 + Math.cos(angle) * startOffset;
-                    screenY1 = screenY1 + Math.sin(angle) * startOffset;
+                screenX1 = cihazScreenX;
+                screenY1 = cihazScreenY;
+
+                const boy = (typeof parentCihaz.getBoyut === 'function')
+                    ? parentCihaz.getBoyut()
+                    : { width: parentCihaz.config?.width || 30, height: parentCihaz.config?.height || 30 };
+                const halfW = boy.width / 2;
+                const halfH = boy.height / 2;
+
+                const dxSeg = screenX2 - screenX1;
+                const dySeg = screenY2 - screenY1;
+                const segLen = Math.hypot(dxSeg, dySeg);
+
+                if (segLen > 0.1 && halfW > 0 && halfH > 0) {
+                    const rotRad = (parentCihaz.rotation || 0) * Math.PI / 180;
+                    const cosR = Math.cos(rotRad);
+                    const sinR = Math.sin(rotRad);
+                    const lux = (dxSeg * cosR + dySeg * sinR) / segLen;
+                    const luy = (-dxSeg * sinR + dySeg * cosR) / segLen;
+
+                    let tParam = Infinity;
+                    if (Math.abs(lux) > 1e-9) {
+                        const tx = (lux > 0 ? halfW : -halfW) / lux;
+                        if (tx > 0) tParam = Math.min(tParam, tx);
+                    }
+                    if (Math.abs(luy) > 1e-9) {
+                        const ty = (luy > 0 ? halfH : -halfH) / luy;
+                        if (ty > 0) tParam = Math.min(tParam, ty);
+                    }
+
+                    if (Number.isFinite(tParam) && tParam > 0) {
+                        if (tParam >= segLen) {
+                            return; // İlk segment tamamen cihazın içinde — çizme
+                        }
+                        const localExitX = lux * tParam;
+                        const localExitY = luy * tParam;
+                        screenX1 = cihazScreenX + localExitX * cosR - localExitY * sinR;
+                        screenY1 = cihazScreenY + localExitX * sinR + localExitY * cosR;
+                    }
                 }
             }
 
