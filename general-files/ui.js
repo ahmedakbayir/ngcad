@@ -24,6 +24,7 @@ import { orbitControls, camera } from '../scene3d/scene3d-core.js';
 import { draw2D } from '../draw/draw2d.js';
 import { fitDrawingToPerspectiveScreen } from '../draw/draw-persp.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
+import { syncCizimModuFromVisibility } from '../draw/drawing-mode-panel.js';
 
 /**
  * Persp panel aç/kapat/yeniden boyutlandır olaylarında çağrılır.
@@ -2535,7 +2536,8 @@ function setupVisibilityPanel() {
         plumbing: 'vis-chk-plumbing',
         objLabels: 'vis-chk-obj-labels',
         birim: 'vis-chk-birim',
-        hideOtherFloors3D: 'vis-chk-hide-other-floors-3d'
+        hideOtherFloors3D: 'vis-chk-hide-other-floors-3d',
+        snapToGeometry: 'vis-chk-snap-geo'
     };
 
     // State'i güncelle ve sahneyi yeniden çiz
@@ -2570,6 +2572,10 @@ function setupVisibilityPanel() {
     document.getElementById(ids.objLabels)?.addEventListener('change', (e) => updateVisibility('showObjectLabels', e.target.checked));
     document.getElementById(ids.birim)?.addEventListener('change', (e) => updateVisibility('showBirimBoundaries', e.target.checked));
     document.getElementById(ids.hideOtherFloors3D)?.addEventListener('change', (e) => updateVisibility('hideOtherFloors3D', e.target.checked));
+    document.getElementById(ids.snapToGeometry)?.addEventListener('change', (e) => {
+        updateVisibility('snapToGeometry', e.target.checked);
+        syncCizimModuFromVisibility();
+    });
     // Hepsini Göster
     document.getElementById('vis-btn-show-all')?.addEventListener('click', () => {
         Object.values(ids).forEach(id => {
@@ -2608,7 +2614,8 @@ function setupVisibilityPanel() {
             'vis-chk-plumbing': 'showPlumbing',
             'vis-chk-obj-labels': 'showObjectLabels',
             'vis-chk-birim': 'showBirimBoundaries',
-            'vis-chk-hide-other-floors-3d': 'hideOtherFloors3D'
+            'vis-chk-hide-other-floors-3d': 'hideOtherFloors3D',
+            'vis-chk-snap-geo': 'snapToGeometry'
         };
         const elId = ids[key];
         const stateKey = stateKeyMap[elId];
@@ -2617,6 +2624,9 @@ function setupVisibilityPanel() {
             el.checked = state.tempVisibility[stateKey];
         }
     });
+
+    // İlk açılışta window.cizimModu'yu "Geometriye Uy" değerine göre senkronize et
+    syncCizimModuFromVisibility();
 
     // 3D Perspektif paneli üzerindeki "Diğer Katları Gizle" anahtarı
     // → görünürlük panelindeki checkbox ile aynı state'i kontrol eder ve karşılıklı senkronize olur.

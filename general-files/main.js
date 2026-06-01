@@ -540,6 +540,7 @@ export let state = {
         showArchitecture: true,    // Mimari Katman
         showPlumbing: true,        // Tesisat Katmanı
         hideOtherFloors3D: false,  // 3D'de aktif kat dışındaki katları tamamen gizle (default: kapalı)
+        snapToGeometry: true,      // Geometriye Uy: kapalı iken tesisat çizimi serbest (snap'siz)
     },
 };
 

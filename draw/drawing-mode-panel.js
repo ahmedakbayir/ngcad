@@ -1,34 +1,24 @@
 /**
- * Sol alt köşedeki "Çizim Modu" panelini (geçici) yönetir.
+ * Boru çizim modu artık Görünüm Ayarları > "Geometriye Uy" checkbox'ından sürülür.
  * Global state: window.cizimModu = 'serbest' | 'geometri'
- *  - 'serbest'  : mevcut nokta-tıkla doğrusal çizim (default)
- *  - 'geometri' : iki nokta arasında engelleri (kolon/duvar) etrafından dolanan rota
+ *  - 'serbest'  : nokta-tıkla doğrusal çizim
+ *  - 'geometri' : iki nokta arasında engelleri (kolon/duvar) dolanan rota
+ *
+ * Eski sol-alt "Çizim Modu" radyo paneli kaldırıldı; ui.js setupVisibilityPanel
+ * checkbox kurulduktan sonra ve değişimlerde syncCizimModuFromVisibility() çağırır.
  */
 
-export function initCizimModuPaneli() {
+import { state } from '../general-files/main.js';
+
+export function syncCizimModuFromVisibility() {
     if (typeof window === 'undefined') return;
-    if (window.cizimModu === undefined) window.cizimModu = 'serbest';
-
-    const panel = document.getElementById('cizim-modu-paneli');
-    if (!panel) return;
-
-    const radios = panel.querySelectorAll('input[name="cizim-modu"]');
-
-    radios.forEach(r => {
-        if (r.value === window.cizimModu) r.checked = true;
-        r.addEventListener('change', () => {
-            if (r.checked) {
-                window.cizimModu = r.value;
-                document.dispatchEvent(new CustomEvent('cizim-modu-degisti', {
-                    detail: { mode: window.cizimModu }
-                }));
-            }
-        });
-    });
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initCizimModuPaneli);
-} else {
-    initCizimModuPaneli();
+    const useGeometri = state?.tempVisibility?.snapToGeometry !== false;
+    const next = useGeometri ? 'geometri' : 'serbest';
+    if (window.cizimModu === next) return;
+    window.cizimModu = next;
+    if (typeof document !== 'undefined') {
+        document.dispatchEvent(new CustomEvent('cizim-modu-degisti', {
+            detail: { mode: window.cizimModu }
+        }));
+    }
 }

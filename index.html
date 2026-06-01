@@ -159,6 +159,7 @@
             3D</span></label>
         <label class="vis-item"><input type="checkbox" id="vis-chk-hide-other-floors-3d"> <span>3D Diğer Katları
             Gizle</span></label>
+        <label class="vis-item"><input type="checkbox" id="vis-chk-snap-geo" checked> <span>Geometriye Uy</span></label>
         <label class="vis-item"><input type="checkbox" id="vis-chk-arch" checked> <span>Mimari</span></label>
         <label class="vis-item"><input type="checkbox" id="vis-chk-plumbing" checked> <span>Tesisat</span></label>
       </div>
@@ -1591,19 +1592,7 @@
     </div>
   </div>
 
-  <div id="cizim-modu-paneli" class="cizim-modu-paneli" title="Boru çizim modu (geçici)">
-    <div class="cm-title">Çizim Modu</div>
-    <label class="cm-opt">
-      <input type="radio" name="cizim-modu" value="serbest" checked>
-      <span>Serbest çizim</span>
-    </label>
-    <label class="cm-opt">
-      <input type="radio" name="cizim-modu" value="geometri">
-      <span>Geometriye göre</span>
-    </label>
-  </div>
-
-  <div id="hk-detail-popup" class="hk-detail-popup" style="display:none;">
+<div id="hk-detail-popup" class="hk-detail-popup" style="display:none;">
     <div class="hk-detail-row">
       <span class="hk-detail-label">Kaynak:</span>
       <span class="hk-detail-source" id="hk-detail-source"></span>

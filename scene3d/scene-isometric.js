@@ -405,17 +405,27 @@ function drawIsoEndpointMarkers(ctx) {
 }
 
 // ─── İZOMETRİK MUHAFAZA KUTULARI ─────────────────────────────────────────────
-// 2D'deki drawMuhafazaBoxes karşılığı; köşeleri toIsometric'e projekte edip
-// ekran-eksen hizalı AABB hesaplar, örtüşenleri birleştirir, kesikli kutu çizer.
+// Gruplama 2D ile birebir aynı: dünya XY ayak izi örtüşmesi → birleş. (İso'da
+// cihaz schematic ile vananın yanına kayabiliyor; bu kaymayı gruplamaya
+// yansıtmıyoruz — 2D'de ayrıysalar iso'da da ayrı kalır.)
+// Çizim ise her grubun TİPİNE göre:
+//   - Sayaç (magic matrix ile iso'da DİK çizilir): ekran-eksen AABB → dikey
+//     dikdörtgen.
+//   - Diğer komponentler: iso-eksenlere hizalı PARALELKENAR ((u,v) AABB).
 function drawMuhafazaBoxesIso(ctx, proxyManager) {
     if (!proxyManager?.components) return;
 
     const ALLOWED = ['vana', 'sayac', 'cihaz', 'regulator', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre'];
-    const PAD = 8; // ekran düzleminde iso-birim cinsinden iç boşluk
+    const PAD_WORLD = 8;   // 2D ile aynı padding (dünya birimi / cm)
+    const PAD_ISO   = 8;   // ekran-pikselde gövde köşesi şişirme
     const light = document.body.classList.contains('light-mode');
 
-    const grouped = [];
-    const standalone = [];
+    // Her giriş:
+    //   worldBox  → dünya XY footprint, 2D gruplama ile aynı kıstas
+    //   corners   → iso-projeksiyonlu (PAD_ISO ile şişirilmiş) 4 köşe (çizim)
+    //   type      → sayac / cihaz / vana / ...
+    //   grupla    → muhafazaGrupla flag'i
+    const entries = [];
 
     proxyManager.components.forEach(comp => {
         if (!comp.muhafaza) return;
@@ -447,6 +457,22 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
             { lx:  hw, ly:  hh }, { lx: -hw, ly:  hh },
         ];
 
+        // === Dünya XY ayak izi (2D ile aynı gruplama kıstası) ===
+        // İso schematic kaymaları YOK; sadece comp.x/y + rotation.
+        const worldCorners = localCorners.map(c => ({
+            x: comp.x + cos * c.lx - sin * c.ly,
+            y: comp.y + sin * c.lx + cos * c.ly,
+        }));
+        const wxs = worldCorners.map(p => p.x);
+        const wys = worldCorners.map(p => p.y);
+        const worldBox = {
+            minX: Math.min(...wxs) - PAD_WORLD,
+            minY: Math.min(...wys) - PAD_WORLD,
+            maxX: Math.max(...wxs) + PAD_WORLD,
+            maxY: Math.max(...wys) + PAD_WORLD,
+        };
+
+        // === İso-projeksiyonlu köşeler (çizim için) ===
         let projected;
         if (comp.type === 'sayac') {
             // Sayaç iso'da drawSayac magic matrisi ile pipe Z seviyesine asılır;
@@ -506,55 +532,128 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
             });
         }
 
-        const xs = projected.map(p => p.isoX);
-        const ys = projected.map(p => p.isoY);
-        const box = {
-            minX: Math.min(...xs) - PAD,
-            minY: Math.min(...ys) - PAD,
-            maxX: Math.max(...xs) + PAD,
-            maxY: Math.max(...ys) + PAD,
-        };
+        // Çizim için iso köşelerini PAD_ISO kadar dışarı şişir.
+        let cxScreen = 0, cyScreen = 0;
+        projected.forEach(p => { cxScreen += p.isoX; cyScreen += p.isoY; });
+        cxScreen /= projected.length;
+        cyScreen /= projected.length;
+        const inflated = projected.map(p => {
+            const dx = p.isoX - cxScreen;
+            const dy = p.isoY - cyScreen;
+            const d = Math.hypot(dx, dy);
+            if (d < 1e-3) return { isoX: p.isoX, isoY: p.isoY };
+            const s = (d + PAD_ISO) / d;
+            return { isoX: cxScreen + dx * s, isoY: cyScreen + dy * s };
+        });
 
-        if (comp.muhafazaGrupla === false) standalone.push(box);
-        else grouped.push(box);
+        entries.push({
+            worldBox,
+            corners: inflated,
+            grupla: comp.muhafazaGrupla !== false,
+            type: comp.type,
+            onlySayac: comp.type === 'sayac',
+        });
     });
 
+    if (entries.length === 0) return;
+
+    // Dünya XY footprint örtüşmesiyle birleştir — 2D ile birebir aynı kıstas.
+    // (İso schematic kaymalarını gruplamaya yansıtmıyoruz.)
     const overlaps = (a, b) => a.minX < b.maxX && a.maxX > b.minX && a.minY < b.maxY && a.maxY > b.minY;
-    const merge = (a, b) => ({
+    const mergeBox = (a, b) => ({
         minX: Math.min(a.minX, b.minX), minY: Math.min(a.minY, b.minY),
         maxX: Math.max(a.maxX, b.maxX), maxY: Math.max(a.maxY, b.maxY),
     });
     const mergeAll = (list) => {
-        let cur = [...list];
+        let cur = list.map(e => ({
+            worldBox: { ...e.worldBox },
+            corners: [...e.corners],
+            onlySayac: e.onlySayac,
+        }));
         let changed = true;
         while (changed) {
             changed = false;
             const next = []; const used = new Set();
             for (let i = 0; i < cur.length; i++) {
                 if (used.has(i)) continue;
-                let box = cur[i];
+                let m = {
+                    worldBox: { ...cur[i].worldBox },
+                    corners: [...cur[i].corners],
+                    onlySayac: cur[i].onlySayac,
+                };
                 for (let j = i + 1; j < cur.length; j++) {
                     if (used.has(j)) continue;
-                    if (overlaps(box, cur[j])) { box = merge(box, cur[j]); used.add(j); changed = true; }
+                    if (overlaps(m.worldBox, cur[j].worldBox)) {
+                        m.corners.push(...cur[j].corners);
+                        m.worldBox = mergeBox(m.worldBox, cur[j].worldBox);
+                        m.onlySayac = m.onlySayac && cur[j].onlySayac;
+                        used.add(j); changed = true;
+                    }
                 }
-                next.push(box); used.add(i);
+                next.push(m); used.add(i);
             }
             cur = next;
         }
         return cur;
     };
 
-    const allBoxes = [...mergeAll(grouped), ...standalone];
-    if (allBoxes.length === 0) return;
+    const groupedEntries    = entries.filter(e => e.grupla);
+    const standaloneEntries = entries.filter(e => !e.grupla);
+    const allGroups = [...mergeAll(groupedEntries), ...standaloneEntries];
+
+    // İzo-eksenleri tabanı (paralelkenar şekilli tipler için):
+    //   iso-X dünya yönü → ekranda ( cos30, -sin30 )
+    //   iso-Y dünya yönü → ekranda ( cos30,  sin30 )
+    const cos30 = Math.cos(Math.PI / 6);
+    const sin30 = Math.sin(Math.PI / 6);
+    const toUV = (p) => ({
+        u: (p.isoX / cos30 - p.isoY / sin30) / 2,
+        v: (p.isoX / cos30 + p.isoY / sin30) / 2,
+    });
+    const fromUV = (u, v) => ({
+        x: (u + v) * cos30,
+        y: (v - u) * sin30,
+    });
 
     const strokeColor = light ? 'rgba(30,64,175,0.75)' : 'rgba(147,197,253,0.80)';
     const textColor   = light ? 'rgba(30,64,175,0.60)' : 'rgba(147,197,253,0.60)';
-    const fontSize = 10; // iso label frame'de raw değer — zoom ile büyür
+    const fontSize = 10;
 
     ctx.save();
-    allBoxes.forEach(box => {
-        const w = box.maxX - box.minX;
-        const h = box.maxY - box.minY;
+    allGroups.forEach(g => {
+        if (g.corners.length === 0) return;
+
+        let c1, c2, c3, c4;
+        if (g.onlySayac) {
+            // Sayaç magic-matrix ile iso'da DİK (upright) çizilir — ekran-eksen
+            // hizalı AABB kullan ki muhafaza da dikey görünsün, iso-tilt yapma.
+            let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+            for (const p of g.corners) {
+                if (p.isoX < xMin) xMin = p.isoX;
+                if (p.isoX > xMax) xMax = p.isoX;
+                if (p.isoY < yMin) yMin = p.isoY;
+                if (p.isoY > yMax) yMax = p.isoY;
+            }
+            c1 = { x: xMin, y: yMin };
+            c2 = { x: xMax, y: yMin };
+            c3 = { x: xMax, y: yMax };
+            c4 = { x: xMin, y: yMax };
+        } else {
+            // Cihaz/vana/regulator/vs. iso'da yatık çizilir — (u,v) AABB ile
+            // iso-eksenlerine hizalı paralelkenar üretir.
+            let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+            for (const p of g.corners) {
+                const { u, v } = toUV(p);
+                if (u < uMin) uMin = u;
+                if (u > uMax) uMax = u;
+                if (v < vMin) vMin = v;
+                if (v > vMax) vMax = v;
+            }
+            c1 = fromUV(uMin, vMin);
+            c2 = fromUV(uMax, vMin);
+            c3 = fromUV(uMax, vMax);
+            c4 = fromUV(uMin, vMax);
+        }
 
         ctx.strokeStyle = strokeColor;
         ctx.lineWidth = 0.6;
@@ -562,25 +661,21 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.beginPath();
-        ctx.roundRect(box.minX - 1, box.minY - 1, w + 1, h + 1, 3);
+        ctx.moveTo(c1.x, c1.y);
+        ctx.lineTo(c2.x, c2.y);
+        ctx.lineTo(c3.x, c3.y);
+        ctx.lineTo(c4.x, c4.y);
+        ctx.closePath();
         ctx.stroke();
         ctx.setLineDash([]);
 
+        // Etiket: en üst köşenin biraz üstüne (paralelkenarda en küçük y'li köşe)
+        const top = [c1, c2, c3, c4].reduce((a, b) => (a.y < b.y ? a : b));
         ctx.font = `${fontSize}px "Segoe UI",sans-serif`;
         ctx.fillStyle = textColor;
-        if (w >= h) {
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText('muhafaza', box.minX + w / 2, box.minY - 2);
-        } else {
-            ctx.save();
-            ctx.translate(box.minX - 2, box.minY + h / 2);
-            ctx.rotate(-Math.PI / 2);
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText('muhafaza', 0, 0);
-            ctx.restore();
-        }
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('muhafaza', top.x, top.y - 2);
     });
     ctx.restore();
 }
