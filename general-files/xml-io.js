@@ -61,7 +61,8 @@ function _mapVanaFromXML({ vanaTipiInt, textLines, muhafazali }) {
     const joined = (textLines || []).join(' ').toUpperCase();
     let tip = 'AKV';
     let izolator = false;
-    if (joined.includes('SELENOID') || joined.includes('SELENO')) tip = 'SELENOID';
+    if (joined.includes('SISMIK') || joined.includes('SİSMİK')) tip = 'SISMIK';
+    else if (joined.includes('SELENOID') || joined.includes('SELENO')) tip = 'SELENOID';
     else if (joined.includes('BRAN')) tip = 'BRANSMAN';
     else if (joined.includes('YAN B') || joined.includes('YANB')) tip = 'YAN_BINA';
     else if (joined.includes('EMN')) tip = 'EMNIYET';
@@ -2203,7 +2204,7 @@ export function importFromXML(xmlString, options = {}) {
             }
             if (candidate) {
                 // Mevcut vanayı CIHAZ olarak işaretle (sonlanma vanaları korunur)
-                if (!['EMNIYET', 'SELENOID', 'BRANSMAN', 'YAN_BINA'].includes(candidate.vanaTipi)) {
+                if (!['EMNIYET', 'SELENOID', 'SISMIK', 'BRANSMAN', 'YAN_BINA'].includes(candidate.vanaTipi)) {
                     candidate.vanaTipi = 'CIHAZ';
                 }
                 cihaz.iliskiliVanaId = candidate.id;
@@ -2264,7 +2265,7 @@ export function importFromXML(xmlString, options = {}) {
             if (candidate) {
                 sayac.iliskiliVanaId = candidate.id;
                 // Cihaz kategorisindeyse işaretle (görsel + panel)
-                if (!['EMNIYET', 'SELENOID', 'BRANSMAN', 'YAN_BINA'].includes(candidate.vanaTipi)) {
+                if (!['EMNIYET', 'SELENOID', 'SISMIK', 'BRANSMAN', 'YAN_BINA'].includes(candidate.vanaTipi)) {
                     candidate.vanaTipi = 'CIHAZ';
                 }
             } else {

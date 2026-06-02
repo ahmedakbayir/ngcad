@@ -26,7 +26,7 @@ function mahalTanimChecker() {
             message: `${b.count} mahalin tanımlaması yapılmamış.`,
             floorName: fn,
             source:  'proje gereği',
-            detail:  'Tüm mahaller için mahal isimleri listeden seçilmeli (MUTFAK, SALON, ANTRE, YATAK ODASI vb.) atanmalıdır.',
+            detail:  'Tüm mahaller için mahal tanımları yapılmış olmalıdır. (MUTFAK, SALON, ANTRE, YATAK ODASI vb.) .',
             targets: [{ type: 'floor', id: b.floorId, name: fn }],
             fix: {
                 description: `${fn}: eksik mahallere otomatik isim atanacak (kullanıcı atamaları korunur)`,

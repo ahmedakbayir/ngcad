@@ -925,6 +925,7 @@ function _buildVanaLinesIso(comp) {
     const vt = comp.vanaTipi || '';
     if (vt === 'AKV') lines.push({ text: 'AKV', bold: true });
     else if (vt === 'SELENOID') lines.push({ text: 'Selenoid Vana', bold: true });
+    else if (vt === 'SISMIK') lines.push({ text: 'Sismik Vana', bold: true });
     else if (vt === 'CIHAZ') lines.push({ text: '', bold: true });
     else if (vt === 'BRANSMAN') {
         getBirimLabelLinesIso(comp.birimTipi || 'KONUT', comp.birimNo || '').forEach(t => { if (t) lines.push({ text: t, bold: true }); });

@@ -1221,6 +1221,9 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
         } else if (vt === 'SELENOID') {
             if (!comp.flans) lines.push({ text: 'Selenoid Vana', sub: true });
             if (comp.flans) lines.push({ text: 'Flanşlı Selenoid Vana', sub: true });
+        } else if (vt === 'SISMIK') {
+            if (!comp.flans) lines.push({ text: 'Sismik Vana', sub: true });
+            if (comp.flans) lines.push({ text: 'Flanşlı Sismik Vana', sub: true });
         } else if (vt === 'YANBINA' || vt === 'YAN_BINA') {
             if (!comp.flans) lines.push({ text: 'Yan Bina Vanası', bold: true });
             if (comp.flans) lines.push({ text: 'Flanşlı Yan Bina Vanası', bold: true });

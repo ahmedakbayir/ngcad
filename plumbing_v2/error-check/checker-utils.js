@@ -216,6 +216,7 @@ const VANA_DISPLAY = {
     EMNIYET: 'Emn.V',
     CIHAZ: 'Cihaz vanası',
     SELENOID: 'Selenoid',
+    SISMIK: 'Sismik Vana',
     YANBINA: 'Yan bina vanası',
     BRANSMAN: 'Branşman vanası',
 };

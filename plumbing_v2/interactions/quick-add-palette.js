@@ -100,6 +100,11 @@ const KIND_REGISTRY = {
         midPipe: true,
         place(im, pipe, end = 'p2') { im.handleVanaPlacement({ pipe, point: pipe[end], vanaTipi: 'SELENOID' }); },
     },
+    vana_sismik: {
+        label: 'Sismik', chip: 'SS', category: 'meter', html: SVG_VANA,
+        midPipe: true,
+        place(im, pipe, end = 'p2') { im.handleVanaPlacement({ pipe, point: pipe[end], vanaTipi: 'SISMIK' }); },
+    },
 
     ocak: {
         label: 'Ocak', category: 'device', html: SVG_OCAK,

@@ -97,7 +97,7 @@ function bransmanBirimNoBosKurali(manager, out) {
             message: msg,
             floorName: floorNameById(v.floorId),
             source:  'proje gereği',
-            detail:  'Branşman vanasına bağlı her birim için birim numarası girilmelidir.',
+            detail:  'Branşman vanalarına birim numarası girilmelidir.',
             targets: [{ type: 'comp', id: v.id }],
             fix: null,
         });
@@ -120,7 +120,7 @@ function sayacBirimNoBosKurali(manager, out) {
             message: msg,
             floorName: floorNameById(s.floorId),
             source:  'proje gereği',
-            detail:  'Sayaca bağlı her birim için birim numarası girilmelidir.',
+            detail:  'Sayaclara birim numarası girilmelidir.',
             targets: [{ type: 'comp', id: s.id }],
             fix: null,
         });

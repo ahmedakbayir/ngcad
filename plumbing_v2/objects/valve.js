@@ -48,6 +48,12 @@ export const VANA_TIPLERI = {
         kategori: 'ara',
         sembol: 'elektrik'  // Artırılmış sembol
     },
+    SISMIK: {
+        id: 'SISMIK',
+        name: 'Sismik Vana',
+        kategori: 'ara',
+        sembol: 'elektrik'
+    },
     // Sonlanma Vanaları
     BRANSMAN: {
         id: 'BRANSMAN',
@@ -64,7 +70,7 @@ export const VANA_TIPLERI = {
 };
 
 // Kategori listesi
-export const ARA_VANALAR = ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID'];
+export const ARA_VANALAR = ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID', 'SISMIK'];
 export const SONLANMA_VANALARI = ['BRANSMAN', 'YAN_BINA'];
 
 export class Vana {

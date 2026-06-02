@@ -131,7 +131,7 @@ export const TICARI_CIHAZ_TIPLERI = [
     'Termosifon - Depolu Su Isıtıcısı',
 ];
 
-export const ARA_VANALAR = ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID'];
+export const ARA_VANALAR = ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID', 'SISMIK'];
 export const SONLANMA_VANALARI = ['BRANSMAN', 'YANBINA'];
 export const VANA_TIPLERI_LISTESI = [...ARA_VANALAR, ...SONLANMA_VANALARI];
 
@@ -140,6 +140,7 @@ export const VANA_TIP_ETIKETLERI = {
     EMNIYET: 'Emniyet Vanası',
     CIHAZ: 'Cihaz Vanası',
     SELENOID: 'Selenoid Vana',
+    SISMIK: 'Sismik Vana',
     BRANSMAN: 'Branşman Vanası',
     YANBINA: 'Yan Bina Vanası',
 };

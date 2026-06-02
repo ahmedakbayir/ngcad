@@ -312,7 +312,7 @@ export function handleKeyDown(e) {
     }
 
     // V + harf - Vana yerleştirme modundayken vana tipini değiştir
-    // Varsayılan EMNIYET; A=AKV, B=BRANSMAN, S=SELENOID, Y=YANBINA, C=CIHAZ, E=EMNIYET
+    // Varsayılan EMNIYET; A=AKV, B=BRANSMAN, S=SELENOID, D=SISMIK, Y=YANBINA, C=CIHAZ, E=EMNIYET
     if (this.manager.activeTool === TESISAT_MODLARI.VANA &&
         this.manager.tempComponent &&
         this.manager.tempComponent.type === 'vana' &&
@@ -322,6 +322,7 @@ export function handleKeyDown(e) {
             'a': 'AKV',
             'b': 'BRANSMAN',
             's': 'SELENOID',
+            'd': 'SISMIK',
             'y': 'YANBINA',
             'c': 'CIHAZ',
             'e': 'EMNIYET',

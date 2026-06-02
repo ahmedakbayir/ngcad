@@ -260,7 +260,7 @@ function esnekReduksiyonKurali(manager, out) {
                     out.push({
                         group:   ERROR_GROUP_IDS.TASARIM,
                         errorId: `tasarim-esnek-reduksiyon-${child.id}`,
-                        message: `${pre ? pre + ' ' : ''}Esnek boruda sadece TE ayrımında redüksiyon kullanılabilir`,
+                        message: `${pre ? pre + ' ' : ''}Esnek boruda TE ayrımı haricinde redüksiyon kullanılamaz`,
                         floorName: floorNameById(child.floorId || sayac.floorId),
                         source:  'TS7363 Md:4.1.3',
                         detail:  'Ondüleli boruda ek ve/veya redüksiyon ile çap değişimi yapılmamalıdır. T ayrımına kadar tesisat tek parça olmalı, T ayrımında redüksiyon ile çap değişimi yapılmalıdır.',
@@ -300,7 +300,7 @@ function birimBaglantiTipiKurali(manager, out) {
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `tasarim-birim-baglanti-${c.id}`,
-            message: `${label} (${birimAd}) için birim içi tesisat sadece kaynaklı olabilir`,
+            message: `${label} (${birimAd}) için birim içi kaynaklı tesisat olmalıdır`,
             floorName: floorNameById(c.floorId),
             source:  'proje gereği',
             detail:  'Ticari ve kazan dairesi birimlerinde birim içi tesisat yalnızca kaynaklı çelik olabilir; esnek veya dişli bağlantı kullanılamaz.',
@@ -328,7 +328,7 @@ function birimBaglantiTipiKurali(manager, out) {
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `tasarim-kolon-baglanti-${c.id}`,
-            message: `Kolon tesisatı sadece kaynaklı olabilir`,
+            message: `Kolon tesisatı kaynaklı olmalıdır`,
             floorName: floorNameById(c.floorId),
             source:  'proje gereği',
             detail:  'Sayaç öncesi kolon hattı yalnızca kaynaklı çelik olabilir; esnek veya dişli bağlantı kullanılamaz.',
@@ -359,7 +359,7 @@ function esnekBasincKurali(manager, out) {
         out.push({
             group:   ERROR_GROUP_IDS.TASARIM,
             errorId: `tasarim-esnek-basinc-${c.id}`,
-            message: `${label} için esnek tesisat sadece 21 mbar olabilir`,
+            message: `${label} için esnek tesisat sadece 21 mbar haricinde olamaz`,
             floorName: floorNameById(c.floorId),
             source:  'proje gereği',
             detail:  'Esnek (ondüleli) tesisat yalnızca 21 mbar tasarım basıncında kullanılabilir.',

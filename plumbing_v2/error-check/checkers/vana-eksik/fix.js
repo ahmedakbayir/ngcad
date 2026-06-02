@@ -273,14 +273,14 @@ export function addSayacEmniyet(manager, sayacId) {
     return true;
 }
 
-// ─── 5) Deprem amaçlı selenoid ───────────────────────────────────────────
-// Kolonda AKV varsa, AKV'nin 30 cm sonrasına SELENOID vana ekler. AKV
+// ─── 5) Sismik vana (deprem amaçlı) ──────────────────────────────────────
+// Kolonda AKV varsa, AKV'nin 30 cm sonrasına SISMIK vana ekler. AKV
 // pipe'ında yer kalmazsa AKV'nin bağlı borusunun child'ına geçer.
-export function addDepremSelenoid(manager, serviceBoxId) {
+export function addDepremSismik(manager, serviceBoxId) {
     if (!manager || !serviceBoxId) return false;
     const akv = findAkvInChain(manager, serviceBoxId);
     if (!akv) return false;
-    if (hasSelenoidInChain(manager, serviceBoxId)) return true;
+    if (hasSismikInChain(manager, serviceBoxId)) return true;
 
     const akvPipe = (manager.pipes || []).find(p => p.id === akv.bagliBoruId);
     if (!akvPipe) return false;
@@ -296,7 +296,7 @@ export function addDepremSelenoid(manager, serviceBoxId) {
 
     if (targetDistFromP1 + VANA_GENISLIGI < len) {
         // AKV ile aynı boruda yer var
-        const vana = placeValveOnPipe(manager, akvPipe, 'SELENOID', {
+        const vana = placeValveOnPipe(manager, akvPipe, 'SISMIK', {
             fromEnd: 'p1',
             fixedDistance: targetDistFromP1,
         });
@@ -311,7 +311,7 @@ export function addDepremSelenoid(manager, serviceBoxId) {
         p.baslangicBaglanti.hedefId === akvPipe.id
     );
     if (!child) return false;
-    const vana = placeValveOnPipe(manager, child, 'SELENOID', {
+    const vana = placeValveOnPipe(manager, child, 'SISMIK', {
         fromEnd: 'p1',
         fixedDistance: 5,
     });
@@ -320,11 +320,11 @@ export function addDepremSelenoid(manager, serviceBoxId) {
     return true;
 }
 
-// Zincirde herhangi bir SELENOID vanası var mı?
-export function hasSelenoidInChain(manager, serviceBoxId) {
+// Zincirde herhangi bir SISMIK vanası var mı?
+export function hasSismikInChain(manager, serviceBoxId) {
     const ids = collectChainPipeIds(manager, serviceBoxId);
     return (manager.components || []).some(c =>
-        c.type === 'vana' && c.vanaTipi === 'SELENOID' && ids.has(c.bagliBoruId)
+        c.type === 'vana' && c.vanaTipi === 'SISMIK' && ids.has(c.bagliBoruId)
     );
 }
 

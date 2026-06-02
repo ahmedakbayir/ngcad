@@ -778,11 +778,11 @@ function initMenu() {
         hide();
     });
 
-    // ── Vana: AKV / EMNIYET / CIHAZ / SELENOID — tıklanan noktaya ─────────
+    // ── Vana: AKV / EMNIYET / CIHAZ / SELENOID / SISMIK — tıklanan noktaya ──
     // Aktif çizimde: sağ tık başka bir mevcut boruya rast gelse bile ÇİZİLEN
     // hattın sonuna git (kullanıcının niyeti çizimi sürdürmek). Çizim yoksa
     // sağ-tıklanan boru veya seçili boru hedeflenir.
-    ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID'].forEach(tip => {
+    ['AKV', 'EMNIYET', 'CIHAZ', 'SELENOID', 'SISMIK'].forEach(tip => {
         document.getElementById(`plumbing-vana-${tip}`)?.addEventListener('click', () => {
             if (!menuState) return;
             const { pipe, nokta, interactionManager: im } = menuState;

@@ -25,6 +25,7 @@ const VANA_AD = {
     EMNIYET: 'Emn.V',
     CIHAZ: 'Cihaz vanası',
     SELENOID: 'Selenoid',
+    SISMIK: 'Sismik Vana',
     BRANSMAN: 'Branşman vanası',
 };
 

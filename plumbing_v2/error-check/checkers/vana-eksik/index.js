@@ -8,7 +8,7 @@
 //   4. Md:5.1.31 — Ticari birim sayacından sonra (birim dışı) Selenoid vana
 //
 // Henüz uygulanmayan (proje ayarı / kapı geometrisi gerektirir):
-//   • Deprem amaçlı selenoid vana (deprem bölgesi ayarı yok)
+//   • Sismik vana (deprem bölgesi ayarı yok)
 //   • Kolonda emniyet vanası (AKV ↔ bina giriş kapısı mesafesi gerek)
 //
 // Çözüm uygulamaları (otomatik vana yerleştirme) henüz fix=null — kullanıcı
@@ -16,7 +16,7 @@
 
 import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
-import { addKolonAkv, addCihazValve, addSayacEmniyet, addTicariSelenoid, addDepremSelenoid, hasSelenoidInChain } from './fix.js';
+import { addKolonAkv, addCihazValve, addSayacEmniyet, addTicariSelenoid, addDepremSismik, hasSismikInChain } from './fix.js';
 import {
     daireLabel,
     cihazHatLabel,
@@ -340,8 +340,8 @@ function ticariSelenoidKuralı(manager, out) {
     });
 }
 
-// 5. Deprem amaçlı selenoid — TS7363 Md:5.1.9
-//    Servis kutusu zincirinde AKV varsa, AKV sonrasında bir SELENOID vana
+// 5. Sismik vana — TS7363 Md:5.1.9
+//    Servis kutusu zincirinde AKV varsa, AKV sonrasında bir SISMIK vana
 //    bulunmalıdır (deprem bölgesi varsayımı). Zincirde hiç AKV yoksa kontrol
 //    edilmez (önce AKV eksik hatası tetiklenir).
 function depremSelenoidKuralı(manager, out) {
@@ -373,9 +373,9 @@ function depremSelenoidKuralı(manager, out) {
         );
         if (!akv) return;
 
-        if (hasSelenoidInChain(manager, box.id)) return;
+        if (hasSismikInChain(manager, box.id)) return;
 
-        // Hedef: AKV'nin bulunduğu hat (selenoid AKV sonrasına gelecek).
+        // Hedef: AKV'nin bulunduğu hat (sismik vana AKV sonrasına gelecek).
         // AKV'nin pipe'ı yoksa fallback: servis kutusu sonrası ilk hat, sonra kutu.
         const firstPipeId = roots[0]?.id;
         const targets = akv.bagliBoruId
@@ -385,15 +385,15 @@ function depremSelenoidKuralı(manager, out) {
                 : [{ type: 'comp', id: box.id }];
         out.push({
             group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
-            errorId: `vana-deprem-selenoid-${box.id}`,
-            message: 'Kolonda Deprem amaçlı selenoid vana gerekli',
+            errorId: `vana-deprem-sismik-${box.id}`,
+            message: 'Kolonda AKV\'den sonra sismik vana gerekmektedir',
             floorName: floorNameById(box.floorId),
             source:  'TS7363 Md:5.1.9',
             detail:  'Binaların Yangından Korunması Hakkında Yönetmelik hükümlerinde belirtilen deprem bölgelerinde binaların ana girişinde ana kapama vanasından sonra, sarsıntı olduğunda gaz akışını kesen tertibat olması gerekmektedir.',
             targets,
             fix: {
-                description: 'AKV\'nin 30 cm sonrasına selenoid vana eklenecek',
-                apply: () => addDepremSelenoid(manager, box.id),
+                description: 'AKV\'nin 30 cm sonrasına sismik vana eklenecek',
+                apply: () => addDepremSismik(manager, box.id),
             },
         });
     });
