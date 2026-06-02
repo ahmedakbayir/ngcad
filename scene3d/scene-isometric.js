@@ -408,10 +408,13 @@ function drawIsoEndpointMarkers(ctx) {
 // Gruplama 2D ile birebir aynı: dünya XY ayak izi örtüşmesi → birleş. (İso'da
 // cihaz schematic ile vananın yanına kayabiliyor; bu kaymayı gruplamaya
 // yansıtmıyoruz — 2D'de ayrıysalar iso'da da ayrı kalır.)
-// Çizim ise her grubun TİPİNE göre:
-//   - Sayaç (magic matrix ile iso'da DİK çizilir): ekran-eksen AABB → dikey
-//     dikdörtgen.
-//   - Diğer komponentler: iso-eksenlere hizalı PARALELKENAR ((u,v) AABB).
+// Çizim ise her grubun İÇERİĞİNE göre:
+//   - Sayaç içeren grup (yalnız sayaç ya da sayaç + vana/regulator/cihaz/…):
+//     sayaç-bazlı paralelkenar — sayaç magic-matrix'i iso'da daima dikey-yan
+//     kenarlı bir paralelkenar çizdiği için muhafaza da bu bazda AABB alır
+//     (dikey kenarlar + sayaç genişlik yönünde tilted üst/alt).
+//   - Sayaçsız (vana/cihaz/regulator/vs.): iso-eksenlerine hizalı paralelkenar
+//     ((u,v) AABB).
 function drawMuhafazaBoxesIso(ctx, proxyManager) {
     if (!proxyManager?.components) return;
 
@@ -551,7 +554,8 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
             corners: inflated,
             grupla: comp.muhafazaGrupla !== false,
             type: comp.type,
-            onlySayac: comp.type === 'sayac',
+            hasSayac: comp.type === 'sayac',
+            sayacAngle: comp.type === 'sayac' ? angle : null,
         });
     });
 
@@ -568,7 +572,8 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
         let cur = list.map(e => ({
             worldBox: { ...e.worldBox },
             corners: [...e.corners],
-            onlySayac: e.onlySayac,
+            hasSayac: e.hasSayac,
+            sayacAngle: e.sayacAngle,
         }));
         let changed = true;
         while (changed) {
@@ -579,14 +584,16 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
                 let m = {
                     worldBox: { ...cur[i].worldBox },
                     corners: [...cur[i].corners],
-                    onlySayac: cur[i].onlySayac,
+                    hasSayac: cur[i].hasSayac,
+                    sayacAngle: cur[i].sayacAngle,
                 };
                 for (let j = i + 1; j < cur.length; j++) {
                     if (used.has(j)) continue;
                     if (overlaps(m.worldBox, cur[j].worldBox)) {
                         m.corners.push(...cur[j].corners);
                         m.worldBox = mergeBox(m.worldBox, cur[j].worldBox);
-                        m.onlySayac = m.onlySayac && cur[j].onlySayac;
+                        m.hasSayac = m.hasSayac || cur[j].hasSayac;
+                        if (m.sayacAngle == null) m.sayacAngle = cur[j].sayacAngle;
                         used.add(j); changed = true;
                     }
                 }
@@ -624,20 +631,45 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
         if (g.corners.length === 0) return;
 
         let c1, c2, c3, c4;
-        if (g.onlySayac) {
-            // Sayaç magic-matrix ile iso'da DİK (upright) çizilir — ekran-eksen
-            // hizalı AABB kullan ki muhafaza da dikey görünsün, iso-tilt yapma.
-            let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
-            for (const p of g.corners) {
-                if (p.isoX < xMin) xMin = p.isoX;
-                if (p.isoX > xMax) xMax = p.isoX;
-                if (p.isoY < yMin) yMin = p.isoY;
-                if (p.isoY > yMax) yMax = p.isoY;
+        // Sayaç magic-matrix iso'da daima DİKEY-yan-kenarlı paralelkenar çizer:
+        //   genişlik (lx) → ekranda ((cos+sin)·cos30, (sin−cos)·sin30) — sayaç
+        //     rotasyonuna göre iso-X veya iso-Y yönüne dönen tilt.
+        //   yükseklik (ly) → ekranda (0, 1) — daima dikey.
+        // Grupta sayaç varsa muhafazayı bu bazda AABB ile çiz → sayaç ile aynı
+        // orientasyon (dik kenarlar + iso-tilt üst/alt). Aksi halde iso-XY
+        // eksenli paralelkenar.
+        if (g.hasSayac) {
+            const ang = g.sayacAngle || 0;
+            const cs = Math.cos(ang), sn = Math.sin(ang);
+            const e1x = (cs + sn) * cos30;
+            const e1y = (sn - cs) * sin30;
+            if (Math.abs(e1x) > 1e-6) {
+                const slope = e1y / e1x;
+                let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+                for (const p of g.corners) {
+                    const u = p.isoX / e1x;
+                    const v = p.isoY - slope * p.isoX;
+                    if (u < uMin) uMin = u;
+                    if (u > uMax) uMax = u;
+                    if (v < vMin) vMin = v;
+                    if (v > vMax) vMax = v;
+                }
+                const fromBasis = (u, v) => ({ x: u * e1x, y: u * e1y + v });
+                c1 = fromBasis(uMin, vMin);
+                c2 = fromBasis(uMax, vMin);
+                c3 = fromBasis(uMax, vMax);
+                c4 = fromBasis(uMin, vMax);
+            } else {
+                // Dejenere (rotation = 135° / 315°) → iso eksen paralelkenara düş.
+                let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+                for (const p of g.corners) {
+                    const { u, v } = toUV(p);
+                    if (u < uMin) uMin = u; if (u > uMax) uMax = u;
+                    if (v < vMin) vMin = v; if (v > vMax) vMax = v;
+                }
+                c1 = fromUV(uMin, vMin); c2 = fromUV(uMax, vMin);
+                c3 = fromUV(uMax, vMax); c4 = fromUV(uMin, vMax);
             }
-            c1 = { x: xMin, y: yMin };
-            c2 = { x: xMax, y: yMin };
-            c3 = { x: xMax, y: yMax };
-            c4 = { x: xMin, y: yMax };
         } else {
             // Cihaz/vana/regulator/vs. iso'da yatık çizilir — (u,v) AABB ile
             // iso-eksenlerine hizalı paralelkenar üretir.
