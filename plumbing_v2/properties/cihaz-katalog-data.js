@@ -10530,3 +10530,12 @@ export const DEFAULT_VANA = [
     { marka: 'River', model: 'EN 331 Küresel Vana', kw: 0 },
     { marka: 'ALFA', model: 'A10NF PN10-16', kw: 0 },
 ];
+
+// ─── DEFAULT "ÜSTTE GÖSTER" MARKALARI ────────────────────────────────────
+// Tip bazlı sabit favoriler. Kullanıcı state.cihazKatalog._prefs üzerinden
+// bu listeyi override edebilir (un-pin / yeni pin / varsayılan marka).
+export const DEFAULT_FAVORITE_MARKAS = {
+    KOMBI: ['DEMİRDÖKÜM', 'ECA', 'BOSCH', 'BAYMAK', 'VİESSMANN', 'BUDERUS', 'VAİLLANT'],
+    OCAK:  ['ARÇELİK', 'DOMINOX', 'FRANKE', 'FERRE', 'SİMFER', 'LUXELL'],
+    KAZAN: ['ERENSAN ISI MÜHENDİSİ', 'ECOSTAR', 'GÖKÇE'],
+};

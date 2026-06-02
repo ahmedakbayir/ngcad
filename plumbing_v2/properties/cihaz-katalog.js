@@ -50,6 +50,7 @@ import {
     DEFAULT_SISMIK_VANA,
     DEFAULT_TAHLIYE,
     DEFAULT_VANA,
+    DEFAULT_FAVORITE_MARKAS,
 } from './cihaz-katalog-data.js';
 
 // ─── TİPLER ──────────────────────────────────────────────────────────────
@@ -297,4 +298,168 @@ export function getRandomModel(tip, marka) {
     const arr = getModelList(tip, marka);
     if (!arr.length) return null;
     return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// ─── FAVORİ / VARSAYILAN PREFS ───────────────────────────────────────────
+// Tip başına şema:
+//   { pinnedMarkas:[],         // üstte gösterilecek markalar (alfabetik)
+//     pinnedModels:{[marka]:[]}, // marka başına üstte gösterilecek modeller
+//     defaultMarka:string|null,  // tek varsayılan marka
+//     defaultModel:{marka,model}|null, // tek varsayılan (marka,model) çifti
+//     seeded:true }              // DEFAULT_FAVORITE_MARKAS uygulandı
+// Invariantlar setter'lar tarafından sağlanır:
+//   defaultMarka pinnedMarkas içindedir.
+//   defaultModel.marka pinnedMarkas içindedir,
+//   defaultModel.model pinnedModels[defaultModel.marka] içindedir.
+
+function _ensurePrefs(tip) {
+    const T = _normTip(tip);
+    const k = ensureCihazKatalog();
+    if (!k._prefs || typeof k._prefs !== 'object') k._prefs = {};
+    if (!k._prefs[T] || typeof k._prefs[T] !== 'object') {
+        k._prefs[T] = {
+            pinnedMarkas: [],
+            pinnedModels: {},
+            defaultMarka: null,
+            defaultModel: null,
+            seeded: false,
+        };
+    }
+    const p = k._prefs[T];
+    if (!Array.isArray(p.pinnedMarkas)) p.pinnedMarkas = [];
+    if (!p.pinnedModels || typeof p.pinnedModels !== 'object') p.pinnedModels = {};
+    if (!p.seeded) {
+        const seed = DEFAULT_FAVORITE_MARKAS[T] || null;
+        if (Array.isArray(seed)) {
+            for (const m of seed) {
+                if (m && !p.pinnedMarkas.includes(m)) p.pinnedMarkas.push(m);
+            }
+        }
+        p.seeded = true;
+    }
+    return p;
+}
+
+export function isMarkaPinned(tip, marka) {
+    if (!marka) return false;
+    return _ensurePrefs(tip).pinnedMarkas.includes(marka);
+}
+
+export function isModelPinned(tip, marka, model) {
+    if (!marka || !model) return false;
+    const arr = _ensurePrefs(tip).pinnedModels[marka];
+    return Array.isArray(arr) && arr.includes(model);
+}
+
+export function getDefaultMarka(tip) {
+    return _ensurePrefs(tip).defaultMarka || null;
+}
+
+export function getDefaultModel(tip) {
+    const dm = _ensurePrefs(tip).defaultModel;
+    return (dm && dm.marka && dm.model) ? { ...dm } : null;
+}
+
+export function isDefaultMarka(tip, marka) {
+    return !!marka && getDefaultMarka(tip) === marka;
+}
+
+export function isDefaultModel(tip, marka, model) {
+    const dm = getDefaultModel(tip);
+    return !!dm && dm.marka === marka && dm.model === model;
+}
+
+function _pin(arr, val) {
+    if (!val) return;
+    if (!arr.includes(val)) arr.push(val);
+}
+
+function _unpin(arr, val) {
+    const i = arr.indexOf(val);
+    if (i >= 0) arr.splice(i, 1);
+}
+
+// NOT: pin ile default tamamen bağımsızdır. Default'lu bir öğe pin'siz kalabilir;
+// pin'lenmiş bir öğe default olmak zorunda değildir. Cascade YOK.
+
+export function setMarkaPinned(tip, marka, pinned) {
+    if (!marka) return;
+    const p = _ensurePrefs(tip);
+    if (pinned) _pin(p.pinnedMarkas, marka);
+    else _unpin(p.pinnedMarkas, marka);
+}
+
+export function setModelPinned(tip, marka, model, pinned) {
+    if (!marka || !model) return;
+    const p = _ensurePrefs(tip);
+    if (!Array.isArray(p.pinnedModels[marka])) p.pinnedModels[marka] = [];
+    if (pinned) {
+        _pin(p.pinnedModels[marka], model);
+    } else {
+        _unpin(p.pinnedModels[marka], model);
+        if (p.pinnedModels[marka].length === 0) delete p.pinnedModels[marka];
+    }
+}
+
+export function setDefaultMarka(tip, marka) {
+    const p = _ensurePrefs(tip);
+    p.defaultMarka = marka || null;
+}
+
+export function setDefaultModel(tip, marka, model) {
+    const p = _ensurePrefs(tip);
+    if (!marka || !model) {
+        p.defaultModel = null;
+        return;
+    }
+    p.defaultModel = { marka, model };
+}
+
+/**
+ * Aktif markalar pinned/diğer olarak gruplandırılmış halde döner.
+ * Her grup kendi içinde alfabetik (Türkçe), varsayılan marka pinned'in en başında tutulur.
+ * keepValue: silinmiş bile olsa listede tutulması istenen değer (mevcut seçim).
+ */
+export function getMarkaListGrouped(tip, keepValue, ticariTipi) {
+    const flat = getMarkaList(tip, keepValue, ticariTipi);
+    const p = _ensurePrefs(tip);
+    const pinnedSet = new Set(p.pinnedMarkas);
+    const def = p.defaultMarka;
+    const pinned = [];
+    const others = [];
+    for (const m of flat) {
+        if (pinnedSet.has(m)) pinned.push(m);
+        else others.push(m);
+    }
+    // Varsayılan en başta — pinned alfabetik sıralanır, sonra varsayılan en üste alınır.
+    if (def && pinned.includes(def)) {
+        const i = pinned.indexOf(def);
+        pinned.splice(i, 1);
+        pinned.unshift(def);
+    }
+    return { pinned, others, defaultMarka: def };
+}
+
+/**
+ * Verilen marka için modeller pinned/diğer olarak gruplandırılmış halde döner.
+ * Varsayılan modeli (varsa) pinned'in en başında tutar.
+ */
+export function getModelListGrouped(tip, marka, keepValue, ticariTipi) {
+    const flat = getModelList(tip, marka, keepValue, ticariTipi);
+    const p = _ensurePrefs(tip);
+    const pinnedArr = (p.pinnedModels && p.pinnedModels[marka]) || [];
+    const pinnedSet = new Set(pinnedArr);
+    const def = p.defaultModel && p.defaultModel.marka === marka ? p.defaultModel.model : null;
+    const pinned = [];
+    const others = [];
+    for (const m of flat) {
+        if (pinnedSet.has(m)) pinned.push(m);
+        else others.push(m);
+    }
+    if (def && pinned.includes(def)) {
+        const i = pinned.indexOf(def);
+        pinned.splice(i, 1);
+        pinned.unshift(def);
+    }
+    return { pinned, others, defaultModel: def };
 }

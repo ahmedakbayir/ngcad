@@ -17,7 +17,17 @@ import { clearLabelOffsetsForFloor, relayoutAllLabels } from '../renderer/render
 import { startTextAnnotationPlacement } from '../../architectural-objects/text-annotation-placement.js';
 import { selectObject as plumbingSelectObject } from '../interactions/selection-manager.js';
 import { SONLANMA_VANALARI } from '../objects/valve.js';
-import { addCihazEntry, isMarkaManuel, isModelManuel } from './cihaz-katalog.js';
+import {
+    addCihazEntry, isMarkaManuel, isModelManuel,
+    getMarkaListGrouped, getModelListGrouped,
+    getDefaultMarka, getDefaultModel,
+    setMarkaPinned, setModelPinned,
+    setDefaultMarka, setDefaultModel,
+    CIHAZ_KATALOG_TIPLERI,
+} from './cihaz-katalog.js';
+
+// Favori/varsayılan UI tüm katalog tipleri için aktif (cihazlar + tesisat).
+const FAVORITES_ENABLED_TIPS = new Set(CIHAZ_KATALOG_TIPLERI);
 
 
 export const PANEL_MODES = {
@@ -291,6 +301,18 @@ function _startLiveRefresh() {
                 }
             });
         }
+        // custom dropdown alanları: trigger metni objVal ile senkron olsun
+        panelEl.querySelectorAll('.props-cdd[data-cdd-key]').forEach(cdd => {
+            const key = cdd.dataset.cddKey;
+            if (!key) return;
+            const objVal = String(_currentObj[key] ?? '');
+            const valSpan = cdd.querySelector('.props-cdd-value');
+            if (!valSpan) return;
+            if (objVal && valSpan.textContent !== objVal) {
+                valSpan.textContent = objVal;
+                valSpan.classList.remove('is-placeholder');
+            }
+        });
         // select alanları: obj değeri değiştiyse güncelle
         panelEl.querySelectorAll('select[data-prop-key]').forEach(el => {
             const key = el.dataset.propKey;
@@ -523,52 +545,51 @@ function renderProperty(prop, obj, manager) {
     }
 
     if (prop.type === 'select') {
-        const rawOpts = typeof prop.options === 'function' ? prop.options(obj, manager) : prop.options;
         const current = prop.valueFn ? String(prop.valueFn(obj)) : String(obj[prop.key] ?? prop.default ?? '');
         const isDisabled = prop.disabled === true || (prop.disabledFn && prop.disabledFn(obj, manager));
-        let optionsHtml = '';
-        if (prop.placeholder) {
-            optionsHtml += `<option value="" ${!current ? 'selected' : ''}>${prop.placeholder}</option>`;
-        }
-        if (prop.optionsAreObjects) {
-            optionsHtml += rawOpts.map(o =>
-                `<option value="${o.value}" ${current === String(o.value) ? 'selected' : ''}>${o.label}</option>`
-            ).join('');
-        } else {
-            optionsHtml += rawOpts.map(o =>
-                `<option value="${o}" ${current === String(o) ? 'selected' : ''}>${o}</option>`
-            ).join('');
-        }
+        const addAct = prop.addAction;
+        const tipForAdd = addAct
+            ? (typeof addAct.tip === 'function' ? addAct.tip(obj, manager) : addAct.tip)
+            : '';
+        const favTipi = String(tipForAdd || '').toUpperCase();
+        const useFavoritesUI = FAVORITES_ENABLED_TIPS.has(favTipi)
+            && (prop.key === 'marka' || prop.key === 'model');
+
         const hasAdd = !!prop.addAction && !isDisabled;
+        const isModel = prop.key === 'model';
+        const isManuel = hasAdd && current && (isModel
+            ? isModelManuel(tipForAdd, obj.marka, current)
+            : isMarkaManuel(tipForAdd, current));
+        const manuelTag = isManuel
+            ? ` <span class="props-manuel-tag" title="DEFAULT katalogda yok — kullanıcı tarafından manuel olarak girildi">(MANUEL)</span>`
+            : '';
+        const addTitle = isModel ? 'Manuel model girişi' : 'Manuel marka girişi';
+
+        // Favori UI'lı tipler için custom dropdown (inline ↑/↓ pin butonlu) kullanılır.
+        // Diğer tüm select'ler native <select> kalır.
+        const inputControl = useFavoritesUI
+            ? _renderCustomDropdown(favTipi, prop, obj, current, isDisabled)
+            : _renderNativeSelect(prop, obj, manager, current, isDisabled);
+
+        const favRow = useFavoritesUI && prop.key === 'model'
+            ? _buildFavoritesCheckboxRowCombined(favTipi, prop, obj)
+            : '';
+
         if (hasAdd) {
-            const isModel = prop.key === 'model';
-            const addTitle = isModel ? 'Manuel model girişi' : 'Manuel marka girişi';
-            const addAct = prop.addAction;
-            const tipForAdd = typeof addAct.tip === 'function' ? addAct.tip(obj, manager) : addAct.tip;
-            const isManuel = current && (isModel
-                ? isModelManuel(tipForAdd, obj.marka, current)
-                : isMarkaManuel(tipForAdd, current));
-            const manuelTag = isManuel
-                ? ` <span class="props-manuel-tag" title="DEFAULT katalogda yok — kullanıcı tarafından manuel olarak girildi">(MANUEL)</span>`
-                : '';
             return `
                 <div class="props-row">
                     <label class="props-label">${prop.label}${manuelTag}</label>
                     <div class="props-select-with-action" style="display:flex;gap:4px;flex:1;min-width:0;align-items:center">
-                        <select class="props-select" data-prop-key="${prop.key}" data-prop-id="${prop.id}" style="flex:1;min-width:0">
-                            ${optionsHtml}
-                        </select>
+                        ${inputControl}
                         <button class="props-add-katalog-btn" data-prop-id="${prop.id}" title="${addTitle}">+</button>
                     </div>
-                </div>`;
+                </div>${favRow}`;
         }
         return `
             <div class="props-row">
                 <label class="props-label">${prop.label}</label>
-                <select class="props-select" data-prop-key="${prop.key}" data-prop-id="${prop.id}" ${isDisabled ? 'disabled' : ''}>
-                    ${optionsHtml}
-                </select>
-            </div>`;
+                ${inputControl}
+            </div>${favRow}`;
     }
 
     if (prop.type === 'text') {
@@ -1271,6 +1292,15 @@ function bindInputEvents(panelEl, props, obj, manager) {
             const prop = _findPropByKey(props, key);
             if (prop?.afterChange) prop.afterChange(obj, manager, panelEl);
             persist();
+            // Favori/varsayılan UI'lı bir tipin marka/model'i değişti → favRow ve
+            // dropdown'lar (varsayılan renk + ayraç) güncellensin.
+            if ((key === 'marka' || key === 'model') && prop?.addAction) {
+                const tipForAdd = typeof prop.addAction.tip === 'function'
+                    ? prop.addAction.tip(obj, manager) : prop.addAction.tip;
+                if (FAVORITES_ENABLED_TIPS.has(String(tipForAdd || '').toUpperCase())) {
+                    if (panelEl._refresh) panelEl._refresh();
+                }
+            }
         });
     });
 
@@ -1385,6 +1415,232 @@ function bindInputEvents(panelEl, props, obj, manager) {
             persist();
         });
     });
+
+    // "Varsayılan yap" switch (marka + model select'lerinin altında tek satır)
+    panelEl.querySelectorAll('.props-fav-row input[type="checkbox"][data-fav-action="default"]').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+            const row = e.target.closest('.props-fav-row');
+            const tip = row?.dataset.favTip;
+            if (!tip) return;
+            const marka = obj.marka || '';
+            const model = obj.model || '';
+            const hasMarka = !!marka;
+            const hasModel = hasMarka && !!model;
+            if (!hasMarka) { e.target.checked = !e.target.checked; return; }
+            const wasChecked = !e.target.checked;
+            const nowChecked = e.target.checked;
+            const ok = _handleFavoriteDefaultToggle({ tip, hasModel, marka, model, setOn: nowChecked });
+            if (!ok) { e.target.checked = wasChecked; return; }
+            saveState();
+            persist();
+            if (panelEl._refresh) panelEl._refresh();
+        });
+    });
+
+    // Custom dropdown (marka & model) — KOMBI gibi favori UI'lı tipler için
+    _bindCustomDropdowns(panelEl, props, obj, manager);
+}
+
+// ─── Custom dropdown event bağlama ────────────────────────────────────
+
+// Dışarı tıklama + scroll/resize dinleyicileri panel başına bir kez kurulur.
+let _cddOutsideListener = null;
+let _cddScrollListener = null;
+
+function _closeAllCustomDropdowns(panelEl) {
+    panelEl.querySelectorAll('.props-cdd.is-open').forEach(cdd => {
+        cdd.classList.remove('is-open');
+        const menu = cdd.querySelector('[data-cdd-menu]');
+        if (menu) menu.hidden = true;
+    });
+}
+
+function _positionCddMenu(cdd, menu) {
+    const trigger = cdd.querySelector('[data-cdd-trigger]');
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const spaceBelow = vh - rect.bottom - 8;
+    const spaceAbove = rect.top - 8;
+
+    // Genişlik: trigger'dan dar olmasın, içerikle birlikte ~560px'e kadar büyüyebilsin
+    menu.style.width = 'auto';
+    menu.style.minWidth = rect.width + 'px';
+    menu.style.maxWidth = Math.min(560, vw - 24) + 'px';
+
+    // Dikey: aşağı sığmıyorsa yukarı aç + max-height'i mevcut alana göre kıs
+    const openUp = spaceBelow < 200 && spaceAbove > spaceBelow;
+    if (openUp) {
+        menu.style.top = '';
+        menu.style.bottom = (vh - rect.top + 2) + 'px';
+    } else {
+        menu.style.bottom = '';
+        menu.style.top = (rect.bottom + 2) + 'px';
+    }
+    const availH = openUp ? spaceAbove : spaceBelow;
+    menu.style.maxHeight = Math.max(140, Math.min(vh * 0.6, availH)) + 'px';
+
+    // Yatay: önce trigger.left, sonra sağa taşma kontrolü
+    menu.style.left = rect.left + 'px';
+    const mr = menu.getBoundingClientRect();
+    if (mr.right > vw - 8) {
+        const newLeft = Math.max(8, vw - mr.width - 8);
+        menu.style.left = newLeft + 'px';
+    }
+}
+
+function _renderCddMenuItems(cdd, obj) {
+    const tip = cdd.dataset.favTip;
+    const key = cdd.dataset.cddKey;
+    const current = obj[key] || '';
+    const menu = cdd.querySelector('[data-cdd-menu]');
+    if (!menu || !tip || !key) return;
+    menu.innerHTML = _buildCustomDropdownMenuItems(tip, key, obj, current);
+}
+
+function _bindCustomDropdowns(panelEl, props, obj, manager) {
+    const cdds = panelEl.querySelectorAll('.props-cdd');
+    if (!cdds.length) return;
+
+    // Tek bir dışarı-tıklama dinleyicisi
+    if (_cddOutsideListener) document.removeEventListener('mousedown', _cddOutsideListener, true);
+    _cddOutsideListener = (e) => {
+        if (!panelEl.contains(e.target)) {
+            _closeAllCustomDropdowns(panelEl);
+            return;
+        }
+        const cdd = e.target.closest('.props-cdd');
+        panelEl.querySelectorAll('.props-cdd.is-open').forEach(open => {
+            if (open !== cdd) {
+                open.classList.remove('is-open');
+                const menu = open.querySelector('[data-cdd-menu]');
+                if (menu) menu.hidden = true;
+            }
+        });
+    };
+    document.addEventListener('mousedown', _cddOutsideListener, true);
+
+    // Scroll / resize → açık menüleri KAPATMA, yeniden konumlandır.
+    // (Panel body kendini scrollIntoView ederse menüyü erken kapatmasın diye.)
+    if (_cddScrollListener) {
+        window.removeEventListener('scroll', _cddScrollListener, true);
+        window.removeEventListener('resize', _cddScrollListener);
+    }
+    _cddScrollListener = (e) => {
+        // Menünün KENDİ scroll'u → görmezden gel
+        if (e && e.target && e.target.closest && e.target.closest('.props-cdd-menu')) return;
+        panelEl.querySelectorAll('.props-cdd.is-open').forEach(open => {
+            const menu = open.querySelector('[data-cdd-menu]');
+            if (menu && !menu.hidden) _positionCddMenu(open, menu);
+        });
+    };
+    window.addEventListener('scroll', _cddScrollListener, true);
+    window.addEventListener('resize', _cddScrollListener);
+
+    cdds.forEach(cdd => {
+        const trigger = cdd.querySelector('[data-cdd-trigger]');
+        const menu = cdd.querySelector('[data-cdd-menu]');
+        if (!trigger || !menu) return;
+
+        trigger.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (trigger.disabled) return;
+            const isOpen = cdd.classList.contains('is-open');
+            _closeAllCustomDropdowns(panelEl);
+            if (!isOpen) {
+                _renderCddMenuItems(cdd, obj);
+                cdd.classList.add('is-open');
+                menu.hidden = false;
+                _positionCddMenu(cdd, menu);
+                const sel = menu.querySelector('.props-cdd-item.is-selected');
+                if (sel && typeof sel.scrollIntoView === 'function') {
+                    sel.scrollIntoView({ block: 'nearest' });
+                }
+            }
+        });
+
+        // Menü içi tıklamalar: pin butonu OR item seçimi
+        menu.addEventListener('click', (e) => {
+            const pinBtn = e.target.closest('.props-cdd-pin');
+            if (pinBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const item = pinBtn.closest('.props-cdd-item');
+                if (!item) return;
+                const value = item.dataset.cddValue;
+                const action = pinBtn.dataset.cddPin; // 'pin' | 'unpin'
+                const tip = cdd.dataset.favTip;
+                const key = cdd.dataset.cddKey;
+                if (!value || !tip || !key) return;
+                if (key === 'model') {
+                    const marka = obj.marka || '';
+                    if (!marka) return;
+                    setModelPinned(tip, marka, value, action === 'pin');
+                } else {
+                    setMarkaPinned(tip, value, action === 'pin');
+                }
+                saveState();
+                persist();
+                // Menüyü yerinde yeniden çiz — menü açık kalsın
+                _renderCddMenuItems(cdd, obj);
+                return;
+            }
+
+            const item = e.target.closest('.props-cdd-item');
+            if (!item) return;
+            const value = item.dataset.cddValue;
+            if (value == null) return;
+            _selectCustomDropdownValue(cdd, obj, manager, props, panelEl, value);
+        });
+    });
+}
+
+/** Custom dropdown öğesi seçildiğinde değeri uygula — native select.change muadili. */
+function _selectCustomDropdownValue(cdd, obj, manager, props, panelEl, value) {
+    const key = cdd.dataset.cddKey;
+    if (!key) return;
+    obj[key] = value;
+    const prop = props.find(p => p.id === cdd.dataset.propId)
+        || _findPropByKey(props, key);
+    if (prop?.afterChange) prop.afterChange(obj, manager, panelEl);
+    _closeAllCustomDropdowns(panelEl);
+    persist();
+    if (panelEl._refresh) panelEl._refresh();
+}
+
+/** Mevcut varsayılanın kullanıcıya gösterilecek metin biçimi. */
+function _formatCurrentDefault(tip) {
+    const dmod = getDefaultModel(tip);
+    if (dmod) return `${dmod.marka} / ${dmod.model}`;
+    const dm = getDefaultMarka(tip);
+    return dm || '';
+}
+
+/**
+ * "Varsayılan yap" checkbox değişimini onay diyaloğuyla yönetir.
+ * Aynı tip için tek bir varsayılan olur — değişimi ya da kaldırmayı onaylatır.
+ * Dönüş: true → uygulandı, false → kullanıcı vazgeçti.
+ */
+function _handleFavoriteDefaultToggle({ tip, hasModel, marka, model, setOn }) {
+    const oldStr = _formatCurrentDefault(tip);
+    const newStr = hasModel ? `${marka} / ${model}` : marka;
+
+    if (setOn) {
+        if (oldStr && oldStr !== newStr) {
+            const msg = `Mevcut varsayılan: ${oldStr}\nYeni varsayılan: ${newStr}\n\nOnaylıyor musunuz?`;
+            if (!window.confirm(msg)) return false;
+        }
+        setDefaultMarka(tip, marka);
+        if (hasModel) setDefaultModel(tip, marka, model);
+        else setDefaultModel(tip, null, null);
+    } else {
+        const msg = `${newStr}\n\nVarsayılan olmaktan çıkarılacak. Onaylıyor musunuz?`;
+        if (!window.confirm(msg)) return false;
+        setDefaultMarka(tip, null);
+        setDefaultModel(tip, null, null);
+    }
+    return true;
 }
 
 /** Borunun çapı değişince üzerindeki vananın çapını da günceller */
@@ -1474,6 +1730,138 @@ function persist() {
 
 function escHtml(str) {
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ─── FAVORİ / VARSAYILAN UI YARDIMCILARI ─────────────────────────────────
+
+/**
+ * Favori UI'lı OLMAYAN tüm select prop'larını eskisi gibi native <select> olarak çizer.
+ * Custom dropdown sadece KOMBI gibi favori UI'lı tiplerde devreye girer.
+ */
+function _renderNativeSelect(prop, obj, manager, current, isDisabled) {
+    let optionsHtml = '';
+    if (prop.placeholder) {
+        optionsHtml += `<option value="" ${!current ? 'selected' : ''}>${prop.placeholder}</option>`;
+    }
+    if (prop.optionsAreObjects) {
+        const rawOpts = typeof prop.options === 'function' ? prop.options(obj, manager) : prop.options;
+        optionsHtml += rawOpts.map(o =>
+            `<option value="${o.value}" ${current === String(o.value) ? 'selected' : ''}>${o.label}</option>`
+        ).join('');
+    } else {
+        const rawOpts = typeof prop.options === 'function' ? prop.options(obj, manager) : prop.options;
+        optionsHtml += rawOpts.map(o =>
+            `<option value="${o}" ${current === String(o) ? 'selected' : ''}>${o}</option>`
+        ).join('');
+    }
+    const flexStyle = prop.addAction ? ' style="flex:1;min-width:0"' : '';
+    return `<select class="props-select" data-prop-key="${prop.key}" data-prop-id="${prop.id}"${flexStyle} ${isDisabled ? 'disabled' : ''}>${optionsHtml}</select>`;
+}
+
+/**
+ * Custom dropdown — tetik butonu + açılır menü. Her menü öğesinin yanında ↑/↓
+ * pin/unpin butonu var. Default öğe kırmızı vurgu.
+ * data-cdd-key + data-prop-id + data-fav-tip ile event handler'larca bulunur.
+ */
+function _renderCustomDropdown(tip, prop, obj, current, isDisabled) {
+    const placeholder = prop.placeholder || '';
+    const valueClass = current ? '' : ' is-placeholder';
+    const valueText = current || placeholder;
+    const disabledCls = isDisabled ? ' is-disabled' : '';
+    return `<div class="props-cdd${disabledCls}" data-cdd-key="${prop.key}" data-prop-id="${prop.id}" data-fav-tip="${tip}" style="flex:1;min-width:0;position:relative">
+        <button type="button" class="props-cdd-trigger" data-cdd-trigger ${isDisabled ? 'disabled' : ''}>
+            <span class="props-cdd-value${valueClass}">${escHtml(valueText)}</span>
+            <span class="props-cdd-caret">▾</span>
+        </button>
+        <div class="props-cdd-menu" data-cdd-menu hidden></div>
+    </div>`;
+}
+
+/**
+ * Açılır menü içeriğini (öğe listesi + ayraç) oluşturur. Pin durumuna göre ↑ ya da ↓
+ * butonu çizilir. Default öğe is-default sınıfı alır.
+ */
+function _buildCustomDropdownMenuItems(tip, key, obj, current) {
+    const isModel = key === 'model';
+    // TICARI'da liste, seçili ticariCihazTipi'ne (Brülör/Fırın/...) göre filtrelenir.
+    const ticariTipi = (tip === 'TICARI') ? (obj.ticariCihazTipi || '') : undefined;
+    let grouped;
+    if (isModel) {
+        const marka = obj.marka || '';
+        if (!marka) return '<div class="props-cdd-empty">Önce marka seçin</div>';
+        grouped = getModelListGrouped(tip, marka, current || '', ticariTipi);
+    } else {
+        grouped = getMarkaListGrouped(tip, current || '', ticariTipi);
+    }
+    const def = isModel ? grouped.defaultModel : grouped.defaultMarka;
+
+    const item = (val, pinned) => {
+        const sel = String(current) === String(val);
+        const isDef = def && val === def;
+        const cls = [
+            'props-cdd-item',
+            pinned ? 'is-pinned' : '',
+            isDef ? 'is-default' : '',
+            sel ? 'is-selected' : '',
+        ].filter(Boolean).join(' ');
+        const pinTitle = pinned ? 'Üstten kaldır' : 'Üste çıkar';
+        const pinSym = pinned ? '↓' : '↑';
+        const pinAct = pinned ? 'unpin' : 'pin';
+        return `<div class="${cls}" data-cdd-value="${escHtml(val)}">
+            <span class="props-cdd-label">${escHtml(val)}</span>
+            <button type="button" class="props-cdd-pin" data-cdd-pin="${pinAct}" title="${pinTitle}" tabindex="-1">${pinSym}</button>
+        </div>`;
+    };
+
+    let html = '';
+    for (const v of grouped.pinned) html += item(v, true);
+    if (grouped.pinned.length > 0 && grouped.others.length > 0) {
+        html += `<div class="props-cdd-sep"></div>`;
+    }
+    for (const v of grouped.others) html += item(v, false);
+    if (!grouped.pinned.length && !grouped.others.length) {
+        html += `<div class="props-cdd-empty">Kayıt yok</div>`;
+    }
+    return html;
+}
+
+/**
+ * Tek bir "Varsayılan yap" switch'i — marka + model select'lerinin ALTINDA
+ * (model prop'unun ardından) bir kez yerleşir.
+ *   - sadece marka seçili → varsayılan markaya uygulanır
+ *   - marka + model seçili → varsayılan (marka, model) çiftine uygulanır
+ * Üstte göster için ayrı bir switch yok — dropdown menüdeki ↑/↓ butonu kullanılır.
+ */
+function _buildFavoritesCheckboxRowCombined(tip, prop, obj) {
+    const marka = obj.marka || '';
+    const model = obj.model || '';
+    const hasMarka = !!marka;
+    const hasModel = hasMarka && !!model;
+    const noSel = !hasMarka;
+
+    const dm = getDefaultMarka(tip);
+    const dmod = getDefaultModel(tip);
+
+    let isDef = false;
+    if (hasModel) {
+        isDef = dm === marka && !!dmod && dmod.marka === marka && dmod.model === model;
+    } else if (hasMarka) {
+        isDef = dm === marka && !dmod;
+    }
+
+    const defDisabled = noSel;
+    const lblCls = `props-fav-cb${defDisabled ? ' is-disabled' : ''}`;
+
+    return `
+        <div class="props-fav-row" data-prop-id="${prop.id}" data-fav-tip="${tip}">
+            <label class="${lblCls}">
+                <span class="props-fav-switch is-default">
+                    <input type="checkbox" data-fav-action="default" ${isDef ? 'checked' : ''} ${defDisabled ? 'disabled' : ''}>
+                    <span class="props-fav-slider"></span>
+                </span>
+                <span>Varsayılan yap</span>
+            </label>
+        </div>`;
 }
 
 /**
