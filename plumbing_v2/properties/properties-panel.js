@@ -860,6 +860,7 @@ function _deleteArbitraryObject(obj) {
     }
     else if (t === 'plumbingBlock') { state.plumbingBlocks = (state.plumbingBlocks || []).filter(x => x !== obj); deleted = true; }
     else if (t === 'plumbingPipe') { state.plumbingPipes = (state.plumbingPipes || []).filter(x => x !== obj); deleted = true; }
+    else if (t === 'archDevice') { state.archDevices = (state.archDevices || []).filter(x => x !== obj); deleted = true; }
 
     return { deleted, skipSave: false };
 }

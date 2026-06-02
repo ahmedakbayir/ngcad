@@ -11,6 +11,12 @@ import { isMarkaManuel, isModelManuel } from '../properties/cihaz-katalog.js';
 /** Etiket için: nesne türünden katalog tipini (KOMBI/REGULATOR/...) çıkar. */
 function _getKatalogTipForLabel(comp) {
     if (comp.type === 'cihaz') return String(comp.cihazTipi || '').toUpperCase();
+    if (comp.type === 'vana') {
+        const vt = String(comp.vanaTipi || '').toUpperCase();
+        if (vt === 'SELENOID') return 'SOLENOID';
+        if (vt === 'SISMIK')   return 'SISMIK_VANA';
+        return 'VANA';
+    }
     const map = {
         regulator: 'REGULATOR',
         filtre: 'FILTRE',
@@ -1246,6 +1252,8 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
             if (ek > 0) lines.push({ text: `Ek Debi: ${ek.toFixed(2)} m³/h`, sub: true });
             if (toplamDebi > 0) lines.push({ text: `Toplam Debi: ${toplamDebi.toFixed(2)} m³/h`, sub: true });
         }
+
+        _appendMarkaModelLines(lines, comp, 'twoline');
 
         if (comp.description) {
             comp.description.trimEnd().split('\n').forEach(line => {

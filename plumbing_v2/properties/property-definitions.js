@@ -9,6 +9,7 @@ import { getHatRowForPipe, getCumulativeLossForHat } from '../utils/pipe-calcula
 import { TOPRAKLAMA_YONTEMLERI } from '../objects/pipe-fitting.js';
 import { ensureRegulatorAccessories } from '../objects/regulator-accessories.js';
 import { getMarkaList, getModelList, getModelKW, getTicariTip } from './cihaz-katalog.js';
+import { ARCH_DEVICE_NAMES } from '../../architectural-objects/arch-devices.js';
 
 /**
  * Sayacın çıkış (iç tesisat) zincirinde bir regülatör var mı?
@@ -473,6 +474,25 @@ function _cihazDebiHesapla(obj) {
     if (isNaN(kcal) || kcal <= 0) return null;
     const raw = kcal / 8250 / verim;
     return Math.max(raw, _cihazMinDebi(obj));
+}
+
+// Vana komponentinin marka/model katalog tipini vanaTipi'ne göre seçer.
+//   SELENOID → 'SOLENOID', SISMIK → 'SISMIK_VANA', diğer → 'VANA'.
+function _vanaKatalogTip(obj) {
+    const t = String(obj?.vanaTipi || '').toUpperCase();
+    if (t === 'SELENOID') return 'SOLENOID';
+    if (t === 'SISMIK')   return 'SISMIK_VANA';
+    return 'VANA';
+}
+
+// archDevice (mahal cihazı) kind → marka/model katalog tipi.
+//   gas_alarm → GAZ_ALARM, co_alarm → CO_ALARM, earthquake → SISMIK_ALARM
+function _archDeviceKatalogTip(obj) {
+    const k = String(obj?.kind || '').toLowerCase();
+    if (k === 'gas_alarm')  return 'GAZ_ALARM';
+    if (k === 'co_alarm')   return 'CO_ALARM';
+    if (k === 'earthquake') return 'SISMIK_ALARM';
+    return '';
 }
 
 /**
@@ -1234,17 +1254,23 @@ export const PROPERTY_DEFS = {
 
     vanaMarka: {
         label: 'Marka',
-        type: 'text',
+        type: 'select',
         key: 'marka',
+        options: (obj) => getMarkaList(_vanaKatalogTip(obj), obj?.marka || ''),
         default: '',
-        placeholder: 'Marka...',
+        placeholder: 'Marka seçin...',
+        addAction: { tip: (obj) => _vanaKatalogTip(obj) },
+        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
     },
     vanaModel: {
         label: 'Model',
-        type: 'text',
+        type: 'select',
         key: 'model',
+        options: (obj) => getModelList(_vanaKatalogTip(obj), obj?.marka, obj?.model || ''),
         default: '',
-        placeholder: 'Model...',
+        placeholder: 'Model seçin...',
+        addAction: { tip: (obj) => _vanaKatalogTip(obj) },
+        disabledFn: (obj) => !obj?.marka,
     },
 
     // ════════════════════════════════════════════════════════
@@ -2603,6 +2629,39 @@ export const PROPERTY_DEFS = {
         key: 'showRailing',
         default: true,
     },
+
+    // ════════════════════════════════════════════════════════
+    // MAHAL CİHAZLARI (Gaz / CO / Sismik alarm cihazları)
+    // ════════════════════════════════════════════════════════
+
+    archDevice_sec_urun: {
+        type: 'section',
+        label: 'Ürün',
+        visibleFn: (obj) => !!_archDeviceKatalogTip(obj),
+    },
+
+    archDeviceMarka: {
+        label: 'Marka',
+        type: 'select',
+        key: 'marka',
+        options: (obj) => getMarkaList(_archDeviceKatalogTip(obj), obj?.marka || ''),
+        default: '',
+        placeholder: 'Marka seçin...',
+        addAction: { tip: (obj) => _archDeviceKatalogTip(obj) },
+        visibleFn: (obj) => !!_archDeviceKatalogTip(obj),
+        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
+    },
+    archDeviceModel: {
+        label: 'Model',
+        type: 'select',
+        key: 'model',
+        options: (obj) => getModelList(_archDeviceKatalogTip(obj), obj?.marka, obj?.model || ''),
+        default: '',
+        placeholder: 'Model seçin...',
+        addAction: { tip: (obj) => _archDeviceKatalogTip(obj) },
+        visibleFn: (obj) => !!_archDeviceKatalogTip(obj),
+        disabledFn: (obj) => !obj?.marka,
+    },
 };
 
 // ─── NESNE → ÖZELLİK LİSTESİ ────────────────────────────────────────────────
@@ -2649,9 +2708,9 @@ export const OBJECT_PROPERTIES = {
         'sayacUstaNo',
     ],
     vana: [
-        // 'vana_sec_urun',
-        // 'vanaMarka',
-        // 'vanaModel',
+        'vana_sec_urun',
+        'vanaMarka',
+        'vanaModel',
         'vana_sec_tanim',
         'vanaTipi',
         'vanaCap',
@@ -2875,6 +2934,11 @@ export const OBJECT_PROPERTIES = {
         'stairTopElevation',
         'stairShowRailing',
     ],
+    archDevice: [
+        'archDevice_sec_urun',
+        'archDeviceMarka',
+        'archDeviceModel',
+    ],
 };
 
 // ─── DIŞA AKTARILAN FONKSİYONLAR ─────────────────────────────────────────────
@@ -2901,6 +2965,9 @@ export function getObjectLabel(obj) {
             TICARI: 'Ticari Cihaz',
         };
         return LABELS[obj.cihazTipi] || 'Cihaz';
+    }
+    if (obj.type === 'archDevice') {
+        return ARCH_DEVICE_NAMES[obj.kind] || 'Mahal Cihazı';
     }
     return getObjectTypeLabel(obj.type);
 }

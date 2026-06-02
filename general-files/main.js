@@ -24,6 +24,8 @@ import '../plumbing_v2/error-check/checkers/birim-no/index.js';
 import '../plumbing_v2/error-check/checkers/vana-flans/index.js';
 import '../plumbing_v2/error-check/checkers/mahal-hacim-menfez/index.js';
 import '../plumbing_v2/error-check/checkers/cihaz-marka-model/index.js';
+import '../plumbing_v2/error-check/checkers/vana-marka-model/index.js';
+import '../plumbing_v2/error-check/checkers/alarm-marka-model/index.js';
 import { fitDrawingToScreen } from '../draw/zoom.js';
 import { ARCH_DEVICE_KINDS } from '../architectural-objects/arch-devices.js';
 // --- DEĞİŞİKLİK BURADA ---

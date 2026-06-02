@@ -26,7 +26,7 @@ import { processWalls } from '../wall/wall-processor.js';
 import { openPropertiesPanel, isPinned, isPanelOpen } from '../plumbing_v2/properties/properties-panel.js';
 // plumbingManager zaten yukarıda import edildi
 
-const ARCH_PANEL_TYPES = ['wall', 'door', 'window', 'vent', 'stairs', 'column', 'beam'];
+const ARCH_PANEL_TYPES = ['wall', 'door', 'window', 'vent', 'stairs', 'column', 'beam', 'archDevice'];
 
 /**
  * Vanadan/Sayaçtan sonraki tüm bağlı boruları düz çizgi yap

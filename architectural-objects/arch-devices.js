@@ -27,7 +27,7 @@ export const ARCH_DEVICE_SIZES = {
 export const ARCH_DEVICE_LABELS = {
     [ARCH_DEVICE_KINDS.GAS_ALARM]: 'GAC',
     [ARCH_DEVICE_KINDS.CO_ALARM]: 'CO',
-    [ARCH_DEVICE_KINDS.EARTHQUAKE]: 'DAC',
+    [ARCH_DEVICE_KINDS.EARTHQUAKE]: 'SAC',
     [ARCH_DEVICE_KINDS.FIRE_EXT]: '',
 };
 
@@ -35,7 +35,7 @@ export const ARCH_DEVICE_LABELS = {
 export const ARCH_DEVICE_NAMES = {
     [ARCH_DEVICE_KINDS.GAS_ALARM]: 'Gaz Alarm Cihazı',
     [ARCH_DEVICE_KINDS.CO_ALARM]: 'CO Algılama Cihazı',
-    [ARCH_DEVICE_KINDS.EARTHQUAKE]: 'Deprem Algılama Cihazı',
+    [ARCH_DEVICE_KINDS.EARTHQUAKE]: 'Sismik Alarm Cihazı',
     [ARCH_DEVICE_KINDS.FIRE_EXT]: 'Yangın Tüpü',
 };
 

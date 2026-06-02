@@ -103,7 +103,7 @@ function drawAlarmDeviceShape(ctx, device, width, height, zoom, strokeColor) {
         ctx.stroke();
     }
 
-    // İç kısa kod (GAC / CO / DAC) — gövdenin ortasında
+    // İç kısa kod (GAC / CO / SAC) — gövdenin ortasında
     const label = ARCH_DEVICE_LABELS[device.kind] || '';
     if (label) {
         const fontSize = bodyH * 0.75;
@@ -183,9 +183,17 @@ function drawFireExtinguisherSilhouette(ctx, width, height, strokeColor, fillCol
 function drawDeviceNameLabel(ctx, device, width, height, zoom, color) {
     const name = ARCH_DEVICE_NAMES[device.kind] || '';
     if (!name) return;
+
+    const lines = [name];
+    const marka = String(device.marka || '').trim();
+    const model = String(device.model || '').trim();
+    if (marka) lines.push(marka);
+    if (model) lines.push(model);
+    if (device.kind === ARCH_DEVICE_KINDS.EARTHQUAKE && _hasNonMekanikSismikVana()) {
+        lines.push('Sismik vana ile irtibatlı');
+    }
+
     // Cihaz döndürülse bile etiket yatay kalır — dünya koordinatlarında çiz.
-    // Konum: cihaz merkezinin altında, döndürme sırasında köşelerle çakışmaması için
-    // bounding-circle yarıçapı (köşegen / 2) kadar mesafe.
     const radius = Math.hypot(width, height) / 2;
     const margin = 4;
     const fontSize = Math.max(7, 9 / Math.max(zoom, 0.4));
@@ -194,8 +202,23 @@ function drawDeviceNameLabel(ctx, device, width, height, zoom, color) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillStyle = color;
-    ctx.fillText(name, device.center.x, device.center.y + radius + margin);
+    let y = device.center.y + radius + margin;
+    for (const ln of lines) {
+        ctx.fillText(ln, device.center.x, y);
+        y += fontSize * 1.15;
+    }
     ctx.restore();
+}
+
+// Projede mekanik olmayan SISMIK vana var mı? Sismik alarm cihazı etiketine
+// "Sismik vana ile irtibatlı" satırı eklemek için kullanılır.
+function _hasNonMekanikSismikVana() {
+    const comps = window.plumbingManager?.components || [];
+    return comps.some(c =>
+        c?.type === 'vana' &&
+        String(c.vanaTipi || '').toUpperCase() === 'SISMIK' &&
+        c.mekanik === false
+    );
 }
 
 function roundedRect(ctx, x, y, w, h, r) {

@@ -22,8 +22,10 @@ import {
     hatPrefix,
     birimHatPrefix,
     sayacHatLabel,
+    vanaHatLabel,
     BIRIM_PLACEHOLDER,
 } from '../../checker-utils.js';
+import { ARCH_DEVICE_KINDS } from '../../../../architectural-objects/arch-devices.js';
 
 const OCAK_FLEKS_MAX_CM = 150;
 const KOMBI_FLEKS_MAX_CM = 60;
@@ -553,6 +555,87 @@ function parentSayacKurali(manager, out) {
     });
 }
 
+// Bir vana komponentinin parent (upstream) boru zincirinde belirli vanaTipi'nde
+// başka bir vana var mı? (sismik vana → AKV upstream kontrolü için.)
+function _hasVanaUpstreamFromComp(manager, vana, targetTipi) {
+    if (!vana?.bagliBoruId || !manager?.pipes) return false;
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    const vanasByPipe = new Map();
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'vana' || c.id === vana.id) return;
+        if (!c.bagliBoruId) return;
+        if (!vanasByPipe.has(c.bagliBoruId)) vanasByPipe.set(c.bagliBoruId, []);
+        vanasByPipe.get(c.bagliBoruId).push(c);
+    });
+    // 1) Aynı boruda upstream tarafta (boruPozisyonu < vana.boruPozisyonu) targetTipi var mı?
+    const startPos = Number.isFinite(vana.boruPozisyonu) ? vana.boruPozisyonu : 1;
+    for (const c of (vanasByPipe.get(vana.bagliBoruId) || [])) {
+        const t = Number.isFinite(c.boruPozisyonu) ? c.boruPozisyonu : 0;
+        if (t < startPos && String(c.vanaTipi || '').toUpperCase() === targetTipi) return true;
+    }
+    // 2) Parent boru zincirinde tara
+    let cursor = pipeMap.get(vana.bagliBoruId);
+    const seen = new Set();
+    while (cursor && !seen.has(cursor.id)) {
+        seen.add(cursor.id);
+        const par = cursor.baslangicBaglanti;
+        if (par?.tip !== 'boru' || !par.hedefId) break;
+        const parent = pipeMap.get(par.hedefId);
+        if (!parent) break;
+        for (const c of (vanasByPipe.get(parent.id) || [])) {
+            if (String(c.vanaTipi || '').toUpperCase() === targetTipi) return true;
+        }
+        cursor = parent;
+    }
+    return false;
+}
+
+// Sismik vana'dan önce zincirde AKV bulunmalıdır.
+function sismikVanaAkvKurali(manager, out) {
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'vana' || String(c.vanaTipi || '').toUpperCase() !== 'SISMIK') return;
+        if (_hasVanaUpstreamFromComp(manager, c, 'AKV')) return;
+        const label = vanaHatLabel(manager, c);
+        out.push({
+            group:   ERROR_GROUP_IDS.TASARIM,
+            errorId: `tasarim-sismik-akv-${c.id}`,
+            message: `${label} bir AKV'den sonra konulmalıdır`,
+            floorName: floorNameById(c.floorId),
+            source:  'TS7363 Md:5.1.9',
+            detail:  'Sismik vana, ana kapatma vanasından (AKV) sonra tesis edilmelidir; AKV bulunmadan sismik vana yerleştirilemez.',
+            targets: [{ type: 'comp', id: c.id }],
+            fix: null,
+        });
+    });
+}
+
+// Mekanik olmayan sismik vana varsa projede en az 1 sismik alarm cihazı bulunmalıdır.
+function sismikVanaAlarmCihaziKurali(manager, out) {
+    const nonMekanik = (manager.components || []).filter(c =>
+        c.type === 'vana' &&
+        String(c.vanaTipi || '').toUpperCase() === 'SISMIK' &&
+        c.mekanik === false
+    );
+    if (!nonMekanik.length) return;
+    const hasSismikAlarm = (state.archDevices || []).some(
+        d => d?.kind === ARCH_DEVICE_KINDS.EARTHQUAKE
+    );
+    if (hasSismikAlarm) return;
+    // Tek bir hata yeterli — birden fazla non-mekanik sismik vana için tek mesaj
+    const first = nonMekanik[0];
+    const label = vanaHatLabel(manager, first);
+    out.push({
+        group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
+        errorId: 'sismik-alarm-cihazi-eksik',
+        message: `${label} mekanik değildir; projede en az 1 Sismik Alarm Cihazı kullanılmalıdır`,
+        floorName: floorNameById(first.floorId),
+        source:  'proje gereği',
+        detail:  'Sismik vana mekanik (Mekanik Deprem Vanası) değilse, sismik alarm cihazı ile irtibatlandırılmalıdır. Projeye en az 1 adet Sismik Alarm Cihazı eklenmelidir.',
+        targets: [{ type: 'comp', id: first.id }],
+        fix: null,
+    });
+}
+
 // ─── Toplu checker ────────────────────────────────────────────────────────
 
 function tasarimChecker({ manager }) {
@@ -569,6 +652,8 @@ function tasarimChecker({ manager }) {
     ticariCihazBirimKurali(manager, out);
     kolonKirisIcindenGecisKurali(manager, out);
     parentSayacKurali(manager, out);
+    sismikVanaAkvKurali(manager, out);
+    sismikVanaAlarmCihaziKurali(manager, out);
     return out;
 }
 
