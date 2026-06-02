@@ -9,6 +9,9 @@ import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
 import { recomputeAllPressures } from '../../../utils/pressure-recompute.js';
 import { draw2D } from '../../../../draw/draw2d.js';
+import { state } from '../../../../general-files/main.js';
+import { getColumnCorners } from '../../../../architectural-objects/columns.js';
+import { getBeamCorners } from '../../../../architectural-objects/beams.js';
 import {
     daireLabel,
     cihazHatLabel,
@@ -19,6 +22,7 @@ import {
     hatPrefix,
     birimHatPrefix,
     sayacHatLabel,
+    BIRIM_PLACEHOLDER,
 } from '../../checker-utils.js';
 
 const OCAK_FLEKS_MAX_CM = 150;
@@ -428,6 +432,127 @@ function ticariCihazBirimKurali(manager, out) {
     });
 }
 
+// ─── Kolon / Kiriş içinden tesisat geçişi ────────────────────────────────
+// Boru segmenti aynı kattaki kolon veya kiriş gövdesinin içinden geçemez.
+// Test: 2D pipe segmenti (p1→p2) rotated rectangle ile kesişiyor mu?
+
+function _ccw(a, b, c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+function _segmentsIntersect(p1, p2, p3, p4) {
+    const d1 = _ccw(p3, p4, p1);
+    const d2 = _ccw(p3, p4, p2);
+    const d3 = _ccw(p1, p2, p3);
+    const d4 = _ccw(p1, p2, p4);
+    return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+           ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+}
+function _pointInPolygon(p, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+        if (((yi > p.y) !== (yj > p.y)) &&
+            (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+}
+function _pipeIntersectsRect(pipe, corners) {
+    if (!corners || corners.length < 3 || !pipe?.p1 || !pipe?.p2) return false;
+    const a = { x: pipe.p1.x, y: pipe.p1.y };
+    const b = { x: pipe.p2.x, y: pipe.p2.y };
+    if (_pointInPolygon(a, corners) || _pointInPolygon(b, corners)) return true;
+    for (let i = 0; i < corners.length; i++) {
+        const c1 = corners[i];
+        const c2 = corners[(i + 1) % corners.length];
+        if (_segmentsIntersect(a, b, c1, c2)) return true;
+    }
+    return false;
+}
+
+function kolonKirisIcindenGecisKurali(manager, out) {
+    if (!manager?.pipes?.length) return;
+    const columns = state.columns || [];
+    const beams = state.beams || [];
+    if (!columns.length && !beams.length) return;
+
+    // Floor bazlı kolon/kiriş haritası
+    const colsByFloor = new Map();
+    columns.forEach(col => {
+        const fid = col.floorId ?? null;
+        if (!colsByFloor.has(fid)) colsByFloor.set(fid, []);
+        colsByFloor.get(fid).push(col);
+    });
+    const beamsByFloor = new Map();
+    beams.forEach(b => {
+        const fid = b.floorId ?? null;
+        if (!beamsByFloor.has(fid)) beamsByFloor.set(fid, []);
+        beamsByFloor.get(fid).push(b);
+    });
+
+    manager.pipes.forEach(pipe => {
+        if (!pipe?.p1 || !pipe?.p2) return;
+        const fid = pipe.floorId ?? null;
+        const candidateCols = (colsByFloor.get(fid) || []).concat(colsByFloor.get(null) || []);
+        const candidateBeams = (beamsByFloor.get(fid) || []).concat(beamsByFloor.get(null) || []);
+
+        let hitKolon = false;
+        let hitKiris = false;
+        for (const col of candidateCols) {
+            if (_pipeIntersectsRect(pipe, getColumnCorners(col))) { hitKolon = true; break; }
+        }
+        for (const beam of candidateBeams) {
+            if (_pipeIntersectsRect(pipe, getBeamCorners(beam))) { hitKiris = true; break; }
+        }
+        if (!hitKolon && !hitKiris) return;
+
+        const hatNo = hatNoForPipe(manager, pipe.id);
+        const pre = hatPrefix(hatNo);
+        const nesne = hitKolon && hitKiris ? 'kolon ve kiriş'
+                    : hitKolon ? 'kolon' : 'kiriş';
+        const msg = pre
+            ? `${pre} tesisat ${nesne} içinden geçmemelidir`
+            : `Tesisat ${nesne} içinden geçmemelidir`;
+        out.push({
+            group:   ERROR_GROUP_IDS.TASARIM,
+            errorId: `tasarim-kolon-kiris-gecis-${pipe.id}`,
+            message: msg,
+            floorName: floorNameById(pipe.floorId),
+            source:  'proje gereği',
+            detail:  'Gaz tesisat boruları taşıyıcı sistem elemanlarının (kolon, kiriş) içinden geçirilemez; bu elemanların çevresinden veya altından/üstünden döşenmelidir.',
+            targets: [{ type: 'pipe', id: pipe.id }],
+            fix: null,
+        });
+    });
+}
+
+// ─── Bir sayacın parentinde başka sayaç bulunamaz ─────────────────────────
+// Sayaç A'nın upstream pipe-parent zincirinde başka bir sayaç B varsa hata.
+
+function parentSayacKurali(manager, out) {
+    (manager.components || []).forEach(s => {
+        if (s.type !== 'sayac') return;
+        const inputPipeId = s.fleksBaglanti?.boruId;
+        if (!inputPipeId) return;
+        const parentSayac = findMeterUpstream(manager, inputPipeId);
+        if (!parentSayac || parentSayac.id === s.id) return;
+
+        const parentDaire = daireLabel(parentSayac) || BIRIM_PLACEHOLDER;
+        const childDaire = daireLabel(s);
+        const childAd = childDaire ? `${childDaire} sayacı` : 'sayaç';
+        out.push({
+            group:   ERROR_GROUP_IDS.TASARIM,
+            errorId: `tasarim-parent-sayac-${s.id}`,
+            message: `${parentDaire} biriminde sayaç sonrası tekrar sayaç kullanılamaz (${childAd})`,
+            floorName: floorNameById(s.floorId || parentSayac.floorId),
+            source:  'proje gereği',
+            detail:  'Bir sayacın downstream (sonrası) tesisatında başka bir sayaç bulunamaz; her birim tek sayaçla beslenmelidir.',
+            targets: [{ type: 'comp', id: s.id }, { type: 'comp', id: parentSayac.id }],
+            fix: null,
+        });
+    });
+}
+
 // ─── Toplu checker ────────────────────────────────────────────────────────
 
 function tasarimChecker({ manager }) {
@@ -442,6 +567,8 @@ function tasarimChecker({ manager }) {
     esnekBasincKurali(manager, out);
     esnekEvselCihazKurali(manager, out);
     ticariCihazBirimKurali(manager, out);
+    kolonKirisIcindenGecisKurali(manager, out);
+    parentSayacKurali(manager, out);
     return out;
 }
 

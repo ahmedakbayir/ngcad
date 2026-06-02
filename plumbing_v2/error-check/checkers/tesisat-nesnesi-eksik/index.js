@@ -13,7 +13,7 @@ import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
 import { ensureTopraklama, ensureMuhafaza } from './fix.js';
 import {
-    hatNoForComp, hatNoForPipe, floorNameById,
+    hatNoForComp, hatNoForPipe, floorNameById, daireLabel,
     vanaHatLabel, sayacHatLabel, cihazHatLabel, hatPrefix,
 } from '../../checker-utils.js';
 import { state } from '../../../../general-files/main.js';
@@ -225,12 +225,121 @@ function muhafazaKurali(manager, out) {
     });
 }
 
+// ─── Rotary sayaç girişinden önce konik filtre ────────────────────────────
+// Rotary tip sayaçlarda; sayaç ile sayaç-öncesi emniyet vanası arasında
+// bir adet konik filtre bulunmalıdır.
+
+// Bir component'in pipe üzerindeki normalize konumu (0=p1, 1=p2).
+function _fracOnPipe(comp, pipe) {
+    const len = Math.hypot(
+        pipe.p2.x - pipe.p1.x,
+        pipe.p2.y - pipe.p1.y,
+        (pipe.p2.z || 0) - (pipe.p1.z || 0)
+    );
+    if (comp.fromEnd && comp.fixedDistance != null && len > 0) {
+        if (comp.fromEnd === 'p1') return Math.min(comp.fixedDistance / len, 1);
+        if (comp.fromEnd === 'p2') return Math.max(1 - comp.fixedDistance / len, 0);
+    }
+    if (typeof comp.boruPozisyonu === 'number') return comp.boruPozisyonu;
+    return 0.5;
+}
+
+// Sayaçtan upstream'e doğru, sırayla karşılaşılan tüm component'ler.
+// Sayaç tarafına en yakın olan listenin başında.
+function _upstreamCompsFromMeter(manager, sayac) {
+    const result = [];
+    if (!sayac?.fleksBaglanti?.boruId) return result;
+    const pipeMap = new Map(manager.pipes.map(p => [p.id, p]));
+    const compsByPipe = new Map();
+    (manager.components || []).forEach(c => {
+        if (!c.bagliBoruId) return;
+        if (!compsByPipe.has(c.bagliBoruId)) compsByPipe.set(c.bagliBoruId, []);
+        compsByPipe.get(c.bagliBoruId).push(c);
+    });
+
+    let cursorId = sayac.fleksBaglanti.boruId;
+    // Sayaç input pipe'ında sayaç hangi uca bağlı?
+    let nearEndpoint = sayac.fleksBaglanti.endpoint === 'p1' ? 'p1' : 'p2';
+    const seen = new Set();
+
+    while (cursorId && !seen.has(cursorId)) {
+        seen.add(cursorId);
+        const pipe = pipeMap.get(cursorId);
+        if (!pipe) break;
+        const comps = (compsByPipe.get(pipe.id) || []).slice();
+        // Sayaç tarafına yakınlığına göre sırala.
+        const distFromMeter = (c) => {
+            const f = _fracOnPipe(c, pipe);
+            return nearEndpoint === 'p2' ? (1 - f) : f;
+        };
+        comps.sort((a, b) => distFromMeter(a) - distFromMeter(b));
+        result.push(...comps);
+
+        // Parent pipe'a geç
+        const par = pipe.baslangicBaglanti;
+        if (par?.tip === 'boru' && par.hedefId) {
+            const parentPipe = pipeMap.get(par.hedefId);
+            if (!parentPipe) break;
+            // pipe.p1, parent pipe'ın hangi ucuna daha yakın?
+            const dToP1 = Math.hypot(pipe.p1.x - parentPipe.p1.x, pipe.p1.y - parentPipe.p1.y);
+            const dToP2 = Math.hypot(pipe.p1.x - parentPipe.p2.x, pipe.p1.y - parentPipe.p2.y);
+            nearEndpoint = dToP1 < dToP2 ? 'p1' : 'p2';
+            cursorId = parentPipe.id;
+        } else {
+            break;
+        }
+    }
+    return result;
+}
+
+function rotaryKonikFiltreKurali(manager, out) {
+    (manager.components || []).forEach(s => {
+        if (s.type !== 'sayac') return;
+        if (s.sayacTuru !== 'ROTARY') return;
+
+        const chain = _upstreamCompsFromMeter(manager, s);
+        // Sayaçtan upstream'e doğru tarama: konik filtre emniyet vanasından
+        // ÖNCE (sayaca daha yakın) bulunmalı.
+        let foundKonik = false;
+        let foundEmniyetFirst = false;
+        for (const c of chain) {
+            const isKonikFiltre = c.type === 'filtre' && c.konik === true;
+            const isEmniyet = c.type === 'vana' && c.vanaTipi === 'EMNIYET';
+            if (isKonikFiltre) { foundKonik = true; break; }
+            if (isEmniyet) { foundEmniyetFirst = true; break; }
+        }
+        if (foundKonik) return;
+
+        const hatNo = hatNoForComp(manager, s);
+        const pre = hatPrefix(hatNo);
+        const dare = daireLabel(s);
+        const sayacAd = dare ? `${dare} rotary sayacı` : 'rotary sayaç';
+        const msg = pre
+            ? `${pre} ${sayacAd} girişinden önce konik filtre kullanılmalıdır`
+            : `${sayacAd.charAt(0).toUpperCase()}${sayacAd.slice(1)} girişinden önce konik filtre kullanılmalıdır`;
+        const detail = foundEmniyetFirst
+            ? 'Rotary tip sayaçlarda, sayaç ile sayaç-öncesi emniyet vanası arasında bir adet konik filtre tesis edilmelidir. Mevcut konik filtre emniyet vanasının upstream tarafında kalmıştır; bu zonda (emniyet vanası ile sayaç arası) konik filtre yoktur.'
+            : 'Rotary tip sayaçlarda, sayaç ile sayaç-öncesi emniyet vanası arasında bir adet konik filtre tesis edilmelidir.';
+        out.push({
+            group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
+            errorId: `rotary-konik-filtre-${s.id}`,
+            message: msg,
+            floorName: floorNameById(s.floorId),
+            source:  'proje gereği',
+            detail:  detail,
+            targets: [{ type: 'comp', id: s.id }],
+            fix: null,
+        });
+    });
+}
+
 // ─── Toplu checker ────────────────────────────────────────────────────────
 function tesisatNesnesiEksikChecker({ manager }) {
     if (!manager) return [];
     const out = [];
     topraklamaKurali(manager, out);
     muhafazaKurali(manager, out);
+    rotaryKonikFiltreKurali(manager, out);
     return out;
 }
 
