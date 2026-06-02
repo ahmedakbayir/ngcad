@@ -1491,7 +1491,7 @@ function _openManuelKatalogDialog({ tip, ticariTip, mode, currentMarka }) {
         const ctxParts = [escHtml(tip)];
         if (ticariTip) ctxParts.push(escHtml(ticariTip));
         if (isModel && currentMarka) ctxParts.push(escHtml(currentMarka));
-        const subtitle = `${ctxParts.join(' / ')} kataloğuna eklenecek`;
+        const subtitle = `${ctxParts.join(' / ')} manuel veri girişi`;
         const markaFieldHtml = isModel
             ? `<input id="_ymm_marka" class="ymm-modal-input" value="${escHtml(currentMarka || '')}" readonly>`
             : `<input id="_ymm_marka" class="ymm-modal-input" placeholder="Marka" value="">`;
