@@ -684,11 +684,12 @@ function renderProperty(prop, obj, manager) {
                 </button>`;
         }
 
+        const labelTitle = escHtml(prop.hint || prop.label || '');
         return `
             <div class="props-row">
-                <label class="props-label">${prop.label}</label>
+                <label class="props-label" title="${labelTitle}">${prop.label}</label>
                 <div class="props-toggle-inline" data-prop-id="${prop.id}">
-                    <label class="props-toggle${isDisabled ? ' props-toggle-disabled' : ''}">
+                    <label class="props-toggle${isDisabled ? ' props-toggle-disabled' : ''}" title="${labelTitle}">
                         <input type="checkbox" id="${uid}" data-prop-key="${prop.key}" ${isChecked ? 'checked' : ''} ${isDisabled ? 'disabled' : ''}>
                         <span class="props-toggle-track">
                             <span class="props-toggle-thumb"></span>

@@ -1017,6 +1017,14 @@ export const PROPERTY_DEFS = {
         default: false,
         visibleFn: (obj) => obj.vanaTipi === 'CIHAZ',
     },
+    vanaSismikMekanik: {
+        label: 'Mekanik',
+        hint: 'Mekanik "Mekanik Deprem Vanası" / kapalı ise "Sismik Alarm Cihazı ile irtibatlı"',
+        type: 'toggle',
+        key: 'mekanik',
+        default: true,
+        visibleFn: (obj) => obj.vanaTipi === 'SISMIK',
+    },
     vanaFlans: {
         label: 'Flanş',
         type: 'toggle',
@@ -2662,6 +2670,7 @@ export const OBJECT_PROPERTIES = {
         'vanaYanBinaToplam',
         'vana_sec_ozellik',
         'vanaIzolator',
+        'vanaSismikMekanik',
         'vanaFlans',
         'vanaMuhafaza',
     ],

@@ -1222,8 +1222,15 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
             if (!comp.flans) lines.push({ text: 'Selenoid Vana', sub: true });
             if (comp.flans) lines.push({ text: 'Flanşlı Selenoid Vana', sub: true });
         } else if (vt === 'SISMIK') {
-            if (!comp.flans) lines.push({ text: 'Sismik Vana', sub: true });
-            if (comp.flans) lines.push({ text: 'Flanşlı Sismik Vana', sub: true });
+            const isMekanik = comp.mekanik !== false;
+            if (isMekanik) {
+                if (!comp.flans) lines.push({ text: 'Mekanik Deprem Vanası', sub: true });
+                if (comp.flans) lines.push({ text: 'Flanşlı Mekanik Deprem Vanası', sub: true });
+            } else {
+                if (!comp.flans) lines.push({ text: 'Sismik Vana', sub: true });
+                if (comp.flans) lines.push({ text: 'Flanşlı Sismik Vana', sub: true });
+                lines.push({ text: 'Sismik Alarm Cihazı ile irtibatlı', sub: true });
+            }
         } else if (vt === 'YANBINA' || vt === 'YAN_BINA') {
             if (!comp.flans) lines.push({ text: 'Yan Bina Vanası', bold: true });
             if (comp.flans) lines.push({ text: 'Flanşlı Yan Bina Vanası', bold: true });

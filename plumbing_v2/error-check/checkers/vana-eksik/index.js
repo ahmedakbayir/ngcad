@@ -386,7 +386,7 @@ function depremSelenoidKuralı(manager, out) {
         out.push({
             group:   ERROR_GROUP_IDS.TESISAT_NESNESI_EKSIK,
             errorId: `vana-deprem-sismik-${box.id}`,
-            message: 'Kolonda AKV\'den sonra sismik vana gerekmektedir',
+            message: 'Deprem durumunda gazı otomatik kesmek için kolonda sismik vana kullanılmalıdır',
             floorName: floorNameById(box.floorId),
             source:  'TS7363 Md:5.1.9',
             detail:  'Binaların Yangından Korunması Hakkında Yönetmelik hükümlerinde belirtilen deprem bölgelerinde binaların ana girişinde ana kapama vanasından sonra, sarsıntı olduğunda gaz akışını kesen tertibat olması gerekmektedir.',
