@@ -1,208 +1,128 @@
 // cihaz-katalog.js
-// Kombi ve ocak için marka/model kataloğu.
-//   - Demo varsayılan listeyle başlar (KOMBI / OCAK)
-//   - Kullanıcı ekleyip silebilir; silme soft-delete (deleted=true) — geçmiş verisi kaybolmaz
-//   - state.cihazKatalog içinde tutulur, proje JSON ile birlikte yazılır/okunur
+// Cihaz ve tesisat ekipmanları için marka/model kataloğu.
+//   - DEFAULT listeleri kod dosyasında (cihaz-katalog-data.js) — read-only.
+//   - state.cihazKatalog yalnızca kullanıcının DELTA'sını tutar:
+//       · Yeni eklediği kayıtlar  : { marka, model, kw, kullaniciEkledi:true }
+//       · Sildiği kayıtlar         : { marka, model, deleted:true } (override)
+//   - Okuma anında DEFAULT + state birleştirilir; aynı (marka, model) ikilisinde
+//     kullanıcı kaydı DEFAULT'ın üzerine yazar.
+//   - Bu sayede DEFAULT listesi güncellendiğinde tüm projeler otomatik faydalanır;
+//     proje JSON'u şişmez ve eski projelerde TICARI/REGULATOR/... eksik kalmaz.
 //
-// Şema:
-//   {
-//     KOMBI: [
-//       { marka:'BOSCH', model:'Condens GC2201iW 24 C 23', kw:24, deleted:false },
-//       ...
-//     ],
-//     OCAK: [ ... ]
-//   }
+// Tipler:
+//   Cihazlar : KOMBI, OCAK, SOBA, SOFBEN, KAZAN, TICARI
+//   Tesisat  : REGULATOR, FILTRE, IZOLASYON, KOMPANSATOR, MANOMETRE
 //
-// "kw" alanı modelin nominal kapasitesidir; modeli seçince cihazın kapasiteKW
-// (ve oradan kcal) alanına atanır.
+// Şema (tipik):
+//   { marka:'BOSCH', model:'Condens...', kw:24, deleted:false }
+// TICARI listesinde ek alan:
+//   { marka, model, kw, tip:'Brülör', deleted:false }
 
 import { state } from '../../general-files/main.js';
+import {
+    DEFAULT_KOMBI,
+    DEFAULT_OCAK,
+    DEFAULT_SOBA,
+    DEFAULT_SOFBEN,
+    DEFAULT_KAZAN,
+    DEFAULT_TICARI,
+    DEFAULT_REGULATOR,
+    DEFAULT_FILTRE,
+    DEFAULT_IZOLASYON,
+    DEFAULT_KOMPANSATOR,
+    DEFAULT_MANOMETRE,
+} from './cihaz-katalog-data.js';
 
-// ─── DEMO LİSTELER ────────────────────────────────────────────────────────
+// ─── TİPLER ──────────────────────────────────────────────────────────────
 
-const DEFAULT_KOMBI = [
-    { marka: 'BOSCH',       model: 'Condens GC2201iW 24 C 23',              kw: 24   },
-    { marka: 'BOSCH',       model: 'Condens GC2200iW 20/25 C 23 ',          kw: 20   },
-    { marka: 'BOSCH',       model: 'Condens GC5700IW 30/30 C 23',           kw: 31.1 },
-    { marka: 'BOSCH',       model: 'Condens GC5700IW 35/35 C 23',           kw: 35   },
-    { marka: 'BOSCH',       model: 'Condens GC1200W 28/30 C 23',            kw: 28   },
-    { marka: 'BAYMAK',      model: 'DUOTEC 42',                             kw: 41.8 },
-    { marka: 'BAYMAK',      model: 'NOVADENS 24',                           kw: 23.7 },
-    { marka: 'BAYMAK',      model: 'LUNATEC PREMIX 24',                     kw: 23.9 },
-    { marka: 'ECA',         model: 'CALORA PREMIX 24 HM',                   kw: 24   },
-    { marka: 'ECA',         model: 'PROTEUS PREMIX 35 HM',                  kw: 35   },
-    { marka: 'ECA',         model: 'CITIUS PREMIX 24 HM',                   kw: 24   },
-    { marka: 'ECA',         model: 'CONFEO PREMİX P 30',                    kw: 30   },
-    { marka: 'ECA',         model: 'PROTEUS PREMIX X 30 HM',                kw: 29.6 },
-    { marka: 'ECA',         model: 'PROTEUS PREMIX H2 BLEND READY 30 HM DG'                 ,kw: 30   },
-    { marka: 'DAIKIN',      model: 'D2CPX024',                              kw: 24.1 },
-    { marka: 'DAIKIN',      model: 'EHYKOMB33AA',                           kw: 32.7 },
-    { marka: 'DAIKIN',      model: 'VZ Premix 30 kW D2CPX030',              kw: 29.8 },
-    { marka: 'DAIKIN',      model: 'VZ Premix 26 kW D2CPX026',              kw: 26.1 },
-    { marka: 'DAIKIN',      model: 'CSU Premix 24 kW D2CNL024',             kw: 24   },
-    { marka: 'İMMERGAS',    model: 'Victrix TERA V2 32 EU',                 kw: 28   },
-    { marka: 'İMMERGAS',    model: 'Victrix OMNIA',                         kw: 20.2 },
-    { marka: 'VİESSMANN',   model: 'Vitodens 050-W 24 kW',                  kw: 24   },
-    { marka: 'VİESSMANN',   model: 'Vitodens 100-W - 32 kW',                kw: 32   },
-    { marka: 'VAİLLANT',    model: 'VUW 18/24 AS/1-1 (H-TR) ecoTEC intro',  kw: 18.3 },
-    { marka: 'VAİLLANT',    model: 'VUW 24/28 AS/1-1 (H-TR) ecoTEC intro',  kw: 23.9 },
-    { marka: 'VAİLLANT',    model: 'VUW 246/1-RC (H-TR)',                   kw: 24.1 },
-    { marka: 'VAİLLANT',    model: 'VUW 236/7-2 (H-TR) S',                  kw: 18.5 },
-    { marka: 'VAİLLANT',    model: 'VUW 286/7-2 (H-TR) S',                  kw: 26.1 },
-    { marka: 'VAİLLANT',    model: 'VUW 286/1-RC (H-TR)',                   kw: 27.4 },
-    { marka: 'WARMHAUS',    model: 'LAWA PLUS 24',                          kw: 24   },
-    { marka: 'WARMHAUS',    model: 'PRIWA PLUS ErP 28',                     kw: 29.5 },
-    { marka: 'BUDERUS',     model: 'GB122i.2-24 KD H',                      kw: 25   },
-    { marka: 'BUDERUS',     model: 'GB022i-24 K H',                         kw: 25.2 },
-    { marka: 'BUDERUS',     model: 'GB072 - 24K (V2)',                      kw: 23.8 },
-    { marka: 'BUDERUS',     model: 'GB062-20 KD H',                         kw: 20.4 },
-    { marka: 'BUDERUS',     model: 'GB122i-24 KD H',                        kw: 25   },
-    { marka: 'DE DIETRICH', model: 'Naneo S 24',                            kw: 20.9 },
-    { marka: 'DE DIETRICH', model: 'INIDENS 24',                            kw: 23.9 },
-    { marka: 'DE DIETRICH', model: 'INIDENS NEO 35',                        kw: 30   },
-    { marka: 'DE DIETRICH', model: 'INIDENS NEO 30',                        kw: 29.9 },
-    { marka: 'DE DIETRICH', model: 'AGC 35',                                kw: 34.8 },
-    { marka: 'DEMİRDÖKÜM',  model: 'Atron Condense P 24-FC/3 (H-TR)',       kw: 24.5 },    
-    { marka: 'DEMİRDÖKÜM',  model: 'Atromix P 20 - A/2 (H-TR)',             kw: 20.4 },
-    { marka: 'DEMİRDÖKÜM',  model: 'NİTROMİX P 28',                         kw: 28   },
-    { marka: 'DEMİRDÖKÜM',  model: 'NİTROMİX P 24',                         kw: 24   },
-    { marka: 'DEMİRDÖKÜM',  model: 'Nitromix ioni P34/36-CS/1 (N-TR)',      kw: 34   },
-    { marka: 'DEMİRDÖKÜM',  model: 'Atromix P 28 - A/2 (H-TR)',             kw: 28.3 },
-    { marka: 'DEMİRDÖKÜM',  model: 'Atron Condense P 24-FC/3 (H-TR)',       kw: 24.5 },
-    { marka: 'DEMİRDÖKÜM',  model: 'ademiX P 28/28 AS/2 (H-TR)',            kw: 28   },
-    { marka: 'DEMİRDÖKÜM',  model: 'ademiX P 24/28-AS/1 (H-TR)',            kw: 23.9 },
+export const CIHAZ_KATALOG_TIPLERI = [
+    'KOMBI', 'OCAK', 'SOBA', 'SOFBEN', 'KAZAN', 'TICARI',
+    'REGULATOR', 'FILTRE', 'IZOLASYON', 'KOMPANSATOR', 'MANOMETRE',
 ];
 
-const DEFAULT_SOBA = [
-    { marka: 'AYAS',       model: 'Doğalgaz Sobası 5 kW',                   kw: 5    },
-    { marka: 'AYAS',       model: 'Doğalgaz Sobası 7 kW',                   kw: 7    },
-    { marka: 'KARABULUT',  model: 'KRB-DG-5',                               kw: 5    },
-    { marka: 'KARABULUT',  model: 'KRB-DG-7',                               kw: 7    },
-];
-
-const DEFAULT_SOFBEN = [
-    { marka: 'BAYMAK',     model: 'Şofben 14 kW',                           kw: 14   },
-    { marka: 'BAYMAK',     model: 'Şofben 19 kW',                           kw: 19   },
-    { marka: 'DEMİRDÖKÜM', model: 'Şofben Lawa 24',                         kw: 24   },
-    { marka: 'ECA',        model: 'Confeo Şofben',                          kw: 19   },
-];
-
-const DEFAULT_KAZAN = [
-    {marka:'VAİLLANT',              model:'VKK 2006/3-E'                        ,kw:196.8},
-    {marka:'VAİLLANT',              model:'VKK 2406/3-E'                        ,kw:236.2},
-    {marka:'RİMA',                  model:'ONGAS 307'                           ,kw:187},
-    {marka:'RİMA',                  model:'ONGAS 608 P'                         ,kw:530},
-    {marka:'ERENSAN ISI MÜHENDİSİ', model:'DB 2500 Seri No:91400351'            ,kw:2907},
-    {marka:'ERENSAN ISI MÜHENDİSİ', model:'EUROMAX 2330'                        ,kw:2330},
-    {marka:'ERENSAN ISI MÜHENDİSİ', model:'NA R 1600'                           ,kw:1860},
-    {marka:'KUBUŞ ISI CİHAZLARI',   model:'YGSK 175'                            ,kw:203},
-    {marka:'KUBUŞ ISI CİHAZLARI',   model:'TSSKG 700'                           ,kw:814},
-    {marka:'KUBUŞ ISI CİHAZLARI',   model:'TSSKG 550'                           ,kw:639.5},
-    {marka:'BOSCH',                 model:'UT-L 18'                             ,kw:2500},
-    {marka:'Wolf',                  model:'MGK-2 470'                           ,kw:467.1},
-    {marka:'Wolf',                  model:'MGK-2 130'                           ,kw:126},
-    {marka:'Wolf',                  model:'MGK-2 300'                           ,kw:294},
-    {marka:'REMEHA',                model:'GAS 620 ACE-710 (Entegre Brülörlü)'  ,kw:700},
-    {marka:'REMEHA',                model:'GAS 320 ACE-430 (Entegre Brülörlü)'  ,kw:424.5},
-    {marka:'ALFA',                  model:'ALFAMIX Y 520'                       ,kw:505.6},
-    {marka:'MEKSİS',                model:'MSSK-400 Seri No:17666-1 ve 17666-2' ,kw:465},
-    {marka:'MEKSİS',                model:'ALU-MEK X-TREME 710'                 ,kw:711.3},
-];
-
-const DEFAULT_TICARI = [
-    { marka: 'RATIONAL',   model: 'iCombi Pro 6-2/1',                       kw: 17.6 },
-    { marka: 'ELECTROLUX', model: 'Air-O-Steam Touchline 6 GN 1/1',         kw: 17   },
-    { marka: 'MBM',        model: 'Endüstriyel Gazlı Ocak 4 Gözlü',         kw: 28   },
-    { marka: 'INOKSAN',    model: 'Endüstriyel Fırın FG',                   kw: 22   },
-];
-
-const DEFAULT_OCAK = [
-    { marka: 'ARÇELİK',    model: 'BFG04H12X',                              kw: 8.3  },
-    { marka: 'ARÇELİK',    model: 'BFG04H11X',                              kw: 7.9  },
-    { marka: 'ARÇELİK',    model: '60BSGO2222321',                          kw: 8.3  },
-    { marka: 'ARÇELİK',    model: 'AH153221',                               kw: 9.5  },
-    { marka: 'Beko',       model: 'BFG04H11X',                              kw: 7.9  },
-    { marka: 'Beko',       model: 'LU12111211',                             kw: 12.4 },
-    { marka: 'Beko',       model: 'GO121',                                  kw: 9    },
-    { marka: 'EMİNÇELİK',  model: '22 385 Ocak 10,8 kW',                    kw: 10.8 },
-    { marka: 'EMİNÇELİK',  model: '41 220 Ocak 4,3 kW',                     kw: 4.3  },
-    { marka: 'EMİNÇELİK',  model: '34 230 Ocak 7 kW',                       kw: 7    },
-    { marka: 'FRANKE',     model: 'FHNL 905 4G TC XS C',                    kw: 11.3 },
-    { marka: 'FRANKE',     model: 'FHNS 905 4G TC BK C',                    kw: 11.3 },
-    { marka: 'FRANKE',     model: 'FHNS 604 4G WH C',                       kw: 7.5  },
-    { marka: 'KUMTEL',     model: 'KO-420F',                                kw: 6.6  },
-    { marka: 'KUMTEL',     model: 'KO-430F',                                kw: 4    },
-    { marka: 'LUXELL',     model: 'M6-40BF',                                kw: 6.6  },
-    { marka: 'LUXELL',     model: 'M6-31BF',                                kw: 6.6  },
-    { marka: 'SILVERLINE', model: 'CS5363',                                 kw: 11.2 },
-    { marka: 'SILVERLINE', model: 'CS5349',                                 kw: 7.4  },
-    { marka: 'GAGGENAU',   model: 'VG231220 Wok Ocak 6 kW',                 kw: 6    },
-    { marka: 'GAGGENAU',   model: 'CG261210 Ankastre Ocak 9,75 kW',         kw: 9.75 },
-    { marka: 'ALVEUS',     model: 'GLS SE 640',                             kw: 6.35 },
-    { marka: 'ALVEUS',     model: 'GLS 640 bl',                             kw: 6.35 },
-];
-
-export const CIHAZ_KATALOG_TIPLERI = ['KOMBI', 'OCAK', 'SOBA', 'SOFBEN', 'KAZAN', 'TICARI'];
+const DEFAULTS_BY_TIP = {
+    KOMBI:       DEFAULT_KOMBI,
+    OCAK:        DEFAULT_OCAK,
+    SOBA:        DEFAULT_SOBA,
+    SOFBEN:      DEFAULT_SOFBEN,
+    KAZAN:       DEFAULT_KAZAN,
+    TICARI:      DEFAULT_TICARI,
+    REGULATOR:   DEFAULT_REGULATOR,
+    FILTRE:      DEFAULT_FILTRE,
+    IZOLASYON:   DEFAULT_IZOLASYON,
+    KOMPANSATOR: DEFAULT_KOMPANSATOR,
+    MANOMETRE:   DEFAULT_MANOMETRE,
+};
 
 function _normTip(tip) {
     return String(tip || '').toUpperCase();
 }
 
-function _cloneList(list) {
-    return list.map(e => ({ ...e, deleted: !!e.deleted }));
-}
-
-/** Sıfırdan demo katalog döndürür (yeni proje veya eksik state için). */
-export function getDefaultCihazKatalog() {
-    return {
-        KOMBI:  _cloneList(DEFAULT_KOMBI),
-        OCAK:   _cloneList(DEFAULT_OCAK),
-        SOBA:   _cloneList(DEFAULT_SOBA),
-        SOFBEN: _cloneList(DEFAULT_SOFBEN),
-        KAZAN:  _cloneList(DEFAULT_KAZAN),
-        TICARI: _cloneList(DEFAULT_TICARI),
-    };
-}
-
 /**
- * state.cihazKatalog hazır değilse demo katalog ile doldurur.
- * Çağrılana referans döner — aynı obje ileride yeniden kullanılır.
+ * state.cihazKatalog'u (kullanıcı delta'sı) hazırla. Yoksa boş obje oluştur.
+ * Her tip anahtarı en azından [] olsun ki .push() güvenle çağrılabilsin.
  */
 export function ensureCihazKatalog() {
     if (!state.cihazKatalog || typeof state.cihazKatalog !== 'object') {
-        state.cihazKatalog = getDefaultCihazKatalog();
-    } else {
-        // Tip anahtarları eksikse tamamla
-        CIHAZ_KATALOG_TIPLERI.forEach(t => {
-            if (!Array.isArray(state.cihazKatalog[t])) state.cihazKatalog[t] = [];
-        });
+        state.cihazKatalog = {};
     }
+    CIHAZ_KATALOG_TIPLERI.forEach(t => {
+        if (!Array.isArray(state.cihazKatalog[t])) state.cihazKatalog[t] = [];
+    });
     return state.cihazKatalog;
 }
 
-/** Verilen tip için tüm girişler (aktif + soft-deleted). */
+/**
+ * DEFAULT + kullanıcı delta'sı birleşik liste döndürür.
+ * Aynı (marka, model) için kullanıcı kaydı DEFAULT'ın üzerine yazar
+ * (kw güncelleme, deleted override, ticari tip ekleme, vb.).
+ */
 function _allEntries(tip) {
-    const k = ensureCihazKatalog();
-    return Array.isArray(k[_normTip(tip)]) ? k[_normTip(tip)] : [];
+    const T = _normTip(tip);
+    const defaults = DEFAULTS_BY_TIP[T] || [];
+    const user = ensureCihazKatalog()[T] || [];
+
+    const byKey = new Map();
+    for (const e of defaults) {
+        const k = `${e.marka}|${e.model}`;
+        byKey.set(k, { ...e, deleted: !!e.deleted });
+    }
+    for (const e of user) {
+        if (!e || !e.marka || !e.model) continue;
+        const k = `${e.marka}|${e.model}`;
+        const base = byKey.get(k) || {};
+        byKey.set(k, { ...base, ...e });
+    }
+    return Array.from(byKey.values());
 }
 
 /**
  * Aktif (silinmemiş) markalar — keepValue varsa silinmiş olsa bile listeye dahil
  * edilir (mevcut nesnenin değeri seçili görünebilsin diye).
+ *
+ * TICARI için 3. argüman (ticariTipi) verilirse o alt tipe ait markalarla
+ * sınırlanır. Boş geçilirse tüm TICARI markaları döner.
  */
-export function getMarkaList(tip, keepValue) {
+export function getMarkaList(tip, keepValue, ticariTipi) {
     const list = _allEntries(tip);
+    const filterByTip = (_normTip(tip) === 'TICARI') && !!ticariTipi;
+
     const seen = new Set();
     const out = [];
     for (const e of list) {
         if (!e.marka) continue;
+        if (filterByTip && e.tip !== ticariTipi) continue;
         if (seen.has(e.marka)) continue;
-        const isActive = list.some(x => x.marka === e.marka && !x.deleted);
+        const isActive = list.some(x =>
+            x.marka === e.marka &&
+            !x.deleted &&
+            (!filterByTip || x.tip === ticariTipi)
+        );
         if (!isActive && e.marka !== keepValue) continue;
         seen.add(e.marka);
         out.push(e.marka);
     }
-    // keepValue katalogda hiç yoksa yine de listeye ekle (kayıp veriyi göster)
+    out.sort((a, b) => a.localeCompare(b, 'tr', { sensitivity: 'base' }));
     if (keepValue && !seen.has(keepValue)) out.unshift(keepValue);
     return out;
 }
@@ -210,22 +130,42 @@ export function getMarkaList(tip, keepValue) {
 /**
  * Verilen marka için modeller. keepValue silinmiş veya katalogda yok olsa bile
  * mevcut nesnenin değeri seçili görünebilsin diye listeye eklenir.
+ *
+ * TICARI için ticariTipi verilirse o alt tipe ait modeller döner.
  */
-export function getModelList(tip, marka, keepValue) {
+export function getModelList(tip, marka, keepValue, ticariTipi) {
     if (!marka) return keepValue ? [keepValue] : [];
     const list = _allEntries(tip);
+    const filterByTip = (_normTip(tip) === 'TICARI') && !!ticariTipi;
+
     const out = [];
     const seen = new Set();
     for (const e of list) {
         if (e.marka !== marka) continue;
+        if (filterByTip && e.tip !== ticariTipi) continue;
         if (!e.model) continue;
         if (e.deleted && e.model !== keepValue) continue;
         if (seen.has(e.model)) continue;
         seen.add(e.model);
         out.push(e.model);
     }
+    out.sort((a, b) => a.localeCompare(b, 'tr', { sensitivity: 'base' }));
     if (keepValue && !seen.has(keepValue)) out.unshift(keepValue);
     return out;
+}
+
+/** Bu marka DEFAULT listesinde yoksa kullanıcı tarafından manuel girilmiş demektir. */
+export function isMarkaManuel(tip, marka) {
+    if (!marka) return false;
+    const defaults = DEFAULTS_BY_TIP[_normTip(tip)] || [];
+    return !defaults.some(e => e.marka === marka);
+}
+
+/** Bu (marka, model) çifti DEFAULT'ta yoksa kullanıcı tarafından manuel girilmiş demektir. */
+export function isModelManuel(tip, marka, model) {
+    if (!marka || !model) return false;
+    const defaults = DEFAULTS_BY_TIP[_normTip(tip)] || [];
+    return !defaults.some(e => e.marka === marka && e.model === model);
 }
 
 /** Marka+model'den modelin kw kapasitesini döndürür. Bulunmazsa null. */
@@ -236,30 +176,66 @@ export function getModelKW(tip, marka, model) {
 }
 
 /**
- * Yeni marka+model girişi ekler. Aynı satır varsa deleted=false yapar.
- * @returns {boolean} eklendi/diriltildi mi
+ * TICARI için: verilen marka+model'in alt tipini döndürür (Brülör / Fırın / ...).
+ * Bulunmazsa null. Marka seçilince ticariCihazTipi otomatik atamak için kullanılır.
  */
-export function addCihazEntry(tip, marka, model, kw) {
+export function getTicariTip(marka, model) {
+    if (!marka) return null;
+    const list = _allEntries('TICARI');
+    const exact = list.find(x => x.marka === marka && x.model === model && !x.deleted);
+    if (exact && exact.tip) return exact.tip;
+    const byMarka = list.find(x => x.marka === marka && !x.deleted && x.tip);
+    return byMarka ? byMarka.tip : null;
+}
+
+/**
+ * Yeni marka+model girişi state delta'sına ekler. Aynı satır varsa deleted=false
+ * yapar / alanları günceller.
+ * @param {string} tip   KOMBI/OCAK/.../REGULATOR/MANOMETRE/...
+ * @param {object} extra TICARI için { tip:'Brülör' } gibi ek alanlar
+ */
+export function addCihazEntry(tip, marka, model, kw, extra) {
     if (!marka || !model) return false;
-    const list = _allEntries(tip);
-    const exist = list.find(x => x.marka === marka && x.model === model);
+    const k = ensureCihazKatalog();
+    const T = _normTip(tip);
+    const arr = k[T];
+    const exist = arr.find(x => x.marka === marka && x.model === model);
     if (exist) {
         exist.deleted = false;
         if (Number.isFinite(kw)) exist.kw = kw;
+        if (extra && typeof extra === 'object') Object.assign(exist, extra);
         return true;
     }
-    list.push({ marka, model, kw: Number.isFinite(kw) ? kw : null, deleted: false });
+    const row = { marka, model, kw: Number.isFinite(kw) ? kw : null, deleted: false };
+    if (extra && typeof extra === 'object') Object.assign(row, extra);
+    arr.push(row);
     return true;
 }
 
 /**
- * Marka+model girişini soft-delete eder (silmez). Geçmişte bu modeli kullanan
- * cihazlarda eski seçim listede görünmeye devam eder.
+ * Marka+model girişini soft-delete eder. DEFAULT'ta varsa state'e override kaydı
+ * yazılır (DEFAULT listesi salt-okunur). Geçmişte bu modeli kullanan nesnelerde
+ * eski seçim keepValue üzerinden listede görünmeye devam eder.
  */
 export function softDeleteCihazEntry(tip, marka, model) {
-    const list = _allEntries(tip);
+    if (!marka) return false;
+    const k = ensureCihazKatalog();
+    const T = _normTip(tip);
+    const arr = k[T];
+    const defaults = DEFAULTS_BY_TIP[T] || [];
     let touched = false;
-    for (const e of list) {
+
+    // DEFAULT'taki eşleşmeleri override kaydıyla işaretle
+    for (const e of defaults) {
+        if (e.marka !== marka) continue;
+        if (model && e.model !== model) continue;
+        const existing = arr.find(x => x.marka === e.marka && x.model === e.model);
+        if (existing) existing.deleted = true;
+        else arr.push({ marka: e.marka, model: e.model, deleted: true });
+        touched = true;
+    }
+    // Kullanıcının eklediği kayıtlardan eşleşenleri de işaretle
+    for (const e of arr) {
         if (e.marka === marka && (!model || e.model === model)) {
             e.deleted = true; touched = true;
         }

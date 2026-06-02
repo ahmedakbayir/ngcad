@@ -41,9 +41,9 @@ export class Regulator {
         // Shut-Off (otomatik gaz kesme) özelliği
         this.shutOff = options.shutOff !== undefined ? !!options.shutOff : true;
 
-        // Ürün bilgisi
-        this.marka = options.marka !== undefined ? options.marka : 'ESKA';
-        this.model = options.model !== undefined ? options.model : 'ERG';
+        // Ürün bilgisi — varsayılan boş; kullanıcı kataloğdan seçer.
+        this.marka = options.marka !== undefined ? options.marka : '';
+        this.model = options.model !== undefined ? options.model : '';
 
         // Otomatik aksesuarlar (default true)
         this.girisVana = options.girisVana !== undefined ? !!options.girisVana : true;

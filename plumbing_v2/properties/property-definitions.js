@@ -8,7 +8,7 @@ import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 import { getHatRowForPipe, getCumulativeLossForHat } from '../utils/pipe-calculations.js';
 import { TOPRAKLAMA_YONTEMLERI } from '../objects/pipe-fitting.js';
 import { ensureRegulatorAccessories } from '../objects/regulator-accessories.js';
-import { getMarkaList, getModelList, getModelKW } from './cihaz-katalog.js';
+import { getMarkaList, getModelList, getModelKW, getTicariTip } from './cihaz-katalog.js';
 
 /**
  * Sayacın çıkış (iç tesisat) zincirinde bir regülatör var mı?
@@ -1313,17 +1313,23 @@ export const PROPERTY_DEFS = {
 
     regulatorMarka: {
         label: 'Marka',
-        type: 'text',
+        type: 'select',
         key: 'marka',
-        default: 'ESKA',
-        placeholder: 'Marka...',
+        options: (obj) => getMarkaList('REGULATOR', obj?.marka || ''),
+        default: '',
+        placeholder: 'Marka seçin...',
+        addAction: { tip: 'REGULATOR' },
+        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
     },
     regulatorModel: {
         label: 'Model',
-        type: 'text',
+        type: 'select',
         key: 'model',
-        default: 'ERG',
-        placeholder: 'Model...',
+        options: (obj) => getModelList('REGULATOR', obj?.marka, obj?.model || ''),
+        default: '',
+        placeholder: 'Model seçin...',
+        addAction: { tip: 'REGULATOR' },
+        disabledFn: (obj) => !obj?.marka,
     },
 
     // ════════════════════════════════════════════════════════
@@ -1348,51 +1354,69 @@ export const PROPERTY_DEFS = {
     filtre_sec_urun: { type: 'section', label: 'Ürün' },
     filtreMarka: {
         label: 'Marka',
-        type: 'text',
+        type: 'select',
         key: 'marka',
+        options: (obj) => getMarkaList('FILTRE', obj?.marka || ''),
         default: '',
         placeholder: 'Marka...',
+        addAction: { tip: 'FILTRE' },
+        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
     },
     filtreModel: {
         label: 'Model',
-        type: 'text',
+        type: 'select',
         key: 'model',
+        options: (obj) => getModelList('FILTRE', obj?.marka, obj?.model || ''),
         default: '',
         placeholder: 'Model...',
+        addAction: { tip: 'FILTRE' },
+        disabledFn: (obj) => !obj?.marka,
     },
 
     // İZOLASYON FLANŞI
     izolasyon_sec_urun: { type: 'section', label: 'Ürün' },
     izolasyonMarka: {
         label: 'Marka',
-        type: 'text',
+        type: 'select',
         key: 'marka',
+        options: (obj) => getMarkaList('IZOLASYON', obj?.marka || ''),
         default: '',
         placeholder: 'Marka...',
+        addAction: { tip: 'IZOLASYON' },
+        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
     },
     izolasyonModel: {
         label: 'Model',
-        type: 'text',
+        type: 'select',
         key: 'model',
+        options: (obj) => getModelList('IZOLASYON', obj?.marka, obj?.model || ''),
         default: '',
         placeholder: 'Model...',
+        addAction: { tip: 'IZOLASYON' },
+        disabledFn: (obj) => !obj?.marka,
     },
 
     // KOMPANSATÖR
     kompansator_sec_urun: { type: 'section', label: 'Ürün' },
     kompansatorMarka: {
         label: 'Marka',
-        type: 'text',
+        type: 'select',
         key: 'marka',
+        options: (obj) => getMarkaList('KOMPANSATOR', obj?.marka || ''),
         default: '',
         placeholder: 'Marka...',
+        addAction: { tip: 'KOMPANSATOR' },
+        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
     },
     kompansatorModel: {
         label: 'Model',
-        type: 'text',
+        type: 'select',
         key: 'model',
+        options: (obj) => getModelList('KOMPANSATOR', obj?.marka, obj?.model || ''),
         default: '',
         placeholder: 'Model...',
+        addAction: { tip: 'KOMPANSATOR' },
+        disabledFn: (obj) => !obj?.marka,
     },
 
     // TOPRAKLAMA
@@ -1432,17 +1456,23 @@ export const PROPERTY_DEFS = {
     manometre_sec_urun: { type: 'section', label: 'Ürün' },
     manometreMarka: {
         label: 'Marka',
-        type: 'text',
+        type: 'select',
         key: 'marka',
+        options: (obj) => getMarkaList('MANOMETRE', obj?.marka || ''),
         default: '',
         placeholder: 'Marka...',
+        addAction: { tip: 'MANOMETRE' },
+        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
     },
     manometreModel: {
         label: 'Model',
-        type: 'text',
+        type: 'select',
         key: 'model',
+        options: (obj) => getModelList('MANOMETRE', obj?.marka, obj?.model || ''),
         default: '',
         placeholder: 'Model...',
+        addAction: { tip: 'MANOMETRE' },
+        disabledFn: (obj) => !obj?.marka,
     },
 
     // ════════════════════════════════════════════════════════
@@ -1715,6 +1745,7 @@ export const PROPERTY_DEFS = {
         key: 'marka',
         options: (obj) => getMarkaList('KOMBI', obj?.marka || ''),
         placeholder: 'Marka seçin...',
+        addAction: { tip: 'KOMBI' },
         afterChange: (obj, _manager, panelEl) => {
             // Marka değişince eski model artık geçersiz — temizle, panel yenilensin
             obj.model = '';
@@ -1727,6 +1758,7 @@ export const PROPERTY_DEFS = {
         key: 'model',
         options: (obj) => getModelList('KOMBI', obj?.marka, obj?.model || ''),
         placeholder: 'Model seçin...',
+        addAction: { tip: 'KOMBI' },
         disabledFn: (obj) => !obj?.marka,
         afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
     },
@@ -1828,6 +1860,7 @@ export const PROPERTY_DEFS = {
         key: 'marka',
         options: (obj) => getMarkaList('OCAK', obj?.marka || ''),
         placeholder: 'Marka seçin...',
+        addAction: { tip: 'OCAK' },
         afterChange: (obj, _manager, panelEl) => {
             obj.model = '';
             if (panelEl?._refresh) panelEl._refresh();
@@ -1839,6 +1872,7 @@ export const PROPERTY_DEFS = {
         key: 'model',
         options: (obj) => getModelList('OCAK', obj?.marka, obj?.model || ''),
         placeholder: 'Model seçin...',
+        addAction: { tip: 'OCAK' },
         disabledFn: (obj) => !obj?.marka,
         afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
     },
@@ -1918,12 +1952,14 @@ export const PROPERTY_DEFS = {
         label: 'Marka', type: 'select', key: 'marka',
         options: (obj) => getMarkaList('SOBA', obj?.marka || ''),
         placeholder: 'Marka seçin...',
+        addAction: { tip: 'SOBA' },
         afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
     },
     sobaModel: {
         label: 'Model', type: 'select', key: 'model',
         options: (obj) => getModelList('SOBA', obj?.marka, obj?.model || ''),
         placeholder: 'Model seçin...',
+        addAction: { tip: 'SOBA' },
         disabledFn: (obj) => !obj?.marka,
         afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
     },
@@ -1982,12 +2018,14 @@ export const PROPERTY_DEFS = {
         label: 'Marka', type: 'select', key: 'marka',
         options: (obj) => getMarkaList('SOFBEN', obj?.marka || ''),
         placeholder: 'Marka seçin...',
+        addAction: { tip: 'SOFBEN' },
         afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
     },
     sofbenModel: {
         label: 'Model', type: 'select', key: 'model',
         options: (obj) => getModelList('SOFBEN', obj?.marka, obj?.model || ''),
         placeholder: 'Model seçin...',
+        addAction: { tip: 'SOFBEN' },
         disabledFn: (obj) => !obj?.marka,
         afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
     },
@@ -2034,12 +2072,14 @@ export const PROPERTY_DEFS = {
         label: 'Marka', type: 'select', key: 'marka',
         options: (obj) => getMarkaList('KAZAN', obj?.marka || ''),
         placeholder: 'Marka seçin...',
+        addAction: { tip: 'KAZAN' },
         afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
     },
     kazanModel: {
         label: 'Model', type: 'select', key: 'model',
         options: (obj) => getModelList('KAZAN', obj?.marka, obj?.model || ''),
         placeholder: 'Model seçin...',
+        addAction: { tip: 'KAZAN' },
         disabledFn: (obj) => !obj?.marka,
         afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
     },
@@ -2095,19 +2135,42 @@ export const PROPERTY_DEFS = {
         label: 'Cihaz Tipi', type: 'select', key: 'ticariCihazTipi',
         options: TICARI_CIHAZ_TIPLERI,
         placeholder: 'Cihaz tipi seçin...',
+        afterChange: (obj, _manager, panelEl) => {
+            obj.marka = '';
+            obj.model = '';
+            if (panelEl?._refresh) panelEl._refresh();
+        },
     },
     ticariMarka: {
         label: 'Marka', type: 'select', key: 'marka',
-        options: (obj) => getMarkaList('TICARI', obj?.marka || ''),
+        options: (obj) => getMarkaList('TICARI', obj?.marka || '', obj?.ticariCihazTipi || ''),
         placeholder: 'Marka seçin...',
-        afterChange: (obj, _manager, panelEl) => { obj.model = ''; if (panelEl?._refresh) panelEl._refresh(); },
+        addAction: {
+            tip: 'TICARI',
+            getExtra: (obj) => ({ tip: obj?.ticariCihazTipi || '' }),
+        },
+        afterChange: (obj, _manager, panelEl) => {
+            obj.model = '';
+            if (panelEl?._refresh) panelEl._refresh();
+        },
     },
     ticariModel: {
         label: 'Model', type: 'select', key: 'model',
-        options: (obj) => getModelList('TICARI', obj?.marka, obj?.model || ''),
+        options: (obj) => getModelList('TICARI', obj?.marka, obj?.model || '', obj?.ticariCihazTipi || ''),
         placeholder: 'Model seçin...',
+        addAction: {
+            tip: 'TICARI',
+            getExtra: (obj) => ({ tip: obj?.ticariCihazTipi || '' }),
+        },
         disabledFn: (obj) => !obj?.marka,
-        afterChange: (obj, _manager, panelEl) => _applyCihazModelKapasite(obj, panelEl),
+        afterChange: (obj, _manager, panelEl) => {
+            if (!obj.ticariCihazTipi && obj.marka && obj.model) {
+                const tip = getTicariTip(obj.marka, obj.model);
+                if (tip) obj.ticariCihazTipi = tip;
+            }
+            _applyCihazModelKapasite(obj, panelEl);
+            if (panelEl?._refresh) panelEl._refresh();
+        },
     },
     ticariBacaTipi: {
         label: 'Baca Tipi', type: 'select', key: 'bacaTipi',
@@ -2602,6 +2665,9 @@ export const OBJECT_PROPERTIES = {
         'vanaMuhafaza',
     ],
     regulator: [
+        'regulator_sec_urun',
+        'regulatorMarka',
+        'regulatorModel',
         'regulator_sec_tanim',
         'regulatorCikisBasinc',
         'regulatorShutOff',
@@ -2610,17 +2676,14 @@ export const OBJECT_PROPERTIES = {
         'regulatorCikisManometre',
         'regulatorCikisVana',
         'regulatorMuhafaza',
-        'regulator_sec_urun',
-        'regulatorMarka',
-        'regulatorModel',
     ],
     filtre: [
-        'filtre_sec_tanim',
-        'filtreKonik',
-        'filtreMuhafaza',
         'filtre_sec_urun',
         'filtreMarka',
         'filtreModel',
+        'filtre_sec_tanim',
+        'filtreKonik',
+        'filtreMuhafaza',
     ],
     izolasyon_flansi: [
         'izolasyon_sec_urun',
@@ -2633,18 +2696,18 @@ export const OBJECT_PROPERTIES = {
         'kompansatorModel',
     ],
     manometre: [
-        'manometre_sec_tanim',
-        'manometreMuhafaza',
         'manometre_sec_urun',
         'manometreMarka',
         'manometreModel',
+        'manometre_sec_tanim',
+        'manometreMuhafaza',
     ],
     topraklama: [
-        'topraklama_sec_tanim',
-        'topraklamaYontemi',
         'topraklama_sec_urun',
         'topraklamaMarka',
         'topraklamaModel',
+        'topraklama_sec_tanim',
+        'topraklamaYontemi',
     ],
     servis_kutusu: [
         // 'kutu_sec_tanim',
@@ -2659,8 +2722,8 @@ export const OBJECT_PROPERTIES = {
         'kombi_sec_urun',
         'kombiMarka',
         'kombiModel',
-        'kombiBacaTipi',
         'kombi_sec_kapasite',
+        'kombiBacaTipi',
         'kombiKapasiteKcal',
         'kombiKapasiteKW',
         'kombiVerim',
@@ -2674,8 +2737,8 @@ export const OBJECT_PROPERTIES = {
         'ocak_sec_urun',
         'ocakMarka',
         'ocakModel',
-        'ocakBacaTipi',
         'ocak_sec_kapasite',
+        'ocakBacaTipi',
         'ocakKapasiteKcal',
         'ocakKapasiteKW',
         'ocakVerim',
@@ -2688,8 +2751,8 @@ export const OBJECT_PROPERTIES = {
         'soba_sec_urun',
         'sobaMarka',
         'sobaModel',
-        'sobaBacaTipi',
         'soba_sec_kapasite',
+        'sobaBacaTipi',
         'sobaKapasiteKcal',
         'sobaKapasiteKW',
         'sobaVerim',
@@ -2699,8 +2762,8 @@ export const OBJECT_PROPERTIES = {
         'sofben_sec_urun',
         'sofbenMarka',
         'sofbenModel',
-        'sofbenBacaTipi',
         'sofben_sec_kapasite',
+        'sofbenBacaTipi',
         'sofbenKapasiteKcal',
         'sofbenKapasiteKW',
         'sofbenVerim',
@@ -2710,8 +2773,8 @@ export const OBJECT_PROPERTIES = {
         'kazan_sec_urun',
         'kazanMarka',
         'kazanModel',
-        'kazanBacaTipi',
         'kazan_sec_kapasite',
+        'kazanBacaTipi',
         'kazanKapasiteKcal',
         'kazanKapasiteKW',
         'kazanVerim',
@@ -2725,8 +2788,8 @@ export const OBJECT_PROPERTIES = {
         'ticariCihazTipi',
         'ticariMarka',
         'ticariModel',
-        'ticariBacaTipi',
         'ticari_sec_kapasite',
+        'ticariBacaTipi',
         'ticariKapasiteKcal',
         'ticariKapasiteKW',
         'ticariVerim',

@@ -4387,6 +4387,193 @@ body.light-mode .vis-panel-inner {
     border-color: #1967d2;
 }
 
+/* Properties panel — katalog "+ Yeni ekle" butonu (marka/model select yanında) */
+.props-add-katalog-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 28px;
+    min-height: 28px;
+    padding: 0;
+    background: transparent;
+    color: #8ab4f8;
+    border: 1px solid rgba(138, 180, 248, 0.4);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1;
+    box-sizing: border-box;
+    transition: background .12s, border-color .12s, color .12s;
+}
+
+.props-add-katalog-btn:hover {
+    background: rgba(138, 180, 248, 0.12);
+    border-color: #8ab4f8;
+}
+
+.light-mode .props-add-katalog-btn {
+    color: #1967d2;
+    border-color: rgba(25, 103, 210, 0.4);
+}
+
+.light-mode .props-add-katalog-btn:hover {
+    background: rgba(25, 103, 210, 0.08);
+    border-color: #1967d2;
+}
+
+/* DEFAULT katalogda olmayıp manuel girilen marka/model için label'a iliştirilen not */
+.props-manuel-tag {
+    font-size: 10px;
+    font-weight: 400;
+    font-style: italic;
+    color: #f9ab00;
+    margin-left: 4px;
+    white-space: nowrap;
+}
+
+.light-mode .props-manuel-tag {
+    color: #b45309;
+}
+
+/* Yeni marka/model ekleme modali */
+.ymm-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999999;
+}
+
+.ymm-modal-card {
+    background: var(--bg-panel, #1f1f23);
+    color: var(--color-text, #e8eaed);
+    padding: 18px 20px;
+    border-radius: 8px;
+    min-width: 340px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-button, rgba(255, 255, 255, 0.12));
+    font-family: inherit;
+}
+
+.ymm-modal-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    font-size: 14px;
+    color: var(--color-text, #e8eaed);
+}
+
+.ymm-modal-subtitle {
+    font-size: 11px;
+    color: var(--color-text-muted, #9aa0a6);
+    margin-bottom: 12px;
+}
+
+.ymm-modal-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ymm-modal-input {
+    padding: 7px 9px;
+    border-radius: 5px;
+    font-size: 13px;
+    background: var(--bg-input, rgba(255, 255, 255, 0.05));
+    color: var(--color-text, #e8eaed);
+    border: 1px solid var(--border-button, rgba(255, 255, 255, 0.18));
+    outline: none;
+    transition: border-color .12s, box-shadow .12s;
+}
+
+.ymm-modal-input:focus {
+    border-color: #8ab4f8;
+    box-shadow: 0 0 0 1px rgba(138, 180, 248, 0.35);
+}
+
+.ymm-modal-input--error {
+    border-color: #d33;
+}
+
+.ymm-modal-input[readonly] {
+    opacity: 0.7;
+    cursor: default;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.light-mode .ymm-modal-input[readonly] {
+    background: #f6f6f6;
+    color: #555;
+}
+
+.ymm-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.ymm-modal-btn {
+    padding: 6px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    transition: background .12s, border-color .12s, color .12s;
+}
+
+.ymm-modal-btn--secondary {
+    background: transparent;
+    color: var(--color-text, #e8eaed);
+    border-color: var(--border-button, rgba(255, 255, 255, 0.18));
+}
+
+.ymm-modal-btn--secondary:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--border-button-active, rgba(255, 255, 255, 0.35));
+}
+
+.ymm-modal-btn--primary {
+    background: #1a73e8;
+    color: #fff;
+    border-color: #1a73e8;
+}
+
+.ymm-modal-btn--primary:hover {
+    background: #185abc;
+    border-color: #185abc;
+}
+
+.light-mode .ymm-modal-card {
+    background: #fff;
+    color: #222;
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+.light-mode .ymm-modal-subtitle {
+    color: #666;
+}
+
+.light-mode .ymm-modal-input {
+    background: #fff;
+    color: #222;
+    border-color: #ccc;
+}
+
+.light-mode .ymm-modal-btn--secondary {
+    color: #222;
+    border-color: #ccc;
+}
+
+.light-mode .ymm-modal-btn--secondary:hover {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: #999;
+}
+
 /* Properties panel — action butonları */
 .props-actions-row {
     align-items: flex-start;

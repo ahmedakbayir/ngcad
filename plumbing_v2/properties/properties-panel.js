@@ -17,6 +17,7 @@ import { clearLabelOffsetsForFloor, relayoutAllLabels } from '../renderer/render
 import { startTextAnnotationPlacement } from '../../architectural-objects/text-annotation-placement.js';
 import { selectObject as plumbingSelectObject } from '../interactions/selection-manager.js';
 import { SONLANMA_VANALARI } from '../objects/valve.js';
+import { addCihazEntry, isMarkaManuel, isModelManuel } from './cihaz-katalog.js';
 
 
 export const PANEL_MODES = {
@@ -537,6 +538,29 @@ function renderProperty(prop, obj, manager) {
             optionsHtml += rawOpts.map(o =>
                 `<option value="${o}" ${current === String(o) ? 'selected' : ''}>${o}</option>`
             ).join('');
+        }
+        const hasAdd = !!prop.addAction && !isDisabled;
+        if (hasAdd) {
+            const isModel = prop.key === 'model';
+            const addTitle = isModel ? 'Manuel model girişi' : 'Manuel marka girişi';
+            const addAct = prop.addAction;
+            const tipForAdd = typeof addAct.tip === 'function' ? addAct.tip(obj, manager) : addAct.tip;
+            const isManuel = current && (isModel
+                ? isModelManuel(tipForAdd, obj.marka, current)
+                : isMarkaManuel(tipForAdd, current));
+            const manuelTag = isManuel
+                ? ` <span class="props-manuel-tag" title="DEFAULT katalogda yok — kullanıcı tarafından manuel olarak girildi">(MANUEL)</span>`
+                : '';
+            return `
+                <div class="props-row">
+                    <label class="props-label">${prop.label}${manuelTag}</label>
+                    <div class="props-select-with-action" style="display:flex;gap:4px;flex:1;min-width:0;align-items:center">
+                        <select class="props-select" data-prop-key="${prop.key}" data-prop-id="${prop.id}" style="flex:1;min-width:0">
+                            ${optionsHtml}
+                        </select>
+                        <button class="props-add-katalog-btn" data-prop-id="${prop.id}" title="${addTitle}">+</button>
+                    </div>
+                </div>`;
         }
         return `
             <div class="props-row">
@@ -1320,6 +1344,35 @@ function bindInputEvents(panelEl, props, obj, manager) {
         });
     });
 
+    // Katalog "+ Yeni ekle" butonu — marka/model select'i için
+    panelEl.querySelectorAll('.props-add-katalog-btn[data-prop-id]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const propId = btn.dataset.propId;
+            const prop = props.find(p => p.id === propId);
+            const addAct = prop?.addAction;
+            if (!addAct) return;
+            const tip = typeof addAct.tip === 'function' ? addAct.tip(obj, manager) : addAct.tip;
+            const extra = typeof addAct.getExtra === 'function' ? (addAct.getExtra(obj, manager) || {}) : {};
+            const ticariTip = (String(tip).toUpperCase() === 'TICARI' && extra.tip) || '';
+            // Hangi alanın yanındaki butona basıldı: marka mı, model mi?
+            const mode = prop.key === 'model' ? 'model' : 'marka';
+            const result = await _openManuelKatalogDialog({
+                tip, ticariTip, mode,
+                currentMarka: obj.marka || '',
+            });
+            if (!result) return;
+            addCihazEntry(tip, result.marka, result.model, null, { ...extra, kullaniciEkledi: true });
+            obj.marka = result.marka;
+            obj.model = result.model;
+            // prop.afterChange'i çağırma: marka prop'unun afterChange'i obj.model='' yapıp
+            // az önce set ettiğimiz modeli siler. State değişti, undo/redo için snapshot al.
+            saveState();
+            persist();
+            if (panelEl._refresh) panelEl._refresh();
+        });
+    });
+
     // Grup ikon butonu — muhafazaGrupla state'ini toggle eder
     panelEl.querySelectorAll('.props-group-btn[data-group-key]').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -1421,6 +1474,66 @@ function persist() {
 
 function escHtml(str) {
     return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Manuel marka/model girişi modali.
+ *   mode='marka' → iki alan (marka + model) doldurulur.
+ *   mode='model' → marka readonly (currentMarka), sadece model girilir.
+ * Promise resolve eder: { marka, model } veya null (vazgeçti).
+ */
+function _openManuelKatalogDialog({ tip, ticariTip, mode, currentMarka }) {
+    return new Promise((resolve) => {
+        const isModel = mode === 'model';
+        const overlay = document.createElement('div');
+        overlay.className = 'ymm-modal-overlay';
+        const title = isModel ? 'Manuel model girişi' : 'Manuel marka girişi';
+        const ctxParts = [escHtml(tip)];
+        if (ticariTip) ctxParts.push(escHtml(ticariTip));
+        if (isModel && currentMarka) ctxParts.push(escHtml(currentMarka));
+        const subtitle = `${ctxParts.join(' / ')} kataloğuna eklenecek`;
+        const markaFieldHtml = isModel
+            ? `<input id="_ymm_marka" class="ymm-modal-input" value="${escHtml(currentMarka || '')}" readonly>`
+            : `<input id="_ymm_marka" class="ymm-modal-input" placeholder="Marka" value="">`;
+        overlay.innerHTML = `
+            <div class="ymm-modal-card">
+                <div class="ymm-modal-title">${title}</div>
+                <div class="ymm-modal-subtitle">${subtitle}</div>
+                <div class="ymm-modal-fields">
+                    ${markaFieldHtml}
+                    <input id="_ymm_model" class="ymm-modal-input" placeholder="Model" value="">
+                </div>
+                <div class="ymm-modal-actions">
+                    <button id="_ymm_cancel" class="ymm-modal-btn ymm-modal-btn--secondary">Vazgeç</button>
+                    <button id="_ymm_ok" class="ymm-modal-btn ymm-modal-btn--primary">Ekle</button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        const markaEl = overlay.querySelector('#_ymm_marka');
+        const modelEl = overlay.querySelector('#_ymm_model');
+        const okBtn = overlay.querySelector('#_ymm_ok');
+        const cancelBtn = overlay.querySelector('#_ymm_cancel');
+        // Model modunda marka readonly, doğrudan model'e odaklan
+        setTimeout(() => (isModel ? modelEl : markaEl).focus(), 0);
+
+        const finish = (val) => { overlay.remove(); document.removeEventListener('keydown', onKey); resolve(val); };
+        const trySubmit = () => {
+            const marka = markaEl.value.trim();
+            const model = modelEl.value.trim();
+            if (!isModel) markaEl.classList.toggle('ymm-modal-input--error', !marka);
+            modelEl.classList.toggle('ymm-modal-input--error', !model);
+            if (!marka || !model) return;
+            finish({ marka, model });
+        };
+        const onKey = (e) => {
+            if (e.key === 'Escape') { e.stopPropagation(); finish(null); }
+            else if (e.key === 'Enter') { e.stopPropagation(); trySubmit(); }
+        };
+        document.addEventListener('keydown', onKey, true);
+        cancelBtn.addEventListener('click', () => finish(null));
+        okBtn.addEventListener('click', trySubmit);
+        overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) finish(null); });
+    });
 }
 
 /** Sayısal değeri verilen precision'a göre biçimlendir. precision null/undefined ise dokunma. */

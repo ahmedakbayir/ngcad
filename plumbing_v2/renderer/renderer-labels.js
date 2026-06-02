@@ -6,6 +6,66 @@ import { SERVIS_KUTUSU_CONFIG } from '../objects/service-box.js';
 import { SAYAC_CONFIG } from '../objects/meter.js';
 import { CIHAZ_TIPLERI } from '../objects/device.js';
 import { state, isLightMode } from '../../general-files/main.js';
+import { isMarkaManuel, isModelManuel } from '../properties/cihaz-katalog.js';
+
+/** Etiket için: nesne türünden katalog tipini (KOMBI/REGULATOR/...) çıkar. */
+function _getKatalogTipForLabel(comp) {
+    if (comp.type === 'cihaz') return String(comp.cihazTipi || '').toUpperCase();
+    const map = {
+        regulator: 'REGULATOR',
+        filtre: 'FILTRE',
+        izolasyon_flansi: 'IZOLASYON',
+        kompansator: 'KOMPANSATOR',
+        manometre: 'MANOMETRE',
+    };
+    return map[comp.type] || null;
+}
+
+/**
+ * Etikete marka/model satırı ekler. Manuel girilenler için
+ * "Marka: <isim> (Kullanıcı tarafından girildi)" şeklinde prefix+suffix'li
+ * AYRI iki satır yazılır; aksi halde mevcut format korunur.
+ *  - style='oneline' : default durumda "marka - model" tek satır (regülatör/fitting)
+ *  - style='twoline' : default durumda marka/model ayrı sade satırlar (cihaz)
+ */
+function _appendMarkaModelLines(lines, comp, style) {
+    const marka = (comp.marka ?? '').toString().trim();
+    const model = (comp.model ?? '').toString().trim();
+    if (!marka && !model) return;
+
+    const tip = _getKatalogTipForLabel(comp);
+    const markaManuel = !!tip && marka && isMarkaManuel(tip, marka);
+    const modelManuel = !!tip && marka && model && isModelManuel(tip, marka, model);
+
+    if (markaManuel || modelManuel) {
+        if (marka) lines.push({
+            sub: true,
+            segments: [
+                { text: 'Marka: ' },
+                { text: marka, bold: true },
+                ...(markaManuel ? [{ text: ' (Kullanıcı tarafından girildi)', muted: true }] : []),
+            ],
+        });
+        if (model) lines.push({
+            sub: true,
+            segments: [
+                { text: 'Model: ' },
+                { text: model, bold: true },
+                ...(modelManuel ? [{ text: ' (Kullanıcı tarafından girildi)', muted: true }] : []),
+            ],
+        });
+        return;
+    }
+
+    // Manuel değil — mevcut sade format
+    if (style === 'twoline') {
+        if (marka) lines.push({ text: marka, sub: true });
+        if (model) lines.push({ text: model, sub: true });
+    } else {
+        const txt = [marka, model].filter(Boolean).join(' - ');
+        if (txt) lines.push({ text: txt, sub: true });
+    }
+}
 
 // ─── Sayaç tür etiketi ───────────────────────────────────────────────────────
 const SAYAC_TURU_LABEL = {
@@ -536,7 +596,7 @@ export const LabelMixin = {
             textColor, subColor, accentColor,
             connColor, bgColor, borderColor, accentBar } = opts;
 
-        const visLines = lines.filter(l => l && l.text);
+        const visLines = lines.filter(l => l && (l.text || (Array.isArray(l.segments) && l.segments.length)));
         if (visLines.length === 0) return;
 
         const pad = fontSize * 0.6;
@@ -547,8 +607,17 @@ export const LabelMixin = {
 
         let maxW = 0;
         visLines.forEach(l => {
-            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
-            maxW = Math.max(maxW, ctx.measureText(l.text).width);
+            if (Array.isArray(l.segments)) {
+                let w = 0;
+                l.segments.forEach(s => {
+                    ctx.font = `${s.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+                    w += ctx.measureText(s.text).width;
+                });
+                maxW = Math.max(maxW, w);
+            } else {
+                ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+                maxW = Math.max(maxW, ctx.measureText(l.text).width);
+            }
         });
         const boxW = maxW + pad * 2;
         const boxH = visLines.length * lineH + pad * 0.8;
@@ -618,11 +687,24 @@ export const LabelMixin = {
 
         let ty = by + pad * 0.4 + fontSize;
         visLines.forEach(l => {
-            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
-            ctx.fillStyle = l.accent ? accentColor : (l.sub ? subColor : textColor);
             ctx.textAlign = 'left';
             ctx.textBaseline = 'alphabetic';
-            ctx.fillText(l.text, bx + pad, ty);
+            if (Array.isArray(l.segments)) {
+                let sx = bx + pad;
+                const baseColor = l.accent ? accentColor : (l.sub ? subColor : textColor);
+                l.segments.forEach(s => {
+                    ctx.font = `${s.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+                    ctx.fillStyle = s.bold ? textColor : baseColor;
+                    if (s.muted) ctx.globalAlpha = 0.6;
+                    ctx.fillText(s.text, sx, ty);
+                    if (s.muted) ctx.globalAlpha = 1;
+                    sx += ctx.measureText(s.text).width;
+                });
+            } else {
+                ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+                ctx.fillStyle = l.accent ? accentColor : (l.sub ? subColor : textColor);
+                ctx.fillText(l.text, bx + pad, ty);
+            }
             ty += lineH;
         });
 
@@ -634,7 +716,7 @@ export const LabelMixin = {
             textColor, subColor, accentColor,
             connColor, bgColor, borderColor, accentBar } = opts;
 
-        const visLines = lines.filter(l => l && l.text);
+        const visLines = lines.filter(l => l && (l.text || (Array.isArray(l.segments) && l.segments.length)));
         if (visLines.length === 0) return;
 
         const pad = fontSize * 0.6;
@@ -645,8 +727,17 @@ export const LabelMixin = {
 
         let maxW = 0;
         visLines.forEach(l => {
-            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
-            maxW = Math.max(maxW, ctx.measureText(l.text).width);
+            if (Array.isArray(l.segments)) {
+                let w = 0;
+                l.segments.forEach(s => {
+                    ctx.font = `${s.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+                    w += ctx.measureText(s.text).width;
+                });
+                maxW = Math.max(maxW, w);
+            } else {
+                ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+                maxW = Math.max(maxW, ctx.measureText(l.text).width);
+            }
         });
         const boxW = maxW + pad * 2;
         const boxH = visLines.length * lineH + pad * 0.8;
@@ -725,11 +816,24 @@ export const LabelMixin = {
 
         let ty = by + pad * 0.4 + fontSize;
         visLines.forEach(l => {
-            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
-            ctx.fillStyle = l.accent ? accentColor : (l.sub ? subColor : textColor);
             ctx.textAlign = 'left';
             ctx.textBaseline = 'alphabetic';
-            ctx.fillText(l.text, bx + pad, ty);
+            if (Array.isArray(l.segments)) {
+                let sx = bx + pad;
+                const baseColor = l.accent ? accentColor : (l.sub ? subColor : textColor);
+                l.segments.forEach(s => {
+                    ctx.font = `${s.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+                    ctx.fillStyle = s.bold ? textColor : baseColor;
+                    if (s.muted) ctx.globalAlpha = 0.6;
+                    ctx.fillText(s.text, sx, ty);
+                    if (s.muted) ctx.globalAlpha = 1;
+                    sx += ctx.measureText(s.text).width;
+                });
+            } else {
+                ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+                ctx.fillStyle = l.accent ? accentColor : (l.sub ? subColor : textColor);
+                ctx.fillText(l.text, bx + pad, ty);
+            }
             ty += lineH;
         });
 
@@ -1171,9 +1275,7 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
         const baslik = comp.shutOff !== false ? 'Shut-Off Regülatör' : 'Regülatör';
         lines.push({ text: baslik, bold: true });
 
-        const marka = (comp.marka ?? 'ESKA').toString().trim() || 'ESKA';
-        const model = (comp.model ?? 'ERG').toString().trim() || 'ERG';
-        lines.push({ text: `${marka} - ${model}`, sub: true });
+        _appendMarkaModelLines(lines, comp, 'oneline');
 
         let girisBasinc = null;
         if (manager && comp.bagliBoruId) {
@@ -1236,12 +1338,7 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
             lines.push({ text: comp.topraklamaYontemi, sub: true });
         }
 
-        const marka = (comp.marka ?? '').toString().trim();
-        const model = (comp.model ?? '').toString().trim();
-        if (marka || model) {
-            const txt = [marka, model].filter(Boolean).join(' - ');
-            lines.push({ text: txt, sub: true });
-        }
+        _appendMarkaModelLines(lines, comp, 'oneline');
 
         if (comp.description) {
             comp.description.trimEnd().split('\n').forEach(line => {
@@ -1310,8 +1407,7 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
             const yogusmali = comp.yogusmali !== false;
             const baca = comp.bacaTipi || 'Hermetik';
             lines.push({ text: yogusmali ? `Yoğuşmalı ${baca} Kombi` : `${baca} Kombi`, bold: true });
-            if (comp.marka) lines.push({ text: comp.marka, sub: true });
-            if (comp.model) lines.push({ text: comp.model, sub: true });
+            _appendMarkaModelLines(lines, comp, 'twoline');
             const kcal = parseFloat(comp.kapasiteKcal);
             const kw = parseFloat(comp.kapasiteKW);
             if (!isNaN(kcal) && kcal > 0) {
@@ -1321,15 +1417,13 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
             if (comp.yedekCihaz) lines.push({ text: 'Yedek Cihaz', sub: true });
         } else if (comp.cihazTipi === 'OCAK') {
             lines.push({ text: 'Evsel Ocak', bold: true });
-            if (comp.marka) lines.push({ text: comp.marka, sub: true });
-            if (comp.model) lines.push({ text: comp.model, sub: true });
+            _appendMarkaModelLines(lines, comp, 'twoline');
             if (comp.yedekCihaz) lines.push({ text: 'Yedek Cihaz', sub: true });
         } else if (['SOBA', 'SOFBEN', 'KAZAN'].includes(comp.cihazTipi)) {
             const NAMES = { SOBA: 'Soba', SOFBEN: 'Şofben', KAZAN: 'Kazan' };
             const baca = comp.bacaTipi ? `${comp.bacaTipi} ` : '';
             lines.push({ text: `${baca}${NAMES[comp.cihazTipi]}`, bold: true });
-            if (comp.marka) lines.push({ text: comp.marka, sub: true });
-            if (comp.model) lines.push({ text: comp.model, sub: true });
+            _appendMarkaModelLines(lines, comp, 'twoline');
             const kcal = parseFloat(comp.kapasiteKcal);
             const kw = parseFloat(comp.kapasiteKW);
             if (!isNaN(kcal) && kcal > 0) {
@@ -1340,8 +1434,7 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
         } else if (comp.cihazTipi === 'TICARI') {
             const baslik = comp.ticariCihazTipi || 'Ticari Cihaz';
             lines.push({ text: baslik, bold: true });
-            if (comp.marka) lines.push({ text: comp.marka, sub: true });
-            if (comp.model) lines.push({ text: comp.model, sub: true });
+            _appendMarkaModelLines(lines, comp, 'twoline');
             const kcal = parseFloat(comp.kapasiteKcal);
             const kw = parseFloat(comp.kapasiteKW);
             if (!isNaN(kcal) && kcal > 0) {

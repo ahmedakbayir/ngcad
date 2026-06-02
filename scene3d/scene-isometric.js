@@ -10,6 +10,7 @@ import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
 import { CIHAZ_TIPLERI } from '../plumbing_v2/objects/device.js';
 import { SAYAC_CONFIG }  from '../plumbing_v2/objects/meter.js';
 import { getRenkGruplari } from '../plumbing_v2/objects/pipe.js';
+import { isMarkaManuel, isModelManuel } from '../plumbing_v2/properties/cihaz-katalog.js';
 
 // ─── ÇAP MODU YARDIMCILARI (iso etiketleri) ────────────────────────────────
 function _isoDiameterColor(pipe) {
@@ -763,7 +764,7 @@ function _resolveLabelAnchorByDir(cx, cy, clip, boxW, boxH, dir, defaultStyle) {
 // Etiketler arka plansız, kenarlıksız (sadece metin + isteğe bağlı hizalama çizgisi)
 // noLeader=true ile bağlantı (leader) çizgisi çizilmez (sayaç/kutu/regülatör için).
 function _drawIsoLabelBox(ctx, id, ax, ay, cx, cy, lines, objClip, forceStyle, noLeader) {
-    const visLines = lines.filter(l => l && l.text);
+    const visLines = lines.filter(l => l && (l.text || (Array.isArray(l.segments) && l.segments.length)));
     if (visLines.length === 0) return;
     const T = _isoLabelTheme();
     const fontSize = 11; const lineH = fontSize * 1.5; const pad = fontSize * 0.55;
@@ -771,8 +772,17 @@ function _drawIsoLabelBox(ctx, id, ax, ay, cx, cy, lines, objClip, forceStyle, n
     ctx.save();
     let maxW = 0;
     visLines.forEach(l => {
-        ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
-        maxW = Math.max(maxW, ctx.measureText(l.text).width);
+        if (Array.isArray(l.segments)) {
+            let w = 0;
+            l.segments.forEach(s => {
+                ctx.font = `${s.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+                w += ctx.measureText(s.text).width;
+            });
+            maxW = Math.max(maxW, w);
+        } else {
+            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+            maxW = Math.max(maxW, ctx.measureText(l.text).width);
+        }
     });
     const boxW = maxW + pad * 2; const boxH = visLines.length * lineH + pad * 0.8;
     const stored = state.isoLabelOffsets?.[id];
@@ -809,10 +819,24 @@ function _drawIsoLabelBox(ctx, id, ax, ay, cx, cy, lines, objClip, forceStyle, n
 
     let ty = by + pad * 0.4 + fontSize;
     visLines.forEach(l => {
-        ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
-        ctx.fillStyle = l.accent ? T.accentColor : (l.sub ? T.subColor : T.textColor);
         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText(l.text, bx + pad, ty); ty += lineH;
+        if (Array.isArray(l.segments)) {
+            let sx = bx + pad;
+            const baseColor = l.accent ? T.accentColor : (l.sub ? T.subColor : T.textColor);
+            l.segments.forEach(s => {
+                ctx.font = `${s.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+                ctx.fillStyle = s.bold ? T.textColor : baseColor;
+                if (s.muted) ctx.globalAlpha = 0.6;
+                ctx.fillText(s.text, sx, ty);
+                if (s.muted) ctx.globalAlpha = 1;
+                sx += ctx.measureText(s.text).width;
+            });
+        } else {
+            ctx.font = `${l.bold ? 'bold ' : ''}${fontSize}px "Segoe UI",sans-serif`;
+            ctx.fillStyle = l.accent ? T.accentColor : (l.sub ? T.subColor : T.textColor);
+            ctx.fillText(l.text, bx + pad, ty);
+        }
+        ty += lineH;
     });
     ctx.restore();
 }
@@ -872,8 +896,7 @@ function _buildCihazLinesIso(comp) {
         const yogusmali = comp.yogusmali !== false;
         const baca = comp.bacaTipi || 'Hermetik';
         lines.push({ text: yogusmali ? `Yoğuşmalı ${baca} Kombi` : `${baca} Kombi`, bold: true });
-        if (comp.marka) lines.push({ text: comp.marka, sub: true });
-        if (comp.model) lines.push({ text: comp.model, sub: true });
+        _appendMarkaModelLinesIso(lines, comp.marka, comp.model, 'KOMBI', 'twoline');
         const kcal = parseFloat(comp.kapasiteKcal);
         const kw = parseFloat(comp.kapasiteKW);
         if (!isNaN(kcal) && kcal > 0) {
@@ -883,8 +906,7 @@ function _buildCihazLinesIso(comp) {
         if (comp.yedekCihaz) lines.push({ text: 'Yedek Cihaz', sub: true });
     } else if (tip === 'OCAK') {
         lines.push({ text: 'Evsel Ocak', bold: true });
-        if (comp.marka) lines.push({ text: comp.marka, sub: true });
-        if (comp.model) lines.push({ text: comp.model, sub: true });
+        _appendMarkaModelLinesIso(lines, comp.marka, comp.model, 'OCAK', 'twoline');
         if (comp.yedekCihaz) lines.push({ text: 'Yedek Cihaz', sub: true });
     } else {
         lines.push({ text: tip, bold: true });
@@ -914,10 +936,50 @@ function _buildVanaLinesIso(comp) {
     return lines;
 }
 
+/**
+ * Marka/model satırlarını izometri etiketine ekler. Manuel girilenler için
+ * "Marka: <isim> (Kullanıcı tarafından girildi)" formatında segment'li satır.
+ *   style='oneline' → default durumda "marka - model" tek satır
+ *   style='twoline' → default durumda marka/model ayrı sade satırlar
+ */
+function _appendMarkaModelLinesIso(lines, marka, model, tip, style) {
+    if (!marka && !model) return;
+    const markaManuel = !!tip && marka && isMarkaManuel(tip, marka);
+    const modelManuel = !!tip && marka && model && isModelManuel(tip, marka, model);
+    if (markaManuel || modelManuel) {
+        if (marka) lines.push({
+            sub: true,
+            segments: [
+                { text: 'Marka: ' },
+                { text: marka, bold: true },
+                ...(markaManuel ? [{ text: ' (Kullanıcı tarafından girildi)', muted: true }] : []),
+            ],
+        });
+        if (model) lines.push({
+            sub: true,
+            segments: [
+                { text: 'Model: ' },
+                { text: model, bold: true },
+                ...(modelManuel ? [{ text: ' (Kullanıcı tarafından girildi)', muted: true }] : []),
+            ],
+        });
+        return;
+    }
+    if (style === 'twoline') {
+        if (marka) lines.push({ text: marka, sub: true });
+        if (model) lines.push({ text: model, sub: true });
+    } else {
+        const txt = [marka, model].filter(Boolean).join(' - ');
+        if (txt) lines.push({ text: txt, sub: true });
+    }
+}
+
 function _buildRegulatorLinesIso(comp) {
     const lines = [];
     lines.push({ text: comp.shutOff !== false ? 'Shut-Off Regülatör' : 'Regülatör', bold: true });
-    lines.push({ text: `${comp.marka ?? 'ESKA'} - ${comp.model ?? 'ERG'}`, sub: true });
+    const marka = (comp.marka ?? '').toString().trim();
+    const model = (comp.model ?? '').toString().trim();
+    _appendMarkaModelLinesIso(lines, marka, model, 'REGULATOR', 'oneline');
     lines.push({ text: `${comp.cikisBasinc || '21'} mbar`, sub: true });
     return lines;
 }
