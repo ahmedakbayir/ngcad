@@ -636,6 +636,30 @@ function sismikVanaAlarmCihaziKurali(manager, out) {
     });
 }
 
+// ─── Merkezi sistemde kombi kullanılmaması ───────────────────────────────
+// state.isinmaTipi === 'merkezi' ise sıcak su için şofben kullanılmalı; kombi
+// kullanımı tasarım hatasıdır → uyarı.
+function merkeziKombiKurali(manager, out) {
+    if (state.isinmaTipi !== 'merkezi') return;
+    (manager.components || []).forEach(c => {
+        if (c.type !== 'cihaz') return;
+        if (String(c.cihazTipi || '').toUpperCase() !== 'KOMBI') return;
+        const sayac = findMeterUpstream(manager, c.fleksBaglanti?.boruId || c.bagliBoruId);
+        const birim = (sayac && daireLabel(sayac)) || BIRIM_PLACEHOLDER;
+        out.push({
+            severity: 'warning',
+            group:    ERROR_GROUP_IDS.TASARIM,
+            errorId:  `tasarim-merkezi-kombi-${c.id}`,
+            message:  `UYARI: Isınma tipi merkezi sistem olan projede ${birim} biriminde kombi kullanılmış.`,
+            floorName: floorNameById(c.floorId || sayac?.floorId),
+            source:   'proje gereği',
+            detail:   'Merkezi ısıtma sisteminde sıcak su için şofben kullanılmalıdır; merkezi sistemde kombi kullanımı tasarım hatasıdır.',
+            targets:  [{ type: 'comp', id: c.id }],
+            fix: null,
+        });
+    });
+}
+
 // ─── Toplu checker ────────────────────────────────────────────────────────
 
 function tasarimChecker({ manager }) {
@@ -654,6 +678,7 @@ function tasarimChecker({ manager }) {
     parentSayacKurali(manager, out);
     sismikVanaAkvKurali(manager, out);
     sismikVanaAlarmCihaziKurali(manager, out);
+    merkeziKombiKurali(manager, out);
     return out;
 }
 
