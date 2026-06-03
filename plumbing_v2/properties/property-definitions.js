@@ -2014,6 +2014,14 @@ export const PROPERTY_DEFS = {
             _refreshCihazDebi(obj, panelEl);
         },
     },
+    soba_sec_ozellik: { type: 'section', label: 'Özellikler' },
+    sobaMuhafaza: {
+        label: 'Muhafaza',
+        type: 'toggle',
+        key: 'muhafaza',
+        default: false,
+        groupBtn: 'muhafazaGrupla',
+    },
 
     // ─── ŞOFBEN ───
     sofben_sec_kapasite: { type: 'section', label: 'Kapasite' },
@@ -2067,6 +2075,14 @@ export const PROPERTY_DEFS = {
     sofbenBacaTipi: {
         label: 'Baca Tipi', type: 'select', key: 'bacaTipi',
         options: BACA_TIPLERI, default: 'Hermetik',
+    },
+    sofben_sec_ozellik: { type: 'section', label: 'Özellikler' },
+    sofbenMuhafaza: {
+        label: 'Muhafaza',
+        type: 'toggle',
+        key: 'muhafaza',
+        default: false,
+        groupBtn: 'muhafazaGrupla',
     },
 
     // ─── KAZAN ───
@@ -2130,6 +2146,14 @@ export const PROPERTY_DEFS = {
     kazanHeight: {
         label: 'Derinlik', type: 'text', inputType: 'number', step: '5', min: '20',
         key: 'heightCm', default: '50', placeholder: 'cm', precision: 0,
+    },
+    kazan_sec_ozellik: { type: 'section', label: 'Özellikler' },
+    kazanMuhafaza: {
+        label: 'Muhafaza',
+        type: 'toggle',
+        key: 'muhafaza',
+        default: false,
+        groupBtn: 'muhafazaGrupla',
     },
 
     // ─── TİCARİ CİHAZ ───
@@ -2248,6 +2272,14 @@ export const PROPERTY_DEFS = {
         label: 'Çizgi Kalınlığı (cm)',
         type: 'text', inputType: 'number', step: '0.5', min: '0.1',
         key: 'ticariCizgiKalinlik', default: '2', placeholder: 'cm', precision: 1,
+    },
+    ticari_sec_ozellik: { type: 'section', label: 'Özellikler' },
+    ticariMuhafaza: {
+        label: 'Muhafaza',
+        type: 'toggle',
+        key: 'muhafaza',
+        default: false,
+        groupBtn: 'muhafazaGrupla',
     },
 
     // ─── MİMARİ NESNELER ─────────────────────────────────────────────────────
@@ -2826,6 +2858,8 @@ export const OBJECT_PROPERTIES = {
         'sobaKapasiteKW',
         'sobaVerim',
         'cihazDebi',
+        'soba_sec_ozellik',
+        'sobaMuhafaza',
     ],
     cihaz_sofben: [
         'sofben_sec_urun',
@@ -2837,6 +2871,8 @@ export const OBJECT_PROPERTIES = {
         'sofbenKapasiteKW',
         'sofbenVerim',
         'cihazDebi',
+        'sofben_sec_ozellik',
+        'sofbenMuhafaza',
     ],
     cihaz_kazan: [
         'kazan_sec_urun',
@@ -2851,6 +2887,8 @@ export const OBJECT_PROPERTIES = {
         'kazan_sec_boyut',
         'kazanWidth',
         'kazanHeight',
+        'kazan_sec_ozellik',
+        'kazanMuhafaza',
     ],
     cihaz_ticari: [
         'ticari_sec_urun',
@@ -2872,6 +2910,8 @@ export const OBJECT_PROPERTIES = {
         'ticariBoySayisi',
         'ticariSekilBoyutu',
         'ticariCizgiKalinlik',
+        'ticari_sec_ozellik',
+        'ticariMuhafaza',
     ],
 
     // Mimari nesneler

@@ -908,6 +908,29 @@ function _buildCihazLinesIso(comp) {
         lines.push({ text: 'Evsel Ocak', bold: true });
         _appendMarkaModelLinesIso(lines, comp.marka, comp.model, 'OCAK', 'twoline');
         if (comp.yedekCihaz) lines.push({ text: 'Yedek Cihaz', sub: true });
+    } else if (tip === 'SOBA' || tip === 'SOFBEN' || tip === 'KAZAN') {
+        const NAMES = { SOBA: 'Soba', SOFBEN: 'Şofben', KAZAN: 'Kazan' };
+        const baca = comp.bacaTipi ? `${comp.bacaTipi} ` : '';
+        lines.push({ text: `${baca}${NAMES[tip]}`, bold: true });
+        _appendMarkaModelLinesIso(lines, comp.marka, comp.model, tip, 'twoline');
+        const kcal = parseFloat(comp.kapasiteKcal);
+        const kw = parseFloat(comp.kapasiteKW);
+        if (!isNaN(kcal) && kcal > 0) {
+            const kwStr = (!isNaN(kw) && kw > 0) ? ` (${kw} kW)` : '';
+            lines.push({ text: `${Math.round(kcal).toLocaleString('tr-TR')} kcal/h${kwStr}`, sub: true });
+        }
+        if (comp.yedekCihaz) lines.push({ text: 'Yedek Cihaz', sub: true });
+    } else if (tip === 'TICARI') {
+        const baslik = comp.ticariCihazTipi || 'Ticari Cihaz';
+        lines.push({ text: baslik, bold: true });
+        _appendMarkaModelLinesIso(lines, comp.marka, comp.model, 'TICARI', 'twoline');
+        const kcal = parseFloat(comp.kapasiteKcal);
+        const kw = parseFloat(comp.kapasiteKW);
+        if (!isNaN(kcal) && kcal > 0) {
+            const kwStr = (!isNaN(kw) && kw > 0) ? ` (${kw} kW)` : '';
+            lines.push({ text: `${Math.round(kcal).toLocaleString('tr-TR')} kcal/h${kwStr}`, sub: true });
+        }
+        if (comp.yedekCihaz) lines.push({ text: 'Yedek Cihaz', sub: true });
     } else {
         lines.push({ text: tip, bold: true });
     }

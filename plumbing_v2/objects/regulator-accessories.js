@@ -14,6 +14,7 @@
 import { createVana } from './valve.js';
 import { createPipeFitting } from './pipe-fitting.js';
 import { getFloorIdForZ } from '../../floor/floor-handler.js';
+import { initObjectDefaults } from '../properties/properties-panel.js';
 
 // Regülatör merkezinden mesafeler (cm) — giriş ve çıkış için ayrı
 const GIRIS_MANOMETRE_DISTANCE = 16;
@@ -124,6 +125,7 @@ function _createAccessory(manager, regulator, key) {
         obj.updatePositionFromPipe(pipe);
     }
 
+    initObjectDefaults(obj, manager);
     manager.components.push(obj);
 
     if (obj.type === 'vana' && typeof obj.updateEndCapStatus === 'function') {

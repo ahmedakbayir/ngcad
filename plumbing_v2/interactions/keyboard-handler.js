@@ -18,7 +18,7 @@ import { Regulator } from '../objects/regulator.js';
 import { getFloorIdForZ } from '../../floor/floor-handler.js';
 import { ensureFloorForElevation } from '../../floor/floor-panel.js';
 import { syncAllFloorAssignments } from '../floor-sync.js';
-import { togglePropertiesPanel, closePropertiesPanel, isPanelOpen, openEmptyPanel, currentPanelMode, PANEL_MODES } from '../properties/properties-panel.js';
+import { togglePropertiesPanel, closePropertiesPanel, isPanelOpen, openEmptyPanel, currentPanelMode, PANEL_MODES, initObjectDefaults } from '../properties/properties-panel.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
 
 
@@ -1840,6 +1840,7 @@ export function handlePipePaste() {
                 newAutoVana.rotation = targetPipe.aciDerece || 0;
                 const vToP1 = Math.hypot(vX - targetPipe.p1.x, vY - targetPipe.p1.y, vZ - (targetPipe.p1.z || 0));
                 newAutoVana.boruPozisyonu = vToP1 / len3D;
+                initObjectDefaults(newAutoVana, this.manager);
                 this.manager.components.push(newAutoVana);
                 newAutoVana.updateEndCapStatus?.(this.manager);
                 vanaToLink = newAutoVana;

@@ -925,6 +925,7 @@ export function handleSayacEndPlacement(meter) {
         vana.fromEnd = boruUcu.uc; // 'p1' veya 'p2'
         vana.fixedDistance = centerMargin; // 5 cm
 
+        initObjectDefaults(vana, this.manager);
         this.manager.components.push(vana);
         // Kapama sembolü durumunu güncelle
         vana.updateEndCapStatus(this.manager);
@@ -1093,6 +1094,7 @@ export function handleCihazEkleme(cihaz) {
         vana.fromEnd = boruUcu.uc; // 'p1' veya 'p2'
         vana.fixedDistance = centerMargin; // 5 cm
 
+        initObjectDefaults(vana, this.manager);
         this.manager.components.push(vana);
         // Kapama sembolü durumunu güncelle
         vana.updateEndCapStatus(this.manager);

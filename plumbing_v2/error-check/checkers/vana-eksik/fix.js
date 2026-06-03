@@ -11,6 +11,7 @@
 
 import { createVana } from '../../../objects/valve.js';
 import { recomputeAllPressures } from '../../../utils/pressure-recompute.js';
+import { initObjectDefaults } from '../../../properties/properties-panel.js';
 import { draw2D } from '../../../../draw/draw2d.js';
 
 const VANA_GENISLIGI = 8;     // cm
@@ -168,6 +169,7 @@ function placeValveOnPipe(manager, pipe, vanaTipi, { fromEnd, fixedDistance }) {
         ? -45
         : (typeof pipe.aciDerece === 'number' ? pipe.aciDerece : (Math.atan2(dy, dx) * 180 / Math.PI));
 
+    initObjectDefaults(vana, manager);
     manager.components.push(vana);
     if (typeof vana.updateEndCapStatus === 'function') {
         vana.updateEndCapStatus(manager);
