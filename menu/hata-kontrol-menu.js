@@ -146,12 +146,13 @@ export function showHataKontrolModal() {
     const overlay = getOverlay();
     if (!overlay) return;
     overlay.style.display = 'block';
+    document.body.classList.add('modal-open');
     centerModal();
     hideDetailPopup();
-    
+
     // Açılış esnasında gruplandırma dropdown arayüzünü enjekte et
     injectHataKontrolGrouping();
-    
+
     // Açılışta otomatik olarak kontrolü çalıştır.
     runAndRender();
 }
@@ -164,6 +165,10 @@ function runAndRender() {
 function hideHataKontrolModal() {
     const overlay = getOverlay();
     if (overlay) overlay.style.display = 'none';
+    const others = '#boru-cap-modal-overlay[style*="display: block"], #fittings-modal-overlay[style*="display: block"]';
+    if (!document.querySelector(others)) {
+        document.body.classList.remove('modal-open');
+    }
     hideDetailPopup();
     closeFilterBar(true);
     hkSelectedErrorId = null;

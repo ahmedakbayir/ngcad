@@ -572,7 +572,8 @@ function ensureConfirmDom() {
         display: none;
         position: fixed; inset: 0;
         background: rgba(0,0,0,0.45);
-        z-index: 10001;
+        /* > #pIso (100002) — izometri açıkken popup arkada kalmasın. */
+        z-index: 2000000;
         align-items: center; justify-content: center;
     `;
     overlay.innerHTML = `
@@ -640,9 +641,14 @@ function showConfirm(modeLabel) {
         title.textContent = `Otomatik Çap Belirle — ${modeLabel}`;
         msg.textContent   = 'Çaplar yeniden belirlenecek, emin misiniz?';
         overlay.style.display = 'flex';
+        document.body.classList.add('modal-open');
 
         const cleanup = () => {
             overlay.style.display = 'none';
+            const others = '#boru-cap-modal-overlay[style*="display: block"], #hata-kontrol-modal-overlay[style*="display: block"], #fittings-modal-overlay[style*="display: block"]';
+            if (!document.querySelector(others)) {
+                document.body.classList.remove('modal-open');
+            }
             okBtn.removeEventListener('click', onOk);
             cnBtn.removeEventListener('click', onCancel);
             document.removeEventListener('keydown', onKey);
@@ -663,6 +669,10 @@ function showConfirm(modeLabel) {
 function hideConfirm() {
     const overlay = document.getElementById('auto-cap-confirm-overlay');
     if (overlay) overlay.style.display = 'none';
+    const others = '#boru-cap-modal-overlay[style*="display: block"], #hata-kontrol-modal-overlay[style*="display: block"], #fittings-modal-overlay[style*="display: block"]';
+    if (!document.querySelector(others)) {
+        document.body.classList.remove('modal-open');
+    }
 }
 
 // ─── 8) Menü bağlama ──────────────────────────────────────────────────────────

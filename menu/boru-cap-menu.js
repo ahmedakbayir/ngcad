@@ -1253,12 +1253,17 @@ export function showBoruCapModal() {
     if (!overlay || !body) return;
     renderInto(body);
     overlay.style.display = 'block';
+    document.body.classList.add('modal-open');
     centerModal();
 }
 
 function hideBoruCapModal() {
     const overlay = document.getElementById('boru-cap-modal-overlay');
     if (overlay) overlay.style.display = 'none';
+    const others = '#hata-kontrol-modal-overlay[style*="display: block"], #fittings-modal-overlay[style*="display: block"]';
+    if (!document.querySelector(others)) {
+        document.body.classList.remove('modal-open');
+    }
 }
 
 function makeDraggable() {

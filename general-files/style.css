@@ -158,6 +158,12 @@ body.light-mode {
     z-index: 100002;
 }
 
+/* Tam-ekran modal (Boru Çapı / Hata Kontrol) açıkken iso panelinin yüksek
+   z-index'i modal'ı maskeliyor — stacking context'i sıfırlayıp modal'ı öne alıyoruz. */
+body.modal-open #pIso {
+    z-index: auto !important;
+}
+
 .main.show-iso #pIso {
     display: block;
     flex: 1 1 33.33%;
@@ -5588,7 +5594,8 @@ body.light-mode .vis-panel-inner {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
-    z-index: 10001;
+    /* > #pIso (100002) — izometri açıkken modal arkada kalmasın. */
+    z-index: 2000000 !important;
 }
 
 .fittings-modal {
@@ -5801,7 +5808,9 @@ body.light-mode .fittings-table-wrapper {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
-    z-index: 10001;
+    /* > #pIso (100002) ve ana menü dropdown'ı (100004) — aksi takdirde
+       izometri açıkken modal arkada kalıyor. */
+    z-index: 2000000 !important;
 }
 
 .bc-modal {
@@ -6609,7 +6618,9 @@ body {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.55);
-    z-index: 10001;
+    /* > #pIso (100002) ve ana menü dropdown'ı (100004) — aksi takdirde
+       izometri açıkken modal arkada kalıyor. */
+    z-index: 2000000 !important;
 }
 
 .hk-modal {
@@ -6901,7 +6912,8 @@ body {
 /* Detay popup */
 .hk-detail-popup {
     position: fixed;
-    z-index: 10010;
+    /* hk-modal-overlay üstünde — detay popup modal'ın üstünde açılmalı. */
+    z-index: 2000001 !important;
     background: var(--bg-popup, #1f2330);
     color: var(--color-text, #eaeef5);
     border: 1px solid rgba(255, 255, 255, 0.15);

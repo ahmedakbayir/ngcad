@@ -345,6 +345,7 @@ export function showFittingsModal() {
     const { rows } = computeFittings(plumbingManager);
     body.innerHTML = renderTable(rows);
     overlay.style.display = 'block';
+    document.body.classList.add('modal-open');
     centerModal();
 
     // Hat satırına çift tıklama → paneli kapat ve hattı projede seçili hâle getir.
@@ -362,6 +363,10 @@ export function showFittingsModal() {
 function hideFittingsModal() {
     const overlay = document.getElementById('fittings-modal-overlay');
     if (overlay) overlay.style.display = 'none';
+    const others = '#boru-cap-modal-overlay[style*="display: block"], #hata-kontrol-modal-overlay[style*="display: block"]';
+    if (!document.querySelector(others)) {
+        document.body.classList.remove('modal-open');
+    }
 }
 
 function makeDraggable() {
