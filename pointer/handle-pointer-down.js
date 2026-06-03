@@ -51,6 +51,16 @@ export function handlePointerDown(e) {
     const isDblClick = (e.detail || 0) >= 2;
     const selectOpts = { openPanel: isDblClick };
 
+    // CTRL+kısa-tık (sürükleme yoksa) pointer-up tarafında altta vana varsa
+    // ona geçer. Bu nedenle ekran konumu + CTRL durumu burada saklanır;
+    // sürükleme akışı (endpoint/body drag, copy) hiçbir CTRL guard'ıyla
+    // engellenmez — drag her zaman çalışır, click=vana mantığı pointer-up'ta.
+    if (e.button === 0) {
+        this._ctrlClickDownScreen = (e.ctrlKey || e.metaKey)
+            ? { x: e.clientX, y: e.clientY, world: point }
+            : null;
+    }
+
     // Snap point varsa kullan, yoksa normal point
     let targetPoint = this.activeSnap
         ? { x: this.activeSnap.x, y: this.activeSnap.y, z: this.activeSnap.z }
@@ -410,8 +420,7 @@ export function handlePointerDown(e) {
         // varsa o seçilsin — bu yüzden burada erken yakalama yapılmaz; seçim
         // findObjectAt'taki en-yakın-aday mantığına bırakılır.
         const _vbfEarly = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
-        // CTRL: yalnız vana seçimi modunda boru/sembol seçilemez.
-        if (!(e.ctrlKey || e.metaKey) && _vbfEarly < 0.5 && (!this.manager.activeTool || this.manager.activeTool !== 'boru')) {
+        if (_vbfEarly < 0.5 && (!this.manager.activeTool || this.manager.activeTool !== 'boru')) {
             const verticalToleranceEarly = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
             const verticalSymbolEarly = this.manager.interactionManager.findVerticalPipeSymbolAt(point, verticalToleranceEarly);
             if (verticalSymbolEarly) {
@@ -466,17 +475,15 @@ export function handlePointerDown(e) {
         const worldTolerance = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
 
         // --- DÜŞEY BORU SEMBOLü KONTROLÜ (2D modunda) ---
-        // CTRL (onlyVana modu): boru/sembol seçilemez, akış findObjectAt'a devam etsin.
-        if (!(e.ctrlKey || e.metaKey)) {
-            const verticalSymbol = this.manager.interactionManager.findVerticalPipeSymbolAt(point, worldTolerance);
-            if (verticalSymbol) {
-                const pipe = verticalSymbol.pipe;
-                this.selectObject(pipe, selectOpts);
-                if (e.altKey || e.ctrlKey) this.startBodyDrag(pipe, point);
-                maybeShowQuickActionButton(this, point, pipe);
-                maybeShowQuickAddPalette(this, point, pipe);
-                return true;
-            }
+        const verticalSymbol = this.manager.interactionManager.findVerticalPipeSymbolAt(point, worldTolerance);
+        if (verticalSymbol) {
+            const pipe = verticalSymbol.pipe;
+            this.selectObject(pipe, selectOpts);
+            // Doğrudan gövdeden sürükleme: ALT (taşıma) veya CTRL (kopya)
+            if (e.altKey || e.ctrlKey) this.startBodyDrag(pipe, point);
+            maybeShowQuickActionButton(this, point, pipe);
+            maybeShowQuickAddPalette(this, point, pipe);
+            return true;
         }
 
         // Baca endpoint
@@ -515,9 +522,9 @@ export function handlePointerDown(e) {
         // Vanaların ~8cm hit-area'sı uç noktayı örtebiliyor. Boru zaten seçiliyken
         // kullanıcının uçtan tutma niyetini koru: tek tıkta uca yakın (≤10px) ise
         // findObjectAt'a girmeden endpoint dragı başlat. Çift tıkta atla — vana
-        // paneli vs. açılabilsin. CTRL: vana seçimi (onlyVana) önceliği — endpoint
-        // takıntısı iptal, findObjectAt vana seçsin.
-        if (!isDblClick && !isDoubleClick && !e.ctrlKey && !e.metaKey && this.selectedObject?.type === 'boru') {
+        // paneli vs. açılabilsin. CTRL'de de endpoint drag çalışsın; CTRL+kısa-tık
+        // (sürükleme yoksa) vana'ya geçiş pointer-up tarafında yapılır.
+        if (!isDblClick && !isDoubleClick && this.selectedObject?.type === 'boru') {
             const selPipe = this.selectedObject;
             const t3d = state.is3DPerspectiveActive ? 1 : (state.viewBlendFactor || 0);
             const sp1x = selPipe.p1.x + (selPipe.p1.z || 0) * t3d;
@@ -543,9 +550,11 @@ export function handlePointerDown(e) {
         }
 
         // --- 3D HASSAS SEÇİM ---
-        // Varsayılan: eski davranış (vana hariç komponent → boru). CTRL: SADECE vana.
-        const findOpts = (e.ctrlKey || e.metaKey) ? { onlyVana: true } : undefined;
-        const hitObject = this.findObjectAt(point, findOpts);
+        // findObjectAt komponent ve boru adaylarını birlikte sıralar; fareye en
+        // yakın çizilen objeyi seçer. Vana sembolü hariç tutulur — CTRL+kısa-tıkta
+        // altta vana varsa pointer-up tarafında vana'ya geçilir; sürükleme bu akışı
+        // engellemez (drag her zaman çalışır).
+        const hitObject = this.findObjectAt(point);
         if (hitObject) {
             let selectOptsForHit = selectOpts;
             if (hitObject.type === 'boru') {
