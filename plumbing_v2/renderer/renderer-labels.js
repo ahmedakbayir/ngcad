@@ -1247,7 +1247,7 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
             if (d > 0) lines.push({ text: `Daire Sayısı: ${d}`, sub: true });
             if (dk > 0) lines.push({ text: `Dükkan Sayısı: ${dk}`, sub: true });
             const n = d + dk;
-            const faktorluDebi = n > 0 ? getCizelge6Debi(n, 0, true) : 0;
+            const faktorluDebi = n > 0 ? getCizelge6Debi(n, 0, true, state.isinmaTipi) : 0;
             const toplamDebi = faktorluDebi + ek;
             if (ek > 0) lines.push({ text: `Ek Debi: ${ek.toFixed(2)} m³/h`, sub: true });
             if (toplamDebi > 0) lines.push({ text: `Toplam Debi: ${toplamDebi.toFixed(2)} m³/h`, sub: true });

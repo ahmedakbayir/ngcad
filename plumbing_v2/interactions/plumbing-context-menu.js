@@ -12,6 +12,7 @@ import { draw2D } from '../../draw/draw2d.js';
 import { getOrCreateNode } from '../../draw/geometry.js';
 import { relayoutAllLabels } from '../renderer/renderer-labels.js';
 import { recomputeAllPressures } from '../utils/pressure-recompute.js';
+import { getStandardBirimDebi } from '../renderer/renderer-utils.js';
 import { placeMenuInViewport, setupSubmenuPositioning } from '../../menu/menu-positioning.js';
 import { drawColumnToAdjacentFloor, drawColumnAllFloors, pasteFloorPlumbingToAllFloors } from './kolon-operations.js';
 import { BAGLANTI_TIPLERI } from '../objects/pipe.js';
@@ -269,7 +270,7 @@ function sayacVanasiniDonustur(sayaclar, manager, excludeCompIds = new Set()) {
         // hiç set edilmemiş olabilir; computePipeDebileri parseFloat(undefined) =
         // NaN nedeniyle bu vanayı yok sayar ve hat debisi 0 görünür.
         if (vana.bransmanDebi === undefined || vana.bransmanDebi === null || vana.bransmanDebi === '') {
-            vana.bransmanDebi = '3.5';
+            vana.bransmanDebi = String(getStandardBirimDebi(state.isinmaTipi));
         }
     }
 }

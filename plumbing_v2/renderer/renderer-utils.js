@@ -384,10 +384,14 @@ function _cihazMinDebiForCalc(c) {
 
 /**
  * TS 7363:2018 Çizelge 6 — Bağımsız birimler (n=1…100)
- * f_bry: eş zaman faktörü, bry: tablodaki doğrudan debi (m³/h, tüm birimler 3.5 m³/h ise)
+ * Üç ısınma tipi için ayrı kolonlar mevcuttur:
+ *   • bireysel  = Ocak + kombi   (her birim ~3.5 m³/h, BASE=4.1)
+ *   • merkezi   = Ocak + şofben  (her birim ~3.4 m³/h, BASE=3.8)
+ *   • boylerli  = Evsel ocak     (her birim ~0.9 m³/h, BASE=1.6)
+ * Aktif tip state.isinmaTipi (default 'bireysel') ile seçilir.
  * Index 0 = n=1 … index 99 = n=100
  */
-const CIZELGE_6 = [
+const CIZELGE_6_BIREYSEL = [
     {f_bry:0.854,bry:  3.5},{f_bry:0.853,bry:  7.0},{f_bry:0.772,bry:  9.5},{f_bry:0.719,bry: 11.8},
     {f_bry:0.682,bry: 14.0},{f_bry:0.670,bry: 16.5},{f_bry:0.644,bry: 18.5},{f_bry:0.625,bry: 20.5},
     {f_bry:0.609,bry: 22.5},{f_bry:0.597,bry: 24.5},{f_bry:0.587,bry: 26.5},{f_bry:0.579,bry: 28.5},
@@ -415,20 +419,104 @@ const CIZELGE_6 = [
     {f_bry:0.398,bry:158.4},{f_bry:0.398,bry:159.9},{f_bry:0.397,bry:161.3},{f_bry:0.397,bry:162.8}
 ];
 
-/** 1 birimin bry faktörü — ham debi hesabında bölen olarak kullanılır (0.854) */
-const BRY1 = CIZELGE_6[0].f_bry;
+// MERKEZİ (Ocak + şofben) — TS 7363 tablosunda verilen seyrek satırlar.
+// n=20'den sonra 2'li, n=30'dan sonra 5'li adımlarla verilmiştir; ara n değerleri
+// _buildDenseCizelge6() ile lineer interpolasyonla doldurulur.
+const CIZELGE_6_MERKEZI_SPARSE = [
+    {n:1,f_bry:0.895,bry:3.4},{n:2,f_bry:0.553,bry:4.2},{n:3,f_bry:0.439,bry:5.0},{n:4,f_bry:0.355,bry:5.4},
+    {n:5,f_bry:0.316,bry:6.0},{n:6,f_bry:0.276,bry:6.3},{n:7,f_bry:0.241,bry:6.4},{n:8,f_bry:0.230,bry:7.0},
+    {n:9,f_bry:0.216,bry:7.4},{n:10,f_bry:0.205,bry:7.8},{n:11,f_bry:0.199,bry:8.3},{n:12,f_bry:0.188,bry:8.5},
+    {n:13,f_bry:0.178,bry:8.8},{n:14,f_bry:0.167,bry:8.9},{n:15,f_bry:0.165,bry:9.4},{n:16,f_bry:0.161,bry:9.8},
+    {n:17,f_bry:0.155,bry:10.0},{n:18,f_bry:0.154,bry:10.5},{n:19,f_bry:0.150,bry:10.8},{n:20,f_bry:0.143,bry:10.9},
+    {n:22,f_bry:0.136,bry:11.4},{n:24,f_bry:0.132,bry:12.0},{n:26,f_bry:0.127,bry:12.5},{n:28,f_bry:0.120,bry:12.8},
+    {n:30,f_bry:0.118,bry:13.4},{n:35,f_bry:0.108,bry:14.4},{n:40,f_bry:0.103,bry:15.7},{n:45,f_bry:0.097,bry:16.6},
+    {n:50,f_bry:0.094,bry:17.8},{n:55,f_bry:0.091,bry:19.0},{n:60,f_bry:0.087,bry:19.9},{n:65,f_bry:0.085,bry:20.9},
+    {n:70,f_bry:0.082,bry:21.8},{n:75,f_bry:0.080,bry:22.7},{n:80,f_bry:0.078,bry:23.8},{n:85,f_bry:0.077,bry:24.9},
+    {n:90,f_bry:0.076,bry:25.9},{n:95,f_bry:0.075,bry:26.9},{n:100,f_bry:0.073,bry:27.8}
+];
+
+// BOYLERLİ (Evsel ocak) — kombi/şofben yok; her birim 1.6 m³/h tek ocak.
+const CIZELGE_6_BOYLERLI_SPARSE = [
+    {n:1,f_bry:0.563,bry:0.9},{n:2,f_bry:0.500,bry:1.6},{n:3,f_bry:0.375,bry:1.8},{n:4,f_bry:0.328,bry:2.1},
+    {n:5,f_bry:0.300,bry:2.4},{n:6,f_bry:0.270,bry:2.6},{n:7,f_bry:0.250,bry:2.8},{n:8,f_bry:0.234,bry:3.0},
+    {n:9,f_bry:0.222,bry:3.2},{n:10,f_bry:0.212,bry:3.4},{n:11,f_bry:0.204,bry:3.6},{n:12,f_bry:0.197,bry:3.8},
+    {n:13,f_bry:0.187,bry:3.9},{n:14,f_bry:0.183,bry:4.1},{n:15,f_bry:0.179,bry:4.3},{n:16,f_bry:0.171,bry:4.4},
+    {n:17,f_bry:0.169,bry:4.6},{n:18,f_bry:0.163,bry:4.7},{n:19,f_bry:0.161,bry:4.9},{n:20,f_bry:0.156,bry:5.0},
+    {n:22,f_bry:0.150,bry:5.3},{n:24,f_bry:0.145,bry:5.6},{n:26,f_bry:0.141,bry:5.9},{n:28,f_bry:0.138,bry:6.2},
+    {n:30,f_bry:0.133,bry:6.4},{n:35,f_bry:0.125,bry:7.0},{n:40,f_bry:0.121,bry:7.7},{n:45,f_bry:0.115,bry:8.3},
+    {n:50,f_bry:0.110,bry:8.8},{n:55,f_bry:0.105,bry:9.2},{n:60,f_bry:0.102,bry:9.8},{n:65,f_bry:0.100,bry:10.4},
+    {n:70,f_bry:0.098,bry:11.0},{n:75,f_bry:0.095,bry:11.4},{n:80,f_bry:0.093,bry:11.9},{n:85,f_bry:0.091,bry:12.4},
+    {n:90,f_bry:0.090,bry:13.0},{n:95,f_bry:0.088,bry:13.4},{n:100,f_bry:0.087,bry:13.9}
+];
+
+function _buildDenseCizelge6(sparse) {
+    const out = new Array(100);
+    for (let n = 1; n <= 100; n++) {
+        let i = 0;
+        while (i < sparse.length - 1 && sparse[i + 1].n <= n) i++;
+        const lo = sparse[i];
+        const hi = sparse[Math.min(i + 1, sparse.length - 1)];
+        if (n === lo.n || lo.n === hi.n) {
+            out[n - 1] = { f_bry: lo.f_bry, bry: lo.bry };
+        } else {
+            const t = (n - lo.n) / (hi.n - lo.n);
+            out[n - 1] = {
+                f_bry: lo.f_bry + (hi.f_bry - lo.f_bry) * t,
+                bry: lo.bry + (hi.bry - lo.bry) * t,
+            };
+        }
+    }
+    return out;
+}
+
+const CIZELGE_6_MERKEZI  = _buildDenseCizelge6(CIZELGE_6_MERKEZI_SPARSE);
+const CIZELGE_6_BOYLERLI = _buildDenseCizelge6(CIZELGE_6_BOYLERLI_SPARSE);
+
+const CIZELGE_6_TABLES = {
+    bireysel: CIZELGE_6_BIREYSEL,
+    merkezi : CIZELGE_6_MERKEZI,
+    boylerli: CIZELGE_6_BOYLERLI,
+};
+
+// Geriye dönük uyumluluk için BIREYSEL alias (eski kod CIZELGE_6 / BRY1 kullanıyor).
+// Sayaç öncesi ham debi (3.5/BRY1 vb.) hesapları bu sabit üzerinden BIREYSEL davranır;
+// ısınma tipi değişimi şimdilik yalnız Çizelge 6 lookup tablosunu değiştirir.
+const CIZELGE_6 = CIZELGE_6_BIREYSEL;
+const BRY1 = CIZELGE_6_BIREYSEL[0].f_bry;
+
+function _resolveActiveIsinmaTipi(explicit) {
+    if (explicit && CIZELGE_6_TABLES[explicit]) return explicit;
+    const fromState = (typeof window !== 'undefined' && window.state?.isinmaTipi) || null;
+    return CIZELGE_6_TABLES[fromState] ? fromState : 'bireysel';
+}
 
 /**
  * Çizelge 6 ile sayaç öncesi hat debisini hesaplar.
- * @param {number}  count   - Toplam birim sayısı
- * @param {number}  hamDebi - Ham debi toplamı (her birim = birimDebi / BRY1)
- * @param {boolean} hepsi35 - Tüm birimler tam 3.5 m³/h ise → bry kolonunu doğrudan kullan
+ * @param {number}  count       - Toplam birim sayısı
+ * @param {number}  hamDebi     - Ham debi toplamı (her birim = birimDebi / BRY1)
+ * @param {boolean} hepsi35     - Tüm birimler tam 3.5 m³/h ise → bry kolonunu doğrudan kullan
+ * @param {string}  [isinmaTipi]- 'bireysel' (default) | 'merkezi' | 'boylerli';
+ *                                 verilmezse window.state.isinmaTipi okunur.
  */
-export function getCizelge6Debi(count, hamDebi, hepsi35) {
+export function getCizelge6Debi(count, hamDebi, hepsi35, isinmaTipi) {
     if (count <= 0) return 0;
+    const tip = _resolveActiveIsinmaTipi(isinmaTipi);
+    const table = CIZELGE_6_TABLES[tip];
     const idx = Math.min(count, 100) - 1;
-    const row = CIZELGE_6[idx];
+    const row = table[idx];
     return hepsi35 ? row.bry : hamDebi * row.f_bry;
+}
+
+/**
+ * Aktif ısınma tipinde 1 birimin faktörlü debisi (Çizelge 6 n=1 satırı, bry kolonu):
+ *   bireysel → 3.5 m³/h   (Ocak + kombi)
+ *   merkezi  → 3.4 m³/h   (Ocak + şofben)
+ *   boylerli → 0.9 m³/h   (Evsel ocak)
+ * Vana defaultları ve migration için kullanılır.
+ */
+export function getStandardBirimDebi(isinmaTipi) {
+    const tip = _resolveActiveIsinmaTipi(isinmaTipi);
+    return CIZELGE_6_TABLES[tip][0].bry;
 }
 
 /**
@@ -478,6 +566,15 @@ export function computePipeDebileri(manager) {
     // Bu sayaçlarda eşzaman faktörü uygulanmaz, cihazlar birebir toplanır;
     // ve sayaç öncesine cikis debisi AYNEN yansır (birim/Çizelge 6 yerine direkt nfd).
     const _isAritmetikSayac = (s) => s && (s.birimTipi === 'TİCARİ' || s.birimTipi === 'KAZAN DAİRESİ');
+
+    // Aktif ısınma tipinin anchorları: BRY1 ve birim debi (Çizelge 6 n=1 satırı).
+    // BIREYSEL=3.5/0.854, MERKEZI=3.4/0.895, BOYLERLI=0.9/0.563.
+    // Hardcoded 3.5/BRY1 yerine bu değerleri kullanırsak vana=birim_debi → hat=birim_debi
+    // ilişkisi her ısınma tipinde self-consistent kalır.
+    const _activeTipi      = _resolveActiveIsinmaTipi();
+    const _activeTable     = CIZELGE_6_TABLES[_activeTipi];
+    const _activeBRY1      = _activeTable[0].f_bry;
+    const _activeBirimDebi = _activeTable[0].bry;
 
     // 3. Tüm boruları sıfırla
     //    Sayaç sonrası → cihaz dağılımı (_db) + direkt debi (_directDebi)
@@ -530,15 +627,15 @@ export function computePipeDebileri(manager) {
             if (!pipe) return;
 
             if (c.ilerdeKullanim) {
-                // İlerde kullanım: birim sayısı × 3.5 (Çizelge 6 ile, YANBINA gibi)
+                // İlerde kullanım: birim sayısı × aktif birim debi (Çizelge 6 ile, YANBINA gibi)
                 const n = parseInt(c.birimSayisi, 10) || 0;
                 if (n <= 0) return;
                 if (sayacSonrasiIds.has(c.bagliBoruId)) {
-                    pipe._nfd += n * 3.5;
+                    pipe._nfd += n * _activeBirimDebi;
                 } else {
                     pipe._birim.count   += n;
-                    pipe._birim.hamDebi += n * (3.5 / BRY1);
-                    // Hepsi 3.5 — hepsi35 değişmez
+                    pipe._birim.hamDebi += n * (_activeBirimDebi / _activeBRY1);
+                    // Hepsi standart birim debi — hepsi35 değişmez
                 }
             } else {
                 const debi = parseFloat(c.bransmanDebi);
@@ -546,10 +643,10 @@ export function computePipeDebileri(manager) {
                     if (sayacSonrasiIds.has(c.bagliBoruId)) {
                         pipe._nfd += debi;
                     } else {
-                        // Sayaç öncesi: 1 birim, ham debi = birimDebi / BRY1
+                        // Sayaç öncesi: 1 birim, ham debi = birimDebi / aktif BRY1
                         pipe._birim.count   += 1;
-                        pipe._birim.hamDebi += debi / BRY1;
-                        if (Math.abs(debi - 3.5) > 0.001) pipe._birim.hepsi35 = false;
+                        pipe._birim.hamDebi += debi / _activeBRY1;
+                        if (Math.abs(debi - _activeBirimDebi) > 0.001) pipe._birim.hepsi35 = false;
                     }
                 }
             }
@@ -561,15 +658,15 @@ export function computePipeDebileri(manager) {
             const pipe = pipeMap.get(c.bagliBoruId);
             if (!pipe) return;
             if (sayacSonrasiIds.has(c.bagliBoruId)) {
-                const debi = (d + dk) * 3.5 + ek;
+                const debi = (d + dk) * _activeBirimDebi + ek;
                 if (debi > 0) pipe._nfd += debi;
             } else {
-                // Sayaç öncesi: (daire+dükkan) birim; her birim 3.5 m³/h
+                // Sayaç öncesi: (daire+dükkan) birim; her birim aktif tipin birim debisi
                 const n = d + dk;
                 if (n > 0) {
                     pipe._birim.count   += n;
-                    pipe._birim.hamDebi += n * (3.5 / BRY1);
-                    // Yan bina birimleri her zaman 3.5 — hepsi35 değişmez
+                    pipe._birim.hamDebi += n * (_activeBirimDebi / _activeBRY1);
+                    // Yan bina birimleri her zaman standart — hepsi35 değişmez
                 }
                 // Ek debi: Çizelge 6'ya girmez, doğrudan (aritmetik) eklenir
                 if (ek > 0) pipe._nfd += ek;
@@ -660,10 +757,13 @@ export function computePipeDebileri(manager) {
         const sayacDebi = cikisBoru.debi;
         const aritmetik = _isAritmetikSayac(c);
 
-        // Standart birim hesabı (KONUT/OFİS için)
-        const birimDebi = sayacDebi <= 5 ? 3.5 : 3.5 + (sayacDebi - 5);
-        const hamDebi = birimDebi / BRY1;
-        const bu35 = Math.abs(birimDebi - 3.5) <= 0.001;
+        // Standart birim hesabı (KONUT/OFİS için).
+        // 5 m³/h: rezidan ticari sınır (tipi bağımsız sayaç boyut sınırı).
+        // Bunun altında her sayaç 1 birim (aktif tipin birim debisi) sayılır;
+        // üstündeyse fazla kısım doğrusal eklenir.
+        const birimDebi = sayacDebi <= 5 ? _activeBirimDebi : _activeBirimDebi + (sayacDebi - 5);
+        const hamDebi = birimDebi / _activeBRY1;
+        const bu35 = Math.abs(birimDebi - _activeBirimDebi) <= 0.001;
 
         // Sayaç giriş borusundan başlayıp YALNIZ ÜST yöne (parentOf) yürü.
         // Aksi hâlde aynı trunk'tan beslenen sibling kollara da birim eklenir

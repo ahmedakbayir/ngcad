@@ -356,6 +356,7 @@ export let state = {
     currentDrawingMode: "KARMA", // MİMARİ, TESİSAT, KARMA - Hangi tip nesnelerle çalışılabilir
     currentPlumbingBlockType: 'SERVIS_KUTUSU', // Aktif tesisat bloğu tipi
     plumbingColorMode: "topology",
+    isinmaTipi: 'bireysel', // 'bireysel' | 'merkezi' | 'boylerli' — TS 7363 Çizelge 6 kolon seçimi
     startPoint: null,
     nodes: [],
     walls: [],

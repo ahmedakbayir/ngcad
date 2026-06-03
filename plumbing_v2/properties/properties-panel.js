@@ -14,6 +14,8 @@ import { processWalls } from '../../wall/wall-processor.js';
 import { saveState } from '../../general-files/history.js';
 import { update3DScene } from '../../scene3d/scene3d-update.js';
 import { clearLabelOffsetsForFloor, relayoutAllLabels } from '../renderer/renderer-labels.js';
+import { recomputeAllPressures } from '../utils/pressure-recompute.js';
+import { getStandardBirimDebi } from '../renderer/renderer-utils.js';
 import { startTextAnnotationPlacement } from '../../architectural-objects/text-annotation-placement.js';
 import { selectObject as plumbingSelectObject } from '../interactions/selection-manager.js';
 import { SONLANMA_VANALARI } from '../objects/valve.js';
@@ -60,6 +62,25 @@ export function openEmptyPanel() {
     panelEl.classList.add('visible', 'full-height');
     const modeUI = getModeBtnUI(currentPanelMode);
 
+    const isinmaTipi = state.isinmaTipi || 'bireysel';
+    const isinmaOpts = [
+        { v: 'bireysel', l: 'Bireysel',          d: 'Ocak + kombi' },
+        { v: 'merkezi',  l: 'Merkezi',           d: 'Ocak + şofben' },
+        { v: 'boylerli', l: 'Boylerli (merkezi)',d: 'Evsel ocak' },
+    ];
+    const isinmaRadiosHtml = isinmaOpts.map(o => `
+        <label class="props-isinma-opt${isinmaTipi === o.v ? ' is-active' : ''}"
+               style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:4px;cursor:pointer;
+                      background:${isinmaTipi === o.v ? 'rgba(0,191,250,0.10)' : 'transparent'};
+                      border:1px solid ${isinmaTipi === o.v ? 'rgba(0,191,250,0.5)' : 'rgba(255,255,255,0.08)'};">
+            <input type="radio" name="props-isinma-tipi" value="${o.v}" ${isinmaTipi === o.v ? 'checked' : ''}
+                   style="accent-color:#7fd9ff;cursor:pointer;margin:0">
+            <span style="display:flex;flex-direction:column;align-items:flex-start;line-height:1.2">
+                <span style="font-weight:600;font-size:12px;color:#cfd4dc">${o.l}</span>
+                <span style="font-size:10px;opacity:0.65">${o.d}</span>
+            </span>
+        </label>`).join('');
+
     panelEl.innerHTML = `
         <div class="props-header">
             <span class="props-title">Özellikler</span>
@@ -75,6 +96,15 @@ export function openEmptyPanel() {
             <div style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;">🖱️</div>
             <div style="font-size: 14px; font-weight: bold; color: #aaa;">Nesne Seçilmedi</div>
             <div style="font-size: 12px; margin-top: 5px; opacity: 0.7;">Özelliklerini görmek için sahnede bir nesneye tıklayın.</div>
+
+            <div id="props-isinma-tipi-block"
+                 style="margin-top:24px;width:100%;max-width:260px;display:flex;flex-direction:column;gap:6px;text-align:left">
+                <div style="font-size:11px;font-weight:700;letter-spacing:0.5px;color:#7fd9ff;text-transform:uppercase;text-align:center;margin-bottom:4px">
+                    Isınma Tipi
+                </div>
+                ${isinmaRadiosHtml}
+            </div>
+
             <button id="props-add-text-btn"
                 style="margin-top:24px;padding:8px 14px;background:rgba(138,180,248,0.15);border:1px solid rgba(138,180,248,0.6);color:#8ab4f8;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;letter-spacing:0.3px">
                 ✏ Projeye metin ekle
@@ -98,6 +128,52 @@ export function openEmptyPanel() {
     });
     panelEl.querySelector('#props-relabel-all-btn')?.addEventListener('click', _resetAllLabelOffsets);
     panelEl.querySelector('#props-add-text-btn')?.addEventListener('click', () => startTextAnnotationPlacement());
+
+    // Isınma tipi radio: değişince state güncelle, BRANSMAN vana defaultlarını taşı,
+    // debi/basınç yeniden hesapla, çizimi tazele
+    panelEl.querySelectorAll('input[name="props-isinma-tipi"]').forEach(input => {
+        input.addEventListener('change', () => {
+            if (!input.checked) return;
+            const newTipi = input.value;
+            const oldTipi = state.isinmaTipi || 'bireysel';
+            if (oldTipi === newTipi) return;
+            try { saveState(); } catch (e) { /* sessiz */ }
+
+            const manager = window.plumbingManager;
+            _migrateBransmanDebiOnTipiChange(manager, oldTipi, newTipi);
+
+            setState({ isinmaTipi: newTipi });
+            if (manager) {
+                try { recomputeAllPressures(manager); } catch (e) { /* sessiz */ }
+                manager.saveToState?.();
+            }
+            draw2D();
+            try { update3DScene(); } catch (e) { /* sessiz */ }
+            openEmptyPanel(); // aktif radyo görsel durumunu tazele
+        });
+    });
+}
+
+/**
+ * Isınma tipi değişince eski tipin standart birim debisini (örn. BIREYSEL 3.5) taşıyan
+ * BRANSMAN-tek vanaları yeni tipin standardına (BOYLERLI 0.9, MERKEZI 3.4) güncelle.
+ * Sadece tam eşleşen değerler güncellenir; kullanıcı farklı bir sayı girdiyse dokunulmaz.
+ * (Not: bry[0] BIREYSEL'de 3.5 olduğundan, manuel 3.5 yazmış kullanıcının değeri de
+ * varsayılan kabul edilip dönüştürülür — bu davranış kullanıcı tarafından onaylandı.)
+ */
+function _migrateBransmanDebiOnTipiChange(manager, oldTipi, newTipi) {
+    if (!manager?.components) return;
+    const oldDefault = getStandardBirimDebi(oldTipi);
+    const newDefault = getStandardBirimDebi(newTipi);
+    if (Math.abs(oldDefault - newDefault) < 1e-6) return;
+    const newStr = String(newDefault);
+    manager.components.forEach(c => {
+        if (c.type !== 'vana' || c.vanaTipi !== 'BRANSMAN' || c.ilerdeKullanim) return;
+        const cur = parseFloat(c.bransmanDebi);
+        if (!isNaN(cur) && Math.abs(cur - oldDefault) < 1e-3) {
+            c.bransmanDebi = newStr;
+        }
+    });
 }
 
 /** Projedeki tüm katlardaki etiketleri otomatik yerleşim algoritmasıyla yeniden yerleştirir */
@@ -255,8 +331,12 @@ function _initDefaults(obj, manager) {
                 }
             });
         }
-        if (p.key && p.default !== undefined && obj[p.key] === undefined) {
-            obj[p.key] = p.default;
+        if (p.key && obj[p.key] === undefined) {
+            if (typeof p.defaultFn === 'function') {
+                obj[p.key] = p.defaultFn(obj, manager);
+            } else if (p.default !== undefined) {
+                obj[p.key] = p.default;
+            }
         }
     });
 

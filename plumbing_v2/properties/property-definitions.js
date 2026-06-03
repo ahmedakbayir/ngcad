@@ -1,4 +1,4 @@
-import { getCizelge6Debi } from '../renderer/renderer-utils.js';
+import { getCizelge6Debi, getStandardBirimDebi } from '../renderer/renderer-utils.js';
 import { MAHAL_LISTESI, WALL_HEIGHT, state } from '../../general-files/main.js';
 import { getFloorAtElevation } from '../../floor/floor-handler.js';
 import { addDoorToWall, addWindowToWall, addVentToWall, addColumnToWall, flipArcWall } from '../../wall/wall-panel.js';
@@ -1198,7 +1198,7 @@ export const PROPERTY_DEFS = {
         readonlyFn: (obj) => {
             const n = (parseFloat(obj.daireSayisi) || 0) + (parseFloat(obj.dukkanSayisi) || 0);
             const ek = parseFloat(obj.ekDebi) || 0;
-            const faktorlu = n > 0 ? getCizelge6Debi(n, 0, true) : 0;
+            const faktorlu = n > 0 ? getCizelge6Debi(n, 0, true, state.isinmaTipi) : 0;
             const toplam = faktorlu + ek;
             return `${toplam.toFixed(2)} m³/h`;
         },
@@ -1212,6 +1212,8 @@ export const PROPERTY_DEFS = {
         type: 'text',
         inputType: 'number',
         key: 'bransmanDebi',
+        // Default aktif ısınma tipine bağlı: BIREYSEL 3.5 / MERKEZI 3.4 / BOYLERLI 0.9
+        defaultFn: () => String(getStandardBirimDebi(state.isinmaTipi)),
         default: '3.5',
         placeholder: '3.50',
         precision: 2,
@@ -1228,7 +1230,7 @@ export const PROPERTY_DEFS = {
         type: 'readonly',
         readonlyFn: (obj) => {
             const n = parseInt(obj.birimSayisi, 10) || 0;
-            const debi = n > 0 ? getCizelge6Debi(n, 0, true) : 0;
+            const debi = n > 0 ? getCizelge6Debi(n, 0, true, state.isinmaTipi) : 0;
             return `${debi.toFixed(2)} m³/h`;
         },
         visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN' && !!obj.ilerdeKullanim,

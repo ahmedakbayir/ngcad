@@ -193,7 +193,10 @@ function saveProject() {
         // İzometri görünüm düzenlemeleri
         isoPipeOffsets: state.isoPipeOffsets || {},
         isoComponentOffsets: state.isoComponentOffsets || {},
-        isoLabelOffsets: state.isoLabelOffsets || {}
+        isoLabelOffsets: state.isoLabelOffsets || {},
+
+        // TS 7363 Çizelge 6 — ısınma tipi (bireysel/merkezi/boylerli)
+        isinmaTipi: state.isinmaTipi || 'bireysel',
     };
 
     const dataStr = JSON.stringify(projectData, null, 2);
@@ -464,7 +467,10 @@ function loadJSONProject(fileContent) {
         // İzometri görünüm düzenlemeleri
         isoPipeOffsets: projectData.isoPipeOffsets || {},
         isoComponentOffsets: projectData.isoComponentOffsets || {},
-        isoLabelOffsets: projectData.isoLabelOffsets || {}
+        isoLabelOffsets: projectData.isoLabelOffsets || {},
+
+        // TS 7363 Çizelge 6 — ısınma tipi (eski projelerde yoksa bireysel)
+        isinmaTipi: projectData.isinmaTipi || 'bireysel',
     });
 
     // Tesisat yöneticisini güncelle
