@@ -22,6 +22,7 @@ import {
     cihazHatLabel,
     floorNameById,
     BIRIM_PLACEHOLDER,
+    hasParentSayac,
 } from '../../checker-utils.js';
 
 const CIHAZ_VANA_MAX_CM = 50;
@@ -280,6 +281,7 @@ function findMeterUpstreamLocal(manager, pipeId) {
 function sayacEmniyetKuralı(manager, out) {
     (manager.components || []).forEach(sayac => {
         if (sayac.type !== 'sayac') return;
+        if (hasParentSayac(manager, sayac)) return;
         const inletPipeId = sayac.fleksBaglanti?.boruId;
         const endpoint    = sayac.fleksBaglanti?.endpoint;
         if (!inletPipeId || !endpoint) return;
@@ -311,6 +313,7 @@ function sayacEmniyetKuralı(manager, out) {
 function ticariSelenoidKuralı(manager, out) {
     (manager.components || []).forEach(sayac => {
         if (sayac.type !== 'sayac') return;
+        if (hasParentSayac(manager, sayac)) return;
         if (sayac.birimTipi !== 'TİCARİ' && sayac.birimTipi !== 'TICARI') return;
         if (!sayac.cikisBagliBoruId) return;
         if (!meterCikisHasMinLength(manager, sayac, TICARI_SELENOID_MIN_CM)) return;
@@ -341,9 +344,9 @@ function ticariSelenoidKuralı(manager, out) {
 }
 
 // 5. Sismik vana — TS7363 Md:5.1.9
-//    Servis kutusu zincirinde AKV varsa, AKV sonrasında bir SISMIK vana
-//    bulunmalıdır (deprem bölgesi varsayımı). Zincirde hiç AKV yoksa kontrol
-//    edilmez (önce AKV eksik hatası tetiklenir).
+//    Her servis kutusu zincirinde bir SISMIK vana bulunmalıdır (deprem bölgesi
+//    varsayımı). AKV varsa sismik AKV sonrasına yerleşir; AKV yoksa hata yine
+//    tetiklenir (otomatik fix verilmez, kullanıcı önce AKV ekler).
 function depremSelenoidKuralı(manager, out) {
     const boxes = (manager.components || []).filter(c => c.type === 'servis_kutusu');
     if (!boxes.length) return;
@@ -371,14 +374,14 @@ function depremSelenoidKuralı(manager, out) {
         const akv = (manager.components || []).find(c =>
             c.type === 'vana' && c.vanaTipi === 'AKV' && chainIds.has(c.bagliBoruId)
         );
-        if (!akv) return;
 
         if (hasSismikInChain(manager, box.id)) return;
 
-        // Hedef: AKV'nin bulunduğu hat (sismik vana AKV sonrasına gelecek).
-        // AKV'nin pipe'ı yoksa fallback: servis kutusu sonrası ilk hat, sonra kutu.
+        // Hedef: AKV varsa AKV'nin bulunduğu hat (sismik vana AKV sonrasına
+        // gelecek). AKV yoksa fallback: servis kutusu sonrası ilk hat, sonra
+        // kutu. AKV yoksa otomatik fix verilmez — kullanıcı önce AKV ekler.
         const firstPipeId = roots[0]?.id;
-        const targets = akv.bagliBoruId
+        const targets = akv?.bagliBoruId
             ? [{ type: 'pipe', id: akv.bagliBoruId }]
             : firstPipeId
                 ? [{ type: 'pipe', id: firstPipeId }]
@@ -391,10 +394,10 @@ function depremSelenoidKuralı(manager, out) {
             source:  'TS7363 Md:5.1.9',
             detail:  'Binaların Yangından Korunması Hakkında Yönetmelik hükümlerinde belirtilen deprem bölgelerinde binaların ana girişinde ana kapama vanasından sonra, sarsıntı olduğunda gaz akışını kesen tertibat olması gerekmektedir.',
             targets,
-            fix: {
+            fix: akv ? {
                 description: 'AKV\'nin 30 cm sonrasına sismik vana eklenecek',
                 apply: () => addDepremSismik(manager, box.id),
-            },
+            } : null,
         });
     });
 }

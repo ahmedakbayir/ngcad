@@ -98,6 +98,18 @@ export function findMeterUpstream(manager, pipeId) {
     return null;
 }
 
+// Bu sayaç başka bir sayacın downstream zincirinde mi?
+// Why: parentSayacKurali "sayaç sonrası tekrar sayaç kullanılamaz" hatasını
+// üretiyor; aynı (geçersiz) sayaç için diğer kontrollerin (birim no, debi,
+// emniyet vanası, konik filtre, vs.) gürültü hata üretmesini önler.
+export function hasParentSayac(manager, sayac) {
+    if (!manager || sayac?.type !== 'sayac') return false;
+    const inputPipeId = sayac.fleksBaglanti?.boruId;
+    if (!inputPipeId) return false;
+    const parent = findMeterUpstream(manager, inputPipeId);
+    return !!(parent && parent.id !== sayac.id);
+}
+
 // Bir bileşenin (vana/sayaç/cihaz) bulunduğu kolon hat numarası.
 // Birden fazla pipe etrafına yayılmış vana/sayaç için bağlı boru üzerinden
 // hat eşlemesi yapılır.

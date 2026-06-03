@@ -23,6 +23,7 @@ import {
     hatNoForComp,
     floorNameById,
     gri,
+    hasParentSayac,
 } from '../../checker-utils.js';
 
 const NF2 = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -106,6 +107,7 @@ function sayacTipUyumKurali(manager, out) {
     const NO_TURBIN    = new Set(['G16', 'G25']);
     (manager.components || []).forEach(s => {
         if (s.type !== 'sayac') return;
+        if (hasParentSayac(manager, s)) return;
         const tip = s.sayacTipi;
         const tur = s.sayacTuru;
         if (!tip || !tur) return;
@@ -153,6 +155,7 @@ function sayacTipUyumKurali(manager, out) {
 function sayacAltDebiKurali(manager, out) {
     (manager.components || []).forEach(s => {
         if (s.type !== 'sayac') return;
+        if (hasParentSayac(manager, s)) return;
         const lim = sayacLimits(s);
         if (!lim) return;
         const cihazlar = cihazlarAfterMeter(manager, s);
@@ -211,6 +214,7 @@ function findSuitableSayac(toplam, basinc, cihazMinDebi) {
 function sayacUstDebiKurali(manager, out) {
     (manager.components || []).forEach(s => {
         if (s.type !== 'sayac') return;
+        if (hasParentSayac(manager, s)) return;
         const lim = sayacLimits(s);
         if (!lim) return;
         const toplam = sayacToplamDebi(manager, s);
@@ -251,6 +255,7 @@ function sayacUstDebiKurali(manager, out) {
 function sayacBuyukUyariKurali(manager, out) {
     (manager.components || []).forEach(s => {
         if (s.type !== 'sayac') return;
+        if (hasParentSayac(manager, s)) return;
         const lim = sayacLimits(s);
         if (!lim) return;
         const toplam = sayacToplamDebi(manager, s);
@@ -295,6 +300,7 @@ function sayacBuyukUyariKurali(manager, out) {
 function esnekMarkaKurali(manager, out) {
     (manager.components || []).forEach(s => {
         if (s.type !== 'sayac') return;
+        if (hasParentSayac(manager, s)) return;
         if (s.birimBoruTipi !== 'ESNEK') return;
         const marka = String(s.esnekMarka || '').trim();
         if (marka) return;

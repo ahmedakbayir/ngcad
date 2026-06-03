@@ -12,7 +12,7 @@
 
 import { errorCheckManager } from '../../error-check-manager.js';
 import { ERROR_GROUP_IDS } from '../../error-types.js';
-import { floorNameById, hatNoForComp } from '../../checker-utils.js';
+import { floorNameById, hatNoForComp, hasParentSayac } from '../../checker-utils.js';
 
 function birimLabel(tipi, no) {
     switch (tipi) {
@@ -43,6 +43,7 @@ function cogulBirimNoKurali(manager, out) {
     for (const a of anchors) {
         const no = String(a.birimNo ?? '').trim();
         if (!no) continue;
+        if (a.type === 'sayac' && hasParentSayac(manager, a)) continue;
         anyFilled = true;
         const tipi = a.birimTipi || 'KONUT';
         const key = `${tipi}|${no}`;
@@ -109,6 +110,7 @@ function sayacBirimNoBosKurali(manager, out) {
         if (s.type !== 'sayac') return;
         const no = String(s.birimNo ?? '').trim();
         if (no) return;
+        if (hasParentSayac(manager, s)) return;
 
         const pre = _kolonHatPrefix(manager, s);
         const msg = pre

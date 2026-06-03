@@ -15,7 +15,13 @@ import { ensureTopraklama, ensureMuhafaza } from './fix.js';
 import {
     hatNoForComp, hatNoForPipe, floorNameById, daireLabel,
     vanaHatLabel, sayacHatLabel, cihazHatLabel, hatPrefix,
+    hasParentSayac,
 } from '../../checker-utils.js';
+
+// Rotary kullanılamayan sayaç tipleri — sayac-hatasi/sayacTipUyumKurali ile
+// senkron. Bu tiplerde tür=ROTARY ise tür-uyum hatası tetiklenir; konik filtre
+// kontrolü cascade gürültü olur.
+const ROTARY_OLAMAZ = new Set(['G4', 'G6', 'G10']);
 import { state } from '../../../../general-files/main.js';
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────
@@ -296,6 +302,12 @@ function rotaryKonikFiltreKurali(manager, out) {
     (manager.components || []).forEach(s => {
         if (s.type !== 'sayac') return;
         if (s.sayacTuru !== 'ROTARY') return;
+        // Sayaç tipi rotary'i kabul etmiyorsa (G4/G6/G10) tür-uyum hatası
+        // zaten tetikleniyor; konik filtre kontrolü cascade gürültüdür.
+        if (ROTARY_OLAMAZ.has(s.sayacTipi)) return;
+        // Bu sayaç başka bir sayacın downstream'inde ise (parentSayacKurali
+        // hatası), zaten geçersiz bir sayaç — konik filtre kontrolü atlanır.
+        if (hasParentSayac(manager, s)) return;
 
         const chain = _upstreamCompsFromMeter(manager, s);
         // Sayaçtan upstream'e doğru tarama: konik filtre emniyet vanasından
