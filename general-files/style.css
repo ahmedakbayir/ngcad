@@ -388,6 +388,14 @@ canvas {
     z-index: 100000;
 }
 
+/* Yana açılan flyout sahibi grup, kardeş gruplara ait flyout'un altında kalmasın.
+   Flyout (z-index 100001) parent stacking context içinde clip oluyordu; tüm
+   .draggable-group elemanları z-index 100000 olduğu için DOM sırasına göre
+   sonraki grup öncekinin flyout'unu kaplıyordu. */
+.draggable-group:has(.tesisat-flyout.open) {
+    z-index: 100003;
+}
+
 /* Varsayılan pozisyonlar - yan yana
    .main margin-top:50px var → fixed positioning'de top:50px ana panelin üstüne denk gelir */
 #group-general {
@@ -2043,8 +2051,9 @@ body.light-mode .btn.active svg {
     border-right: 1px solid var(--border-group);
     border-bottom-right-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    /* Toolbar (#ui=10001) üstünde olmalı ki ana menü dropdown'ı toolbar'ı örtsün. */
-    z-index: 10002;
+    /* z-index > #pIso (100002): Ana menü dropdown'ı izometri panelinin üstünde
+       açılmalı; aksi takdirde Proje Aç/Kaydet menüsü izometri ile gizleniyor. */
+    z-index: 100004;
     backdrop-filter: blur(4px);
 }
 

@@ -499,7 +499,8 @@ export let state = {
     isoPanning: false,
     isoPanStart: { x: 0, y: 0 },
     // İzo renklendirme modu: 'topology' (kolon/iç-tesisat sarı/mavi) veya 'diameter' (DN bazlı palet)
-    isometricColorMode: 'diameter',
+    // plumbingColorMode ile her zaman senkron tutulur (setState içinde).
+    isometricColorMode: 'topology',
     // İzo görünür birim filtresi: null = hepsi görünür. Set veya Array ise sadece
     // içindeki anahtarlar çizilir. Anahtarlar: 'KOLON', `BIRIM_<sayacId>`.
     // Oturumluk (localStorage'a yazılmaz); dosya açılınca null'a düşer.
@@ -551,6 +552,14 @@ export function setState(newState) {
         newState.draggedRoomInfo = [];
     }
 
+    // Renk modu: izometri ve 2D proje görünümü tutarlı olsun. Birinin
+    // değiştirilmesi diğerini de günceller (kullanıcı tek yerden kontrol eder).
+    if (newState.plumbingColorMode !== undefined && newState.isometricColorMode === undefined) {
+        newState.isometricColorMode = newState.plumbingColorMode;
+    } else if (newState.isometricColorMode !== undefined && newState.plumbingColorMode === undefined) {
+        newState.plumbingColorMode = newState.isometricColorMode;
+    }
+
     // Walls veya doors değiştiğinde mini paneli güncelle
     const wallsChanged = newState.walls !== undefined && newState.walls !== state.walls;
     const doorsChanged = newState.doors !== undefined && newState.doors !== state.doors;
@@ -573,6 +582,12 @@ export function setState(newState) {
     if (diameterColorChk) {
         diameterColorChk.checked = (state.plumbingColorMode === 'diameter');
     }
+    // İzometri renk modu butonları senkron — plumbingColorMode değiştiğinde
+    // (örn. visibility checkbox'ı) iso butonları da aktif/pasif durumunu yansıtır.
+    const isoTopBtn = document.getElementById('iso-color-topology');
+    const isoDiaBtn = document.getElementById('iso-color-diameter');
+    if (isoTopBtn) isoTopBtn.classList.toggle('active', state.isometricColorMode === 'topology');
+    if (isoDiaBtn) isoDiaBtn.classList.toggle('active', state.isometricColorMode === 'diameter');
     // Kat içerik durumu değiştiyse mini panel'i güncelle
     if (wallsChanged || doorsChanged) {
         renderMiniPanel();
@@ -1241,10 +1256,12 @@ function initialize() {
     const diameterColorChk = document.getElementById('vis-chk-diameter-color');
     if (diameterColorChk) {
         diameterColorChk.addEventListener('change', (e) => {
+            // setState içinde isometricColorMode otomatik senkronlanır;
+            // izometri de aynı modu kullansın diye drawIsoView() çağrılır.
             setState({ plumbingColorMode: e.target.checked ? 'diameter' : 'topology' });
-            // Değişiklik sonrası 2D ve 3D görünümleri anında tazelemek için:
             if (typeof draw2D === 'function') draw2D();
             if (typeof update3DScene === 'function') update3DScene();
+            if (typeof drawIsoView === 'function') drawIsoView();
         });
     }
 

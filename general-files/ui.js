@@ -2122,9 +2122,13 @@ export function setupUIListeners() {
         btn.addEventListener('click', () => {
             const mode = btn.dataset.colorMode;
             if (state.isometricColorMode === mode) return;
+            // setState içinde plumbingColorMode ile otomatik senkronlanıyor;
+            // 2D'yi de tazele ki proje görünümü tutarlı olsun.
             setState({ isometricColorMode: mode });
             syncIsoColorBtns();
             drawIsoView();
+            draw2D();
+            update3DScene();
         });
     });
 
