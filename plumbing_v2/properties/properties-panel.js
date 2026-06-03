@@ -260,6 +260,26 @@ function _initDefaults(obj, manager) {
         }
     });
 
+    // Varsayılan marka/model — kullanıcı bir katalog tipi için varsayılan
+    // (defaultMarka/defaultModel) belirlemişse ve obj.marka boşsa otomatik uygula.
+    // addAction.tip property def üzerinden katalog tipi çözümlenir.
+    const markaProp = props.find(p => p.key === 'marka' && p.addAction?.tip);
+    if (markaProp && !obj.marka) {
+        const tip = typeof markaProp.addAction.tip === 'function'
+            ? markaProp.addAction.tip(obj)
+            : markaProp.addAction.tip;
+        if (tip) {
+            const dm = getDefaultMarka(tip);
+            if (dm) {
+                obj.marka = dm;
+                if (!obj.model) {
+                    const dmod = getDefaultModel(tip);
+                    if (dmod && dmod.marka === dm && dmod.model) obj.model = dmod.model;
+                }
+            }
+        }
+    }
+
     // İkinci geçiş: valueFn ile hesaplanan sanal anahtarlar (gerçek alanlar hazır olmalı)
     props.forEach(p => {
         if (p.valueFn && p.key) obj[p.key] = p.valueFn(obj);

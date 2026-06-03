@@ -311,10 +311,67 @@ export function getRandomModel(tip, marka) {
 //   defaultMarka pinnedMarkas içindedir.
 //   defaultModel.marka pinnedMarkas içindedir,
 //   defaultModel.model pinnedModels[defaultModel.marka] içindedir.
+//
+// Persistans:
+//   _prefs hem proje JSON'una (geriye dönük uyumluluk) hem de localStorage'a
+//   yazılır. localStorage globaldir — yeni projeler kullanıcı tercihleriyle açılır.
+//   Proje açılırken proje içindeki _prefs varsa onlar tabandır; localStorage
+//   güncel kayıtlarla bu tabanı üst yazar (kullanıcının en güncel tercihi kazanır).
+
+const _LS_PREFS_KEY = 'plumbing.cihazKatalog.prefs.v1';
+
+function _loadPrefsFromLS() {
+    try {
+        const raw = localStorage.getItem(_LS_PREFS_KEY);
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        return (obj && typeof obj === 'object') ? obj : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function _savePrefsToLS(prefs) {
+    try {
+        localStorage.setItem(_LS_PREFS_KEY, JSON.stringify(prefs || {}));
+    } catch (_) { /* yoksay (quota / SSR) */ }
+}
+
+// Proje state'i bu modülün ilk çağrısında bir kez localStorage'tan hidrate edilir.
+// hydratedFor: hidrate edildiği state.cihazKatalog referansı (proje değişince tekrar çalışır).
+let _hydratedFor = null;
+function _hydrateFromLSIfNeeded() {
+    const k = ensureCihazKatalog();
+    if (_hydratedFor === k) return;
+    _hydratedFor = k;
+    const ls = _loadPrefsFromLS();
+    if (!ls) return;
+    if (!k._prefs || typeof k._prefs !== 'object') k._prefs = {};
+    // localStorage > proje: kullanıcının global tercihi kazanır
+    for (const T of Object.keys(ls)) {
+        const src = ls[T];
+        if (!src || typeof src !== 'object') continue;
+        k._prefs[T] = {
+            pinnedMarkas: Array.isArray(src.pinnedMarkas) ? [...src.pinnedMarkas] : [],
+            pinnedModels: (src.pinnedModels && typeof src.pinnedModels === 'object')
+                ? JSON.parse(JSON.stringify(src.pinnedModels)) : {},
+            defaultMarka: src.defaultMarka || null,
+            defaultModel: (src.defaultModel && src.defaultModel.marka && src.defaultModel.model)
+                ? { marka: src.defaultModel.marka, model: src.defaultModel.model } : null,
+            seeded: true,
+        };
+    }
+}
+
+function _persistPrefs() {
+    const k = ensureCihazKatalog();
+    _savePrefsToLS(k._prefs || {});
+}
 
 function _ensurePrefs(tip) {
     const T = _normTip(tip);
     const k = ensureCihazKatalog();
+    _hydrateFromLSIfNeeded();
     if (!k._prefs || typeof k._prefs !== 'object') k._prefs = {};
     if (!k._prefs[T] || typeof k._prefs[T] !== 'object') {
         k._prefs[T] = {
@@ -387,6 +444,7 @@ export function setMarkaPinned(tip, marka, pinned) {
     const p = _ensurePrefs(tip);
     if (pinned) _pin(p.pinnedMarkas, marka);
     else _unpin(p.pinnedMarkas, marka);
+    _persistPrefs();
 }
 
 export function setModelPinned(tip, marka, model, pinned) {
@@ -399,20 +457,23 @@ export function setModelPinned(tip, marka, model, pinned) {
         _unpin(p.pinnedModels[marka], model);
         if (p.pinnedModels[marka].length === 0) delete p.pinnedModels[marka];
     }
+    _persistPrefs();
 }
 
 export function setDefaultMarka(tip, marka) {
     const p = _ensurePrefs(tip);
     p.defaultMarka = marka || null;
+    _persistPrefs();
 }
 
 export function setDefaultModel(tip, marka, model) {
     const p = _ensurePrefs(tip);
     if (!marka || !model) {
         p.defaultModel = null;
-        return;
+    } else {
+        p.defaultModel = { marka, model };
     }
-    p.defaultModel = { marka, model };
+    _persistPrefs();
 }
 
 /**

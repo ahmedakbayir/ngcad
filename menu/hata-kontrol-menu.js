@@ -12,6 +12,7 @@ import { draw2D } from '../draw/draw2d.js';
 import { state, setState, dom } from '../general-files/main.js';
 import { computeHatGroups } from '../plumbing_v2/renderer/renderer-utils.js';
 import { runAutoCapForErrors } from './auto-cap-menu.js';
+import { openPropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
 
 const MODAL_ID    = 'hata-kontrol-modal-overlay';
 const BODY_ID     = 'hata-kontrol-modal-body';
@@ -296,7 +297,14 @@ function navigateToTargets(targets) {
         return;
     }
 
-    // 4) Panel kapanır
+    // 4) Birincil nesne için özellikler panelini aç
+    //    (comp varsa onu, yoksa ilk boru) — kullanıcı hatayı görmek için açar
+    const primary = comps[0] || pipes[0] || null;
+    if (primary) {
+        try { openPropertiesPanel(primary, manager); } catch (_) {}
+    }
+
+    // 5) Panel kapanır
     hideHataKontrolModal();
 }
 
