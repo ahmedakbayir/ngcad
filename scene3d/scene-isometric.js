@@ -431,6 +431,17 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
     //   grupla    → muhafazaGrupla flag'i
     const entries = [];
 
+    // Düşey hat (riser) tespiti: |p2-p1|_xy ≈ 0 ve |dz| > 1.
+    // Bu borulara bağlı bileşenler için muhafaza paralelkenar yerine
+    // ekran-eksen hizalı düz dikdörtgen çizilir.
+    const isVerticalPipe = (pipe) => {
+        if (!pipe?.p1 || !pipe?.p2) return false;
+        const dx = pipe.p2.x - pipe.p1.x;
+        const dy = pipe.p2.y - pipe.p1.y;
+        const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+        return Math.hypot(dx, dy) < 2.0 && Math.abs(dz) > 1.0;
+    };
+
     proxyManager.components.forEach(comp => {
         if (!comp.muhafaza) return;
         if (!ALLOWED.includes(comp.type)) return;
@@ -550,6 +561,9 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
             return { isoX: cxScreen + dx * s, isoY: cyScreen + dy * s };
         });
 
+        const relatedPipe = _isoRelatedPipeFor(comp, proxyManager);
+        const verticalRiser = isVerticalPipe(relatedPipe);
+
         entries.push({
             worldBox,
             corners: inflated,
@@ -557,6 +571,7 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
             type: comp.type,
             hasSayac: comp.type === 'sayac',
             sayacAngle: comp.type === 'sayac' ? angle : null,
+            verticalRiser,
         });
     });
 
@@ -575,6 +590,7 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
             corners: [...e.corners],
             hasSayac: e.hasSayac,
             sayacAngle: e.sayacAngle,
+            verticalRiser: e.verticalRiser,
         }));
         let changed = true;
         while (changed) {
@@ -587,6 +603,7 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
                     corners: [...cur[i].corners],
                     hasSayac: cur[i].hasSayac,
                     sayacAngle: cur[i].sayacAngle,
+                    verticalRiser: cur[i].verticalRiser,
                 };
                 for (let j = i + 1; j < cur.length; j++) {
                     if (used.has(j)) continue;
@@ -595,6 +612,7 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
                         m.worldBox = mergeBox(m.worldBox, cur[j].worldBox);
                         m.hasSayac = m.hasSayac || cur[j].hasSayac;
                         if (m.sayacAngle == null) m.sayacAngle = cur[j].sayacAngle;
+                        m.verticalRiser = m.verticalRiser || cur[j].verticalRiser;
                         used.add(j); changed = true;
                     }
                 }
@@ -632,6 +650,22 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
         if (g.corners.length === 0) return;
 
         let c1, c2, c3, c4;
+        // Düşey hat (riser) bileşenleri: muhafaza iso paralelkenar yerine
+        // ekran-eksen hizalı düz dikdörtgen olur — iso projeksiyon köşelerinin
+        // (isoX, isoY) AABB'i alınır.
+        if (g.verticalRiser) {
+            let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+            for (const p of g.corners) {
+                if (p.isoX < xMin) xMin = p.isoX;
+                if (p.isoX > xMax) xMax = p.isoX;
+                if (p.isoY < yMin) yMin = p.isoY;
+                if (p.isoY > yMax) yMax = p.isoY;
+            }
+            c1 = { x: xMin, y: yMin };
+            c2 = { x: xMax, y: yMin };
+            c3 = { x: xMax, y: yMax };
+            c4 = { x: xMin, y: yMax };
+        }
         // Sayaç magic-matrix iso'da daima DİKEY-yan-kenarlı paralelkenar çizer:
         //   genişlik (lx) → ekranda ((cos+sin)·cos30, (sin−cos)·sin30) — sayaç
         //     rotasyonuna göre iso-X veya iso-Y yönüne dönen tilt.
@@ -639,7 +673,7 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
         // Grupta sayaç varsa muhafazayı bu bazda AABB ile çiz → sayaç ile aynı
         // orientasyon (dik kenarlar + iso-tilt üst/alt). Aksi halde iso-XY
         // eksenli paralelkenar.
-        if (g.hasSayac) {
+        else if (g.hasSayac) {
             const ang = g.sayacAngle || 0;
             const cs = Math.cos(ang), sn = Math.sin(ang);
             const e1x = (cs + sn) * cos30;

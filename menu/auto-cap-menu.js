@@ -416,6 +416,18 @@ function tryReducePipe(manager, state, pipeId, target) {
         if (!hatRow || (hatRow.L_m || 0) < 4) return false;
     }
 
+    // ESNEK tesisatta redüksiyon yalnızca TE ayrımlarında olabilir.
+    // → pipe section head olmalı (isSplit=false) ve parent borunun bu boru
+    //   dahil ≥2 çocuğu (Tee dağıtımı) olmalı. İçeride inline redüksiyon
+    //   (tek child'lı parent) ya da section ortasında split yasak.
+    if (isEsnek) {
+        if (isSplit) return false;
+        const par = pipe.baslangicBaglanti;
+        if (par?.tip !== 'boru' || !par.hedefId) return false;
+        const siblings = ctx.childrenOf.get(par.hedefId) || [];
+        if (siblings.length < 2) return false;
+    }
+
     // Kuyruk: aynı çaplı, aşağı akıştaki borular
     const { tail, childrenOf } = collectDownstreamSameDn(manager, pipe.id, oldDn);
     if (tail.length === 0) return false;

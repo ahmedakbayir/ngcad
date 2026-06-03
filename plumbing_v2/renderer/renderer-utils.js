@@ -949,7 +949,45 @@ export function computeHatGroups(pipes, components) {
         return bfsRank.get(a) - bfsRank.get(b);
     });
 
+    // ── CANLI HAT (servis kutusu yok) — sayaç öncesi atanmayan boruları önceden tespit et.
+    // Bu projelerde sayaç öncesi kısa bağlantı/hizmet hattıdır; numara verilmez ve
+    // tesisat (sayaç sonrası) 1'den başlar. İstisna: debi > 3.5 olan pre-meter
+    // (yan bina/ek tüketim) → numarayı korur ve kolon tarafında numaralanır.
+    const hasServisKutusu = (components || []).some(c => c.type === 'servis_kutusu');
+    const sayacOncesiAll = new Set();
+    if (!hasServisKutusu) {
+        (components || []).forEach(c => {
+            if (c.type !== 'sayac' || !c.fleksBaglanti?.boruId) return;
+            const cikis = c.cikisBagliBoruId ? pipeMap.get(c.cikisBagliBoruId) : null;
+            const throughput = cikis ? parseFloat(cikis.debi) || 0 : 0;
+            const localUpstream = new Set();
+            let cur = c.fleksBaglanti.boruId;
+            while (cur && !localUpstream.has(cur)) {
+                localUpstream.add(cur);
+                cur = parentOf.get(cur) || null;
+            }
+            localUpstream.forEach(pid => {
+                const p = pipeMap.get(pid);
+                const pdebi = p ? (parseFloat(p.debi) || 0) : 0;
+                if (throughput <= 3.5 || pdebi <= 3.5) {
+                    sayacOncesiAll.add(pid);
+                }
+            });
+        });
+    }
+    // Tüm boruları sayacOncesiAll içinde olan section'lar numaralandırmadan
+    // tamamen atlanır (sayaç ile birlikte 1'den başlayan tesisat).
+    const skipSection = new Set();
+    if (sayacOncesiAll.size > 0) {
+        sections.forEach((sec, idx) => {
+            if (sec.pipeIds.every(pid => sayacOncesiAll.has(pid))) {
+                skipSection.add(idx);
+            }
+        });
+    }
+
     orderedSecIdxs.forEach(idx => {
+        if (skipSection.has(idx)) return;
         const sec = sections[idx];
         const is300 = String(sec.basınç) === '300';
         const fp = [
@@ -975,51 +1013,16 @@ export function computeHatGroups(pipes, components) {
     });
 
     // ── Boru → hat no eşlemesi ────────────────────────────────────────────────
+    // skipSection'daki section'lar secHat'te yer almaz; o boruların hat no'su olmaz.
+    // Defansif: section korunmuş olsa bile sayacOncesiAll'a düşmüş tekil boruların
+    // (karışık zincir) hat no'sunu sil.
     const hatMap = new Map();
     pipes.forEach(p => {
         const si = sectionOf.get(p.id);
-        if (si != null) hatMap.set(p.id, secHat.get(si));
+        if (si != null && secHat.has(si) && !sayacOncesiAll.has(p.id)) {
+            hatMap.set(p.id, secHat.get(si));
+        }
     });
-
-    // ── KURAL: SERVİS KUTUSU OLMAYAN İÇ TESİSAT PROJELERİ ──────────────────────
-    // Bu tipte projelerde sayaç öncesindeki borulara hat numarası verilmez —
-    // sayaç öncesi sadece kısa bağlantı/hizmet kısmıdır, gerçek dağıtım hatları
-    // sayaç sonrasında numaralanır. Tek istisna: önemli kapasitede pre-meter
-    // (debi > 3.5) vardır → bu durumda hat no kalır (yan bina, ek tüketim, vs.).
-    const hasServisKutusu = (components || []).some(c => c.type === 'servis_kutusu');
-    if (!hasServisKutusu) {
-        // Her sayaçın giriş borusundan upstream'e doğru tüm boruları topla.
-        // sayacOncesiByMeter: meter id → set of upstream pipe ids
-        // sayacOncesiAll: birleşim — global filtre için
-        const sayacOncesiAll = new Set();
-        (components || []).forEach(c => {
-            if (c.type !== 'sayac' || !c.fleksBaglanti?.boruId) return;
-            // Bu sayacın throughput'u (cikis boru debisi) — eşik kontrolü için
-            const cikis = c.cikisBagliBoruId ? pipeMap.get(c.cikisBagliBoruId) : null;
-            const throughput = cikis ? parseFloat(cikis.debi) || 0 : 0;
-            // Sayaç öncesi (kolon) zincirini topla — fleksBaglanti.boruId'den
-            // parentOf zinciriyle UPSTREAM'e yürü. Regülatör veya başka bir
-            // sebeple kolon birden fazla parçaya bölünmüş olsa da tüm parçalar
-            // toplanır; kolon ucundaki açık parça parentOf'u olmadığı için durur.
-            const localUpstream = new Set();
-            let cur = c.fleksBaglanti.boruId;
-            while (cur && !localUpstream.has(cur)) {
-                localUpstream.add(cur);
-                cur = parentOf.get(cur) || null;
-            }
-            // Bu sayaç için throughput ≤ 3.5 ise sayacın TÜM öncesini sil.
-            // > 3.5 ise yalnızca debi'si 3.5'i geçen pipe'lar korunur.
-            localUpstream.forEach(pid => {
-                const p = pipeMap.get(pid);
-                const pdebi = p ? (parseFloat(p.debi) || 0) : 0;
-                if (throughput <= 3.5 || pdebi <= 3.5) {
-                    sayacOncesiAll.add(pid);
-                }
-            });
-        });
-
-        sayacOncesiAll.forEach(pid => hatMap.delete(pid));
-    }
 
     return { hatMap, sectionOf, hatCount: hatCounter21 + (hatCounter300 - 300) };
 }

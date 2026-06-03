@@ -48,6 +48,7 @@ function getPipePath(pipe, manager) {
  */
 export function selectObject(interactionManager, obj, opts = {}) {
     const openPanel = !!opts.openPanel;
+    const noNavigate = !!opts.noNavigate; // tek tık → kat değiştirme, panel switch yok
 
     const vbf = state.viewBlendFactor || 0;
     const targetFloorId = opts.preferredFloorId || (obj && obj.floorId) || null;
@@ -55,7 +56,7 @@ export function selectObject(interactionManager, obj, opts = {}) {
     // Silik (faded) görünüyorsa kullanıcı kasıtlı olarak diğer katlardaki
     // tesisata tıklamış olabilir; floor switch normal akış.
     const hideOtherFloors3D = !!(state.tempVisibility?.hideOtherFloors3D);
-    if (vbf >= 0.5 && targetFloorId && targetFloorId !== state.currentFloor?.id && !hideOtherFloors3D) {
+    if (!noNavigate && vbf >= 0.5 && targetFloorId && targetFloorId !== state.currentFloor?.id && !hideOtherFloors3D) {
         switchToFloor(targetFloorId);
     }
 
@@ -142,7 +143,7 @@ export function selectObject(interactionManager, obj, opts = {}) {
     });
 
     if (['boru', 'sayac', 'vana', 'regulator', 'servis_kutusu', 'cihaz', 'filtre', 'izolasyon_flansi', 'kompansator', 'manometre', 'topraklama'].includes(obj.type)) {
-        if (isPinned() || isPanelOpen() || openPanel) {
+        if (!noNavigate && (isPinned() || isPanelOpen() || openPanel)) {
             openPropertiesPanel(obj, interactionManager.manager);
         }
     }

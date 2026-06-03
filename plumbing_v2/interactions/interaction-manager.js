@@ -661,8 +661,8 @@ export class InteractionManager {
     /**
      * Finder/helper methods
      */
-    findObjectAt(point) {
-        return findObjectAt(this.manager, point);
+    findObjectAt(point, opts) {
+        return findObjectAt(this.manager, point, opts);
     }
 
     isFreeEndpoint(point, tolerance = 5) {

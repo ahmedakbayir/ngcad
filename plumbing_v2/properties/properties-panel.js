@@ -908,7 +908,7 @@ function _deleteCurrentPanelObject() {
     closePropertiesPanel(true);
 }
 
-function _selectConnectedTarget(target) {
+function _selectConnectedTarget(target, opts = {}) {
     if (!target) return;
     const PLUMBING_TYPES = ['boru', 'vana', 'regulator', 'sayac', 'servis_kutusu', 'cihaz', 'baca',
         'filtre', 'izolasyon_flansi', 'kompansator', 'manometre'];
@@ -917,7 +917,7 @@ function _selectConnectedTarget(target) {
     if (PLUMBING_TYPES.includes(target.type) && im) {
         // Plumbing nesneleri: selectObject() isSelected, selectedValve, selectedHatPipes vb.
         // tüm iç durumu doğru biçimde günceller. setState'i de kendisi çağırır.
-        plumbingSelectObject(im, target);
+        plumbingSelectObject(im, target, { noNavigate: !!opts.noNavigate });
     } else {
         // Arch/room hedefler için panel'i kapatmadan önceki plumbing görsel seçimini
         // sessizce temizle (onDeselect tetiklenmesin diye doğrudan alanları sıfırlıyoruz).
@@ -955,13 +955,15 @@ function bindConnectedObjectsEvents(panelEl, obj, manager) {
             // Sil butonuna tıklama satır seçimine dönüşmesin
             if (e.target && e.target.closest('.props-conn-delete-btn')) return;
             const idx = parseInt(el.dataset.connIdx);
-            _selectConnectedTarget(list[idx]?.item);
+            // Tek tık: sadece sahnede seç/highlight — kat değiştirme, panel switch yok.
+            _selectConnectedTarget(list[idx]?.item, { noNavigate: true });
         });
         el.addEventListener('dblclick', (e) => {
             if (e.target && e.target.closest('.props-conn-delete-btn')) return;
             const idx = parseInt(el.dataset.connIdx);
             const target = list[idx]?.item;
             if (!target) return;
+            // Çift tık: nesneye git — gerekirse kat değiştir, paneli hedefe çevir.
             _selectConnectedTarget(target);
             openPropertiesPanel(target, manager);
         });

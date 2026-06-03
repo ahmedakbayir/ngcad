@@ -35,9 +35,12 @@ export function pixelsToWorld(pixelTolerance) {
 
 /**
  * Bir noktada nesne bul (bileşen veya boru)
- * Öncelik sırası: 1) Bileşenler (3D Destekli), 2) Borular
+ * Varsayılan: eski davranış (komponent öncelikli, vana hariç).
+ * opts.onlyVana (seçim, CTRL var): SADECE vana komponentleri değerlendirilir.
+ * Hiçbir flag yoksa eski davranış — sağ tık menüsü ve normal seçim akışı için.
  */
-export function findObjectAt(manager, point) {
+export function findObjectAt(manager, point, opts = {}) {
+    const onlyVana = !!opts.onlyVana;
     const t = state.viewBlendFactor || 0;
     const is3D = t >= 0.5;
     const currentFloorId = state.currentFloor?.id || null;
@@ -72,17 +75,21 @@ export function findObjectAt(manager, point) {
     const selectedObj = manager.interactionManager?.selectedObject || null;
 
     // 2D / hafif blend (t<=0.1): eski tip-öncelikli davranış (komponent → boru, ilk bulunan döner)
+    // onlyVana (CTRL): yalnız vana komponentleri değerlendirilir.
     if (t <= 0.1) {
         for (const comp of manager.components) {
             if (!sameFloor(comp)) continue;
-            // Vana doğrudan tıklanamaz: yalnızca etiketten veya
-            // özellikler panelindeki bağlı nesnelerden seçilir. Boru ucundaki
-            // vana, alttaki borunun uçtan tutulup taşınmasını engellemesin.
-            // İstisna: zaten seçili olan vana — etiketten seçildikten sonra
-            // gövdesinden tutup taşınabilsin.
-            if (comp.type === 'vana' && comp !== selectedObj) continue;
+            if (onlyVana) {
+                if (comp.type !== 'vana') continue;
+            } else {
+                // Varsayılan: vana doğrudan tıklanamaz (CTRL ile seçilir).
+                // İstisna: zaten seçili olan vana — etiketten seçildikten sonra
+                // gövdesinden tutup taşınabilsin.
+                if (comp.type === 'vana' && comp !== selectedObj) continue;
+            }
             if (comp.containsPoint && comp.containsPoint(point)) return comp;
         }
+        if (onlyVana) return null; // CTRL'de boru aranmaz
         const worldToleranceLegacy = pixelsToWorld(TESISAT_CONSTANTS.SELECTION_TOLERANCE_PIXELS);
         for (const pipe of manager.pipes) {
             if (!pipeVisibleOnFloor(pipe)) continue;
@@ -119,6 +126,8 @@ export function findObjectAt(manager, point) {
     // --- Komponentler ---
     for (const comp of manager.components) {
         if (!sameFloor(comp)) continue;
+        // onlyVana (CTRL): yalnızca vana komponentleri değerlendirilir.
+        if (onlyVana && comp.type !== 'vana') continue;
         const zBase = comp.z || 0;
         const rad = ((comp.rotation || 0) * Math.PI) / 180;
         const sinR = Math.sin(rad);
@@ -187,11 +196,11 @@ export function findObjectAt(manager, point) {
         }
 
         // VANA: doğrudan tıklanamaz. Boru ucuna oturmuş vana, alttaki borunun
-        // uçtan tutulup taşınmasını engellemesin. Vana seçimi yalnızca etiketten
-        // veya özellikler panelindeki bağlı nesneler listesinden yapılır.
-        // İstisna: zaten seçili olan vana gövdesinden tutulup taşınabilir.
+        // uçtan tutulup taşınmasını engellemesin. Vana seçimi yalnızca etiketten,
+        // CTRL+tıklama (onlyVana) veya özellikler panelindeki bağlı nesneler
+        // listesinden yapılır. Zaten seçili olan vana gövdesinden tutulup taşınabilir.
         if (comp.type === 'vana') {
-            if (comp !== selectedObj) continue;
+            if (!onlyVana && comp !== selectedObj) continue;
             // Seçili vana için hassas lokal-frame hit-test (9.6×9.6 bowtie iç kısmı)
             const halfWidth  = 4;
             const halfHeight = 4;
@@ -263,43 +272,45 @@ export function findObjectAt(manager, point) {
         });
     }
 
-    // --- Borular ---
-    for (const pipe of manager.pipes) {
-        if (!pipeVisibleOnFloor(pipe)) continue;
-        const p1Screen = getScreenPoint(pipe.p1);
-        const p2Screen = getScreenPoint(pipe.p2);
+    // --- Borular --- (onlyVana ise atla, çünkü CTRL'de yalnız vana seçilir)
+    if (!onlyVana) {
+        for (const pipe of manager.pipes) {
+            if (!pipeVisibleOnFloor(pipe)) continue;
+            const p1Screen = getScreenPoint(pipe.p1);
+            const p2Screen = getScreenPoint(pipe.p2);
 
-        const dx = p2Screen.x - p1Screen.x;
-        const dy = p2Screen.y - p1Screen.y;
-        const lenSq = dx * dx + dy * dy;
+            const dx = p2Screen.x - p1Screen.x;
+            const dy = p2Screen.y - p1Screen.y;
+            const lenSq = dx * dx + dy * dy;
 
-        let distEdge;
-        let uClamp = 0.5;
-        if (lenSq < 0.0001) {
-            // Pür düşey görünen boru: tek noktaya mesafe
-            distEdge = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
-        } else {
-            let u = ((point.x - p1Screen.x) * dx + (point.y - p1Screen.y) * dy) / lenSq;
-            if (u < 0) u = 0;
-            if (u > 1) u = 1;
-            uClamp = u;
-            const projX = p1Screen.x + u * dx;
-            const projY = p1Screen.y + u * dy;
-            distEdge = Math.hypot(point.x - projX, point.y - projY);
+            let distEdge;
+            let uClamp = 0.5;
+            if (lenSq < 0.0001) {
+                // Pür düşey görünen boru: tek noktaya mesafe
+                distEdge = Math.hypot(point.x - p1Screen.x, point.y - p1Screen.y);
+            } else {
+                let u = ((point.x - p1Screen.x) * dx + (point.y - p1Screen.y) * dy) / lenSq;
+                if (u < 0) u = 0;
+                if (u > 1) u = 1;
+                uClamp = u;
+                const projX = p1Screen.x + u * dx;
+                const projY = p1Screen.y + u * dy;
+                distEdge = Math.hypot(point.x - projX, point.y - projY);
+            }
+
+            if (distEdge >= worldTolerance) continue;
+
+            // Tıklanan noktadaki dünya z'si — borunun hangi seviyede olduğu (önde-arkada)
+            const zAtClick = (pipe.p1.z || 0) + uClamp * ((pipe.p2.z || 0) - (pipe.p1.z || 0));
+
+            candidates.push({
+                obj: pipe,
+                kind: 'pipe',
+                distEdge,
+                distCenter: distEdge,
+                frontScore: zAtClick
+            });
         }
-
-        if (distEdge >= worldTolerance) continue;
-
-        // Tıklanan noktadaki dünya z'si — borunun hangi seviyede olduğu (önde-arkada)
-        const zAtClick = (pipe.p1.z || 0) + uClamp * ((pipe.p2.z || 0) - (pipe.p1.z || 0));
-
-        candidates.push({
-            obj: pipe,
-            kind: 'pipe',
-            distEdge,
-            distCenter: distEdge,
-            frontScore: zAtClick
-        });
     }
 
     if (candidates.length === 0) return null;
