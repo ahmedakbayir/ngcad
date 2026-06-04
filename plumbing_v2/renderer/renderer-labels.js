@@ -274,6 +274,18 @@ export function hitTestLabel(wx, wy) {
     return null;
 }
 
+// hitTestLabel'in detaylı versiyonu — id yanında bbox bilgilerini de döner.
+// Çift tıklama gibi yerleştirme bilgisine ihtiyaç duyan tüketiciler için.
+export function hitTestLabelBBox(wx, wy) {
+    for (const bb of _labelBBoxes) {
+        if (wx >= bb.bx && wx <= bb.bx + bb.bw &&
+            wy >= bb.by && wy <= bb.by + bb.bh) {
+            return { id: bb.id, bx: bb.bx, by: bb.by, bw: bb.bw, bh: bb.bh, style: bb.style };
+        }
+    }
+    return null;
+}
+
 export function startLabelDrag(id, startX, startY) {
     const bb = _labelBBoxes.find(b => b.id === id);
     let startAX = 0, startAY = 0;

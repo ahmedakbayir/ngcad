@@ -17,6 +17,7 @@ import { renderIsometric, hitTestIsoLabel, setIsoLabelPos, cycleIsoLabelDir, rel
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { getActiveDiameterPalette, setActiveDiameterPalette, setActiveDiameterColor } from '../plumbing_v2/objects/pipe.js';
 import { closePropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
+import { _applyBirimNoToAnchor, _autoAssignByFloorPattern } from '../plumbing_v2/properties/property-definitions.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
 import { gsap } from 'gsap';
 import * as THREE from 'three';
@@ -712,6 +713,117 @@ export function setupIsometricControls() {
         };
     };
 
+    // İzo etiketin dünya koordinatlarındaki kutusundan ekran (CSS-pixel) konumunu döndür.
+    // Mousedown'da kullanılan ters dönüşümün simetriği — etkileşim noktası eşleşir.
+    const isoWorldToScreen = (wx, wy) => {
+        const params = window._isoRenderParams;
+        if (!params) return { x: wx, y: wy };
+        const { centerX, centerY, zoom, offset } = params;
+        return { x: wx * zoom + centerX + offset.x, y: wy * zoom + centerY + offset.y };
+    };
+
+    // Sayaç/branşman etiketine çift tıklanınca açılan inline birim no editörü.
+    // Enter → mevcut birime no atar.
+    // Ctrl+Enter → mevcut birime no atar + diğer boş birimleri otomatik doldurur.
+    // Esc / dışarı tıklama → iptal.
+    const openIsoBirimNoEditor = (hit, comp, canvasRect) => {
+        // Açık başka bir editör varsa kaldır
+        document.querySelectorAll('.iso-birim-editor').forEach(el => el.remove());
+
+        const tip = comp.birimTipi || 'KONUT';
+        const prefix = tip === 'KONUT' ? 'D'
+            : tip === 'OFİS' ? '(Ofis) Dük'
+            : tip === 'TİCARİ' ? '(Ticari) Dük'
+            : tip === 'KAZAN DAİRESİ' ? 'KD'
+            : 'D';
+
+        const screenTL = isoWorldToScreen(hit.bx, hit.by);
+        const screenW = Math.max(0, hit.bw) * (window._isoRenderParams?.zoom || 1);
+        const screenH = Math.max(0, hit.bh) * (window._isoRenderParams?.zoom || 1);
+
+        const wrap = document.createElement('div');
+        wrap.className = 'iso-birim-editor';
+        wrap.style.cssText = [
+            'position:fixed',
+            `left:${canvasRect.left + screenTL.x + screenW + 6}px`,
+            `top:${canvasRect.top + screenTL.y + Math.max(0, (screenH - 22) / 2)}px`,
+            'display:flex',
+            'align-items:center',
+            'gap:3px',
+            'background:#fff',
+            'border:1px solid #4a90e2',
+            'border-radius:3px',
+            'padding:2px 4px',
+            'box-shadow:0 2px 8px rgba(0,0,0,0.3)',
+            'z-index:999999',
+            'font:bold 12px sans-serif',
+            'color:#222',
+        ].join(';');
+
+        const lbl = document.createElement('span');
+        lbl.textContent = prefix;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = comp.birimNo || '';
+        input.style.cssText = [
+            'width:48px',
+            'border:none',
+            'outline:none',
+            'font:inherit',
+            'color:inherit',
+            'background:transparent',
+            'padding:0',
+        ].join(';');
+
+        wrap.appendChild(lbl);
+        wrap.appendChild(input);
+        document.body.appendChild(wrap);
+        input.focus();
+        input.select();
+
+        let closed = false;
+        const cleanup = () => {
+            if (closed) return;
+            closed = true;
+            wrap.remove();
+            document.removeEventListener('mousedown', onOutside, true);
+        };
+        const onOutside = (ev) => {
+            if (!wrap.contains(ev.target)) cleanup();
+        };
+        setTimeout(() => document.addEventListener('mousedown', onOutside, true), 0);
+
+        const commit = (autoFillNext) => {
+            const newVal = String(input.value ?? '').trim();
+            const oldVal = String(comp.birimNo ?? '');
+            const changed = newVal !== oldVal;
+            if (changed || autoFillNext) {
+                saveState();
+                if (changed) _applyBirimNoToAnchor(comp, newVal, plumbingManager);
+                if (autoFillNext) _autoAssignByFloorPattern(comp, plumbingManager);
+                drawIsoView();
+                draw2D();
+                try { update3DScene(); } catch (e) {}
+            }
+            cleanup();
+        };
+
+        input.addEventListener('keydown', (ev) => {
+            ev.stopPropagation();
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                commit(ev.ctrlKey || ev.metaKey);
+            } else if (ev.key === 'Escape') {
+                ev.preventDefault();
+                cleanup();
+            }
+        });
+        // Global kısayolların editör içinde tetiklenmesini önle
+        input.addEventListener('keyup', (ev) => ev.stopPropagation());
+        input.addEventListener('keypress', (ev) => ev.stopPropagation());
+    };
+
     // İSO / PERSP arasında "son aktif" izleyici — her iki panel açıkken hangisi
     // ile etkileşim hâlinde olduğumuzu butonlardan görelim.
     const _setLastActiveView = (which) => {
@@ -789,7 +901,7 @@ export function setupIsometricControls() {
         }
     });
 
-    // Çift tıklama — etiketin yönünü değiştir (2D sahnedeki gibi)
+    // Çift tıklama — sayaç/branşman etiketinde birim no editörü, diğerlerinde yön çevir
     dom.cIso.addEventListener('dblclick', (e) => {
         if (!dom.mainContainer.classList.contains('show-iso')) return;
         const rect = dom.cIso.getBoundingClientRect();
@@ -797,12 +909,20 @@ export function setupIsometricControls() {
         const mouseY = e.clientY - rect.top;
         const { wx, wy } = isoMouseToWorld(mouseX, mouseY);
         const hit = hitTestIsoLabel(wx, wy);
-        if (hit) {
-            e.preventDefault();
-            const newOffsets = cycleIsoLabelDir(hit.id);
-            setState({ isoLabelOffsets: newOffsets });
-            drawIsoView();
+        if (!hit) return;
+        e.preventDefault();
+
+        const comp = (plumbingManager?.components || []).find(c => c.id === hit.id);
+        const isSayac = comp?.type === 'sayac';
+        const isBransman = comp?.type === 'vana' && comp.vanaTipi === 'BRANSMAN' && !comp.ilerdeKullanim;
+        if (isSayac || isBransman) {
+            openIsoBirimNoEditor(hit, comp, rect);
+            return;
         }
+
+        const newOffsets = cycleIsoLabelDir(hit.id);
+        setState({ isoLabelOffsets: newOffsets });
+        drawIsoView();
     });
 
     // Mouse move - sürükleme veya pan

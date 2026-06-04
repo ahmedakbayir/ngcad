@@ -30,8 +30,10 @@ import { fit3DViewToScreen, scene, camera, renderer, sceneObjects } from '../sce
 import { wallExists } from '../wall/wall-handler.js';
 import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.js'; // <-- splitWallAtMousePosition import edildi
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
-import { hitTestLabel } from '../plumbing_v2/renderer/renderer-labels.js';
+import { hitTestLabel, hitTestLabelBBox } from '../plumbing_v2/renderer/renderer-labels.js';
 import { openPropertiesPanel, isPanelOpen } from '../plumbing_v2/properties/properties-panel.js';
+import { _applyBirimNoToAnchor, _autoAssignByFloorPattern } from '../plumbing_v2/properties/property-definitions.js';
+import { draw2D } from '../draw/draw2d.js';
 
 
 
@@ -43,6 +45,107 @@ export let currentModifierKeys = {
 
 // Çift CTRL takibi için değişken
 let lastCtrlPressTime = 0;
+
+// Sayaç/branşman etiketine 2D'de çift tıklanınca açılan inline birim no editörü.
+// Enter → mevcut birime no atar.
+// Ctrl+Enter → mevcut birime no atar + diğer boş birimleri otomatik doldurur.
+// Esc / dışarı tıklama → iptal.
+function open2DBirimNoEditor(hit, comp, canvasRect) {
+    document.querySelectorAll('.birim-no-editor').forEach(el => el.remove());
+
+    const tip = comp.birimTipi || 'KONUT';
+    const prefix = tip === 'KONUT' ? 'D'
+        : tip === 'OFİS' ? '(Ofis) Dük'
+        : tip === 'TİCARİ' ? '(Ticari) Dük'
+        : tip === 'KAZAN DAİRESİ' ? 'KD'
+        : 'D';
+
+    // bx,by world koordinatında — ekran (CSS-pixel) konumuna çevir
+    const screenTL = worldToScreen(hit.bx, hit.by);
+    const screenW = Math.max(0, hit.bw) * state.zoom;
+    const screenH = Math.max(0, hit.bh) * state.zoom;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'birim-no-editor';
+    wrap.style.cssText = [
+        'position:fixed',
+        `left:${canvasRect.left + screenTL.x + screenW + 6}px`,
+        `top:${canvasRect.top + screenTL.y + Math.max(0, (screenH - 22) / 2)}px`,
+        'display:flex',
+        'align-items:center',
+        'gap:3px',
+        'background:#fff',
+        'border:1px solid #4a90e2',
+        'border-radius:3px',
+        'padding:2px 4px',
+        'box-shadow:0 2px 8px rgba(0,0,0,0.3)',
+        'z-index:999999',
+        'font:bold 12px sans-serif',
+        'color:#222',
+    ].join(';');
+
+    const lbl = document.createElement('span');
+    lbl.textContent = prefix;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = comp.birimNo || '';
+    input.style.cssText = [
+        'width:48px',
+        'border:none',
+        'outline:none',
+        'font:inherit',
+        'color:inherit',
+        'background:transparent',
+        'padding:0',
+    ].join(';');
+
+    wrap.appendChild(lbl);
+    wrap.appendChild(input);
+    document.body.appendChild(wrap);
+    input.focus();
+    input.select();
+
+    let closed = false;
+    const cleanup = () => {
+        if (closed) return;
+        closed = true;
+        wrap.remove();
+        document.removeEventListener('mousedown', onOutside, true);
+    };
+    const onOutside = (ev) => {
+        if (!wrap.contains(ev.target)) cleanup();
+    };
+    setTimeout(() => document.addEventListener('mousedown', onOutside, true), 0);
+
+    const commit = (autoFillNext) => {
+        const newVal = String(input.value ?? '').trim();
+        const oldVal = String(comp.birimNo ?? '');
+        const changed = newVal !== oldVal;
+        if (changed || autoFillNext) {
+            saveState();
+            if (changed) _applyBirimNoToAnchor(comp, newVal, plumbingManager);
+            if (autoFillNext) _autoAssignByFloorPattern(comp, plumbingManager);
+            draw2D();
+            try { update3DScene(); } catch (e) {}
+            try { window._aangcad_drawIsoView?.(); } catch (e) {}
+        }
+        cleanup();
+    };
+
+    input.addEventListener('keydown', (ev) => {
+        ev.stopPropagation();
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            commit(ev.ctrlKey || ev.metaKey);
+        } else if (ev.key === 'Escape') {
+            ev.preventDefault();
+            cleanup();
+        }
+    });
+    input.addEventListener('keyup', (ev) => ev.stopPropagation());
+    input.addEventListener('keypress', (ev) => ev.stopPropagation());
+}
 
 // function wallExists(p1, p2) {
 //     return state.walls.some(w => (w.p1 === p1 && w.p2 === p2) || (w.p1 === p2 && w.p2 === p1));
@@ -1136,8 +1239,21 @@ export function setupInputListeners() {
         const rect = dom.c2d.getBoundingClientRect();
         const clickPos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
 
-        // HAT etiketine (tesisat hat/nesne etiketi) çift tıklanırsa mahal tanımlama açılmasın
-        if (state.tempVisibility?.showObjectLabels && hitTestLabel(clickPos.x, clickPos.y)) return;
+        // Sayaç/branşman etiketine çift tıklanırsa birim no inline editörü
+        if (state.tempVisibility?.showObjectLabels) {
+            const labelHit = hitTestLabelBBox(clickPos.x, clickPos.y);
+            if (labelHit) {
+                const comp = (plumbingManager?.components || []).find(c => c.id === labelHit.id);
+                const isSayac = comp?.type === 'sayac';
+                const isBransman = comp?.type === 'vana' && comp.vanaTipi === 'BRANSMAN' && !comp.ilerdeKullanim;
+                if (isSayac || isBransman) {
+                    open2DBirimNoEditor(labelHit, comp, rect);
+                    return;
+                }
+                // Diğer etiketler (hat, cihaz vb.) — mevcut davranış: mahal tanımlama açılmasın
+                return;
+            }
+        }
 
         const object = getObjectAtPoint(clickPos);
 

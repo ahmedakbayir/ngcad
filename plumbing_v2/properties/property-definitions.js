@@ -220,7 +220,7 @@ function _updateIlerdeBirimNo(obj) {
  * BRANSMAN vanasının pipe ucuna bağlı sayacı bul.
  * Vana boru üzerinde fromEnd ucunda sonlanır; sayaç o boruya o uçtan fleks ile bağlanmıştır.
  */
-function _findSayacForBransman(vana, manager) {
+export function _findSayacForBransman(vana, manager) {
     if (!vana || !manager) return null;
     if (vana.vanaTipi !== 'BRANSMAN') return null;
     const pipeId = vana.bagliBoruId;
@@ -234,7 +234,7 @@ function _findSayacForBransman(vana, manager) {
 }
 
 /** Birim çapasına (BRANSMAN vana veya sayaç) aynı birim no'yu yaz */
-function _applyBirimNoToAnchor(anchor, no, manager) {
+export function _applyBirimNoToAnchor(anchor, no, manager) {
     if (!anchor) return;
     anchor.birimNo = String(no);
     // BRANSMAN'ın bağlı bir sayacı varsa (ara durum) ona da yansıt.
@@ -304,7 +304,7 @@ function _orderedRealFloors() {
  *
  * Eşleme: en yakın komşu (tolerans 100 cm). Sayaçlar da senkronize edilir.
  */
-function _autoAssignByFloorPattern(vana, manager) {
+export function _autoAssignByFloorPattern(vana, manager) {
     if (!vana || !manager || !vana.floorId) return;
     const floors = _orderedRealFloors();
     const currentIdx = floors.findIndex(f => f.id === vana.floorId);
