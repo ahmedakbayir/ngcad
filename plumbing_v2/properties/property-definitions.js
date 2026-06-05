@@ -233,36 +233,73 @@ export function _findSayacForBransman(vana, manager) {
     ) || null;
 }
 
-/** Birim çapasına (BRANSMAN vana veya sayaç) aynı birim no'yu yaz */
+/**
+ * Sayacın fleks ile bağlandığı BRANSMAN vanasını bul.
+ * Sayac.fleksBaglanti.{boruId, endpoint} ile vana.{bagliBoruId, fromEnd} eşleşmesinden çıkar.
+ */
+function _findBransmanForSayac(sayac, manager) {
+    if (!sayac || !manager) return null;
+    if (sayac.type !== 'sayac') return null;
+    const fleks = sayac.fleksBaglanti;
+    if (!fleks?.boruId) return null;
+    return (manager.components || []).find(c =>
+        c.type === 'vana' &&
+        c.vanaTipi === 'BRANSMAN' &&
+        c.bagliBoruId === fleks.boruId &&
+        (!c.fromEnd || c.fromEnd === fleks.endpoint)
+    ) || null;
+}
+
+/** Birim çapasına (BRANSMAN vana veya sayaç) aynı birim no'yu yaz; eşine senkronla */
 export function _applyBirimNoToAnchor(anchor, no, manager) {
     if (!anchor) return;
     anchor.birimNo = String(no);
-    // BRANSMAN'ın bağlı bir sayacı varsa (ara durum) ona da yansıt.
+    // BRANSMAN ↔ sayaç çift yönlü senkron: hangi taraf edit edildiyse diğeri de yansısın.
     if (anchor.type === 'vana' && anchor.vanaTipi === 'BRANSMAN') {
         const sayac = _findSayacForBransman(anchor, manager);
         if (sayac) {
             sayac.birimNo = String(no);
             if (!sayac.birimTipi && anchor.birimTipi) sayac.birimTipi = anchor.birimTipi;
         }
+    } else if (anchor.type === 'sayac') {
+        const vana = _findBransmanForSayac(anchor, manager);
+        if (vana) {
+            vana.birimNo = String(no);
+            if (!vana.birimTipi && anchor.birimTipi) vana.birimTipi = anchor.birimTipi;
+        }
     }
 }
 
 /**
- * Kattaki birim çapaları: BRANSMAN vanaları (ilerdeKullanim hariç) + sayaçlar,
- * x/y konumuna göre sıralı. Sayaçlar da numaralanır çünkü sayaç eklenince
- * BRANSMAN otomatikmen EMNIYET'e dönüşür ve birim no sayaçta tutulur.
+ * Kattaki birim çapaları, daire/birim bazında DEDUPE edilmiş:
+ *   - BRANSMAN-sayaç ikilisi tek anchor (BRANSMAN) olarak alınır; bağlı sayaç
+ *     ayrı anchor olarak listeye girmez (aksi takdirde aynı birim iki kez sayılır).
+ *   - Sıralama tüm anchor'ların KENDİ x,y konumuyla yapılır — boş BRANSMAN ve
+ *     sayaçlı BRANSMAN aynı shaft hattında olduğu için doğal sırada karışırlar.
+ *   - Bağımsız sayaçlar (BRANSMAN'a bağlı olmayan) anchor olarak girer.
  */
 function _unitAnchorsOnFloor(manager, floorId) {
     if (!manager) return [];
+
+    const linkedSayacIds = new Set();
     const anchors = [];
+
     for (const c of (manager.components || [])) {
         if (c.floorId !== floorId) continue;
-        if (c.type === 'vana' && c.vanaTipi === 'BRANSMAN' && !c.ilerdeKullanim) {
-            anchors.push(c);
-        } else if (c.type === 'sayac') {
-            anchors.push(c);
-        }
+        if (c.type !== 'vana') continue;
+        if (c.vanaTipi !== 'BRANSMAN' || c.ilerdeKullanim) continue;
+        const linkedSayac = _findSayacForBransman(c, manager);
+        if (linkedSayac) linkedSayacIds.add(linkedSayac.id);
+        anchors.push(c);
     }
+
+    for (const c of (manager.components || [])) {
+        if (c.floorId !== floorId) continue;
+        if (c.type !== 'sayac') continue;
+        if (linkedSayacIds.has(c.id)) continue;
+        anchors.push(c);
+    }
+
     return anchors.sort((a, b) => (a.x - b.x) || (a.y - b.y));
 }
 
@@ -405,6 +442,21 @@ export function _autoAssignByFloorPattern(vana, manager) {
     }
 
     try { syncBransmanToRooms(); syncBirimState(); invalidateBirimCache(); } catch (e) { console.error(e); }
+}
+
+/**
+ * Editör commit yardımcısı: birim no'yu birime atar (çift yönlü sayaç↔BRANSMAN senkronu),
+ * autoFill=true ise diğer boş birimleri otomatik doldurur, ardından oda/birim senkronlarını
+ * tetikler. saveState çağrısı dışarıda yapılır.
+ */
+export function commitBirimNoChange(anchor, no, manager, { autoFill = false } = {}) {
+    if (!anchor || !manager) return;
+    _applyBirimNoToAnchor(anchor, no, manager);
+    if (autoFill) {
+        _autoAssignByFloorPattern(anchor, manager); // kendi içinde senkronları çağırır
+    } else {
+        try { syncBransmanToRooms(); syncBirimState(); invalidateBirimCache(); } catch (e) { console.error(e); }
+    }
 }
 
 /** P1/P2 koordinat span'ı: değişen siyah, değişmeyen gri */

@@ -23,6 +23,8 @@ import { getDoorPlacement, isSpaceForDoor } from '../architectural-objects/door-
 import { getWindowPlacement, isSpaceForWindow } from '../architectural-objects/window-handler.js';
 import { getColumnCorners } from '../architectural-objects/columns.js';
 import { drawArchDevice } from './draw-arch-devices.js';
+import { drawDxfOverlay } from './draw-dxf.js';
+import { drawDxfEditOverlay } from './draw-dxf-edit.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
@@ -662,6 +664,12 @@ export function draw2D() {
     // 13. TESİSAT SİSTEMİ (v2) - En üstte render edilir
     // Transform zaten izometrik, plumbingRenderer state.is3DPerspectiveActive'i kullanır
     if (showPlumbing) plumbingManager.render(ctx2d);
+
+    // 13.5. DXF arka plan referansı — mimari ve tesisatın ÜZERİNDE çizilir
+    // (yarı şeffaf olduğu için altındaki çizim görünür, ama DXF her zaman okunur kalır)
+    drawDxfOverlay(ctx2d, zoom);
+    // 13.6. DXF edit modunda turuncu bbox + handle'lar
+    drawDxfEditOverlay(ctx2d, zoom);
 
     // 14. Referans Çizgileri (Rehberler)
     drawGuides(ctx2d, state);

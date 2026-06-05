@@ -23,10 +23,10 @@
       </button>
       <div class="dropdown-content" id="mainMenuContent">
         <a href="#" id="menuOpen">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round">
-            <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-7l-2-2H5a2 2 0 0 0-2 2z"></path>
-          </svg>
+          <span style="display:inline-block; width:18px; height:18px;
+                       background-color: currentColor;
+                       -webkit-mask: url('./general-files/aaalogo.png') no-repeat center / contain;
+                       mask: url('./general-files/aaalogo.png') no-repeat center / contain;"></span>
           Aç
         </a>
         <a href="#" id="menuSave">
@@ -47,6 +47,15 @@
             <line x1="9" y1="15" x2="15" y2="15"></line>
           </svg>
           Farklı Kaydet
+        </a>
+
+        <div class="menu-separator"></div>
+
+        <a href="#" id="menuDxfImport">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <path d="m14.574 1.0203c-0.097-0.096997-0.29099-0.58198-0.97097-0.58198h-6.7038s0.97097 0.096997 1.36 1.068c0 0 1.069 2.5269 2.0399 4.9558 2.8179 6.6068 7.1898 17.099 7.1898 17.099h6.5108c0.097-0.097-9.3267-22.443-9.4247-22.54zm-8.8407 0.87497-5.3438 12.631c-0.29199 0.87497-0.097997 1.9439 1.457 1.9439h4.1779l3.6919-8.8417c-1.166-2.9149-2.1359-5.2478-2.1359-5.2478-0.096997-0.29199-0.38899-1.069-0.97197-1.069-0.58298 0-0.77698 0.48598-0.87397 0.58298zm-0.097997 15.643h-4.4689c-0.77698 0-1.166-0.48598-1.166-0.48598 0.77698 1.36 3.0119 5.6358 3.0119 5.6358 0.38899 0.48598 0.77698 0.77698 1.36 0.77698 1.263 0 3.2069-1.263 3.2069-1.263l7.4808-4.6639z"></path>
+          </svg>
+          DXF Aç
         </a>
 
         <div class="menu-separator"></div>
@@ -162,6 +171,7 @@
         <label class="vis-item"><input type="checkbox" id="vis-chk-snap-geo" checked> <span>Geometriye Uy</span></label>
         <label class="vis-item"><input type="checkbox" id="vis-chk-arch" checked> <span>Mimari</span></label>
         <label class="vis-item"><input type="checkbox" id="vis-chk-plumbing" checked> <span>Tesisat</span></label>
+        <label class="vis-item"><input type="checkbox" id="vis-chk-dxf" checked> <span>DXF Arka Plan</span></label>
       </div>
     </div>
     <div class="vis-handle" title="Görünüm Ayarları">
@@ -657,6 +667,7 @@
         </div>
 
         <input type="file" id="file-input" accept=".json, .pdf, .xml" style="display: none" />
+        <input type="file" id="dxf-file-input" accept=".dxf" style="display: none" />
       </div>
 
       <button id="settings-btn" class="btn">
@@ -1155,6 +1166,13 @@
             <button id="ctx-mimari-eksilt-tum-katlar" class="context-menu-btn context-menu-btn-danger">× Tüm Katların
               Mimari Planını Sil</button>
           </div>
+        </div>
+
+        <div id="dxf-context-section" style="display:none;">
+            <div class="context-menu-divider"></div>
+            <div class="context-menu-title">DXF</div>
+            <button id="dxf-ctx-edit" class="context-menu-btn">🟠 DXF Düzenle (Taşı / Boyutlandır)</button>
+            <button id="dxf-ctx-toggle" class="context-menu-btn">👁 DXF Göster / Gizle</button>
         </div>
 
       </div>

@@ -256,7 +256,7 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     if (!plumbingManager || !plumbingManager.renderer) return;
 
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    const bgColor = document.body.classList.contains('light-mode') ? '#e6e7e7' : '#30302e';
+    const bgColor = document.body.classList.contains('light-mode') ? '#e6e7e7' : 'rgb(21, 24, 31)';
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 

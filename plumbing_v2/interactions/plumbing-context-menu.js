@@ -1124,6 +1124,11 @@ export function showPlumbingContextMenu(screenX, screenY, worldPos, interactionM
     if (!menuEl) initMenu();
     if (!menuEl) return;
 
+    // DXF section — DXF yüklüyse görünür, edit modu metnini güncelle
+    import('../../interactions/dxf-edit-handler.js')
+        .then(m => m.updateDxfContextSection && m.updateDxfContextSection())
+        .catch(() => {});
+
     const manager = interactionManager.manager;
 
     const hitResult = findBoruGovdeAt(manager, worldPos, 8);

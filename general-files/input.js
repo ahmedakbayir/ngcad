@@ -32,7 +32,7 @@ import { splitWallAtMousePosition, processWalls } from '../wall/wall-processor.j
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { hitTestLabel, hitTestLabelBBox } from '../plumbing_v2/renderer/renderer-labels.js';
 import { openPropertiesPanel, isPanelOpen } from '../plumbing_v2/properties/properties-panel.js';
-import { _applyBirimNoToAnchor, _autoAssignByFloorPattern } from '../plumbing_v2/properties/property-definitions.js';
+import { commitBirimNoChange } from '../plumbing_v2/properties/property-definitions.js';
 import { draw2D } from '../draw/draw2d.js';
 
 
@@ -124,8 +124,7 @@ function open2DBirimNoEditor(hit, comp, canvasRect) {
         const changed = newVal !== oldVal;
         if (changed || autoFillNext) {
             saveState();
-            if (changed) _applyBirimNoToAnchor(comp, newVal, plumbingManager);
-            if (autoFillNext) _autoAssignByFloorPattern(comp, plumbingManager);
+            commitBirimNoChange(comp, newVal, plumbingManager, { autoFill: autoFillNext });
             draw2D();
             try { update3DScene(); } catch (e) {}
             try { window._aangcad_drawIsoView?.(); } catch (e) {}

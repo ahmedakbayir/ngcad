@@ -7,6 +7,7 @@ import { processWalls } from '../wall/wall-processor.js';
 import { importFromXML } from './xml-io.js'; // <-- HATA BURADAYDI (Satır 5)
 import { renderMiniPanel } from '../floor/floor-panel.js'; // <-- KAT PANELİ İÇİN EKLENDİ
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
+import { loadDxfFile } from './dxf-io.js';
 
 export function setupFileIOListeners() {
     dom.bSave.addEventListener('click', saveProject);
@@ -65,7 +66,15 @@ function setupDragAndDrop() {
             const fileName = file.name.toLowerCase();
 
             // Sadece desteklenen dosya formatlarını kabul et
-            if (fileName.endsWith('.xml') || fileName.endsWith('.json') || fileName.endsWith('.vdcl')) {
+            if (fileName.endsWith('.xml') || fileName.endsWith('.json') || fileName.endsWith('.vdcl') || fileName.endsWith('.dxf')) {
+                if (fileName.endsWith('.dxf')) {
+                    loadDxfFile(file).catch(err => {
+                        console.error('DXF yükleme hatası:', err);
+                        alert('DXF yüklenirken bir hata oluştu! Hata: ' + err.message);
+                    });
+                    return;
+                }
+
                 // FileReader ile dosyayı oku ve openProject benzeri işle
                 const reader = new FileReader();
                 reader.onload = (event) => {
@@ -91,7 +100,7 @@ function setupDragAndDrop() {
 
                 reader.readAsText(file);
             } else {
-                alert("Desteklenmeyen dosya formatı: " + fileName + "\n\nSadece .xml, .json veya .vdcl dosyaları desteklenmektedir.");
+                alert("Desteklenmeyen dosya formatı: " + fileName + "\n\nSadece .xml, .json, .vdcl veya .dxf dosyaları desteklenmektedir.");
             }
         }
     }
@@ -197,6 +206,9 @@ function saveProject() {
 
         // TS 7363 Çizelge 6 — ısınma tipi (bireysel/merkezi/boylerli)
         isinmaTipi: state.isinmaTipi || 'bireysel',
+
+        // DXF arka plan referansı (varsa)
+        dxfImport: state.dxfImport || null,
     };
 
     const dataStr = JSON.stringify(projectData, null, 2);
@@ -471,6 +483,9 @@ function loadJSONProject(fileContent) {
 
         // TS 7363 Çizelge 6 — ısınma tipi (eski projelerde yoksa bireysel)
         isinmaTipi: projectData.isinmaTipi || 'bireysel',
+
+        // DXF arka plan referansı (eski projelerde yoksa null)
+        dxfImport: projectData.dxfImport || null,
     });
 
     // Tesisat yöneticisini güncelle
@@ -498,27 +513,33 @@ function loadJSONProject(fileContent) {
 function openProject(e) {
     const file = e.target.files[0];
     if (!file) return;
+    const fileName = file.name.toLowerCase();
+
+    // DXF: ayrı yol — loadDxfFile kendi okumasını yapar
+    if (fileName.endsWith('.dxf')) {
+        loadDxfFile(file).catch(err => {
+            console.error('DXF yükleme hatası:', err);
+            alert('DXF açılırken bir hata oluştu! Hata: ' + err.message);
+        });
+        e.target.value = '';
+        return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
         const fileContent = event.target.result;
-        const fileName = file.name.toLowerCase();
 
         try {
-            // YENİ: Dosya uzantısına göre yönlendir
             if (fileName.endsWith('.xml')) {
                 console.log("XML dosyası okunuyor...");
                 const originalName = file.name.replace(/\.[^.]+$/, '');
-                // XML import fonksiyonunu (xml-io.js'den) çağır
                 importFromXML(fileContent, { fileName: originalName });
 
             } else if (fileName.endsWith('.json')) {
                 console.log("JSON dosyası okunuyor...");
-                // JSON yükleme fonksiyonunu çağır
                 loadJSONProject(fileContent);
 
             } else if (fileName.endsWith('.vdcl')) {
-                // KULLANICIYA UYARI VER
                 alert("HATA: .vdcl dosyası sıkıştırılmış bir dosyadır.\n\nLütfen bu dosyayı 7zip veya WinRAR gibi bir programla açıp içindeki .xml dosyasını çıkarın ve o dosyayı 'Aç' butonuyla seçin.");
 
             } else {
@@ -531,7 +552,6 @@ function openProject(e) {
         }
     };
 
-    reader.readAsText(file); // Metin olarak oku (JSON veya XML için)
-
-    e.target.value = ''; // Input'u temizle
+    reader.readAsText(file); // JSON / XML için
+    e.target.value = '';
 }

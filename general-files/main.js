@@ -357,6 +357,10 @@ export let state = {
     currentPlumbingBlockType: 'SERVIS_KUTUSU', // Aktif tesisat bloğu tipi
     plumbingColorMode: "topology",
     isinmaTipi: 'bireysel', // 'bireysel' | 'merkezi' | 'boylerli' — TS 7363 Çizelge 6 kolon seçimi
+    dxfImport: null, // DXF arka plan referansı: { fileName, units, unitsConfirmed, scale, offset:{x,y}, layers:[{name,color,visible,entityCount}], entities:[...], visible }
+    dxfEditMode: false, // DXF'i sahnede taşı/ölçekle modu — sağ-tık menüden açılır
+    dxfEditDrag: null,  // { handle:'body'|'nw'|'ne'|'sw'|'se', startScene:{x,y}, baseOffset, baseScale }
+    dxfHoveredHandle: null, // edit modunda cursor altındaki handle (hover feedback için)
     startPoint: null,
     nodes: [],
     walls: [],
@@ -416,7 +420,7 @@ export let state = {
     drawingAngle: 0, // YENİ: Çizim açısı eklendi
     snapOptions: {
         endpoint: true,
-        midpoint: true,
+        midpoint: false,
         endpointExtension: true,
         midpointExtension: false,
         nearestOnly: true,
@@ -545,6 +549,7 @@ export let state = {
         showPlumbing: true,        // Tesisat Katmanı
         hideOtherFloors3D: false,  // 3D'de aktif kat dışındaki katları tamamen gizle (default: kapalı)
         snapToGeometry: true,      // Geometriye Uy: kapalı iken tesisat çizimi serbest (snap'siz)
+        showDxf: true,             // DXF arka plan referansı (içe aktarılmış AutoCAD planı)
     },
 };
 

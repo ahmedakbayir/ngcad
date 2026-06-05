@@ -17,7 +17,7 @@ import { renderIsometric, hitTestIsoLabel, setIsoLabelPos, cycleIsoLabelDir, rel
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { getActiveDiameterPalette, setActiveDiameterPalette, setActiveDiameterColor } from '../plumbing_v2/objects/pipe.js';
 import { closePropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
-import { _applyBirimNoToAnchor, _autoAssignByFloorPattern } from '../plumbing_v2/properties/property-definitions.js';
+import { commitBirimNoChange } from '../plumbing_v2/properties/property-definitions.js';
 // updateConnectedStairElevations import edildiğinden emin olun:
 import { gsap } from 'gsap';
 import * as THREE from 'three';
@@ -800,8 +800,7 @@ export function setupIsometricControls() {
             const changed = newVal !== oldVal;
             if (changed || autoFillNext) {
                 saveState();
-                if (changed) _applyBirimNoToAnchor(comp, newVal, plumbingManager);
-                if (autoFillNext) _autoAssignByFloorPattern(comp, plumbingManager);
+                commitBirimNoChange(comp, newVal, plumbingManager, { autoFill: autoFillNext });
                 drawIsoView();
                 draw2D();
                 try { update3DScene(); } catch (e) {}
@@ -1874,6 +1873,35 @@ export function setupUIListeners() {
         document.getElementById('bOpen')?.click();
     });
 
+    // DXF Aç — her tıklamada yeni dosya seçici açar.
+    // Mevcut DXF varsa kullanıcıya seçim sunulur (1 sil, 2 ekle, boş iptal).
+    // Sabit hidden input (#dxf-file-input) kullanılır — prompt sonrası
+    // user-gesture zincirinin bazı tarayıcılarda bozulmasını engeller.
+    // DXF Aç — her seferinde mevcut DXF silinir, yenisi yüklenir.
+    // Sabit hidden input (#dxf-file-input) kullanılır — user-gesture korunur.
+    const dxfFileInput = document.getElementById('dxf-file-input');
+    dxfFileInput?.addEventListener('change', async (ev) => {
+        const file = ev.target.files[0];
+        ev.target.value = '';
+        if (!file) return;
+        try {
+            const dxfIo = await import('./dxf-io.js');
+            await dxfIo.loadDxfFile(file);
+        } catch (err) {
+            console.error(err);
+            alert('DXF açılamadı: ' + err.message);
+        }
+    });
+
+    document.getElementById('menuDxfImport')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
+
+        if (state.dxfImport) {
+            if (!confirm('Önceki DXF silinecek. Devam edilsin mi?')) return;
+        }
+        dxfFileInput?.click();
+    });
 
     // --- YENİ: DOSYA AÇILDIĞINDA PROJE ADINI GÜNCELLEME ---
     const fileInput = document.getElementById('file-input');
@@ -2661,7 +2689,8 @@ function setupVisibilityPanel() {
         objLabels: 'vis-chk-obj-labels',
         birim: 'vis-chk-birim',
         hideOtherFloors3D: 'vis-chk-hide-other-floors-3d',
-        snapToGeometry: 'vis-chk-snap-geo'
+        snapToGeometry: 'vis-chk-snap-geo',
+        dxf: 'vis-chk-dxf'
     };
 
     // State'i güncelle ve sahneyi yeniden çiz
@@ -2700,6 +2729,7 @@ function setupVisibilityPanel() {
         updateVisibility('snapToGeometry', e.target.checked);
         syncCizimModuFromVisibility();
     });
+    document.getElementById(ids.dxf)?.addEventListener('change', (e) => updateVisibility('showDxf', e.target.checked));
     // Hepsini Göster
     document.getElementById('vis-btn-show-all')?.addEventListener('click', () => {
         Object.values(ids).forEach(id => {
@@ -2739,7 +2769,8 @@ function setupVisibilityPanel() {
             'vis-chk-obj-labels': 'showObjectLabels',
             'vis-chk-birim': 'showBirimBoundaries',
             'vis-chk-hide-other-floors-3d': 'hideOtherFloors3D',
-            'vis-chk-snap-geo': 'snapToGeometry'
+            'vis-chk-snap-geo': 'snapToGeometry',
+            'vis-chk-dxf': 'showDxf'
         };
         const elId = ids[key];
         const stateKey = stateKeyMap[elId];

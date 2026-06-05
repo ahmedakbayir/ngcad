@@ -16,6 +16,14 @@ import './plumbing_v2/objects/device.js';
 // Interactions
 import './plumbing_v2/interactions/interaction-manager.js';
 
+// DXF düzenleme (taşı / köşeden ölçekle) — sağ-tık menü + pointer handler
+import { installDxfEditHandlers } from './interactions/dxf-edit-handler.js';
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => installDxfEditHandlers());
+} else {
+    installDxfEditHandlers();
+}
+
 // UI
 import './wall/wall-panel.js';
 import './menu/guide-menu.js';
