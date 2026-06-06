@@ -218,30 +218,40 @@ export class TesisatSnapSystem {
 
                 // Dış köşeler için: genişletilmiş çizgi kesişimi
                 // Side kontrolü KALDIRILDI - tüm genişletilmiş kesişimleri kontrol et
-                // "Uç Nokta Uzantıları" checkbox'ı KAPALIYSA: yalnızca duvarlar uçta
-                // birleşiyorsa snap üret (havada yeşil noktaları engelle).
-                // İşaretliyse eski davranış: tüm yakındaki uzantılar.
-                const extOn = state.snapOptions?.endpointExtension;
-                if (!extOn && !this._wallsShareEndpoint(hatlar[i].wall, hatlar[j].wall)) continue;
                 const outerKesisim = this.lineIntersectionExtended(
                     hatlar[i].p1, hatlar[i].p2,
                     hatlar[j].p1, hatlar[j].p2
                 );
 
                 if (outerKesisim) {
-                    // Kesişim noktası duvar uçlarına yakın mı kontrol et
-                    const maxExtension = 500; // cm
-                    const dist1 = Math.min(
-                        Math.hypot(outerKesisim.x - hatlar[i].p1.x, outerKesisim.y - hatlar[i].p1.y),
-                        Math.hypot(outerKesisim.x - hatlar[i].p2.x, outerKesisim.y - hatlar[i].p2.y)
-                    );
-                    const dist2 = Math.min(
-                        Math.hypot(outerKesisim.x - hatlar[j].p1.x, outerKesisim.y - hatlar[j].p1.y),
-                        Math.hypot(outerKesisim.x - hatlar[j].p2.x, outerKesisim.y - hatlar[j].p2.y)
-                    );
+                    // "Uç Nokta Uzantıları" checkbox'ının iki modu:
+                    //   AÇIK  → eski davranış: kesişim her iki hattın uçlarına 500cm
+                    //           içinde olsun. Uzaktaki uzantıları da yakalar.
+                    //   KAPALI → kesişim her iki hattın SEGMENTİNE 60cm içinde
+                    //           olmalı. Gerçek köşeler ve T-bağlantıları (offset
+                    //           kadar dışarı çıkar) geçer; "havada" noktalar
+                    //           (oda eninde uzantı gerektirenler) elenir.
+                    const extOn = state.snapOptions?.endpointExtension;
+                    let pass;
+                    if (extOn) {
+                        const maxExtension = 500; // cm
+                        const dist1 = Math.min(
+                            Math.hypot(outerKesisim.x - hatlar[i].p1.x, outerKesisim.y - hatlar[i].p1.y),
+                            Math.hypot(outerKesisim.x - hatlar[i].p2.x, outerKesisim.y - hatlar[i].p2.y)
+                        );
+                        const dist2 = Math.min(
+                            Math.hypot(outerKesisim.x - hatlar[j].p1.x, outerKesisim.y - hatlar[j].p1.y),
+                            Math.hypot(outerKesisim.x - hatlar[j].p2.x, outerKesisim.y - hatlar[j].p2.y)
+                        );
+                        pass = (dist1 < maxExtension && dist2 < maxExtension);
+                    } else {
+                        const MAX_EXT_OFF = 60; // cm — duvar kalınlığı + offset toleransı
+                        const ext1 = this._segmentExtension(outerKesisim, hatlar[i].p1, hatlar[i].p2);
+                        const ext2 = this._segmentExtension(outerKesisim, hatlar[j].p1, hatlar[j].p2);
+                        pass = (ext1 <= MAX_EXT_OFF && ext2 <= MAX_EXT_OFF);
+                    }
 
-                    // Kesişim noktası her iki hattın uçlarına da makul mesafede ise ekle
-                    if (dist1 < maxExtension && dist2 < maxExtension) {
+                    if (pass) {
                         kesisimler.push({
                             x: outerKesisim.x,
                             y: outerKesisim.y,
@@ -792,24 +802,20 @@ export class TesisatSnapSystem {
     }
 
     /**
-     * İki duvarın birleşen (paylaşılan) uç noktası var mı?
-     * Köşe noktası snap'ini "havada" üretmemek için kullanılır:
-     * Yalnızca fiziksel olarak birleşen duvarların dış-köşe izdüşümlerine snap yapılır.
+     * Bir noktanın bir segmentten dışarı uzanma mesafesi.
+     * Segment içindeyse 0 döner; dışındaysa en yakın uca olan uzaklığı.
+     * Dış-köşe (extended) snap'lerinde, kesişimin segmente "ne kadar dışarı"
+     * uzandığını ölçmek için kullanılır.
      */
-    _wallsShareEndpoint(wallA, wallB) {
-        if (!wallA || !wallB) return false;
-        if (wallA === wallB) return false;
-        const TOL = 1; // cm — duvar uçları aynı kabul edilir
-        const pts = [wallA.p1, wallA.p2];
-        const qts = [wallB.p1, wallB.p2];
-        for (const p of pts) {
-            if (!p) continue;
-            for (const q of qts) {
-                if (!q) continue;
-                if (Math.abs(p.x - q.x) <= TOL && Math.abs(p.y - q.y) <= TOL) return true;
-            }
-        }
-        return false;
+    _segmentExtension(point, a, b) {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const len2 = dx * dx + dy * dy;
+        if (len2 === 0) return Infinity;
+        const t = ((point.x - a.x) * dx + (point.y - a.y) * dy) / len2;
+        if (t >= 0 && t <= 1) return 0;
+        if (t < 0) return Math.hypot(point.x - a.x, point.y - a.y);
+        return Math.hypot(point.x - b.x, point.y - b.y);
     }
 
     /**

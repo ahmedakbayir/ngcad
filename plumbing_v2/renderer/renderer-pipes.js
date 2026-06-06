@@ -1299,43 +1299,65 @@ export const PipeMixin = {
         // 3D gerçek uzunluk (Z dahil, segment'lerin toplamı) — cm
         // trueLength yukarıda segments üzerinden hesaplandı.
         if (trueLength >= 1) {
-            const label = trueLength >= 100
-                ? `${(trueLength / 100).toFixed(2)} m`
-                : `${Math.round(trueLength)} cm`;
+            const isCM = trueLength < 100;
+            const valueStr = isCM
+                ? `${Math.round(trueLength)}`
+                : `${(trueLength / 100).toFixed(2)}`;
+            const unitStr = isCM ? ' cm' : ' m';
 
             // Normal ölçü font ~10px (zoom kompanze ile). Anlık etiket: çok daha büyük.
             // Hem 2D'de hem 3D blend'de okunabilsin diye world-px cinsinden büyük.
             const baseFontPx = 22;
             const fontSize = baseFontPx * Math.pow(zoom, -0.6);
+            const unitFontSize = fontSize * 0.6;
 
-            // Hattın orta noktasında, üzerinden hafif offset ile çiz
-            // (aktif uçta değil — kullanıcının ölçüyü hattın üstünde görmesi için)
-            const mx = (x1 + x2) / 2;
-            const my = (y1 + y2) / 2;
-            const norm = screenLength > 0.01
-                ? { x: -dy / screenLength, y: dx / screenLength }
-                : { x: 0, y: -1 };
-            const off = (fontSize * 0.9);
-            const tx = mx + norm.x * off;
-            const ty = my + norm.y * off;
+            // Etiket konumu:
+            //   • Tesisat boyu < 1m → başlangıç noktasının biraz üstünde (dikey).
+            //   • Tesisat boyu ≥ 1m → hattın ortasında, hatta perpendiküler offset.
+            let tx, ty;
+            if (isCM) {
+                tx = x1;
+                ty = y1 - fontSize * 1.5;
+            } else {
+                const mx = (x1 + x2) / 2;
+                const my = (y1 + y2) / 2;
+                const norm = screenLength > 0.01
+                    ? { x: -dy / screenLength, y: dx / screenLength }
+                    : { x: 0, y: -1 };
+                const off = (fontSize * 0.9);
+                tx = mx + norm.x * off;
+                ty = my + norm.y * off;
+            }
 
             ctx.save();
-            ctx.font = `bold ${fontSize}px "Segoe UI", sans-serif`;
-            ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            const tw = ctx.measureText(label).width;
+            // Değer ve birim genişlikleri (farklı font boyutu)
+            ctx.font = `bold ${fontSize}px "Segoe UI", sans-serif`;
+            const valueW = ctx.measureText(valueStr).width;
+            ctx.font = `bold ${unitFontSize}px "Segoe UI", sans-serif`;
+            const unitW = ctx.measureText(unitStr).width;
+            const totalW = valueW + unitW;
+
             const padX = fontSize * 0.45;
             const padY = fontSize * 0.25;
 
             // Arkaplan kutusu (kontrast)
             ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
-            ctx.fillRect(tx - tw / 2 - padX, ty - fontSize / 2 - padY,
-                tw + padX * 2, fontSize + padY * 2);
+            ctx.fillRect(tx - totalW / 2 - padX, ty - fontSize / 2 - padY,
+                totalW + padX * 2, fontSize + padY * 2);
 
-            // Yazı
+            // Değer (sarı)
             ctx.fillStyle = '#ffe14a';
-            ctx.fillText(label, tx, ty);
+            ctx.textAlign = 'left';
+            ctx.font = `bold ${fontSize}px "Segoe UI", sans-serif`;
+            ctx.fillText(valueStr, tx - totalW / 2, ty);
+
+            // Birim (gri, küçük)
+            ctx.fillStyle = '#aaaaaa';
+            ctx.font = `bold ${unitFontSize}px "Segoe UI", sans-serif`;
+            ctx.fillText(unitStr, tx - totalW / 2 + valueW, ty);
+
             ctx.restore();
         }
 

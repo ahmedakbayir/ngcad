@@ -256,7 +256,7 @@ export function renderIsometric(ctx, canvasWidth, canvasHeight, zoom = 1, offset
     if (!plumbingManager || !plumbingManager.renderer) return;
 
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-    const bgColor = document.body.classList.contains('light-mode') ? '#e6e7e7' : 'rgb(37, 38, 41)';
+    const bgColor = document.body.classList.contains('light-mode') ? '#e6e7e7' : '#25262a';
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
@@ -480,11 +480,13 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
         }));
         const wxs = worldCorners.map(p => p.x);
         const wys = worldCorners.map(p => p.y);
+
         const worldBox = {
             minX: Math.min(...wxs) - PAD_WORLD,
             minY: Math.min(...wys) - PAD_WORLD,
             maxX: Math.max(...wxs) + PAD_WORLD,
             maxY: Math.max(...wys) + PAD_WORLD,
+            floorId: comp.floorId ?? null,
         };
 
         // === İso-projeksiyonlu köşeler (çizim için) ===
@@ -577,12 +579,19 @@ function drawMuhafazaBoxesIso(ctx, proxyManager) {
 
     if (entries.length === 0) return;
 
-    // Dünya XY footprint örtüşmesiyle birleştir — 2D ile birebir aynı kıstas.
-    // (İso schematic kaymalarını gruplamaya yansıtmıyoruz.)
-    const overlaps = (a, b) => a.minX < b.maxX && a.maxX > b.minX && a.minY < b.maxY && a.maxY > b.minY;
+    // Dünya XY footprint örtüşmesi + aynı kat kıstası. 2D `renderer-enclosure.js`
+    // aktif kata göre filtrelediği için sadece tek kat görür; iso tüm katları
+    // birden gösterdiği için farklı kat nesneleri XY'de örtüşse bile birleşmesin.
+    // (floorId yoksa eski davranış: sadece XY kontrolü.)
+    const sameFloor = (a, b) => !a.floorId || !b.floorId || a.floorId === b.floorId;
+    const overlaps = (a, b) =>
+        a.minX < b.maxX && a.maxX > b.minX &&
+        a.minY < b.maxY && a.maxY > b.minY &&
+        sameFloor(a, b);
     const mergeBox = (a, b) => ({
         minX: Math.min(a.minX, b.minX), minY: Math.min(a.minY, b.minY),
         maxX: Math.max(a.maxX, b.maxX), maxY: Math.max(a.maxY, b.maxY),
+        floorId: a.floorId || b.floorId || null,
     });
     const mergeAll = (list) => {
         let cur = list.map(e => ({

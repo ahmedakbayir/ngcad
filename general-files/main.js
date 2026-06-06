@@ -53,21 +53,21 @@ export const THEME_COLORS = {
         backgroundGradient: null, // Koyu modda gradient yok
         canvas: '#30302e', // Canvas temizleme rengi
         canvasGradient: {
-            center: '#25262a', //'#363636',  // Merkez - koyu gri
-            mid: '#25262a',     // Orta
-            edge: '#25262a'     // Kenar - daha koyu
+            center: '#1f1f20', //'#363636',  // Merkez - koyu gri
+            mid: '#1f1f20',     // Orta
+            edge: '#1f1f20'     // Kenar - daha koyu
         },
 
         // Duvarlar
         wallStroke: 'rgb(128,128,128)', // Duvar çizgisi
-        wallFill: '#25262a', // Duvar dolgusu (BG ile aynı)
+        wallFill: '#1f1f20', // Duvar dolgusu (BG ile aynı)
 
 
 
         // Mahaller
-        roomFill: '#25262a', // Mahal dolgusu (BG'ye yakın)
-        roomHover: '#25262a', // Mahal hover
-        roomSelected: '#25262a', // Mahal seçili
+        roomFill: '#1f1f20', // Mahal dolgusu (BG'ye yakın)
+        roomHover: '#1f1f20', // Mahal hover
+        roomSelected: '#1f1f20', // Mahal seçili
 
         // Grid
         grid: '#141414',
@@ -421,7 +421,7 @@ export let state = {
     snapOptions: {
         endpoint: true,
         midpoint: false,
-        endpointExtension: false,
+        endpointExtension: true,
         midpointExtension: false,
         nearestOnly: true,
     },
