@@ -218,6 +218,11 @@ export class TesisatSnapSystem {
 
                 // Dış köşeler için: genişletilmiş çizgi kesişimi
                 // Side kontrolü KALDIRILDI - tüm genişletilmiş kesişimleri kontrol et
+                // "Uç Nokta Uzantıları" checkbox'ı KAPALIYSA: yalnızca duvarlar uçta
+                // birleşiyorsa snap üret (havada yeşil noktaları engelle).
+                // İşaretliyse eski davranış: tüm yakındaki uzantılar.
+                const extOn = state.snapOptions?.endpointExtension;
+                if (!extOn && !this._wallsShareEndpoint(hatlar[i].wall, hatlar[j].wall)) continue;
                 const outerKesisim = this.lineIntersectionExtended(
                     hatlar[i].p1, hatlar[i].p2,
                     hatlar[j].p1, hatlar[j].p2
@@ -784,6 +789,27 @@ export class TesisatSnapSystem {
 
         const t = (ax * bx + ay * by) / len2;
         return t >= -tolerance && t <= 1 + tolerance;
+    }
+
+    /**
+     * İki duvarın birleşen (paylaşılan) uç noktası var mı?
+     * Köşe noktası snap'ini "havada" üretmemek için kullanılır:
+     * Yalnızca fiziksel olarak birleşen duvarların dış-köşe izdüşümlerine snap yapılır.
+     */
+    _wallsShareEndpoint(wallA, wallB) {
+        if (!wallA || !wallB) return false;
+        if (wallA === wallB) return false;
+        const TOL = 1; // cm — duvar uçları aynı kabul edilir
+        const pts = [wallA.p1, wallA.p2];
+        const qts = [wallB.p1, wallB.p2];
+        for (const p of pts) {
+            if (!p) continue;
+            for (const q of qts) {
+                if (!q) continue;
+                if (Math.abs(p.x - q.x) <= TOL && Math.abs(p.y - q.y) <= TOL) return true;
+            }
+        }
+        return false;
     }
 
     /**

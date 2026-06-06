@@ -27,7 +27,18 @@
                        background-color: currentColor;
                        -webkit-mask: url('./general-files/aaalogo.png') no-repeat center / contain;
                        mask: url('./general-files/aaalogo.png') no-repeat center / contain;"></span>
-          Aç
+          Proje Aç
+
+          <a href="#" id="menuDxfImport">
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <path
+                d="m14.574 1.0203c-0.097-0.096997-0.29099-0.58198-0.97097-0.58198h-6.7038s0.97097 0.096997 1.36 1.068c0 0 1.069 2.5269 2.0399 4.9558 2.8179 6.6068 7.1898 17.099 7.1898 17.099h6.5108c0.097-0.097-9.3267-22.443-9.4247-22.54zm-8.8407 0.87497-5.3438 12.631c-0.29199 0.87497-0.097997 1.9439 1.457 1.9439h4.1779l3.6919-8.8417c-1.166-2.9149-2.1359-5.2478-2.1359-5.2478-0.096997-0.29199-0.38899-1.069-0.97197-1.069-0.58298 0-0.77698 0.48598-0.87397 0.58298zm-0.097997 15.643h-4.4689c-0.77698 0-1.166-0.48598-1.166-0.48598 0.77698 1.36 3.0119 5.6358 3.0119 5.6358 0.38899 0.48598 0.77698 0.77698 1.36 0.77698 1.263 0 3.2069-1.263 3.2069-1.263l7.4808-4.6639z">
+              </path>
+            </svg>
+            DXF Aç
+          </a>
+
+          <div class="menu-separator"></div>
         </a>
         <a href="#" id="menuSave">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -47,15 +58,6 @@
             <line x1="9" y1="15" x2="15" y2="15"></line>
           </svg>
           Farklı Kaydet
-        </a>
-
-        <div class="menu-separator"></div>
-
-        <a href="#" id="menuDxfImport">
-          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <path d="m14.574 1.0203c-0.097-0.096997-0.29099-0.58198-0.97097-0.58198h-6.7038s0.97097 0.096997 1.36 1.068c0 0 1.069 2.5269 2.0399 4.9558 2.8179 6.6068 7.1898 17.099 7.1898 17.099h6.5108c0.097-0.097-9.3267-22.443-9.4247-22.54zm-8.8407 0.87497-5.3438 12.631c-0.29199 0.87497-0.097997 1.9439 1.457 1.9439h4.1779l3.6919-8.8417c-1.166-2.9149-2.1359-5.2478-2.1359-5.2478-0.096997-0.29199-0.38899-1.069-0.97197-1.069-0.58298 0-0.77698 0.48598-0.87397 0.58298zm-0.097997 15.643h-4.4689c-0.77698 0-1.166-0.48598-1.166-0.48598 0.77698 1.36 3.0119 5.6358 3.0119 5.6358 0.38899 0.48598 0.77698 0.77698 1.36 0.77698 1.263 0 3.2069-1.263 3.2069-1.263l7.4808-4.6639z"></path>
-          </svg>
-          DXF Aç
         </a>
 
         <div class="menu-separator"></div>
@@ -150,7 +152,7 @@
       </div>
       <div class="vis-content">
         <label class="vis-item">
-        <input type="checkbox" id="vis-chk-diameter-color" checked> <span>Çapa göre renklendir.</span> </label>
+          <input type="checkbox" id="vis-chk-diameter-color" checked> <span>Çapa göre renklendir.</span> </label>
         <label class="vis-item"><input type="checkbox" id="vis-chk-z" checked> <span>Z Kotu</span></label>
         <label class="vis-item"><input type="checkbox" id="vis-chk-shadow" checked> <span>Hat Gölgesi</span></label>
         <label class="vis-item"><input type="checkbox" id="vis-chk-pipe-frame" checked> <span>3D Hat
@@ -333,7 +335,7 @@
                   <line x1="12.0" y1="16.6" x2="12.0" y2="19.6" stroke-width="1" />
                   <line x1="13.6" y1="16.6" x2="13.2" y2="19.6" stroke-width="1" />
                   <line x1="16.2" y1="16.6" x2="15.0" y2="19.6" stroke-width="1" />
-<text x="12" y="12.5" text-anchor="middle" font-size="7" font-weight="bold" stroke="none"
+                  <text x="12" y="12.5" text-anchor="middle" font-size="7" font-weight="bold" stroke="none"
                     fill="currentColor">CO</text>
                 </svg>
                 CO Algılama
@@ -347,7 +349,7 @@
                   <line x1="12.0" y1="16.6" x2="12.0" y2="19.6" stroke-width="1" />
                   <line x1="13.6" y1="16.6" x2="13.2" y2="19.6" stroke-width="1" />
                   <line x1="16.2" y1="16.6" x2="15.0" y2="19.6" stroke-width="1" />
-<text x="12" y="12.5" text-anchor="middle" font-size="7" font-weight="bold" stroke="none"
+                  <text x="12" y="12.5" text-anchor="middle" font-size="7" font-weight="bold" stroke="none"
                     fill="currentColor">SAC</text>
                 </svg>
                 Sismik
@@ -1105,7 +1107,8 @@
             <button id="plumbing-ref-angular" class="context-menu-btn">Açısal</button>
             <button id="plumbing-ref-free" class="context-menu-btn">Serbest</button>
             <div class="context-menu-divider"></div>
-            <button id="plumbing-ref-clear-all" class="context-menu-btn context-menu-btn-danger">Referansları Temizle</button>
+            <button id="plumbing-ref-clear-all" class="context-menu-btn context-menu-btn-danger">Referansları
+              Temizle</button>
           </div>
         </div>
 
@@ -1169,10 +1172,10 @@
         </div>
 
         <div id="dxf-context-section" style="display:none;">
-            <div class="context-menu-divider"></div>
-            <div class="context-menu-title">DXF</div>
-            <button id="dxf-ctx-edit" class="context-menu-btn">🟠 DXF Düzenle (Taşı / Boyutlandır)</button>
-            <button id="dxf-ctx-toggle" class="context-menu-btn">👁 DXF Göster / Gizle</button>
+          <div class="context-menu-divider"></div>
+          <div class="context-menu-title">DXF</div>
+          <button id="dxf-ctx-edit" class="context-menu-btn">🟠 DXF Düzenle (Taşı / Boyutlandır)</button>
+          <button id="dxf-ctx-toggle" class="context-menu-btn">👁 DXF Göster / Gizle</button>
         </div>
 
       </div>
@@ -1181,17 +1184,15 @@
 
       <button id="plumbing-quick-inis-cikis" class="plumbing-quick-btn" title="İniş Çıkış Ekle" style="display:none;">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-          <path d="M7 3v18M7 3l-3 4M7 3l3 4M17 21V3M17 21l-3-4M17 21l3-4"
-                fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M7 3v18M7 3l-3 4M7 3l3 4M17 21V3M17 21l-3-4M17 21l3-4" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </button>
 
       <button id="plumbing-quick-add-objects" class="plumbing-quick-btn" title="Nesne Ekle" style="display:none;">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-          <path d="M12 5v14M5 12h14"
-                fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" />
         </svg>
       </button>
 
@@ -1410,10 +1411,9 @@
           </svg>
         </button>
         <div id="iso-filter-wrap" style="position: relative; display: inline-block; margin-right: 8px;">
-          <button id="iso-filter-btn" class="split-btn"
-            title="Görünür birimler (Kolon / İç Tesisat filtresi)">
-            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
-              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button id="iso-filter-btn" class="split-btn" title="Görünür birimler (Kolon / İç Tesisat filtresi)">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
               <polygon points="3 4 21 4 14 13 14 20 10 20 10 13 3 4"></polygon>
             </svg>
           </button>
@@ -1611,7 +1611,7 @@
     </div>
   </div>
 
-<div id="hk-detail-popup" class="hk-detail-popup" style="display:none;">
+  <div id="hk-detail-popup" class="hk-detail-popup" style="display:none;">
     <div class="hk-detail-row">
       <span class="hk-detail-label">Kaynak:</span>
       <span class="hk-detail-source" id="hk-detail-source"></span>

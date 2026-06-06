@@ -150,7 +150,7 @@ export const DEFAULT_KOMBI = [
     { marka: 'WARMHAUS', model: 'GLOWA 33', kw: 22 },
     { marka: 'BENMAK', model: 'BENMAK ecoPremix 24/28 Yoğuşmalı Kombi', kw: 22 },
     { marka: 'ECA', model: 'PROTEUS PREMIX H2 BLEND READY 35 HM DG', kw: 22 },
-    { marka: 'DEMİRDÖKÜM', model: 'ademiX P 24/24 AS/2 (H-TR)', kw: 22 },
+    { marka: 'DEMİRDÖKÜM', model: 'AdemiX P 24/24 AS/2 (H-TR)', kw: 24 },
     { marka: 'DEMİRDÖKÜM', model: 'ademiX P 28/28 AS/2 (H-TR)', kw: 22 },
     { marka: 'Beko', model: 'Megalogic 30', kw: 22 },
     { marka: 'ARÇELİK', model: 'Massimus 35', kw: 22 },

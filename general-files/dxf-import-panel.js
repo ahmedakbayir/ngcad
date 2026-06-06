@@ -206,8 +206,6 @@ function buildPanelDOM() {
     rightPane.style.setProperty('position', 'relative', 'important');
     rightPane.innerHTML = `
         <div style="flex:0 0 auto; padding:6px 14px; font-size:11px; opacity:0.6; border-bottom:1px solid #2c3340; display:flex; justify-content:space-between; align-items:center;">
-            <span>Önizleme</span>
-            <span>tekerlek: zoom · shift+sürükle: pan · çift tık: sıfırla</span>
         </div>
         <canvas id="dxf-preview-canvas"></canvas>
     `;
