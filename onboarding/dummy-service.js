@@ -23,34 +23,34 @@ const NETWORK_DELAY_MS = 350;
 // Kullanıcı tarafından doldurulacak. Aşağıdaki yorum satırı, beklenen
 // alan yapısını gösteren tek bir örnektir — kopyalayıp listeye ekleyin.
 export const DUMMY_BINALAR = [
-    // {
-    //     binaTesisatNo: '1234567',
-    //     adres: {
-    //         il: 'İSTANBUL', ilKod: '34',
-    //         ilce: 'KÜÇÜKÇEKMECE', ilceKod: 'KCK',
-    //         mahalle: 'CUMHURİYET MH.', mahalleKod: 'CMH',
-    //         sokak: '1. CADDE', cadSokKod: 'C001',
-    //         binaNo: '12',
-    //         postaKodu: '34290',
-    //         lat: 41.0001, lng: 28.7777,
-    //     },
-    //     tesisat: {
-    //         kolonVar: true,
-    //         kutuTipi: 'duvar',      // 'duvar' | 'yer'
-    //         isinmaTipi: 'bireysel', // 'bireysel' | 'merkezi' | 'boylerli'
-    //     },
-    //     sayaclar: [
-    //         {
-    //             aboneTuketimNo: 'A001',
-    //             birimNo: '1',
-    //             metrekare: 95,
-    //             aboneAdi: 'AHMET YILMAZ',
-    //             telefon: '0532 000 00 00',
-    //             projeDurumu: 'TAMAM',  // 'TAMAM' | 'BEKLEMEDE' | ...
-    //             gazDurumu: 'AÇIK',     // 'AÇIK' | 'KAPALI'
-    //         },
-    //     ],
-    // },
+    {
+        binaTesisatNo: '1234567',
+        adres: {
+            il: 'İSTANBUL', ilKod: '34',
+            ilce: 'KÜÇÜKÇEKMECE', ilceKod: 'KCK',
+            mahalle: 'CUMHURİYET MH.', mahalleKod: 'CMH',
+            sokak: '1. CADDE', cadSokKod: 'C001',
+            binaNo: '12',
+            postaKodu: '34290',
+            lat: 41.0001, lng: 28.7777,
+        },
+        tesisat: {
+            kolonVar: true,
+            kutuTipi: 'duvar',      // 'duvar' | 'yer'
+            isinmaTipi: 'bireysel', // 'bireysel' | 'merkezi' | 'boylerli'
+        },
+        sayaclar: [
+            {
+                aboneTuketimNo: 'A001',
+                birimNo: '1',
+                metrekare: 95,
+                aboneAdi: 'AHMET YILMAZ',
+                telefon: '0532 000 00 00',
+                projeDurumu: 'TAMAM',  // 'TAMAM' | 'BEKLEMEDE' | ...
+                gazDurumu: 'AÇIK',     // 'AÇIK' | 'KAPALI'
+            },
+        ],
+    },
 ];
 
 // ── PUBLIC API ─────────────────────────────────────────────────────
