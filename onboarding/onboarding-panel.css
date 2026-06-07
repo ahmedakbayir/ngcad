@@ -741,3 +741,88 @@ body.light-mode .ob-footer {
         border-top: 1px solid var(--border-panel, #3c4043);
     }
 }
+
+/* ── ADRES TAB — select (cascading combobox) ───────────────────── */
+select.ob-select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 28px;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%239aa0a6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+select.ob-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-image: none;
+}
+select.ob-select option {
+    background: var(--bg-input, #1e1f20);
+    color: var(--color-text, #e8eaed);
+}
+
+/* ── ADRES TAB — Servisten Al ──────────────────────────────────── */
+.ob-input-with-btn {
+    display: flex;
+    gap: 6px;
+    align-items: stretch;
+}
+.ob-input-with-btn .ob-text {
+    flex: 1;
+    min-width: 0;
+}
+.ob-input-with-btn .ob-mini-btn {
+    flex-shrink: 0;
+    padding: 0 12px;
+}
+
+.ob-servis-status {
+    font-size: 11px;
+    min-height: 14px;
+    margin-top: 6px;
+    line-height: 1.4;
+    color: var(--color-secondary, #9aa0a6);
+}
+.ob-servis-status.ob-info { color: var(--color-secondary, #9aa0a6); }
+.ob-servis-status.ob-ok   { color: #81c995; }
+.ob-servis-status.ob-err  { color: #f28b82; }
+
+.ob-servis-result {
+    background: var(--bg-input, #1e1f20);
+    border: 1px solid var(--border-panel, #3c4043);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+.ob-servis-result-head {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--color-secondary, #9aa0a6);
+    margin-bottom: 6px;
+}
+.ob-servis-result-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 16px;
+    font-size: 12px;
+}
+.ob-servis-result-body > div {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    min-width: 0;
+}
+.ob-kv-k {
+    color: var(--color-secondary, #9aa0a6);
+    font-size: 11px;
+    flex-shrink: 0;
+}
+.ob-kv-v {
+    color: var(--color-text, #e8eaed);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

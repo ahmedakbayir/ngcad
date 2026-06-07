@@ -8,6 +8,21 @@ import { draw2D } from '../draw/draw2d.js';
 import { renderMiniPanel } from '../floor/floor-panel.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { OnboardingSchematic } from './onboarding-schematic.js';
+import {
+    getIller,
+    getIlceler,
+    getMahalleler,
+    getCaddeSokaklar,
+    adFromKod,
+    loadAddressIndex,
+    loadStreets,
+    isIndexLoaded,
+    isStreetsLoaded,
+} from './address-data.js';
+import {
+    fetchBinaByTesisatNo,
+    fetchBinaByAboneTuketimNo,
+} from './dummy-service.js';
 
 const LS_SHOW_AT_START = 'onboarding_show_at_start';
 const LS_LAST_SETTINGS = 'onboarding_last_settings';
@@ -16,12 +31,27 @@ const DEFAULT_FORM = {
     projectName: '',
 
     // Adres
+    // Mod seçimi: 'servis' = Bina Tesisat No / Abone Tüketim No ile çek,
+    //             'sec'    = İl/İlçe/Mahalle/Cadde-Sokak combobox + Kapı No
+    adresMode: 'sec',
+    servis: {
+        binaTesisatNo: '',
+        aboneTuketimNo: '',
+        // Son başarılı sorgu sonucunun özeti (UI'da göstermek için).
+        lastResult: null, // { binaTesisatNo, aboneAdi?, birimSayisi, kaynak: 'bina' | 'abone' }
+    },
     adres: {
-        il: '',
+        // Cascading combobox kodları (Adres Seç modu için)
+        ilKod: '34',
+        ilceKod: '',
+        mahalleKod: '',
+        cadSokKod: '',
+        // Görünür ad alanları (her iki modda da doldurulur, state'e bunlar gider)
+        il: 'İSTANBUL',
         ilce: '',
         mahalle: '',
         sokak: '',
-        binaNo: '',
+        binaNo: '',     // Kapı No olarak gösterilir
         postaKodu: '',
         lat: null,
         lng: null,
@@ -223,8 +253,34 @@ function renderForm() {
     root.innerHTML = renderTabContent(currentTab);
     attachTabListeners(currentTab);
     if (currentTab === 'katlar' && schematic) schematic.render();
-    if (currentTab === 'adres') initMap();
+    if (currentTab === 'adres') {
+        initMap();
+        ensureAddressDataLoaded();
+    }
     updateCTA();
+}
+
+// Adres Seç modunda lazy veriler: indeks (il/ilçe/mahalle) + ilgili ilçenin sokakları.
+// Yükleme tamamlanınca form re-render — kullanıcı bekleme animasyonu/durumu görür.
+function ensureAddressDataLoaded() {
+    if (form.adresMode !== 'sec') return;
+    if (!isIndexLoaded()) {
+        loadAddressIndex()
+            .then(() => { if (currentTab === 'adres') renderForm(); })
+            .catch(err => {
+                console.warn('Adres indeksi yüklenemedi:', err);
+                if (currentTab === 'adres') renderForm();
+            });
+    }
+    const ilceKod = form.adres.ilceKod;
+    if (ilceKod && !isStreetsLoaded(ilceKod)) {
+        loadStreets(ilceKod)
+            .then(() => { if (currentTab === 'adres') renderForm(); })
+            .catch(err => {
+                console.warn('Sokak verisi yüklenemedi:', err);
+                if (currentTab === 'adres') renderForm();
+            });
+    }
 }
 
 function updateSchematicVisibility() {
@@ -247,29 +303,27 @@ function renderTabContent(id) {
 
 // ── ADRES TAB ──────────────────────────────────────────────────────
 function renderAdres() {
-    const a = form.adres;
     return `
         <section class="ob-section">
+            <h2 class="ob-q-title">Bina adres bilgileri</h2>
+            <div class="ob-seg ob-seg-block" id="ob-adres-mode">
+                <button type="button" class="ob-seg-btn ${form.adresMode === 'servis' ? 'ob-active' : ''}" data-val="servis">Servisten Al</button>
+                <button type="button" class="ob-seg-btn ${form.adresMode === 'sec' ? 'ob-active' : ''}" data-val="sec">Adres Seç</button>
+            </div>
+            <div class="ob-mt-12">
+                ${form.adresMode === 'servis' ? renderAdresServis() : renderAdresSec()}
+            </div>
+        </section>
+
+        <section class="ob-section">
             <div class="ob-section-head">
-                <h2 class="ob-q-title">Bina adres bilgileri</h2>
+                <h2 class="ob-q-title">Binanın koordinatları</h2>
                 <button type="button" class="ob-mini-btn" id="ob-geocode" title="Adresi haritada bul">
                     <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><line x1="10.3" y1="10.3" x2="13.5" y2="13.5"/></svg>
                     Haritada Bul
                 </button>
             </div>
-            <div class="ob-grid ob-grid-2">
-                ${textField('İl', 'adres.il', a.il)}
-                ${textField('İlçe', 'adres.ilce', a.ilce)}
-                ${textField('Mahalle', 'adres.mahalle', a.mahalle)}
-                ${textField('Sokak / Cadde', 'adres.sokak', a.sokak)}
-                ${textField('Bina No', 'adres.binaNo', a.binaNo)}
-                ${textField('Posta Kodu', 'adres.postaKodu', a.postaKodu)}
-            </div>
             <div class="ob-geocode-status" id="ob-geocode-status"></div>
-        </section>
-
-        <section class="ob-section">
-            <h2 class="ob-q-title">Binanın koordinatları</h2>
             <div class="ob-map-wrap">
                 <div class="ob-map" id="ob-map"></div>
                 <div class="ob-map-fallback" id="ob-map-fallback" style="display:none">
@@ -277,15 +331,77 @@ function renderAdres() {
                 </div>
             </div>
             <div class="ob-grid ob-grid-2 ob-mt-10">
-                ${numField('Enlem (lat)', 'adres.lat', a.lat, 'any')}
-                ${numField('Boylam (lng)', 'adres.lng', a.lng, 'any')}
+                ${numField('Enlem (lat)', 'adres.lat', form.adres.lat, 'any')}
+                ${numField('Boylam (lng)', 'adres.lng', form.adres.lng, 'any')}
             </div>
         </section>
+    `;
+}
 
-        <section class="ob-section">
-            <h2 class="ob-q-title">Binadaki birimler</h2>
-            <div class="ob-placeholder">Bu bölüm sonra eklenecek.</div>
-        </section>
+// "Servisten Al" — Bina Tesisat No ve/veya Abone Tüketim No ile sorgu.
+function renderAdresServis() {
+    const s = form.servis;
+    const result = s.lastResult;
+    return `
+        <div class="ob-grid ob-grid-2">
+            <div class="ob-field">
+                <label class="ob-field-label">Bina Tesisat No</label>
+                <div class="ob-input-with-btn">
+                    <input type="text" class="ob-text" id="ob-bina-tesisat-no"
+                           value="${escapeHtml(s.binaTesisatNo)}" autocomplete="off"
+                           placeholder="Örn. 1234567" />
+                    <button type="button" class="ob-mini-btn" id="ob-sorgula-bina">Sorgula</button>
+                </div>
+            </div>
+            <div class="ob-field">
+                <label class="ob-field-label">Abone Tüketim No</label>
+                <div class="ob-input-with-btn">
+                    <input type="text" class="ob-text" id="ob-abone-tuketim-no"
+                           value="${escapeHtml(s.aboneTuketimNo)}" autocomplete="off"
+                           placeholder="Örn. A001" />
+                    <button type="button" class="ob-mini-btn" id="ob-sorgula-abone">Sorgula</button>
+                </div>
+            </div>
+        </div>
+        <div class="ob-servis-status" id="ob-servis-status"></div>
+        ${result ? `
+            <div class="ob-servis-result ob-mt-10">
+                <div class="ob-servis-result-head">Servisten gelen bilgiler</div>
+                <div class="ob-servis-result-body">
+                    <div><span class="ob-kv-k">Bina Tesisat No</span><span class="ob-kv-v">${escapeHtml(result.binaTesisatNo)}</span></div>
+                    ${result.aboneAdi   ? `<div><span class="ob-kv-k">Abone</span><span class="ob-kv-v">${escapeHtml(result.aboneAdi)}</span></div>` : ''}
+                    ${result.adresKisa  ? `<div><span class="ob-kv-k">Adres</span><span class="ob-kv-v">${escapeHtml(result.adresKisa)}</span></div>` : ''}
+                    <div><span class="ob-kv-k">Sayaç</span><span class="ob-kv-v">${result.birimSayisi} birim</span></div>
+                </div>
+            </div>
+        ` : ''}
+    `;
+}
+
+// "Adres Seç" — cascading 4 combobox + Kapı No (free text).
+function renderAdresSec() {
+    const a = form.adres;
+    const indexLoaded = isIndexLoaded();
+    const streetsLoading = !!(a.ilceKod && !isStreetsLoaded(a.ilceKod));
+    const iller      = getIller();
+    const ilceler    = getIlceler(a.ilKod);
+    const mahalleler = getMahalleler(a.ilKod, a.ilceKod);
+    const cadSoklar  = getCaddeSokaklar(a.ilKod, a.ilceKod, a.mahalleKod);
+
+    let statusMsg = '';
+    if (!indexLoaded)         statusMsg = 'Adres verileri yükleniyor…';
+    else if (streetsLoading)  statusMsg = 'Cadde / sokak listesi yükleniyor…';
+
+    return `
+        <div class="ob-grid ob-grid-2">
+            ${selectField('İl',           'ilKod',      iller,       a.ilKod,      !indexLoaded || iller.length === 0)}
+            ${selectField('İlçe',         'ilceKod',    ilceler,     a.ilceKod,    !indexLoaded || !a.ilKod || ilceler.length === 0)}
+            ${selectField('Mahalle',      'mahalleKod', mahalleler,  a.mahalleKod, !a.ilceKod || mahalleler.length === 0)}
+            ${selectField('Cadde / Sokak','cadSokKod',  cadSoklar,   a.cadSokKod,  !a.mahalleKod || streetsLoading || cadSoklar.length === 0)}
+            ${textField('Kapı No',  'adres.binaNo',  a.binaNo)}
+            ${textField('Posta Kodu','adres.postaKodu', a.postaKodu)}
+        </div>
+        ${statusMsg ? `<div class="ob-geocode-status ob-info ob-mt-10">${statusMsg}</div>` : ''}
     `;
 }
 
@@ -499,6 +615,20 @@ function numField(label, path, value, step) {
     `;
 }
 
+// Cascading adres combobox'ları için. data-cascade ile listener'a bağlanır.
+function selectField(label, cascadeKey, options, value, disabled) {
+    const opts = options.map(o => `<option value="${escapeHtml(o.kod)}" ${o.kod === value ? 'selected' : ''}>${escapeHtml(o.ad)}</option>`).join('');
+    return `
+        <div class="ob-field">
+            <label class="ob-field-label">${label}</label>
+            <select class="ob-text ob-select" data-cascade="${cascadeKey}" ${disabled ? 'disabled' : ''}>
+                <option value="" ${!value ? 'selected' : ''}>${disabled && options.length === 0 ? '—' : 'Seçin…'}</option>
+                ${opts}
+            </select>
+        </div>
+    `;
+}
+
 function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
@@ -616,6 +746,138 @@ function attachTabListeners(tabId) {
 
     // Geocode button (adres tab)
     overlay.querySelector('#ob-geocode')?.addEventListener('click', () => runGeocode());
+
+    // Adres mode segment (Servisten Al / Adres Seç)
+    overlay.querySelector('#ob-adres-mode')?.addEventListener('click', e => {
+        const btn = e.target.closest('.ob-seg-btn');
+        if (!btn) return;
+        const mode = btn.dataset.val;
+        if (mode === form.adresMode) return;
+        form.adresMode = mode;
+        renderForm();
+    });
+
+    // Adres Seç: cascading select'ler
+    overlay.querySelectorAll('select[data-cascade]').forEach(sel => {
+        sel.addEventListener('change', () => onCascadeChange(sel.dataset.cascade, sel.value));
+    });
+
+    // Servisten Al: sorgu butonları
+    overlay.querySelector('#ob-sorgula-bina')?.addEventListener('click', () => runServisSorgu('bina'));
+    overlay.querySelector('#ob-sorgula-abone')?.addEventListener('click', () => runServisSorgu('abone'));
+
+    // Servisten Al: input'lar form'a yansısın (Enter ile sorgu)
+    const binaInput = overlay.querySelector('#ob-bina-tesisat-no');
+    if (binaInput) {
+        binaInput.addEventListener('input', () => { form.servis.binaTesisatNo = binaInput.value; });
+        binaInput.addEventListener('keydown', e => { if (e.key === 'Enter') runServisSorgu('bina'); });
+    }
+    const aboneInput = overlay.querySelector('#ob-abone-tuketim-no');
+    if (aboneInput) {
+        aboneInput.addEventListener('input', () => { form.servis.aboneTuketimNo = aboneInput.value; });
+        aboneInput.addEventListener('keydown', e => { if (e.key === 'Enter') runServisSorgu('abone'); });
+    }
+}
+
+// ── ADRES SEÇ — cascade ────────────────────────────────────────────
+function onCascadeChange(key, value) {
+    const a = form.adres;
+    if (key === 'ilKod') {
+        a.ilKod = value;
+        a.ilceKod = '';
+        a.mahalleKod = '';
+        a.cadSokKod = '';
+    } else if (key === 'ilceKod') {
+        a.ilceKod = value;
+        a.mahalleKod = '';
+        a.cadSokKod = '';
+    } else if (key === 'mahalleKod') {
+        a.mahalleKod = value;
+        a.cadSokKod = '';
+    } else if (key === 'cadSokKod') {
+        a.cadSokKod = value;
+    }
+    // Görünür adları kodlardan türet — applyAndClose state'e bunları yazacak.
+    a.il      = adFromKod('il',      a);
+    a.ilce    = adFromKod('ilce',    a);
+    a.mahalle = adFromKod('mahalle', a);
+    a.sokak   = adFromKod('cadsok',  a);
+    renderForm();
+}
+
+// ── SERVİSTEN AL — sorgu ───────────────────────────────────────────
+async function runServisSorgu(kaynak) {
+    const status = overlay.querySelector('#ob-servis-status');
+    if (!status) return;
+
+    try {
+        let bina = null;
+        let abone = null;
+        if (kaynak === 'bina') {
+            const tno = (form.servis.binaTesisatNo || '').trim();
+            if (!tno) { setServisStatus('Bina Tesisat No girin.', 'err'); return; }
+            setServisStatus('Aranıyor…', 'info');
+            bina = await fetchBinaByTesisatNo(tno);
+        } else {
+            const ano = (form.servis.aboneTuketimNo || '').trim();
+            if (!ano) { setServisStatus('Abone Tüketim No girin.', 'err'); return; }
+            setServisStatus('Aranıyor…', 'info');
+            const res = await fetchBinaByAboneTuketimNo(ano);
+            bina = res.bina;
+            abone = res.abone;
+        }
+        applyServiceResult(bina, abone, kaynak);
+        setServisStatus('Bilgiler alındı.', 'ok');
+    } catch (e) {
+        setServisStatus(e?.message || 'Servis hatası.', 'err');
+    }
+}
+
+function setServisStatus(text, kind) {
+    const status = overlay.querySelector('#ob-servis-status');
+    if (!status) return;
+    status.textContent = text;
+    status.className = 'ob-servis-status ob-' + (kind || 'info');
+}
+
+function applyServiceResult(bina, abone, kaynak) {
+    if (!bina) return;
+    // Adres bilgilerini form.adres'e yaz (her iki mod ile uyumlu kalsın)
+    if (bina.adres) {
+        Object.assign(form.adres, {
+            ilKod:      bina.adres.ilKod      ?? form.adres.ilKod,
+            ilceKod:    bina.adres.ilceKod    ?? '',
+            mahalleKod: bina.adres.mahalleKod ?? '',
+            cadSokKod:  bina.adres.cadSokKod  ?? '',
+            il:         bina.adres.il         ?? form.adres.il,
+            ilce:       bina.adres.ilce       ?? '',
+            mahalle:    bina.adres.mahalle    ?? '',
+            sokak:      bina.adres.sokak      ?? '',
+            binaNo:     bina.adres.binaNo     ?? '',
+            postaKodu:  bina.adres.postaKodu  ?? '',
+            lat:        bina.adres.lat        ?? form.adres.lat,
+            lng:        bina.adres.lng        ?? form.adres.lng,
+        });
+    }
+    // Tesisat parametreleri (Tesisat / Katlar tab'larında kullanılır)
+    if (bina.tesisat) {
+        if (typeof bina.tesisat.kolonVar    === 'boolean') form.kolonVar    = bina.tesisat.kolonVar;
+        if (bina.tesisat.kutuTipi)                          form.kutuTipi    = bina.tesisat.kutuTipi;
+        if (bina.tesisat.isinmaTipi)                        form.isinmaTipi  = bina.tesisat.isinmaTipi;
+    }
+    // Sayaçlar
+    form.birimler = Array.isArray(bina.sayaclar) ? bina.sayaclar.slice() : [];
+
+    form.servis.lastResult = {
+        binaTesisatNo: bina.binaTesisatNo,
+        aboneAdi: abone?.aboneAdi || '',
+        adresKisa: [bina.adres?.mahalle, bina.adres?.sokak, bina.adres?.binaNo].filter(Boolean).join(' '),
+        birimSayisi: form.birimler.length,
+        kaynak,
+    };
+    renderForm();
+    syncMapToInputs();
+    updateCTA();
 }
 
 // ── GEOCODE (Nominatim) ────────────────────────────────────────────
