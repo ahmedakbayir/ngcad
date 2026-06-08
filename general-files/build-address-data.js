@@ -1,6 +1,6 @@
 // general-files/build-address-data.js
 // Bir kerelik build:  node general-files/build-address-data.js
-// Girdi : general-files/{ilceler,mahalleler,sokaklar}.txt  (her satır bir JSON)
+// Girdi : adres/{*ilceler,*mahalleler,*sokaklar}.{txt,jsonl}  (her satır bir JSON)
 // Çıktı : onboarding/address-data/index.json
 //         onboarding/address-data/streets/{ilceKod}.json
 
@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const SRC = path.join(ROOT, 'general-files');
+const SRC = path.join(ROOT, 'adres');
 const OUT = path.join(ROOT, 'onboarding', 'address-data');
 const OUT_STREETS = path.join(OUT, 'streets');
 

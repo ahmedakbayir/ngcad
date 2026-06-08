@@ -95,9 +95,9 @@ let form = deepClone(DEFAULT_FORM);
 let currentTab = 'adres';
 let overlay = null;
 let schematic = null;
-let leafletMap = null;
-let leafletMarker = null;
-let leafletLoadPromise = null;
+let ymap = null;
+let ymark = null;
+let ymapsLoadPromise = null;
 
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
@@ -121,10 +121,10 @@ export function showOnboardingPanel(force = false) {
 
 export function hideOnboardingPanel() {
     if (overlay) overlay.classList.remove('ob-visible');
-    if (leafletMap) {
-        try { leafletMap.remove(); } catch {}
-        leafletMap = null;
-        leafletMarker = null;
+    if (ymap) {
+        try { ymap.destroy(); } catch {}
+        ymap = null;
+        ymark = null;
     }
 }
 
@@ -211,10 +211,10 @@ function buildOverlay() {
 function switchTab(id) {
     if (!TAB_IDS.includes(id) || id === currentTab) return;
     // Leaving adres tab: tear down map so it can be re-initialized cleanly next time
-    if (currentTab === 'adres' && leafletMap) {
-        try { leafletMap.remove(); } catch {}
-        leafletMap = null;
-        leafletMarker = null;
+    if (currentTab === 'adres' && ymap) {
+        try { ymap.destroy(); } catch {}
+        ymap = null;
+        ymark = null;
     }
     currentTab = id;
     renderTabs();
@@ -514,7 +514,7 @@ function renderKatlar() {
             <h2 class="ob-q-title">Katlar</h2>
             <div class="ob-num-row">
             <div class="ob-field">
-                <label class="ob-field-label">Zemin kat yüksekliği</label>
+                <label class="ob-field-label">Kat yüksekliği</label>
                 <div class="ob-num-input-wrap" data-field="zeminKatYukseklik" data-step="10" data-min="180" data-max="500">
                     <button type="button" class="ob-num-btn" data-act="dec">−</button>
                     <input type="number" class="ob-num-input" value="${form.zeminKatYukseklik}" />
@@ -523,7 +523,7 @@ function renderKatlar() {
                 </div>
             </div>
             <div class="ob-field">
-                <label class="ob-field-label">Zemin kat seviyesinin yere göre yüksekliği</label>
+                <label class="ob-field-label">Zemin dolgu seviyesi</label>
                 <div class="ob-num-input-wrap" data-field="zeminKat0Offset" data-step="5" data-min="-300" data-max="300">
                     <button type="button" class="ob-num-btn" data-act="dec">−</button>
                     <input type="number" class="ob-num-input" value="${form.zeminKat0Offset}" />
@@ -543,7 +543,7 @@ function renderKatlar() {
                 </div>
             </div>
             <div class="ob-field">
-                <label class="ob-field-label">Zemin üstü kat sayısı</label>
+                <label class="ob-field-label">Normal kat sayısı</label>
                 <div class="ob-num-input-wrap" data-field="normalKatSayisi" data-step="1" data-min="0" data-max="20">
                     <button type="button" class="ob-num-btn" data-act="dec">−</button>
                     <input type="number" class="ob-num-input" value="${form.normalKatSayisi}" />
@@ -880,7 +880,7 @@ function applyServiceResult(bina, abone, kaynak) {
     updateCTA();
 }
 
-// ── GEOCODE (Nominatim) ────────────────────────────────────────────
+// ── GEOCODE (Yandex Maps) ──────────────────────────────────────────
 async function runGeocode() {
     const btn = overlay.querySelector('#ob-geocode');
     const status = overlay.querySelector('#ob-geocode-status');
@@ -899,151 +899,205 @@ async function runGeocode() {
     status.className = 'ob-geocode-status ob-info';
 
     const binaNo = a.binaNo ? String(a.binaNo).trim() : '';
-    const wantedHouseNo = binaNo.toLowerCase();
-    const urls = [];
+    // Adres verisinde sokak adları "ORTANCA SOK (Sokak)", mahalle adları
+    // bazen "... MAHALLESİ" şeklinde geliyor. Yandex bu sufiksleri sevmiyor;
+    // sade hâle indir.
+    const stripTypeSuffix = s => String(s || '')
+        .replace(/\s*\([^)]+\)\s*$/u, '')
+        .trim();
+    const stripMahalleSuffix = s => String(s || '')
+        .replace(/\s+(MAHALLESİ|MAHALLES|MAHALLESI|Mahallesi|Mah\.?|Mh\.?)\s*$/u, '')
+        .trim();
+    const sokak = stripTypeSuffix(a.sokak);
+    const mahalle = stripMahalleSuffix(a.mahalle);
+    const binaSuffix = binaNo ? `No: ${binaNo}` : '';
 
-    // 1) Structured query — house number first in "street"
-    if (a.sokak || binaNo) {
-        const structured = new URLSearchParams({ format: 'json', limit: '5', countrycodes: 'tr', addressdetails: '1' });
-        const street = [binaNo, a.sokak].filter(Boolean).join(' ').trim();
-        if (street)      structured.set('street', street);
-        if (a.ilce)      structured.set('city', a.ilce);
-        if (a.il)        structured.set('state', a.il);
-        if (a.postaKodu) structured.set('postalcode', a.postaKodu);
-        urls.push(`https://nominatim.openstreetmap.org/search?${structured.toString()}`);
+    // Bina no için birkaç format birden denenir: "No: X", "No:X", baştaki "X".
+    // Yandex bazı formatları daha iyi anlıyor.
+    const queries = [];
+    if (binaNo) {
+        queries.push([a.il, a.ilce, mahalle, sokak, `No:${binaNo}`].filter(Boolean).join(' '));
+        queries.push([a.il, a.ilce, mahalle, sokak, binaSuffix].filter(Boolean).join(' '));
+        queries.push([a.il, a.ilce, mahalle, sokak, binaNo].filter(Boolean).join(' '));
     }
-
-    // 2) Turkish convention free-form: "Sokak No: X, Mahalle Mh., İlçe, İl, PK"
+    // Virgüllü, genelden özele, country prefix'li
     {
-        const turkishStreet =
-            (a.sokak && binaNo) ? `${a.sokak} No: ${binaNo}` :
-            a.sokak              ? a.sokak :
-            binaNo               ? `No: ${binaNo}` : '';
-        const parts = [
-            turkishStreet,
-            a.mahalle ? `${a.mahalle} Mahallesi` : '',
-            a.ilce, a.il, a.postaKodu,
-        ].filter(s => s && String(s).trim());
-        if (parts.length) {
-            const q = parts.join(', ') + ', Türkiye';
-            urls.push(`https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=tr&addressdetails=1&q=${encodeURIComponent(q)}`);
-        }
+        const parts = ['Türkiye', a.il, a.ilce, mahalle, sokak, binaSuffix].filter(Boolean);
+        if (parts.length) queries.push(parts.join(', '));
     }
-
-    // 3) Plain "binaNo sokak, ilçe, il" simple variant
+    // Özelden genele (Nominatim-uyumlu): "no sokak, mahalle, ilçe, il"
+    if (binaNo && sokak) {
+        queries.push([`${binaNo} ${sokak}`, mahalle ? mahalle + ' Mh.' : '', a.ilce, a.il, 'Türkiye'].filter(Boolean).join(', '));
+    }
+    // Sokak seviyesinde fallback (bina no olmadan)
+    if (sokak && (mahalle || a.ilce)) {
+        queries.push([a.il, a.ilce, mahalle, sokak].filter(Boolean).join(' '));
+    }
+    // Mahalle seviyesinde son fallback
     {
-        const street = [binaNo, a.sokak].filter(Boolean).join(' ').trim();
-        const parts = [street, a.ilce, a.il].filter(s => s && String(s).trim());
-        if (parts.length) {
-            const q = parts.join(', ') + ', Türkiye';
-            urls.push(`https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=tr&addressdetails=1&q=${encodeURIComponent(q)}`);
-        }
+        const parts = [a.il, a.ilce, mahalle].filter(Boolean);
+        if (parts.length >= 2) queries.push(parts.join(' '));
     }
 
+    // Türkiye bounding box — sonuçları ülke içinde tut.
+    const TURKEY_BBOX = [[35.5, 25.5], [42.5, 45.5]];
+
+    // Result shape used by both Yandex and Nominatim paths.
+    let best = null; // { lat, lng, text, exactHouse }
+
+    // --- 1) Try Yandex (per-query, individual try/catch so one failure
+    //        doesn't abort the others). Yandex JS API may require an apikey
+    //        and silently fail without one; we degrade gracefully.
     try {
-        let bestHit = null;
+        const ymaps = await ensureYandexMaps();
+        const kindRank = { house: 3, street: 2, district: 1, locality: 1 };
         let bestScore = -1;
-        for (const url of urls) {
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            if (!res.ok) continue;
-            const data = await res.json();
-            if (!Array.isArray(data)) continue;
-            for (const hit of data) {
-                let score = 0;
-                const hn = hit.address?.house_number ? String(hit.address.house_number).toLowerCase() : '';
-                if (wantedHouseNo && hn && hn === wantedHouseNo) score += 100;
-                else if (wantedHouseNo && hn) score -= 5;
-                if (hit.address?.road) score += 5;
-                if (hit.address?.suburb || hit.address?.neighbourhood) score += 2;
-                if (score > bestScore) { bestScore = score; bestHit = hit; }
+        for (const q of queries) {
+            try {
+                const res = await ymaps.geocode(q, {
+                    results: 5,
+                    lang: 'tr_TR',
+                    boundedBy: TURKEY_BBOX,
+                });
+                const arr = [];
+                res.geoObjects.each(obj => arr.push(obj));
+                if (!arr.length) continue;
+                for (const obj of arr) {
+                    const kind = obj.properties.get('metaDataProperty.GeocoderMetaData.kind') || '';
+                    const score = kindRank[kind] ?? 0;
+                    if (score > bestScore) {
+                        const c = obj.geometry.getCoordinates();
+                        best = {
+                            lat: c[0], lng: c[1],
+                            text: obj.properties.get('text') || obj.properties.get('name') || '',
+                            exactHouse: kind === 'house',
+                        };
+                        bestScore = score;
+                    }
+                }
+                if (bestScore >= 3) break;
+            } catch (e) {
+                console.warn('Yandex geocode failed for query:', q, e);
             }
-            if (bestScore >= 100) break;     // exact house-number hit, stop early
         }
-        if (!bestHit) {
-            status.textContent = 'Adres bulunamadı. Haritadan tıklayarak konum seçebilirsiniz.';
-            status.className = 'ob-geocode-status ob-err';
-            return;
-        }
-        setCoord(parseFloat(bestHit.lat), parseFloat(bestHit.lon));
-        syncMapToInputs();
-        const matchedHouseNo = bestHit.address?.house_number;
-        const note = (wantedHouseNo && matchedHouseNo && String(matchedHouseNo).toLowerCase() === wantedHouseNo)
-            ? ''
-            : (wantedHouseNo ? ' (bina no eşleşmedi, sokak seviyesi)' : '');
-        status.textContent = (bestHit.display_name ? `Bulundu: ${bestHit.display_name}` : 'Bulundu.') + note;
-        status.className = 'ob-geocode-status ' + (note ? 'ob-info' : 'ob-ok');
     } catch (e) {
-        console.warn('Geocode failed:', e);
-        status.textContent = 'Konum servisi yanıt vermedi. Daha sonra tekrar deneyin veya elle girin.';
-        status.className = 'ob-geocode-status ob-err';
-    } finally {
-        btn.disabled = false;
+        console.warn('Yandex Maps API yüklenemedi, Nominatim fallback denenecek:', e);
     }
+
+    // --- 2) Fallback to Nominatim (OpenStreetMap) when Yandex returns nothing
+    if (!best) {
+        for (const q of queries) {
+            try {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=tr&addressdetails=1&q=${encodeURIComponent(q)}`;
+                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) continue;
+                const data = await res.json();
+                if (!Array.isArray(data) || !data.length) continue;
+                // Prefer hits with house_number == binaNo
+                let pick = null;
+                if (binaNo) {
+                    pick = data.find(h => String(h.address?.house_number || '').toLowerCase() === binaNo.toLowerCase());
+                }
+                if (!pick) pick = data[0];
+                best = {
+                    lat: parseFloat(pick.lat),
+                    lng: parseFloat(pick.lon),
+                    text: pick.display_name || '',
+                    exactHouse: !!(binaNo && pick.address?.house_number
+                        && String(pick.address.house_number).toLowerCase() === binaNo.toLowerCase()),
+                };
+                if (best.exactHouse) break;
+            } catch (e) {
+                console.warn('Nominatim fallback failed for query:', q, e);
+            }
+        }
+    }
+
+    if (!best) {
+        status.textContent = 'Adres bulunamadı. Haritadan tıklayarak konum seçebilirsiniz.';
+        status.className = 'ob-geocode-status ob-err';
+        btn.disabled = false;
+        return;
+    }
+    setCoord(best.lat, best.lng);
+    syncMapToInputs();
+    const note = (binaNo && !best.exactHouse) ? ' (bina no eşleşmedi, sokak/mahalle seviyesi)' : '';
+    status.textContent = (best.text ? `Bulundu: ${best.text}` : 'Bulundu.') + note;
+    status.className = 'ob-geocode-status ' + (note ? 'ob-info' : 'ob-ok');
+    btn.disabled = false;
 }
 
-// ── MAP (Leaflet) ──────────────────────────────────────────────────
-function ensureLeaflet() {
-    if (window.L) return Promise.resolve(window.L);
-    if (leafletLoadPromise) return leafletLoadPromise;
-    leafletLoadPromise = new Promise((resolve, reject) => {
-        const css = document.createElement('link');
-        css.rel = 'stylesheet';
-        css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(css);
+// ── MAP (Yandex Maps API 2.1) ──────────────────────────────────────
+// Production'da api-maps URL'ine `&apikey=<KEY>` eklemek gerekir; dev için keysiz çalışır.
+function ensureYandexMaps() {
+    if (window.ymaps && window.ymaps.Map) return Promise.resolve(window.ymaps);
+    if (ymapsLoadPromise) return ymapsLoadPromise;
+    ymapsLoadPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-        script.onload = () => resolve(window.L);
-        script.onerror = () => reject(new Error('Leaflet load failed'));
+        script.src = 'https://api-maps.yandex.ru/2.1/?lang=tr_TR&load=Map,Placemark,geocode,control.ZoomControl,control.TypeSelector,control.FullscreenControl';
+        script.onload = () => {
+            if (window.ymaps && window.ymaps.ready) {
+                window.ymaps.ready(() => resolve(window.ymaps));
+            } else {
+                reject(new Error('Yandex Maps init failed'));
+            }
+        };
+        script.onerror = () => {
+            ymapsLoadPromise = null;
+            reject(new Error('Yandex Maps load failed'));
+        };
         document.head.appendChild(script);
     });
-    return leafletLoadPromise;
+    return ymapsLoadPromise;
 }
 
 async function initMap() {
     const mapEl = overlay.querySelector('#ob-map');
     if (!mapEl) return;
-    let L;
+    let ymaps;
     try {
-        L = await ensureLeaflet();
+        ymaps = await ensureYandexMaps();
     } catch (e) {
         const fb = overlay.querySelector('#ob-map-fallback');
         if (fb) fb.style.display = '';
         mapEl.style.display = 'none';
         return;
     }
-    // Ensure container is still in DOM (tab might have switched mid-load)
     if (!overlay.contains(mapEl)) return;
-    if (leafletMap) {
-        try { leafletMap.remove(); } catch {}
-        leafletMap = null;
-        leafletMarker = null;
+    if (ymap) {
+        try { ymap.destroy(); } catch {}
+        ymap = null;
+        ymark = null;
     }
     const hasPin = form.adres.lat != null && form.adres.lng != null;
     const lat = hasPin ? form.adres.lat : 39.0;
     const lng = hasPin ? form.adres.lng : 35.0; // Türkiye merkez
     const zoom = hasPin ? 17 : 6;
-    leafletMap = L.map(mapEl).setView([lat, lng], zoom);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
-        maxZoom: 19,
-    }).addTo(leafletMap);
-    if (hasPin) addOrMoveMarker(L, [lat, lng]);
-    leafletMap.on('click', e => {
-        addOrMoveMarker(L, [e.latlng.lat, e.latlng.lng]);
-        setCoord(e.latlng.lat, e.latlng.lng);
+    ymap = new ymaps.Map(mapEl, {
+        center: [lat, lng],
+        zoom,
+        controls: ['zoomControl', 'typeSelector', 'fullscreenControl'],
+    }, { suppressMapOpenBlock: true });
+    if (hasPin) addOrMoveMarker([lat, lng]);
+    ymap.events.add('click', e => {
+        const c = e.get('coords');
+        addOrMoveMarker(c);
+        setCoord(c[0], c[1]);
     });
-    setTimeout(() => { try { leafletMap?.invalidateSize(); } catch {} }, 60);
+    setTimeout(() => { try { ymap?.container.fitToViewport(); } catch {} }, 60);
 }
 
-function addOrMoveMarker(L, latlng) {
-    if (leafletMarker) {
-        leafletMarker.setLatLng(latlng);
+function addOrMoveMarker(latlng) {
+    if (!ymap || !window.ymaps) return;
+    if (ymark) {
+        ymark.geometry.setCoordinates(latlng);
     } else {
-        leafletMarker = L.marker(latlng, { draggable: true }).addTo(leafletMap);
-        leafletMarker.on('dragend', () => {
-            const p = leafletMarker.getLatLng();
-            setCoord(p.lat, p.lng);
+        ymark = new window.ymaps.Placemark(latlng, {}, { draggable: true, preset: 'islands#redIcon' });
+        ymark.events.add('dragend', () => {
+            const c = ymark.geometry.getCoordinates();
+            setCoord(c[0], c[1]);
         });
+        ymap.geoObjects.add(ymark);
     }
 }
 
@@ -1057,11 +1111,11 @@ function setCoord(lat, lng) {
 }
 
 function syncMapToInputs() {
-    if (!leafletMap || !window.L) return;
+    if (!ymap) return;
     const { lat, lng } = form.adres;
     if (lat == null || lng == null || !isFinite(lat) || !isFinite(lng)) return;
-    addOrMoveMarker(window.L, [lat, lng]);
-    leafletMap.setView([lat, lng], Math.max(leafletMap.getZoom(), 15));
+    addOrMoveMarker([lat, lng]);
+    ymap.setCenter([lat, lng], Math.max(ymap.getZoom(), 15));
 }
 
 // ── HELPERS ────────────────────────────────────────────────────────
