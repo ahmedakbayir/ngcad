@@ -487,29 +487,70 @@ textarea.ob-text {
     display: none;
     flex-direction: column;
     gap: 6px;
-    margin-top: 8px;
-    max-height: 200px;
-    overflow-y: auto;
-    padding: 2px;
+    padding: 0;
 }
 .ob-floor-list.ob-visible {
     display: flex;
 }
+/* Liste bölümü dış form scroll'u kullanır — alta kadar uzar, iç scroll yok */
+.ob-section-list {
+    padding-bottom: 12px;
+}
+
+/* "Katlar" başlığı altında ikili nesneleri görsel olarak gruplar.
+   Başlık vermeden bir kart paneli içine alıyor. */
+.ob-group {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid var(--border-panel, #3c4043);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-top: 10px;
+}
+.ob-group:first-of-type {
+    margin-top: 6px;
+}
+.ob-group-list {
+    padding: 8px;
+}
+.ob-group-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--color-secondary, #9aa0a6);
+    padding: 2px 4px 8px;
+}
 .ob-floor-item {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     background: var(--bg-input, #1e1f20);
     border: 1px solid var(--border-panel, #3c4043);
     border-radius: 7px;
     padding: 6px 10px;
     gap: 10px;
+    transition: opacity .12s ease, background .12s ease;
 }
 .ob-floor-item-name {
+    flex: 1;
     font-size: 12px;
     font-weight: 500;
     color: var(--color-text, #e8eaed);
 }
+/* Kolon=Hayır iken iç tesisat checkbox'ı satırın başında */
+.ob-floor-item .ob-ict-check {
+    width: 14px;
+    height: 14px;
+    accent-color: #8ab4f8;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin: 0;
+}
+/* Pasif satır (iç tesisat işaretsiz) — dim görünüm */
+.ob-floor-item.ob-pasif {
+    opacity: 0.55;
+    background: rgba(255, 255, 255, 0.015);
+}
+.ob-floor-item.ob-pasif:hover { opacity: 0.85; }
 
 /* ── SECTION HEAD (title + inline action) ──────────────────────── */
 .ob-section-head {
@@ -523,6 +564,11 @@ textarea.ob-text {
     margin: 0;
 }
 
+.ob-section-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
 .ob-mini-btn {
     background: var(--bg-button, #3c4043);
     border: 1px solid var(--border-panel, #3c4043);
@@ -707,18 +753,15 @@ body.light-mode .ob-footer {
 
 /* ── SCROLLBARS ────────────────────────────────────────────────── */
 .ob-tabs::-webkit-scrollbar,
-.ob-form::-webkit-scrollbar,
-.ob-floor-list::-webkit-scrollbar {
+.ob-form::-webkit-scrollbar {
     width: 6px;
 }
 .ob-tabs::-webkit-scrollbar-track,
-.ob-form::-webkit-scrollbar-track,
-.ob-floor-list::-webkit-scrollbar-track {
+.ob-form::-webkit-scrollbar-track {
     background: transparent;
 }
 .ob-tabs::-webkit-scrollbar-thumb,
-.ob-form::-webkit-scrollbar-thumb,
-.ob-floor-list::-webkit-scrollbar-thumb {
+.ob-form::-webkit-scrollbar-thumb {
     background: var(--border-panel, #3c4043);
     border-radius: 3px;
 }

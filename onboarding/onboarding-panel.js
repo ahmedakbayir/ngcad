@@ -27,6 +27,14 @@ import {
 const LS_SHOW_AT_START = 'onboarding_show_at_start';
 const LS_LAST_SETTINGS = 'onboarding_last_settings';
 
+// ── YANDEX API KEYS ────────────────────────────────────────────────
+// İki ayrı servis, iki ayrı key (developer.tech.yandex.com'dan ücretsiz alınır):
+//   - JS API key  → harita widget'ı yüklemek ve ymaps.geocode() çağrısı için
+//   - Geocoder API key → HTTP geocode-maps.yandex.ru/v1/ fetch çağrısı için
+// Boşsa (''), o servis atlanır.
+const YANDEX_JS_API_KEY       = '523911f6-824a-4ae0-b29f-c2d7e66af38d';
+const YANDEX_GEOCODER_API_KEY = '1662d8b0-5c87-4a4c-8bae-85b42f8c8b46';
+
 const DEFAULT_FORM = {
     projectName: '',
 
@@ -70,6 +78,10 @@ const DEFAULT_FORM = {
     normalKatSayisi: 0,
     tumKatlarAyniYukseklik: true,
     katYukseklikleri: [],
+    // Kolon yokken (kolonVar=false) hangi katlarda iç tesisat yapılacağı.
+    // Index düzeni katYukseklikleri ile birebir: [bodrum1, bodrum2..., zemin, kat1, kat2...].
+    // Default tüm katlar false; kullanıcı işaretlediği katları true yapar.
+    katIcTesisatVar: [],
     isinmaTipi: 'bireysel',        // 'bireysel' | 'merkezi' | 'boylerli'
     mustakilProje: false,
     onProje: false,
@@ -318,10 +330,16 @@ function renderAdres() {
         <section class="ob-section">
             <div class="ob-section-head">
                 <h2 class="ob-q-title">Binanın koordinatları</h2>
-                <button type="button" class="ob-mini-btn" id="ob-geocode" title="Adresi haritada bul">
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><line x1="10.3" y1="10.3" x2="13.5" y2="13.5"/></svg>
-                    Haritada Bul
-                </button>
+                <div class="ob-section-actions">
+                    <button type="button" class="ob-mini-btn" id="ob-yandex-open" title="Adresi Yandex Haritada yeni sekmede aç">
+                        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8 a 6 6 0 0 1 12 0 a 6 6 0 0 1 -12 0"/><path d="M8 2 v 12 M2 8 h 12"/></svg>
+                        Yandex'te Aç
+                    </button>
+                    <button type="button" class="ob-mini-btn" id="ob-geocode" title="Adresi OSM ile haritada bul">
+                        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><line x1="10.3" y1="10.3" x2="13.5" y2="13.5"/></svg>
+                        Haritada Bul
+                    </button>
+                </div>
             </div>
             <div class="ob-geocode-status" id="ob-geocode-status"></div>
             <div class="ob-map-wrap">
@@ -465,9 +483,12 @@ function renderTesisat() {
 }
 
 function renderKatlar() {
-    const same = form.tumKatlarAyniYukseklik;
+    // kolon=Hayır iken "tüm katların yüksekliği aynı" seçeneği yoktur;
+    // tüm katlar her zaman alt alta listelenir (yükseklik + iç tesisat checkbox bir arada).
+    const same = form.kolonVar && form.tumKatlarAyniYukseklik;
+    const showList = !same; // kolonVar=false ise her zaman true
     let perFloorList = '';
-    if (!same) {
+    if (showList) {
         const items = [];
         let idx = 0;
         for (let i = 0; i < form.bodrumSayisi; i++) {
@@ -510,64 +531,87 @@ function renderKatlar() {
         </section>
         ` : ''}
 
-        <section class="ob-section">
+        <section class="ob-section ob-section-list">
             <h2 class="ob-q-title">Katlar</h2>
-            <div class="ob-num-row">
-            <div class="ob-field">
-                <label class="ob-field-label">Kat yüksekliği</label>
-                <div class="ob-num-input-wrap" data-field="zeminKatYukseklik" data-step="10" data-min="180" data-max="500">
-                    <button type="button" class="ob-num-btn" data-act="dec">−</button>
-                    <input type="number" class="ob-num-input" value="${form.zeminKatYukseklik}" />
-                    <span class="ob-num-unit">cm</span>
-                    <button type="button" class="ob-num-btn" data-act="inc">+</button>
+
+            <div class="ob-group">
+                <div class="ob-num-row">
+                    <div class="ob-field">
+                        <label class="ob-field-label">Kat yüksekliği</label>
+                        <div class="ob-num-input-wrap" data-field="zeminKatYukseklik" data-step="10" data-min="180" data-max="500">
+                            <button type="button" class="ob-num-btn" data-act="dec">−</button>
+                            <input type="number" class="ob-num-input" value="${form.zeminKatYukseklik}" />
+                            <span class="ob-num-unit">cm</span>
+                            <button type="button" class="ob-num-btn" data-act="inc">+</button>
+                        </div>
+                    </div>
+                    <div class="ob-field">
+                        <label class="ob-field-label">Zemin dolgu seviyesi</label>
+                        <div class="ob-num-input-wrap" data-field="zeminKat0Offset" data-step="5" data-min="-300" data-max="300">
+                            <button type="button" class="ob-num-btn" data-act="dec">−</button>
+                            <input type="number" class="ob-num-input" value="${form.zeminKat0Offset}" />
+                            <span class="ob-num-unit">cm</span>
+                            <button type="button" class="ob-num-btn" data-act="inc">+</button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="ob-field">
-                <label class="ob-field-label">Zemin dolgu seviyesi</label>
-                <div class="ob-num-input-wrap" data-field="zeminKat0Offset" data-step="5" data-min="-300" data-max="300">
-                    <button type="button" class="ob-num-btn" data-act="dec">−</button>
-                    <input type="number" class="ob-num-input" value="${form.zeminKat0Offset}" />
-                    <span class="ob-num-unit">cm</span>
-                    <button type="button" class="ob-num-btn" data-act="inc">+</button>
+
+            <div class="ob-group">
+                <div class="ob-num-row">
+                    <div class="ob-field">
+                        <label class="ob-field-label">Bodrum kat sayısı</label>
+                        <div class="ob-num-input-wrap" data-field="bodrumSayisi" data-step="1" data-min="0" data-max="5">
+                            <button type="button" class="ob-num-btn" data-act="dec">−</button>
+                            <input type="number" class="ob-num-input" value="${form.bodrumSayisi}" />
+                            <span class="ob-num-unit">kat</span>
+                            <button type="button" class="ob-num-btn" data-act="inc">+</button>
+                        </div>
+                    </div>
+                    <div class="ob-field">
+                        <label class="ob-field-label">Normal kat sayısı</label>
+                        <div class="ob-num-input-wrap" data-field="normalKatSayisi" data-step="1" data-min="0" data-max="20">
+                            <button type="button" class="ob-num-btn" data-act="dec">−</button>
+                            <input type="number" class="ob-num-input" value="${form.normalKatSayisi}" />
+                            <span class="ob-num-unit">kat</span>
+                            <button type="button" class="ob-num-btn" data-act="inc">+</button>
+                        </div>
+                    </div>
                 </div>
+                ${form.kolonVar ? `
+                <label class="ob-switch-row ob-mt-10">
+                    <span class="ob-switch">
+                        <input type="checkbox" id="ob-same-height" ${same ? 'checked' : ''} />
+                        <span class="ob-switch-slider"></span>
+                    </span>
+                    <span class="ob-switch-label">Tüm katların yüksekliği aynı</span>
+                </label>
+                ` : ''}
             </div>
-        </div>
-        <div class="ob-num-row">
-            <div class="ob-field">
-                <label class="ob-field-label">Bodrum kat sayısı</label>
-                <div class="ob-num-input-wrap" data-field="bodrumSayisi" data-step="1" data-min="0" data-max="5">
-                    <button type="button" class="ob-num-btn" data-act="dec">−</button>
-                    <input type="number" class="ob-num-input" value="${form.bodrumSayisi}" />
-                    <span class="ob-num-unit">kat</span>
-                    <button type="button" class="ob-num-btn" data-act="inc">+</button>
-                </div>
+
+            ${showList ? `
+            <div class="ob-group ob-group-list">
+                ${!form.kolonVar ? `<div class="ob-group-title">İç tesisatı yapılacak katlar</div>` : ''}
+                <div class="ob-floor-list ob-visible">${perFloorList}</div>
             </div>
-            <div class="ob-field">
-                <label class="ob-field-label">Normal kat sayısı</label>
-                <div class="ob-num-input-wrap" data-field="normalKatSayisi" data-step="1" data-min="0" data-max="20">
-                    <button type="button" class="ob-num-btn" data-act="dec">−</button>
-                    <input type="number" class="ob-num-input" value="${form.normalKatSayisi}" />
-                    <span class="ob-num-unit">kat</span>
-                    <button type="button" class="ob-num-btn" data-act="inc">+</button>
-                </div>
-            </div>
-        </div>
-        <label class="ob-switch-row">
-            <span class="ob-switch">
-                <input type="checkbox" id="ob-same-height" ${same ? 'checked' : ''} />
-                <span class="ob-switch-slider"></span>
-            </span>
-            <span class="ob-switch-label">Tüm katların yüksekliği aynı</span>
-        </label>
-        <div class="ob-floor-list ${!same ? 'ob-visible' : ''}">${perFloorList}</div>
+            ` : ''}
         </section>
     `;
 }
 
 function floorItemHtml(name, idx) {
     const h = form.katYukseklikleri[idx] ?? form.zeminKatYukseklik;
+    // Kolon=Hayır iken her satırda iç tesisat (göster/gizle) checkbox'ı yer alır.
+    // Pasif satırlar dim görüntülenir.
+    const showCheck = !form.kolonVar;
+    const active = !!form.katIcTesisatVar[idx];
+    const checkHtml = showCheck ? `
+            <input type="checkbox" class="ob-ict-check" data-ict-idx="${idx}" ${active ? 'checked' : ''}
+                   title="${active ? 'Gizle (iç tesisat yok)' : 'Göster (iç tesisat var)'}" />
+    ` : '';
+    const itemCls = 'ob-floor-item' + (showCheck && !active ? ' ob-pasif' : '');
     return `
-        <div class="ob-floor-item">
+        <div class="${itemCls}">${checkHtml}
             <span class="ob-floor-item-name">${name}</span>
             <div class="ob-num-input-wrap" data-floor-idx="${idx}" data-step="10" data-min="180" data-max="500">
                 <button type="button" class="ob-num-btn" data-act="dec">−</button>
@@ -675,6 +719,14 @@ function attachTabListeners(tabId) {
                 if (val === 'true') val = true;
                 else if (val === 'false') val = false;
                 form[field] = val;
+                // Kolon=Hayır: "tüm katlar aynı yükseklik" anahtarı gizlenir
+                // ve liste her zaman gösterilir. Şematik & global state'in de
+                // per-floor yüksekliği kullanması için bayrağı düşürüyoruz;
+                // ayrıca en az bir kat aktif olmasını sync helper garanti etsin.
+                if (field === 'kolonVar' && val === false) {
+                    form.tumKatlarAyniYukseklik = false;
+                    syncKatYukseklikleri();
+                }
                 renderForm();
                 if (schematic) schematic.render();
                 updateCTA();
@@ -738,6 +790,27 @@ function attachTabListeners(tabId) {
         });
     }
 
+    // İç tesisat kat checkbox'ları (kolon=Hayır)
+    overlay.querySelectorAll('.ob-ict-check').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const idx = parseInt(cb.dataset.ictIdx, 10);
+            if (!Number.isFinite(idx)) return;
+            // Son aktif kat pasifleştirilemez — en az bir kat aktif olmalı.
+            if (!cb.checked) {
+                const activeCount = form.katIcTesisatVar.filter(Boolean).length;
+                if (activeCount <= 1) {
+                    cb.checked = true;
+                    return;
+                }
+            }
+            const arr = form.katIcTesisatVar.slice();
+            arr[idx] = cb.checked;
+            form.katIcTesisatVar = arr;
+            renderForm();
+            if (schematic) schematic.render();
+        });
+    });
+
     // Müstakil / Ön Proje switches
     const mst = overlay.querySelector('#ob-mustakil');
     if (mst) mst.addEventListener('change', () => { form.mustakilProje = mst.checked; });
@@ -746,6 +819,39 @@ function attachTabListeners(tabId) {
 
     // Geocode button (adres tab)
     overlay.querySelector('#ob-geocode')?.addEventListener('click', () => runGeocode());
+
+    // Yandex'te Aç — yandex.com/maps web frontend'i (API key yok, proprietary
+    // bina verisini kullanır). Razor snippet formatı:
+    //   "{mahalle MAHALLESİ} {sokak Tipi} No: {bina_no} {ilçe} {il}"
+    // — parantezdeki "(Sokak)" / "(Cadde)" tipini düz metin yapar, MAHALLESİ
+    // suffix'ini KORUR (sileme — Yandex web'in tanıdığı formattır).
+    overlay.querySelector('#ob-yandex-open')?.addEventListener('click', () => {
+        const a = form.adres;
+        const stripParens = s => String(s || '').replace(/\s*\([^)]+\)\s*$/u, '').trim();
+        const extractType = s => {
+            const m = String(s || '').match(/\(([^)]+)\)\s*$/u);
+            return m ? m[1].trim() : '';
+        };
+        const sokakName = stripParens(a.sokak);
+        const sokakType = extractType(a.sokak) || 'Sokak';
+        const sokakFull = sokakName ? `${sokakName} ${sokakType}` : '';
+
+        const parts = [];
+        if (a.mahalle) parts.push(a.mahalle);             // "ARMAĞANEVLER MAHALLESİ"
+        if (sokakFull) parts.push(sokakFull);             // "ORTANCA Sokak"
+        if (a.binaNo)  parts.push(`No: ${a.binaNo}`);     // "No: 26"
+        if (a.ilce)    parts.push(a.ilce);                // "ÜMRANİYE"
+        if (a.il)      parts.push(a.il);                  // "İSTANBUL"
+        const text = parts.join(' ').trim();
+
+        if (!text) {
+            const status = overlay.querySelector('#ob-geocode-status');
+            if (status) { status.textContent = 'Önce adres alanlarını doldurun.'; status.className = 'ob-geocode-status ob-err'; }
+            return;
+        }
+        const url = `https://yandex.com/maps/?text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+    });
 
     // Adres mode segment (Servisten Al / Adres Seç)
     overlay.querySelector('#ob-adres-mode')?.addEventListener('click', e => {
@@ -899,117 +1005,205 @@ async function runGeocode() {
     status.className = 'ob-geocode-status ob-info';
 
     const binaNo = a.binaNo ? String(a.binaNo).trim() : '';
-    // Adres verisinde sokak adları "ORTANCA SOK (Sokak)", mahalle adları
-    // bazen "... MAHALLESİ" şeklinde geliyor. Yandex bu sufiksleri sevmiyor;
-    // sade hâle indir.
-    const stripTypeSuffix = s => String(s || '')
-        .replace(/\s*\([^)]+\)\s*$/u, '')
-        .trim();
+    // Adres verisinde sokak adları "TAŞKIN (Sokak)" / "ORTANCA (Cadde)" gibi
+    // parantezli tip ile gelir. Parantezi tamamen silersek geocoder "TAŞKIN"i
+    // sokak olarak tanıyamaz — tipi parantezden çıkarıp düz metin sufiksi
+    // olarak geri ekliyoruz. Aynı şey mahalle/MAHALLESİ için de geçerli.
+    const stripParens = s => String(s || '').replace(/\s*\([^)]+\)\s*$/u, '').trim();
+    const extractParens = s => {
+        const m = String(s || '').match(/\(([^)]+)\)\s*$/u);
+        return m ? m[1].trim() : '';
+    };
     const stripMahalleSuffix = s => String(s || '')
         .replace(/\s+(MAHALLESİ|MAHALLES|MAHALLESI|Mahallesi|Mah\.?|Mh\.?)\s*$/u, '')
         .trim();
-    const sokak = stripTypeSuffix(a.sokak);
-    const mahalle = stripMahalleSuffix(a.mahalle);
-    const binaSuffix = binaNo ? `No: ${binaNo}` : '';
+    // Kısaltma sufiksleri — period KULLANMA (Yandex parserı period'u ayrı token
+    // sayıp "TAŞKIN Sk." ile "TAŞKIN" sokağını eşleştirmiyor; düz "sk" çalışıyor).
+    const TYPE_ABBR = { 'Sokak': 'sk', 'Cadde': 'cd', 'Bulvarı': 'blv', 'Bulvar': 'blv', 'Meydan': 'mey' };
 
-    // Bina no için birkaç format birden denenir: "No: X", "No:X", baştaki "X".
-    // Yandex bazı formatları daha iyi anlıyor.
+    const sokakBase = stripParens(a.sokak);
+    const sokakType = extractParens(a.sokak);                                    // "Sokak" / "Cadde" / ""
+    const sokakFull = sokakBase ? `${sokakBase} ${sokakType || 'Sokak'}` : '';   // "TAŞKIN Sokak"
+    const sokakAbbr = sokakBase ? `${sokakBase} ${TYPE_ABBR[sokakType] || 'sk'}` : ''; // "TAŞKIN sk"
+
+    const mahalleBase = stripMahalleSuffix(a.mahalle);                            // "HAMİDİYE"
+    const mahalleFull = mahalleBase ? `${mahalleBase} Mahallesi` : '';
+    const mahalleMh   = mahalleBase ? `${mahalleBase} Mah.`      : '';
+
+    // Bina no varyasyonları — "no:" prefix Yandex'in tanıdığı kritik biçim.
+    const noPref  = binaNo ? `no:${binaNo}`  : '';   // "no:1"  ← kullanıcı browserda bunu kullanınca buluyor
+    const noPref2 = binaNo ? `No:${binaNo}`  : '';   // "No:1"
+    const noPref3 = binaNo ? `No: ${binaNo}` : '';   // "No: 1"
+
+    // Turkish-aware title case
+    const toTitle = s => String(s || '').toLocaleLowerCase('tr-TR')
+        .replace(/(^|\s|\-)([\S])/g, (_, sep, c) => sep + c.toLocaleUpperCase('tr-TR'));
+    const ilT      = toTitle(a.il);
+    const ilceT    = toTitle(a.ilce);
+    const mahT     = mahalleBase ? toTitle(mahalleBase) : '';
+    const sokT     = sokakBase ? toTitle(sokakBase) : '';
+    const sokTypeT = sokakType || 'Sokak';                                 // "Sokak" / "Cadde" / "Bulvar"
+
+    // Doğal Türk adres formatı: SOKAK No:X, MAHALLE Mh., İLÇE/İL
+    // Yandex web search bu sırayı en güvenilir tanıyor. Title Case + doğru
+    // Türkçe noktalama. Çok az varyant — Yandex'i bombalama, doğru bir tanesini
+    // ver.
     const queries = [];
-    if (binaNo) {
-        queries.push([a.il, a.ilce, mahalle, sokak, `No:${binaNo}`].filter(Boolean).join(' '));
-        queries.push([a.il, a.ilce, mahalle, sokak, binaSuffix].filter(Boolean).join(' '));
-        queries.push([a.il, a.ilce, mahalle, sokak, binaNo].filter(Boolean).join(' '));
+    if (binaNo && sokT && mahT) {
+        // 1. Doğal Türk address format (en güvenilir)
+        queries.push(`${sokT} ${sokTypeT} No:${binaNo}, ${mahT} Mah., ${ilceT}/${ilT}`);
+        // 2. Kullanıcının browser'da çalıştırdığı format
+        queries.push(`${mahT} Mahallesi, ${ilceT}, ${ilT}, ${sokT.toLocaleLowerCase('tr-TR')} sk no:${binaNo}`);
+        // 3. Sokak-first, kısa
+        queries.push(`${sokT} ${sokTypeT} No:${binaNo}, ${mahT}, ${ilceT}, ${ilT}`);
     }
-    // Virgüllü, genelden özele, country prefix'li
-    {
-        const parts = ['Türkiye', a.il, a.ilce, mahalle, sokak, binaSuffix].filter(Boolean);
-        if (parts.length) queries.push(parts.join(', '));
+    if (binaNo && sokT) {
+        // 4. Genel→özel, Türkiye prefixli (Nominatim'in sevdiği)
+        queries.push([ilT, ilceT, mahT, `${sokT} ${sokTypeT}`, `No:${binaNo}`].filter(Boolean).join(', '));
     }
-    // Özelden genele (Nominatim-uyumlu): "no sokak, mahalle, ilçe, il"
-    if (binaNo && sokak) {
-        queries.push([`${binaNo} ${sokak}`, mahalle ? mahalle + ' Mh.' : '', a.ilce, a.il, 'Türkiye'].filter(Boolean).join(', '));
+    // 5. Sokak seviyesinde fallback (bina no olmadan)
+    if (sokT && (mahT || ilceT)) {
+        queries.push(`${sokT} ${sokTypeT}, ${mahT}, ${ilceT}/${ilT}`);
     }
-    // Sokak seviyesinde fallback (bina no olmadan)
-    if (sokak && (mahalle || a.ilce)) {
-        queries.push([a.il, a.ilce, mahalle, sokak].filter(Boolean).join(' '));
-    }
-    // Mahalle seviyesinde son fallback
-    {
-        const parts = [a.il, a.ilce, mahalle].filter(Boolean);
-        if (parts.length >= 2) queries.push(parts.join(' '));
+    // 6. Mahalle seviyesinde son fallback
+    if (mahT && ilceT) {
+        queries.push(`${mahT} Mah., ${ilceT}/${ilT}`);
     }
 
-    // Türkiye bounding box — sonuçları ülke içinde tut.
-    const TURKEY_BBOX = [[35.5, 25.5], [42.5, 45.5]];
-
-    // Result shape used by both Yandex and Nominatim paths.
+    // Geocode zinciri:
+    //   0) Yandex JS API geocode (YANDEX_JS_API_KEY varsa) — ev seviyesinde sonuç
+    //   1) Nominatim structured (OSM, sokak seviyesi)
+    //   2) Photon (Komoot, OSM tabanlı)
+    //   3) Nominatim free-text (son fallback)
+    // İlk ev-seviyesi sonuçta durur; aksi takdirde en iyi sokak sonucu seçilir.
     let best = null; // { lat, lng, text, exactHouse }
 
-    // --- 1) Try Yandex (per-query, individual try/catch so one failure
-    //        doesn't abort the others). Yandex JS API may require an apikey
-    //        and silently fail without one; we degrade gracefully.
-    try {
-        const ymaps = await ensureYandexMaps();
-        const kindRank = { house: 3, street: 2, district: 1, locality: 1 };
-        let bestScore = -1;
-        for (const q of queries) {
-            try {
-                const res = await ymaps.geocode(q, {
-                    results: 5,
-                    lang: 'tr_TR',
-                    boundedBy: TURKEY_BBOX,
-                });
-                const arr = [];
-                res.geoObjects.each(obj => arr.push(obj));
-                if (!arr.length) continue;
-                for (const obj of arr) {
-                    const kind = obj.properties.get('metaDataProperty.GeocoderMetaData.kind') || '';
-                    const score = kindRank[kind] ?? 0;
-                    if (score > bestScore) {
-                        const c = obj.geometry.getCoordinates();
-                        best = {
-                            lat: c[0], lng: c[1],
-                            text: obj.properties.get('text') || obj.properties.get('name') || '',
-                            exactHouse: kind === 'house',
-                        };
-                        bestScore = score;
+    const yandexKinds = { house: 3, street: 2, district: 1, locality: 1 };
+
+    // 0) Yandex JS API geocode — Türk binaları için ev seviyesinde sonuç döner.
+    //    Key dashboard'da apikeyValid=false ise scriptError fırlar — ilk hatada
+    //    sessizce çık ve OSM zincirine düş.
+    if (YANDEX_JS_API_KEY) {
+        try {
+            const ymaps = await ensureYandexMaps();
+            if (ymaps?.options?.get?.('apikeyValid') !== false) {
+                let yandexScore = -1;
+                for (const q of queries) {
+                    try {
+                        const res = await ymaps.geocode(q, { results: 5, lang: 'tr_TR' });
+                        const arr = [];
+                        res.geoObjects.each(o => arr.push(o));
+                        for (const obj of arr) {
+                            const kind = obj.properties.get('metaDataProperty.GeocoderMetaData.kind') || '';
+                            const text = obj.properties.get('text') || obj.properties.get('name') || '';
+                            const c = obj.geometry.getCoordinates();
+                            const comps = obj.properties.get('metaDataProperty.GeocoderMetaData.Address.Components') || [];
+                            const house = (comps.find(x => x.kind === 'house') || {}).name || '';
+                            const score = yandexKinds[kind] ?? 0;
+                            const isExact = kind === 'house' && (!binaNo || String(house).toLowerCase() === binaNo.toLowerCase());
+                            if (score > yandexScore || (isExact && (!best || !best.exactHouse))) {
+                                if (isFinite(c[0]) && isFinite(c[1])) {
+                                    best = { lat: c[0], lng: c[1], text, exactHouse: isExact };
+                                    yandexScore = score;
+                                }
+                            }
+                        }
+                        if (best?.exactHouse) break;
+                    } catch {
+                        // scriptError = key invalid; zinciri kır, OSM'ye düş.
+                        break;
                     }
                 }
-                if (bestScore >= 3) break;
-            } catch (e) {
-                console.warn('Yandex geocode failed for query:', q, e);
             }
-        }
-    } catch (e) {
-        console.warn('Yandex Maps API yüklenemedi, Nominatim fallback denenecek:', e);
+        } catch { /* JS API yüklenemedi — sessizce OSM'ye düş */ }
     }
 
-    // --- 2) Fallback to Nominatim (OpenStreetMap) when Yandex returns nothing
-    if (!best) {
+    const pickFromNominatim = (data) => {
+        if (!Array.isArray(data) || !data.length) return null;
+        let pick = null;
+        if (binaNo) {
+            pick = data.find(h => String(h.address?.house_number || '').toLowerCase() === binaNo.toLowerCase());
+        }
+        if (!pick) pick = data[0];
+        return {
+            lat: parseFloat(pick.lat),
+            lng: parseFloat(pick.lon),
+            text: pick.display_name || '',
+            exactHouse: !!(binaNo && pick.address?.house_number
+                && String(pick.address.house_number).toLowerCase() === binaNo.toLowerCase()),
+        };
+    };
+
+    const pickFromPhoton = (data) => {
+        const feats = data?.features || [];
+        if (!feats.length) return null;
+        let pick = null;
+        if (binaNo) {
+            pick = feats.find(f => String(f.properties?.housenumber || '').toLowerCase() === binaNo.toLowerCase());
+        }
+        if (!pick) pick = feats[0];
+        const [lng, lat] = pick.geometry?.coordinates || [];
+        if (!isFinite(lat) || !isFinite(lng)) return null;
+        const p = pick.properties || {};
+        const text = [p.housenumber && p.street ? `${p.street} ${p.housenumber}` : (p.street || p.name), p.district, p.city, p.state].filter(Boolean).join(', ');
+        return {
+            lat, lng, text,
+            exactHouse: !!(binaNo && p.housenumber
+                && String(p.housenumber).toLowerCase() === binaNo.toLowerCase()),
+        };
+    };
+
+    const isBetter = (cand, cur) => {
+        if (!cand) return false;
+        if (!cur) return true;
+        if (cand.exactHouse && !cur.exactHouse) return true;
+        return false;
+    };
+
+    // 1) Nominatim STRUCTURED — Türk address için house no eşleşmesi en iyi burada
+    if ((!best || !best.exactHouse) && binaNo && sokakBase && (mahalleBase || a.ilce)) {
+        const structured = new URLSearchParams({
+            format: 'json', limit: '5', countrycodes: 'tr',
+            addressdetails: '1', 'accept-language': 'tr',
+        });
+        if (a.il)   structured.set('state', toTitle(a.il));
+        if (a.ilce) { structured.set('county', toTitle(a.ilce)); structured.set('city', toTitle(a.ilce)); }
+        structured.set('street', `${binaNo} ${toTitle(sokakBase)} ${sokakType || 'Sokak'}`);
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?${structured.toString()}`;
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (res.ok) {
+                const cand = pickFromNominatim(await res.json());
+                if (isBetter(cand, best) || !best) best = cand || best;
+            }
+        } catch { /* ignore — Photon ve free-text fallback'leri devam etsin */ }
+    }
+
+    // 2) Photon (Komoot OSM geocoder) — sokak/no için iyi ranking, key yok
+    if (!best || !best.exactHouse) {
         for (const q of queries) {
             try {
-                const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=tr&addressdetails=1&q=${encodeURIComponent(q)}`;
+                const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lang=default&limit=10`;
                 const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
                 if (!res.ok) continue;
-                const data = await res.json();
-                if (!Array.isArray(data) || !data.length) continue;
-                // Prefer hits with house_number == binaNo
-                let pick = null;
-                if (binaNo) {
-                    pick = data.find(h => String(h.address?.house_number || '').toLowerCase() === binaNo.toLowerCase());
-                }
-                if (!pick) pick = data[0];
-                best = {
-                    lat: parseFloat(pick.lat),
-                    lng: parseFloat(pick.lon),
-                    text: pick.display_name || '',
-                    exactHouse: !!(binaNo && pick.address?.house_number
-                        && String(pick.address.house_number).toLowerCase() === binaNo.toLowerCase()),
-                };
-                if (best.exactHouse) break;
-            } catch (e) {
-                console.warn('Nominatim fallback failed for query:', q, e);
-            }
+                const cand = pickFromPhoton(await res.json());
+                if (isBetter(cand, best) || !best) best = cand || best;
+                if (best?.exactHouse) break;
+            } catch { /* ignore */ }
+        }
+    }
+
+    // 3) Nominatim FREE-TEXT — son fallback
+    if (!best || !best.exactHouse) {
+        for (const q of queries) {
+            try {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=tr&addressdetails=1&accept-language=tr&q=${encodeURIComponent(q)}`;
+                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) continue;
+                const cand = pickFromNominatim(await res.json());
+                if (isBetter(cand, best) || !best) best = cand || best;
+                if (best?.exactHouse) break;
+            } catch { /* ignore */ }
         }
     }
 
@@ -1021,9 +1215,18 @@ async function runGeocode() {
     }
     setCoord(best.lat, best.lng);
     syncMapToInputs();
-    const note = (binaNo && !best.exactHouse) ? ' (bina no eşleşmedi, sokak/mahalle seviyesi)' : '';
-    status.textContent = (best.text ? `Bulundu: ${best.text}` : 'Bulundu.') + note;
-    status.className = 'ob-geocode-status ' + (note ? 'ob-info' : 'ob-ok');
+    if (best.exactHouse) {
+        status.textContent = `✓ Bulundu: ${best.text}`;
+        status.className = 'ob-geocode-status ob-ok';
+    } else if (binaNo) {
+        // OSM verisinde ev numarası nadiren bulunur; sokak doğru ama bina için
+        // kullanıcının haritadan tıklaması gerekiyor.
+        status.textContent = `Sokak bulundu — Tam bina için haritadan binanızın üstüne tıklayın.`;
+        status.className = 'ob-geocode-status ob-info';
+    } else {
+        status.textContent = `✓ ${best.text || 'Bulundu.'}`;
+        status.className = 'ob-geocode-status ob-ok';
+    }
     btn.disabled = false;
 }
 
@@ -1034,7 +1237,8 @@ function ensureYandexMaps() {
     if (ymapsLoadPromise) return ymapsLoadPromise;
     ymapsLoadPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://api-maps.yandex.ru/2.1/?lang=tr_TR&load=Map,Placemark,geocode,control.ZoomControl,control.TypeSelector,control.FullscreenControl';
+        const keyParam = YANDEX_JS_API_KEY ? `apikey=${encodeURIComponent(YANDEX_JS_API_KEY)}&` : '';
+        script.src = `https://api-maps.yandex.ru/2.1/?${keyParam}lang=tr_TR&load=Map,Placemark,geocode,control.ZoomControl,control.TypeSelector,control.FullscreenControl`;
         script.onload = () => {
             if (window.ymaps && window.ymaps.ready) {
                 window.ymaps.ready(() => resolve(window.ymaps));
@@ -1115,7 +1319,9 @@ function syncMapToInputs() {
     const { lat, lng } = form.adres;
     if (lat == null || lng == null || !isFinite(lat) || !isFinite(lng)) return;
     addOrMoveMarker([lat, lng]);
-    ymap.setCenter([lat, lng], Math.max(ymap.getZoom(), 15));
+    // Bina seviyesinde zoom — kullanıcı tek tıkla binayı işaretleyebilsin.
+    // (Zaten daha yakındaysa kullanıcının zoom'unu indirme.)
+    ymap.setCenter([lat, lng], Math.max(ymap.getZoom(), 18));
 }
 
 // ── HELPERS ────────────────────────────────────────────────────────
@@ -1124,6 +1330,16 @@ function syncKatYukseklikleri() {
     const arr = form.katYukseklikleri.slice(0, total);
     while (arr.length < total) arr.push(form.zeminKatYukseklik);
     form.katYukseklikleri = arr;
+    // İç tesisat dizisini de katlarla aynı uzunlukta tut (yeni katlar default false).
+    const arr2 = form.katIcTesisatVar.slice(0, total);
+    while (arr2.length < total) arr2.push(false);
+    // Kolon yok modunda en az bir kat aktif olmalıdır. Hiçbiri aktif değilse
+    // varsayılan olarak ZEMİN katı (index = bodrumSayisi) aktif edilir.
+    if (!form.kolonVar && arr2.length > 0 && !arr2.some(Boolean)) {
+        const defaultActive = Math.min(form.bodrumSayisi || 0, arr2.length - 1);
+        arr2[defaultActive] = true;
+    }
+    form.katIcTesisatVar = arr2;
 }
 
 function updateCTA() {
@@ -1172,6 +1388,9 @@ function applyAndClose() {
 
 function buildGlobalFloors() {
     const out = [];
+    // kolonVar=true durumunda tüm katlar varsayılan olarak iç tesisatlıdır;
+    // kolonVar=false ise yalnızca kullanıcının işaretlediği katlar tesisatlıdır.
+    const icTesisatOf = idx => form.kolonVar ? true : !!form.katIcTesisatVar[idx];
     let cursorBottom = form.zeminKat0Offset;
     for (let i = 0; i < form.bodrumSayisi; i++) {
         const h = form.tumKatlarAyniYukseklik ? form.zeminKatYukseklik
@@ -1185,6 +1404,7 @@ function buildGlobalFloors() {
             topElevation: top,
             visible: false,
             isPlaceholder: false,
+            icTesisatVar: icTesisatOf(i),
         });
         cursorBottom = bot;
     }
@@ -1208,6 +1428,7 @@ function buildGlobalFloors() {
         topElevation: form.zeminKat0Offset + groundH,
         visible: true,
         isPlaceholder: false,
+        icTesisatVar: icTesisatOf(groundIdx),
     };
 
     const above = [];
@@ -1225,6 +1446,7 @@ function buildGlobalFloors() {
             topElevation: top,
             visible: false,
             isPlaceholder: false,
+            icTesisatVar: icTesisatOf(idxInArr),
         });
         cursorTop = top;
     }

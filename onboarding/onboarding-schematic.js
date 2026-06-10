@@ -16,11 +16,18 @@ const COLOR = {
     dolguStroke:       '#5e5b54',
     dolguText:         '#1a1a1a',
 
-    // Floor box
+    // Floor box (active = iç tesisat var)
     floorFill:         '#c9d9f5', // opaque soft blue
     floorStroke:       '#3b5db5',
     floorNameText:     '#1a2236',
     floorHeightText:   '#52617f',
+
+    // Passive floor (kolonVar=false ve iç tesisat işaretlenmemiş) — gri ton.
+    // Toprak/dolgu griliklerinden ayırmak için maviye çalan soğuk gri.
+    floorFillPasif:       '#cdd3da',
+    floorStrokePasif:     '#7d848e',
+    floorNameTextPasif:   '#3e4754',
+    floorHeightTextPasif: '#6a727d',
 
     // Ellipsis floor (dashed)
     ellipsisStroke:    '#5d6e8f',
@@ -314,8 +321,11 @@ export class OnboardingSchematic {
                 return;
             }
 
-            ctx.fillStyle   = COLOR.floorFill;
-            ctx.strokeStyle = COLOR.floorStroke;
+            // Kolon yok modunda iç tesisat işaretlenmemiş katlar gri ("pasif").
+            // Kolon var modunda tüm katlar mavidir — eski davranış.
+            const isPasif = !s.kolonVar && !f.icTesisatVar;
+            ctx.fillStyle   = isPasif ? COLOR.floorFillPasif   : COLOR.floorFill;
+            ctx.strokeStyle = isPasif ? COLOR.floorStrokePasif : COLOR.floorStroke;
             ctx.lineWidth = 1.5;
             ctx.fillRect(xLeft, yTop, boxW, h);
             ctx.strokeRect(xLeft, yTop, boxW, h);
@@ -381,14 +391,14 @@ export class OnboardingSchematic {
             if (h >= 30) {
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle = COLOR.floorNameText;
+                ctx.fillStyle = isPasif ? COLOR.floorNameTextPasif : COLOR.floorNameText;
                 ctx.font = 'bold 14px -apple-system, "Segoe UI", sans-serif';
                 ctx.fillText(f.name, infoCx, textCy - 9);
-                ctx.fillStyle = COLOR.floorHeightText;
+                ctx.fillStyle = isPasif ? COLOR.floorHeightTextPasif : COLOR.floorHeightText;
                 ctx.font = '12px -apple-system, "Segoe UI", sans-serif';
                 ctx.fillText(f.heightCm + ' cm', infoCx, textCy + 9);
             } else if (h >= 14) {
-                ctx.fillStyle = COLOR.floorNameText;
+                ctx.fillStyle = isPasif ? COLOR.floorNameTextPasif : COLOR.floorNameText;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.font = 'bold 12px -apple-system, "Segoe UI", sans-serif';
@@ -676,7 +686,8 @@ export class OnboardingSchematic {
                 topCm: top,
                 bottomCm: bot,
                 heightCm: h,
-                isGround: false
+                isGround: false,
+                icTesisatVar: !!(s.katIcTesisatVar && s.katIcTesisatVar[i]),
             });
             cursor = bot;
         }
@@ -690,7 +701,8 @@ export class OnboardingSchematic {
             topCm: groundBottom + groundH,
             bottomCm: groundBottom,
             heightCm: groundH,
-            isGround: true
+            isGround: true,
+            icTesisatVar: !!(s.katIcTesisatVar && s.katIcTesisatVar[gIdxInState]),
         });
         idx++;
         // normal floors above ground
@@ -712,6 +724,7 @@ export class OnboardingSchematic {
                 bottomCm: bot,
                 heightCm: h,
                 isGround: false,
+                icTesisatVar: !!(s.katIcTesisatVar && s.katIcTesisatVar[floorIdxInState]),
             });
             cursor = top;
         };
