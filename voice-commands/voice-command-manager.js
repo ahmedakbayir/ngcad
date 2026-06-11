@@ -271,9 +271,13 @@ export class VoiceCommandManager {
         const startX = state.panOffset ? -state.panOffset.x / state.zoom + 200 : 200;
         const startY = state.panOffset ? -state.panOffset.y / state.zoom + 400 : 400;
 
+        // Proje yer tipi servis kutusu seçildiyse CES200 + gömülü çıkış kotu (-60 cm).
+        const isYer = state.projectMeta?.kutuTipi === 'yer';
         const servisKutusu = new ServisKutusu(startX, startY, {
-            floorId: state.currentFloor?.id
+            floorId: state.currentFloor?.id,
+            z: isYer ? -60 : 10,
         });
+        if (isYer) servisKutusu.kutuTipi = 'CES200';
 
         plumbingManager.components.push(servisKutusu);
         plumbingManager.saveToState();

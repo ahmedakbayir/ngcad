@@ -117,13 +117,19 @@ export class PlumbingManager {
 
         // Ghost bileşen oluştur
         switch (type) {
-            case TESISAT_MODLARI.SERVIS_KUTUSU:
+            case TESISAT_MODLARI.SERVIS_KUTUSU: {
+                // Proje yer tipi servis kutusu seçildiyse CES200 + gömülü çıkış kotu (-60 cm).
+                // Duvar tipi varsayılan davranış: kutuTipi properties paneli default'una bırakılır,
+                // çıkış kotu +10 cm.
+                const isYer = state.projectMeta?.kutuTipi === 'yer';
                 this.tempComponent = new ServisKutusu(0, 0, {
                     floorId: state.currentFloor?.id,
                     cikisYonu: options.cikisYonu,
-                    z: 10 // Servis kutusu çıkış kotu: 10 cm
+                    z: isYer ? -60 : 10,
                 });
+                if (isYer) this.tempComponent.kutuTipi = 'CES200';
                 break;
+            }
 
             case TESISAT_MODLARI.SAYAC:
                 this.tempComponent = createSayac(0, 0, {

@@ -36,12 +36,12 @@ const YANDEX_JS_API_KEY       = '523911f6-824a-4ae0-b29f-c2d7e66af38d';
 const YANDEX_GEOCODER_API_KEY = '1662d8b0-5c87-4a4c-8bae-85b42f8c8b46';
 
 const DEFAULT_FORM = {
-    projectName: '',
+    projectName: 'AA',
 
     // Adres
-    // Mod seçimi: 'servis' = Bina Tesisat No / Abone Tüketim No ile çek,
+    // Mod seçimi: 'servis' = Bina Tesisat No / Abone Tüketim No ile çek (öncelik),
     //             'sec'    = İl/İlçe/Mahalle/Cadde-Sokak combobox + Kapı No
-    adresMode: 'sec',
+    adresMode: 'servis',
     servis: {
         binaTesisatNo: '',
         aboneTuketimNo: '',
@@ -60,11 +60,11 @@ const DEFAULT_FORM = {
         mahalle: '',
         sokak: '',
         binaNo: '',     // Kapı No olarak gösterilir
-        postaKodu: '',
         lat: null,
         lng: null,
     },
     birimler: [],
+    binaBilgi: null, // Servisten gelen: { daireSayisi, dukkanSayisi, katSayisi, alan, kapasite }
 
     // Tesisat
     projectType: 'yeni',           // 'yeni' | 'tadilat'
@@ -72,6 +72,7 @@ const DEFAULT_FORM = {
     projeKapagiNotu: '',
     kolonVar: true,
     kutuTipi: 'duvar',             // 'duvar' | 'yer'
+    kutuBasinc: '21',              // '21' | '300' mbar — projeden veya servisten gelir
     zeminKatYukseklik: 300,
     zeminKat0Offset: 0,
     bodrumSayisi: 0,
@@ -110,17 +111,25 @@ let schematic = null;
 let ymap = null;
 let ymark = null;
 let ymapsLoadPromise = null;
+// 'create' = yeni proje (default); 'edit' = mevcut projeyi düzenle (Proje Detayları menüsünden).
+// Edit modunda form mevcut state'ten doldurulur ve uygulanırken katlar/duvarlar korunur.
+let panelMode = 'create';
 
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
 // ── PUBLIC API ─────────────────────────────────────────────────────
-export function showOnboardingPanel(force = false) {
+export function showOnboardingPanel(force = false, mode = 'create') {
     if (!force) {
         const pref = localStorage.getItem(LS_SHOW_AT_START);
         if (pref === 'false') return;
     }
     if (!overlay) buildOverlay();
-    form = deepClone(DEFAULT_FORM);
+    panelMode = (mode === 'edit') ? 'edit' : 'create';
+    if (panelMode === 'edit') {
+        form = buildFormFromState();
+    } else {
+        form = deepClone(DEFAULT_FORM);
+    }
     syncKatYukseklikleri();
     currentTab = 'adres';
     renderAll();
@@ -151,6 +160,7 @@ function buildOverlay() {
             <header class="ob-top">
                 <input type="text" class="ob-project-input" id="ob-project-name"
                        placeholder="Proje adı..." autocomplete="off" />
+                <div class="ob-summary-bar" id="ob-summary-bar"></div>
                 <button class="ob-close" id="ob-close" type="button" aria-label="Kapat">×</button>
             </header>
 
@@ -204,7 +214,10 @@ function buildOverlay() {
         localStorage.setItem(LS_SHOW_AT_START, sw.checked ? 'true' : 'false');
     });
 
-    overlay.querySelector('#ob-start').addEventListener('click', () => applyAndClose());
+    overlay.querySelector('#ob-start').addEventListener('click', () => {
+        if (panelMode === 'edit') applyEditAndClose();
+        else applyAndClose();
+    });
 
     const canvas = overlay.querySelector('#ob-canvas');
     schematic = new OnboardingSchematic(
@@ -237,10 +250,62 @@ function switchTab(id) {
 // ── RENDER ─────────────────────────────────────────────────────────
 function renderAll() {
     renderTopBar();
+    renderSummaryBar();
     renderTabs();
     renderForm();
     updateSchematicVisibility();
     updateCTA();
+}
+
+// Üst şerit — proje türü, ısınma, basınç, kolon/iç tesisat, müstakil, ruhsat
+// özetini chip dizisi olarak gösterir. Değer yoksa "-" (soluk) görünür.
+function renderSummaryBar() {
+    const bar = overlay.querySelector('#ob-summary-bar');
+    if (!bar) return;
+    const items = [
+        summaryProjectType(),
+        summaryIsinma(),
+        summaryBasinc(),
+        summaryKolon(),
+        summaryMustakil(),
+        summaryOnProje(),
+    ];
+    bar.innerHTML = items.map((it, i) => {
+        const sep = i > 0 ? `<span class="ob-summary-sep">|</span>` : '';
+        const cls = it.empty ? 'is-empty' : (it.tone || '');
+        return `${sep}<span class="ob-summary-chip ${cls}">${it.text}</span>`;
+    }).join('');
+}
+
+function summaryProjectType() {
+    if (form.projectType === 'tadilat') return { text: 'TADİLAT', tone: 'amber' };
+    return { text: 'YENİ', tone: 'blue' };
+}
+function summaryIsinma() {
+    if (form.isinmaTipi === 'merkezi')  return { text: 'MERKEZİ',          tone: 'cyan' };
+    if (form.isinmaTipi === 'boylerli') return { text: 'MERKEZİ BOYLERLİ', tone: 'cyan' };
+    return { text: 'BİREYSEL', tone: 'cyan' };
+}
+function summaryBasinc() {
+    // Projeden veya servisten gelen kutuBasinc'ı kullan — duvar/yer tipi belirleyici DEĞİL.
+    const b = String(form.kutuBasinc || '').trim();
+    return b ? { text: `${b} mbar`, tone: 'mute' } : { text: '-', empty: true };
+}
+function summaryKolon() {
+    // Kolon var + (Adres Seç değil) → İÇ TESİSAT da içeriyor varsayımı: KOLON + İÇ TES.
+    // Sadece kolon → KOLON. Sadece iç tesisat (kolon yok, en az 1 kat işaretli) → İÇ TESİSAT.
+    const hasIcTesisat = !form.kolonVar && Array.isArray(form.katIcTesisatVar)
+        && form.katIcTesisatVar.some(Boolean);
+    if (form.kolonVar && hasIcTesisat) return { text: 'KOLON + İÇ TES.', tone: 'green' };
+    if (form.kolonVar)  return { text: 'KOLON',     tone: 'green' };
+    if (hasIcTesisat || !form.kolonVar) return { text: 'İÇ TESİSAT', tone: 'green' };
+    return { text: '-', empty: true };
+}
+function summaryMustakil() {
+    return form.mustakilProje ? { text: 'MÜSTAKİL', tone: 'violet' } : { text: '-', empty: true };
+}
+function summaryOnProje() {
+    return form.onProje ? { text: 'ÖN PROJE', tone: 'pink' } : { text: '-', empty: true };
 }
 
 function renderTopBar() {
@@ -249,8 +314,9 @@ function renderTopBar() {
 
 function renderTabs() {
     const root = overlay.querySelector('#ob-tabs');
+    const title = panelMode === 'edit' ? 'PROJE DETAYLARI' : 'YENİ PROJE';
     root.innerHTML = `
-        <div class="ob-tabs-title">YENİ PROJE</div>
+        <div class="ob-tabs-title">${title}</div>
         ${TAB_IDS.map(id => {
             const isActive = id === currentTab;
             return `<div class="ob-tab ${isActive ? 'ob-tab-active' : ''}" data-tab="${id}">
@@ -258,6 +324,15 @@ function renderTabs() {
                     </div>`;
         }).join('')}
     `;
+    // Edit modunda CTA "Uygula" olur, "Açılışta göster" anahtarı gizlenir.
+    const cta = overlay.querySelector('#ob-start');
+    if (cta) cta.textContent = panelMode === 'edit' ? 'Uygula' : 'Projeye Başla →';
+    const swWrap = overlay.querySelector('.ob-footer-switch');
+    if (swWrap) swWrap.style.display = panelMode === 'edit' ? 'none' : '';
+    const info = overlay.querySelector('.ob-footer-info');
+    if (info) info.textContent = panelMode === 'edit'
+        ? 'Değişiklikler mevcut projeye uygulanacak.'
+        : 'Tüm seçenekler daha sonra değiştirilebilir.';
 }
 
 function renderForm() {
@@ -269,8 +344,16 @@ function renderForm() {
         initMap();
         ensureAddressDataLoaded();
     }
+    renderSummaryBar();
     updateCTA();
 }
+
+// Sokak yüklemesi tipik olarak <100 ms sürer; anlık "yükleniyor" mesajı pırpır
+// etkisi yapar. Status'u 250 ms gecikmeyle göster — bu süre içinde tamamlanırsa
+// hiç görünmesin.
+let _streetsStatusShown = false;
+let _streetsStatusTimer = null;
+let _streetsLoadingFor = null; // şu an zamanlayıcı kurulu olan ilçe kodu
 
 // Adres Seç modunda lazy veriler: indeks (il/ilçe/mahalle) + ilgili ilçenin sokakları.
 // Yükleme tamamlanınca form re-render — kullanıcı bekleme animasyonu/durumu görür.
@@ -286,12 +369,46 @@ function ensureAddressDataLoaded() {
     }
     const ilceKod = form.adres.ilceKod;
     if (ilceKod && !isStreetsLoaded(ilceKod)) {
-        loadStreets(ilceKod)
-            .then(() => { if (currentTab === 'adres') renderForm(); })
-            .catch(err => {
-                console.warn('Sokak verisi yüklenemedi:', err);
-                if (currentTab === 'adres') renderForm();
-            });
+        // Aynı ilçe için zamanlayıcı zaten kuruluysa yeniden kurma (re-render
+        // ensureAddressDataLoaded'ı tekrar tetiklediğinde sonsuz döngü olmasın).
+        if (_streetsLoadingFor !== ilceKod) {
+            if (_streetsStatusTimer) clearTimeout(_streetsStatusTimer);
+            _streetsLoadingFor = ilceKod;
+            _streetsStatusShown = false;
+            _streetsStatusTimer = setTimeout(() => {
+                _streetsStatusTimer = null;
+                if (currentTab === 'adres' && form.adres.ilceKod === ilceKod && !isStreetsLoaded(ilceKod)) {
+                    _streetsStatusShown = true;
+                    renderForm();
+                }
+            }, 250);
+            loadStreets(ilceKod)
+                .then(() => {
+                    if (_streetsLoadingFor === ilceKod) {
+                        if (_streetsStatusTimer) clearTimeout(_streetsStatusTimer);
+                        _streetsStatusTimer = null;
+                        _streetsStatusShown = false;
+                        _streetsLoadingFor = null;
+                    }
+                    if (currentTab === 'adres') renderForm();
+                })
+                .catch(err => {
+                    if (_streetsLoadingFor === ilceKod) {
+                        if (_streetsStatusTimer) clearTimeout(_streetsStatusTimer);
+                        _streetsStatusTimer = null;
+                        _streetsStatusShown = false;
+                        _streetsLoadingFor = null;
+                    }
+                    console.warn('Sokak verisi yüklenemedi:', err);
+                    if (currentTab === 'adres') renderForm();
+                });
+        }
+    } else {
+        // Yükleme yok — bekleyen zamanlayıcıyı temizle.
+        if (_streetsStatusTimer) clearTimeout(_streetsStatusTimer);
+        _streetsStatusTimer = null;
+        _streetsStatusShown = false;
+        _streetsLoadingFor = null;
     }
 }
 
@@ -314,89 +431,190 @@ function renderTabContent(id) {
 }
 
 // ── ADRES TAB ──────────────────────────────────────────────────────
+// Yapı:
+//   1) Adres bölümü = mod segmenti + 2 grup yan yana (Sorgu / Adres bilgileri)
+//      Mod değişiminde HİÇBİR input ID yer değiştirmez; sadece is-active/is-passive
+//      ile group seviyesinde görsel öncelik geçer ve inputlar disabled/enabled.
+//   2) Bina özeti — servisten veri geldiyse compact 5 metrikli kart.
+//   3) Konum & Birimler — sol grup Birimler listesi, sağ grup Harita + koordinatlar.
 function renderAdres() {
+    const isServis = form.adresMode === 'servis';
     return `
-        <section class="ob-section">
-            <h2 class="ob-q-title">Bina adres bilgileri</h2>
+        <section class="adr-section">
             <div class="ob-seg ob-seg-block" id="ob-adres-mode">
-                <button type="button" class="ob-seg-btn ${form.adresMode === 'servis' ? 'ob-active' : ''}" data-val="servis">Servisten Al</button>
-                <button type="button" class="ob-seg-btn ${form.adresMode === 'sec' ? 'ob-active' : ''}" data-val="sec">Adres Seç</button>
+                <button type="button" class="ob-seg-btn ${isServis ? 'ob-active' : ''}" data-val="servis">Servisten Al</button>
+                <button type="button" class="ob-seg-btn ${!isServis ? 'ob-active' : ''}" data-val="sec">Adres Seç</button>
             </div>
-            <div class="ob-mt-12">
-                ${form.adresMode === 'servis' ? renderAdresServis() : renderAdresSec()}
+
+            <div class="adr-row-grid">
+                <div class="adr-group ${isServis ? 'is-active' : 'is-passive'}">
+                    <div class="adr-group-head">Servisten sorgu</div>
+                    ${renderServisInputs(!isServis)}
+                    <div class="adr-status" id="ob-servis-status"></div>
+                </div>
+
+                <div class="adr-group ${isServis ? 'is-passive' : 'is-active'}">
+                    <div class="adr-group-head">Adres bilgileri</div>
+                    ${isServis ? renderServisAdresFields() : renderAdresSec()}
+                </div>
             </div>
         </section>
 
-        <section class="ob-section">
-            <div class="ob-section-head">
-                <h2 class="ob-q-title">Binanın koordinatları</h2>
-                <div class="ob-section-actions">
-                    <button type="button" class="ob-mini-btn" id="ob-yandex-open" title="Adresi Yandex Haritada yeni sekmede aç">
-                        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8 a 6 6 0 0 1 12 0 a 6 6 0 0 1 -12 0"/><path d="M8 2 v 12 M2 8 h 12"/></svg>
-                        Yandex'te Aç
-                    </button>
-                    <button type="button" class="ob-mini-btn" id="ob-geocode" title="Adresi OSM ile haritada bul">
-                        <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><line x1="10.3" y1="10.3" x2="13.5" y2="13.5"/></svg>
-                        Haritada Bul
-                    </button>
-                </div>
+        <section class="adr-section">
+            <div class="adr-bina-ozet">
+                ${renderOzetItem('Daire',       ozetDaire())}
+                ${renderOzetItem('Dükkan',      ozetDukkan())}
+                ${renderOzetItem('Toplam Alan', ozetAlan(),     'm²')}
+                ${renderOzetItem('Kapasite',    ozetKapasite(), 'm³/h')}
+                ${renderOzetItem('Kat Sayısı',  ozetKatSayisi())}
             </div>
-            <div class="ob-geocode-status" id="ob-geocode-status"></div>
-            <div class="ob-map-wrap">
-                <div class="ob-map" id="ob-map"></div>
-                <div class="ob-map-fallback" id="ob-map-fallback" style="display:none">
-                    Harita yüklenemedi. Konumu aşağıdan elle girin.
+        </section>
+
+        <section class="adr-section">
+            <h2 class="adr-section-title">Konum ve birimler</h2>
+            <div class="adr-konum-grid">
+                <div class="adr-group">
+                    <div class="adr-group-head">Birimler${form.birimler?.length ? ` (${form.birimler.length})` : ''}</div>
+                    <div class="adr-birim-list" id="ob-birimler-list">
+                        ${renderBirimlerList(form.birimler)}
+                    </div>
                 </div>
-            </div>
-            <div class="ob-grid ob-grid-2 ob-mt-10">
-                ${numField('Enlem (lat)', 'adres.lat', form.adres.lat, 'any')}
-                ${numField('Boylam (lng)', 'adres.lng', form.adres.lng, 'any')}
+                <div class="adr-group">
+                    <div class="adr-group-head">Harita</div>
+                    <div class="adr-konum-top">
+                        ${numField('Enlem', 'adres.lat', form.adres.lat, 'any')}
+                        ${numField('Boylam', 'adres.lng', form.adres.lng, 'any')}
+                        <button type="button" class="ob-mini-btn adr-konum-btn" id="ob-geocode" title="Adresi OSM ile haritada bul">
+                            <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="4.5"/><line x1="10.3" y1="10.3" x2="13.5" y2="13.5"/></svg>
+                            Haritada Bul
+                        </button>
+                    </div>
+                    <div class="adr-status" id="ob-geocode-status"></div>
+                    <div class="adr-map-wrap">
+                        <div class="ob-map" id="ob-map"></div>
+                        <div class="adr-map-fallback" id="ob-map-fallback" style="display:none">
+                            Harita yüklenemedi. Konumu yukarıdan elle girin.
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
     `;
 }
 
-// "Servisten Al" — Bina Tesisat No ve/veya Abone Tüketim No ile sorgu.
-function renderAdresServis() {
-    const s = form.servis;
-    const result = s.lastResult;
+// ── Bina özeti yardımcıları ────────────────────────────────────────
+// Servisten bilgi geldiyse o değer kullanılır. Adres Seç modunda ya da bilgi
+// gelmediğinde projeden türetilebilen alanlar (kat sayısı) form state'inden
+// hesaplanır; türetilemeyenler "—" görünür.
+function ozetValue(value, fallback = '—') {
+    if (value == null) return fallback;
+    if (value === '' || value === 0 || value === '0') return fallback;
+    return value;
+}
+function ozetDaire() {
+    const b = form.binaBilgi;
+    if (b && b.daireSayisi != null) return ozetValue(b.daireSayisi);
+    // form.birimler'den türet (sayaç listesi varsa Daire tipinde olanları say)
+    const fromBirim = (form.birimler || []).filter(x => (x.aboneTipi || '').toLowerCase() === 'daire').length;
+    return fromBirim > 0 ? fromBirim : '—';
+}
+function ozetDukkan() {
+    const b = form.binaBilgi;
+    if (b && b.dukkanSayisi != null) return ozetValue(b.dukkanSayisi);
+    const fromBirim = (form.birimler || []).filter(x => (x.aboneTipi || '').toLowerCase() === 'dukkan').length;
+    return fromBirim > 0 ? fromBirim : '—';
+}
+function ozetAlan() {
+    return ozetValue(form.binaBilgi?.alan);
+}
+function ozetKapasite() {
+    return ozetValue(form.binaBilgi?.kapasite);
+}
+function ozetKatSayisi() {
+    if (form.binaBilgi?.katSayisi != null) return ozetValue(form.binaBilgi.katSayisi);
+    // Projeden türet: bodrum + 1 (zemin) + normal kat
+    const derived = (form.bodrumSayisi || 0) + 1 + (form.normalKatSayisi || 0);
+    return derived;
+}
+function renderOzetItem(label, value, suffix) {
+    const hasValue = value !== '—' && value !== '' && value != null;
+    const display = hasValue && suffix ? `${value} ${suffix}` : value;
     return `
-        <div class="ob-grid ob-grid-2">
-            <div class="ob-field">
-                <label class="ob-field-label">Bina Tesisat No</label>
-                <div class="ob-input-with-btn">
-                    <input type="text" class="ob-text" id="ob-bina-tesisat-no"
-                           value="${escapeHtml(s.binaTesisatNo)}" autocomplete="off"
-                           placeholder="Örn. 1234567" />
-                    <button type="button" class="ob-mini-btn" id="ob-sorgula-bina">Sorgula</button>
-                </div>
+        <div class="adr-ozet-item">
+            <span class="adr-ozet-k">${label}</span>
+            <span class="adr-ozet-v ${hasValue ? '' : 'is-empty'}">${display}</span>
+        </div>
+    `;
+}
+
+// Birimler listesi — JSON tarzı tek satırlı kart (etiket | abone adı | tüketim no).
+function renderBirimlerList(birimler) {
+    if (!Array.isArray(birimler) || birimler.length === 0) {
+        return `<div class="adr-birim-empty">Henüz birim yok</div>`;
+    }
+    return birimler.map(b => {
+        const etiket = b.birimEtiketi || b.birimNo || '?';
+        const adi    = b.aboneAdi    || '—';
+        const tno    = b.aboneTuketimNo || '—';
+        return `
+            <div class="adr-birim-card">
+                <div class="adr-birim-etiket">${escapeHtml(etiket)}</div>
+                <div class="adr-birim-adi">${escapeHtml(adi)}</div>
+                <div class="adr-birim-tno">${escapeHtml(tno)}</div>
             </div>
-            <div class="ob-field">
-                <label class="ob-field-label">Abone Tüketim No</label>
-                <div class="ob-input-with-btn">
-                    <input type="text" class="ob-text" id="ob-abone-tuketim-no"
-                           value="${escapeHtml(s.aboneTuketimNo)}" autocomplete="off"
-                           placeholder="Örn. A001" />
-                    <button type="button" class="ob-mini-btn" id="ob-sorgula-abone">Sorgula</button>
-                </div>
+        `;
+    }).join('');
+}
+
+// Servisten Al — 2 alan + Sorgula butonlu kompakt sorgu satırları.
+// Disabled olunca buton ve input pasifleşir.
+function renderServisInputs(disabled) {
+    const s = form.servis;
+    const dis = disabled ? 'disabled' : '';
+    return `
+        <div class="adr-stack">
+            <div class="adr-row">
+                <label class="adr-row-label">Bina Tesisat No</label>
+                <input type="text" class="adr-input" id="ob-bina-tesisat-no" ${dis}
+                       value="${escapeHtml(s.binaTesisatNo)}" autocomplete="off"
+                       placeholder="Örn. 1234567" />
+                <button type="button" class="adr-btn" id="ob-sorgula-bina" ${dis}>Sorgula</button>
+            </div>
+            <div class="adr-row">
+                <label class="adr-row-label">Abone Tüketim No</label>
+                <input type="text" class="adr-input" id="ob-abone-tuketim-no" ${dis}
+                       value="${escapeHtml(s.aboneTuketimNo)}" autocomplete="off"
+                       placeholder="Örn. 3001" />
+                <button type="button" class="adr-btn" id="ob-sorgula-abone" ${dis}>Sorgula</button>
             </div>
         </div>
-        <div class="ob-servis-status" id="ob-servis-status"></div>
-        ${result ? `
-            <div class="ob-servis-result ob-mt-10">
-                <div class="ob-servis-result-head">Servisten gelen bilgiler</div>
-                <div class="ob-servis-result-body">
-                    <div><span class="ob-kv-k">Bina Tesisat No</span><span class="ob-kv-v">${escapeHtml(result.binaTesisatNo)}</span></div>
-                    ${result.aboneAdi   ? `<div><span class="ob-kv-k">Abone</span><span class="ob-kv-v">${escapeHtml(result.aboneAdi)}</span></div>` : ''}
-                    ${result.adresKisa  ? `<div><span class="ob-kv-k">Adres</span><span class="ob-kv-v">${escapeHtml(result.adresKisa)}</span></div>` : ''}
-                    <div><span class="ob-kv-k">Sayaç</span><span class="ob-kv-v">${result.birimSayisi} birim</span></div>
-                </div>
-            </div>
-        ` : ''}
     `;
 }
 
-// "Adres Seç" — cascading 4 combobox + Kapı No (free text).
+// Servis modu adres alanları — 5 satır, pasif readonly inputlar. Her zaman render.
+function renderServisAdresFields() {
+    const a = form.adres;
+    return `
+        <div class="adr-stack">
+            ${readonlyRow('İl',             a.il)}
+            ${readonlyRow('İlçe',           a.ilce)}
+            ${readonlyRow('Mahalle',        a.mahalle)}
+            ${readonlyRow('Cadde / Sokak',  a.sokak)}
+            ${readonlyRow('Kapı No',        a.binaNo)}
+        </div>
+    `;
+}
+
+function readonlyRow(label, value) {
+    return `
+        <div class="adr-row">
+            <label class="adr-row-label">${label}</label>
+            <input type="text" class="adr-input is-readonly" value="${escapeHtml(value ?? '')}" readonly disabled autocomplete="off" />
+        </div>
+    `;
+}
+
+// "Adres Seç" — 4 cascading combobox + Kapı No (free text), tek sütun stacked.
 function renderAdresSec() {
     const a = form.adres;
     const indexLoaded = isIndexLoaded();
@@ -407,19 +625,57 @@ function renderAdresSec() {
     const cadSoklar  = getCaddeSokaklar(a.ilKod, a.ilceKod, a.mahalleKod);
 
     let statusMsg = '';
-    if (!indexLoaded)         statusMsg = 'Adres verileri yükleniyor…';
-    else if (streetsLoading)  statusMsg = 'Cadde / sokak listesi yükleniyor…';
+    if (!indexLoaded) statusMsg = 'Adres verileri yükleniyor…';
+    else if (streetsLoading && _streetsStatusShown) statusMsg = 'Cadde / sokak listesi yükleniyor…';
+
+    // Eğer servis text değeri var ama kod yok ise, select yerine readonly text
+    // göster — kullanıcı servisten gelen veriyi kaybetmesin.
+    const ilField = (!a.ilKod && a.il)
+        ? readonlyRow('İl', a.il)
+        : selectRow('İl', 'ilKod', iller, a.ilKod, !indexLoaded || iller.length === 0);
+    const ilceField = (!a.ilceKod && a.ilce)
+        ? readonlyRow('İlçe', a.ilce)
+        : selectRow('İlçe', 'ilceKod', ilceler, a.ilceKod, !indexLoaded || !a.ilKod || ilceler.length === 0);
+    const mahalleField = (!a.mahalleKod && a.mahalle)
+        ? readonlyRow('Mahalle', a.mahalle)
+        : selectRow('Mahalle', 'mahalleKod', mahalleler, a.mahalleKod, !a.ilceKod || mahalleler.length === 0);
+    const sokakField = (!a.cadSokKod && a.sokak)
+        ? readonlyRow('Cadde / Sokak', a.sokak)
+        : selectRow('Cadde / Sokak', 'cadSokKod', cadSoklar, a.cadSokKod, !a.mahalleKod || streetsLoading || cadSoklar.length === 0);
 
     return `
-        <div class="ob-grid ob-grid-2">
-            ${selectField('İl',           'ilKod',      iller,       a.ilKod,      !indexLoaded || iller.length === 0)}
-            ${selectField('İlçe',         'ilceKod',    ilceler,     a.ilceKod,    !indexLoaded || !a.ilKod || ilceler.length === 0)}
-            ${selectField('Mahalle',      'mahalleKod', mahalleler,  a.mahalleKod, !a.ilceKod || mahalleler.length === 0)}
-            ${selectField('Cadde / Sokak','cadSokKod',  cadSoklar,   a.cadSokKod,  !a.mahalleKod || streetsLoading || cadSoklar.length === 0)}
-            ${textField('Kapı No',  'adres.binaNo',  a.binaNo)}
-            ${textField('Posta Kodu','adres.postaKodu', a.postaKodu)}
+        <div class="adr-stack">
+            ${ilField}
+            ${ilceField}
+            ${mahalleField}
+            ${sokakField}
+            ${textRow('Kapı No', 'adres.binaNo', a.binaNo)}
         </div>
-        ${statusMsg ? `<div class="ob-geocode-status ob-info ob-mt-10">${statusMsg}</div>` : ''}
+        ${statusMsg ? `<div class="adr-status adr-status-info">${statusMsg}</div>` : ''}
+    `;
+}
+
+// Stacked layout için: label sol + select sağ.
+function selectRow(label, cascadeKey, options, value, disabled) {
+    const opts = options.map(o => `<option value="${escapeHtml(o.kod)}" ${o.kod === value ? 'selected' : ''}>${escapeHtml(o.ad)}</option>`).join('');
+    return `
+        <div class="adr-row">
+            <label class="adr-row-label">${label}</label>
+            <select class="adr-input adr-select" data-cascade="${cascadeKey}" ${disabled ? 'disabled' : ''}>
+                <option value="" ${!value ? 'selected' : ''}>${disabled && options.length === 0 ? '—' : 'Seçin…'}</option>
+                ${opts}
+            </select>
+        </div>
+    `;
+}
+
+// Stacked layout için: label sol + text input sağ.
+function textRow(label, path, value) {
+    return `
+        <div class="adr-row">
+            <label class="adr-row-label">${label}</label>
+            <input type="text" class="adr-input" data-path="${path}" value="${escapeHtml(value ?? '')}" autocomplete="off" />
+        </div>
     `;
 }
 
@@ -811,47 +1067,14 @@ function attachTabListeners(tabId) {
         });
     });
 
-    // Müstakil / Ön Proje switches
+    // Müstakil / Ön Proje switches — şerit canlı güncellensin
     const mst = overlay.querySelector('#ob-mustakil');
-    if (mst) mst.addEventListener('change', () => { form.mustakilProje = mst.checked; });
+    if (mst) mst.addEventListener('change', () => { form.mustakilProje = mst.checked; renderSummaryBar(); });
     const op = overlay.querySelector('#ob-on-proje');
-    if (op) op.addEventListener('change', () => { form.onProje = op.checked; });
+    if (op) op.addEventListener('change', () => { form.onProje = op.checked; renderSummaryBar(); });
 
     // Geocode button (adres tab)
     overlay.querySelector('#ob-geocode')?.addEventListener('click', () => runGeocode());
-
-    // Yandex'te Aç — yandex.com/maps web frontend'i (API key yok, proprietary
-    // bina verisini kullanır). Razor snippet formatı:
-    //   "{mahalle MAHALLESİ} {sokak Tipi} No: {bina_no} {ilçe} {il}"
-    // — parantezdeki "(Sokak)" / "(Cadde)" tipini düz metin yapar, MAHALLESİ
-    // suffix'ini KORUR (sileme — Yandex web'in tanıdığı formattır).
-    overlay.querySelector('#ob-yandex-open')?.addEventListener('click', () => {
-        const a = form.adres;
-        const stripParens = s => String(s || '').replace(/\s*\([^)]+\)\s*$/u, '').trim();
-        const extractType = s => {
-            const m = String(s || '').match(/\(([^)]+)\)\s*$/u);
-            return m ? m[1].trim() : '';
-        };
-        const sokakName = stripParens(a.sokak);
-        const sokakType = extractType(a.sokak) || 'Sokak';
-        const sokakFull = sokakName ? `${sokakName} ${sokakType}` : '';
-
-        const parts = [];
-        if (a.mahalle) parts.push(a.mahalle);             // "ARMAĞANEVLER MAHALLESİ"
-        if (sokakFull) parts.push(sokakFull);             // "ORTANCA Sokak"
-        if (a.binaNo)  parts.push(`No: ${a.binaNo}`);     // "No: 26"
-        if (a.ilce)    parts.push(a.ilce);                // "ÜMRANİYE"
-        if (a.il)      parts.push(a.il);                  // "İSTANBUL"
-        const text = parts.join(' ').trim();
-
-        if (!text) {
-            const status = overlay.querySelector('#ob-geocode-status');
-            if (status) { status.textContent = 'Önce adres alanlarını doldurun.'; status.className = 'ob-geocode-status ob-err'; }
-            return;
-        }
-        const url = `https://yandex.com/maps/?text=${encodeURIComponent(text)}`;
-        window.open(url, '_blank', 'noopener,noreferrer');
-    });
 
     // Adres mode segment (Servisten Al / Adres Seç)
     overlay.querySelector('#ob-adres-mode')?.addEventListener('click', e => {
@@ -872,16 +1095,60 @@ function attachTabListeners(tabId) {
     overlay.querySelector('#ob-sorgula-bina')?.addEventListener('click', () => runServisSorgu('bina'));
     overlay.querySelector('#ob-sorgula-abone')?.addEventListener('click', () => runServisSorgu('abone'));
 
-    // Servisten Al: input'lar form'a yansısın (Enter ile sorgu)
+    // Servisten Al: input'lar değişince diğer input + tüm servis verisi sıfırlanır.
     const binaInput = overlay.querySelector('#ob-bina-tesisat-no');
     if (binaInput) {
-        binaInput.addEventListener('input', () => { form.servis.binaTesisatNo = binaInput.value; });
+        binaInput.addEventListener('input', () => onServisInputChanged('bina', binaInput.value));
         binaInput.addEventListener('keydown', e => { if (e.key === 'Enter') runServisSorgu('bina'); });
     }
     const aboneInput = overlay.querySelector('#ob-abone-tuketim-no');
     if (aboneInput) {
-        aboneInput.addEventListener('input', () => { form.servis.aboneTuketimNo = aboneInput.value; });
+        aboneInput.addEventListener('input', () => onServisInputChanged('abone', aboneInput.value));
         aboneInput.addEventListener('keydown', e => { if (e.key === 'Enter') runServisSorgu('abone'); });
+    }
+}
+
+// Bina veya Abone input'unda değişiklik olduğunda:
+//   1) Yazılan input'u güncelle (yeni değer)
+//   2) Karşı input'u tamamen boşalt (state + DOM)
+//   3) Servisten gelen tüm veriyi defaultlara geri al (adres, birimler, özet,
+//      isınma tipi, kat sayısı, lat/lng)
+//   4) Tek bir renderForm ile tüm UI'ı tazele
+//   5) Yazdığı input'a odağı + cursor pozisyonunu geri ver
+function onServisInputChanged(source, newValue) {
+    if (source === 'bina') {
+        form.servis.binaTesisatNo = newValue;
+        form.servis.aboneTuketimNo = '';
+    } else {
+        form.servis.aboneTuketimNo = newValue;
+        form.servis.binaTesisatNo = '';
+    }
+    // Tüm servis verisini default'a indir
+    Object.assign(form.adres, deepClone(DEFAULT_FORM.adres));
+    form.binaBilgi = null;
+    form.birimler = [];
+    form.servis.lastResult = null;
+    form.isinmaTipi = DEFAULT_FORM.isinmaTipi;
+    form.kutuBasinc = DEFAULT_FORM.kutuBasinc;
+    form.normalKatSayisi = DEFAULT_FORM.normalKatSayisi;
+    syncKatYukseklikleri();
+
+    // Odak + cursor koruması
+    const ae = document.activeElement;
+    const activeId = ae?.id || '';
+    const cursor = (ae && ae.selectionStart != null) ? ae.selectionStart : null;
+
+    renderForm();
+    syncMapToInputs();
+
+    if (activeId) {
+        const el = overlay.querySelector('#' + activeId);
+        if (el) {
+            el.focus();
+            if (cursor != null) {
+                try { el.setSelectionRange(cursor, cursor); } catch {}
+            }
+        }
     }
 }
 
@@ -943,36 +1210,53 @@ function setServisStatus(text, kind) {
     const status = overlay.querySelector('#ob-servis-status');
     if (!status) return;
     status.textContent = text;
-    status.className = 'ob-servis-status ob-' + (kind || 'info');
+    status.className = 'adr-status adr-status-' + (kind || 'info');
 }
 
 function applyServiceResult(bina, abone, kaynak) {
     if (!bina) return;
-    // Adres bilgilerini form.adres'e yaz (her iki mod ile uyumlu kalsın)
+    // Adres bilgilerini form.adres'e yaz. Servisten gelen veri sadece metin
+    // alanlarını içerir (kod yok); bu yüzden Adres Seç modundaki cascade kodları
+    // boşa düşer — kullanıcı haritada bul ile devam edebilir.
     if (bina.adres) {
         Object.assign(form.adres, {
-            ilKod:      bina.adres.ilKod      ?? form.adres.ilKod,
-            ilceKod:    bina.adres.ilceKod    ?? '',
-            mahalleKod: bina.adres.mahalleKod ?? '',
-            cadSokKod:  bina.adres.cadSokKod  ?? '',
-            il:         bina.adres.il         ?? form.adres.il,
-            ilce:       bina.adres.ilce       ?? '',
-            mahalle:    bina.adres.mahalle    ?? '',
-            sokak:      bina.adres.sokak      ?? '',
-            binaNo:     bina.adres.binaNo     ?? '',
-            postaKodu:  bina.adres.postaKodu  ?? '',
-            lat:        bina.adres.lat        ?? form.adres.lat,
-            lng:        bina.adres.lng        ?? form.adres.lng,
+            ilKod:      '',
+            ilceKod:    '',
+            mahalleKod: '',
+            cadSokKod:  '',
+            il:         bina.adres.il      ?? form.adres.il,
+            ilce:       bina.adres.ilce    ?? '',
+            mahalle:    bina.adres.mahalle ?? '',
+            sokak:      bina.adres.sokak   ?? '',
+            binaNo:     bina.adres.binaNo  ?? '',
+            lat:        bina.adres.lat     ?? form.adres.lat,
+            lng:        bina.adres.lng     ?? form.adres.lng,
         });
     }
-    // Tesisat parametreleri (Tesisat / Katlar tab'larında kullanılır)
-    if (bina.tesisat) {
-        if (typeof bina.tesisat.kolonVar    === 'boolean') form.kolonVar    = bina.tesisat.kolonVar;
-        if (bina.tesisat.kutuTipi)                          form.kutuTipi    = bina.tesisat.kutuTipi;
-        if (bina.tesisat.isinmaTipi)                        form.isinmaTipi  = bina.tesisat.isinmaTipi;
+    // Bina özeti (Daire/Dükkan/Alan/Kapasite/Kat) — Adres tabındaki özet kutusu
+    // ve Katlar tabına auto-fill için.
+    form.binaBilgi = bina.bilgi ? { ...bina.bilgi } : null;
+    if (bina.bilgi) {
+        if (Number.isFinite(bina.bilgi.katSayisi)) {
+            // ZEMİN dahil tüm katlar — normalKatSayisi = katSayisi - 1 (zemin hariç).
+            const normal = Math.max(0, (bina.bilgi.katSayisi || 1) - 1);
+            form.normalKatSayisi = normal;
+            syncKatYukseklikleri();
+        }
     }
-    // Sayaçlar
+    // Tesisat parametreleri (isınma tipini servis veriyor; kolon/kutu yok).
+    if (bina.tesisat) {
+        if (bina.tesisat.isinmaTipi) form.isinmaTipi = bina.tesisat.isinmaTipi;
+        if (bina.tesisat.kutuBasinc) form.kutuBasinc = String(bina.tesisat.kutuBasinc);
+    }
+    // Sayaçlar (birimler)
     form.birimler = Array.isArray(bina.sayaclar) ? bina.sayaclar.slice() : [];
+
+    // Abone sorgusu sonrası bina tesisat no input'unu da doldur — kullanıcı
+    // panelin sol üstündeki "Bina Tesisat No" alanında da gelen değeri görsün.
+    if (bina.binaTesisatNo) {
+        form.servis.binaTesisatNo = String(bina.binaTesisatNo);
+    }
 
     form.servis.lastResult = {
         binaTesisatNo: bina.binaTesisatNo,
@@ -993,16 +1277,16 @@ async function runGeocode() {
     if (!btn || !status) return;
 
     const a = form.adres;
-    const hasAny = [a.il, a.ilce, a.mahalle, a.sokak, a.binaNo, a.postaKodu].some(s => s && String(s).trim());
+    const hasAny = [a.il, a.ilce, a.mahalle, a.sokak, a.binaNo].some(s => s && String(s).trim());
     if (!hasAny) {
         status.textContent = 'Önce en az bir adres alanı girin.';
-        status.className = 'ob-geocode-status ob-err';
+        status.className = 'adr-status adr-status-err';
         return;
     }
 
     btn.disabled = true;
     status.textContent = 'Aranıyor…';
-    status.className = 'ob-geocode-status ob-info';
+    status.className = 'adr-status adr-status-info';
 
     const binaNo = a.binaNo ? String(a.binaNo).trim() : '';
     // Adres verisinde sokak adları "TAŞKIN (Sokak)" / "ORTANCA (Cadde)" gibi
@@ -1209,7 +1493,7 @@ async function runGeocode() {
 
     if (!best) {
         status.textContent = 'Adres bulunamadı. Haritadan tıklayarak konum seçebilirsiniz.';
-        status.className = 'ob-geocode-status ob-err';
+        status.className = 'adr-status adr-status-err';
         btn.disabled = false;
         return;
     }
@@ -1217,15 +1501,15 @@ async function runGeocode() {
     syncMapToInputs();
     if (best.exactHouse) {
         status.textContent = `✓ Bulundu: ${best.text}`;
-        status.className = 'ob-geocode-status ob-ok';
+        status.className = 'adr-status adr-status-ok';
     } else if (binaNo) {
         // OSM verisinde ev numarası nadiren bulunur; sokak doğru ama bina için
         // kullanıcının haritadan tıklaması gerekiyor.
         status.textContent = `Sokak bulundu — Tam bina için haritadan binanızın üstüne tıklayın.`;
-        status.className = 'ob-geocode-status ob-info';
+        status.className = 'adr-status adr-status-info';
     } else {
         status.textContent = `✓ ${best.text || 'Bulundu.'}`;
-        status.className = 'ob-geocode-status ob-ok';
+        status.className = 'adr-status adr-status-ok';
     }
     btn.disabled = false;
 }
@@ -1348,6 +1632,8 @@ function updateCTA() {
     let ok = form.projectName.trim().length > 0;
     if (form.projectType === 'tadilat' && !form.tadilatSebep.trim()) ok = false;
     cta.disabled = !ok;
+    // Üst şerit form değişikliğine göre canlı güncellensin
+    renderSummaryBar();
 }
 
 // ── APPLY TO GLOBAL STATE ──────────────────────────────────────────
@@ -1369,6 +1655,7 @@ function applyAndClose() {
             projeKapagiNotu: form.projeKapagiNotu,
             kolonVar: form.kolonVar,
             kutuTipi: form.kolonVar ? form.kutuTipi : null,
+            kutuBasinc: form.kutuBasinc,
             zeminKat0Offset: form.zeminKat0Offset,
             mustakilProje: form.mustakilProje,
             onProje: form.onProje,
@@ -1378,6 +1665,253 @@ function applyAndClose() {
     });
 
     if (form.projectName) document.title = `${form.projectName} — AAA CAD`;
+
+    try { draw2D(); } catch (e) { console.warn('draw2D failed:', e); }
+    try { renderMiniPanel(); } catch (e) { console.warn('renderMiniPanel failed:', e); }
+    try { update3DScene(); } catch (e) { /* 3D may not be initialized */ }
+
+    hideOnboardingPanel();
+}
+
+// ── EDIT MODE: STATE → FORM ────────────────────────────────────────
+// Proje Detayları menüsünden açıldığında çağrılır; mevcut state.projectMeta,
+// state.isinmaTipi ve state.floors'tan formu doldurur. Böylece kullanıcının
+// projeye sonradan eklediği katlar / değişen yükseklikler / gizli katlar bu
+// panelde de gerçeği yansıtır.
+function buildFormFromState() {
+    const meta = state.projectMeta || {};
+    const out = deepClone(DEFAULT_FORM);
+
+    // Proje üst düzey
+    out.projectName    = meta.name           || (typeof window !== 'undefined' ? (document.getElementById('projectNameInput')?.value || '') : '') || '';
+    out.projectType    = meta.type           || 'yeni';
+    out.tadilatSebep   = meta.tadilatSebep   || '';
+    out.projeKapagiNotu = meta.projeKapagiNotu || '';
+    out.kolonVar       = (typeof meta.kolonVar === 'boolean') ? meta.kolonVar : true;
+    out.kutuTipi       = meta.kutuTipi       || 'duvar';
+    out.kutuBasinc     = meta.kutuBasinc     || '21';
+    out.zeminKat0Offset = Number.isFinite(meta.zeminKat0Offset) ? meta.zeminKat0Offset : 0;
+    out.mustakilProje  = !!meta.mustakilProje;
+    out.onProje        = !!meta.onProje;
+    if (meta.adres)    Object.assign(out.adres, meta.adres);
+    if (meta.sorumlu)  Object.assign(out.sorumlu, meta.sorumlu);
+
+    out.isinmaTipi = state.isinmaTipi || 'bireysel';
+
+    // Katlar — placeholder'lar çıkar, bottomElevation'a göre sırala
+    const realFloors = (state.floors || [])
+        .filter(f => !f.isPlaceholder)
+        .slice()
+        .sort((a, b) => a.bottomElevation - b.bottomElevation);
+
+    const ground = realFloors.find(f => f.name === 'ZEMİN');
+    const bodrums = realFloors.filter(f => /BODRUM/.test(f.name))
+        .sort((a, b) => a.bottomElevation - b.bottomElevation); // deepest first
+    const above = realFloors.filter(f => /\.KAT$/.test(f.name))
+        .sort((a, b) => a.bottomElevation - b.bottomElevation); // 1.KAT (lowest) first
+
+    out.bodrumSayisi = bodrums.length;
+    out.normalKatSayisi = above.length;
+
+    if (ground) {
+        out.zeminKat0Offset = Math.round(ground.bottomElevation);
+        out.zeminKatYukseklik = Math.max(180, Math.round(ground.topElevation - ground.bottomElevation));
+    }
+
+    // Form sırası: [1.BODRUM (en üst bodrum), ..., en derin BODRUM, ZEMİN, 1.KAT, ..., en üst KAT]
+    // state.bodrums sırası: en derin → en sığ; ters çevirip 1.BODRUM'u başa koyuyoruz.
+    const bodrumsTopFirst = bodrums.slice().reverse();
+
+    const heights = [];
+    const ict = [];
+
+    bodrumsTopFirst.forEach(f => {
+        heights.push(Math.max(180, Math.round(f.topElevation - f.bottomElevation)));
+        ict.push(f.visible !== false);
+    });
+    if (ground) {
+        heights.push(Math.max(180, Math.round(ground.topElevation - ground.bottomElevation)));
+        ict.push(ground.visible !== false);
+    }
+    above.forEach(f => {
+        heights.push(Math.max(180, Math.round(f.topElevation - f.bottomElevation)));
+        ict.push(f.visible !== false);
+    });
+
+    out.katYukseklikleri = heights;
+    out.katIcTesisatVar = ict;
+
+    // Tüm yükseklikler eşitse "tüm katlar aynı yükseklik" anahtarını aktif et
+    const allSame = heights.length > 0 && heights.every(h => h === heights[0]);
+    out.tumKatlarAyniYukseklik = out.kolonVar ? allSame : false;
+
+    return out;
+}
+
+// ── EDIT MODE: FORM → STATE (preserve walls/IDs) ───────────────────
+// Mevcut katları sıralı pozisyona göre yeni form slotlarına eşler — id'ler ve
+// dolayısıyla ona bağlı duvar/kapı/pencere/tesisat verileri korunur. Eksik
+// slotlar için yeni floor objesi üretilir, fazla slotlar silinir.
+function applyEditAndClose() {
+    try { localStorage.setItem(LS_LAST_SETTINGS, JSON.stringify(form)); } catch {}
+
+    const realFloors = (state.floors || [])
+        .filter(f => !f.isPlaceholder)
+        .slice()
+        .sort((a, b) => a.bottomElevation - b.bottomElevation);
+
+    const existingGround = realFloors.find(f => f.name === 'ZEMİN');
+    const existingBodrums = realFloors.filter(f => /BODRUM/.test(f.name))
+        .sort((a, b) => a.bottomElevation - b.bottomElevation); // deepest first
+    const existingKatlar = realFloors.filter(f => /\.KAT$/.test(f.name))
+        .sort((a, b) => a.bottomElevation - b.bottomElevation); // 1.KAT first
+
+    const wantBodrums = form.bodrumSayisi || 0;
+    const wantKatlar = form.normalKatSayisi || 0;
+
+    const heightOf = (formIdx) => {
+        if (form.tumKatlarAyniYukseklik) return form.zeminKatYukseklik;
+        const v = form.katYukseklikleri[formIdx];
+        return Number.isFinite(v) ? v : form.zeminKatYukseklik;
+    };
+    // kolonVar=true: tüm katlar iç tesisatlı + görünür state korunur.
+    // kolonVar=false: checkbox iç tesisatı VE görünürlüğü belirler.
+    const icTesisatOf = (formIdx) => form.kolonVar ? true : !!form.katIcTesisatVar[formIdx];
+
+    const newFloors = [];
+
+    // Bodrum slotları (form sırası: 0=1.BODRUM top, wantBodrums-1=deepest)
+    // Elevations: 1.BODRUM top = zeminKat0Offset, growing downward.
+    const bodrumSlots = [];
+    let topCursor = form.zeminKat0Offset;
+    for (let i = 0; i < wantBodrums; i++) {
+        const h = heightOf(i);
+        const top = topCursor;
+        const bot = top - h;
+        bodrumSlots.push({ formIdx: i, top, bot });
+        topCursor = bot;
+    }
+    // Sorted asc by bottom: deepest first (index wantBodrums-1) → 1.BODRUM (index 0)
+    // existingBodrums[k] (sorted asc) eşleşir slot pozisyon k (sorted asc) = wantBodrums-1-i
+    for (let i = wantBodrums - 1; i >= 0; i--) {
+        const slot = bodrumSlots[i];
+        const sortedAscIdx = wantBodrums - 1 - i;
+        const reuse = existingBodrums[sortedAscIdx];
+        const f = reuse ? { ...reuse } : {
+            id: `floor-bodrum-${i + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        };
+        f.name = `${i + 1}.BODRUM`;
+        f.bottomElevation = slot.bot;
+        f.topElevation = slot.top;
+        f.isPlaceholder = false;
+        f.icTesisatVar = icTesisatOf(slot.formIdx);
+        if (!form.kolonVar) {
+            f.visible = !!form.katIcTesisatVar[slot.formIdx];
+        } else if (!reuse) {
+            // Yeni eklenen kat görünür gelsin — placeholder click ile aynı davranış.
+            f.visible = true;
+        }
+        newFloors.push(f);
+    }
+
+    // ZEMİN
+    const groundFormIdx = wantBodrums;
+    const groundH = heightOf(groundFormIdx);
+    const groundBot = form.zeminKat0Offset;
+    const groundTop = groundBot + groundH;
+    let ground;
+    if (existingGround) {
+        ground = { ...existingGround, name: 'ZEMİN', bottomElevation: groundBot, topElevation: groundTop, isPlaceholder: false };
+    } else {
+        ground = { id: 'floor-ground', name: 'ZEMİN', bottomElevation: groundBot, topElevation: groundTop, isPlaceholder: false };
+    }
+    ground.icTesisatVar = icTesisatOf(groundFormIdx);
+    if (!form.kolonVar) ground.visible = !!form.katIcTesisatVar[groundFormIdx];
+    else if (!existingGround) ground.visible = true;
+    newFloors.push(ground);
+
+    // Normal katlar (zemin üstü) — form sırası: 0=1.KAT (alt), ..., wantKatlar-1 (üst)
+    let katCursor = ground.topElevation;
+    for (let i = 0; i < wantKatlar; i++) {
+        const formIdx = wantBodrums + 1 + i;
+        const h = heightOf(formIdx);
+        const bot = katCursor;
+        const top = bot + h;
+        const reuse = existingKatlar[i]; // sorted asc index = form index
+        const f = reuse ? { ...reuse } : {
+            id: `floor-kat-${i + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        };
+        f.name = `${i + 1}.KAT`;
+        f.bottomElevation = bot;
+        f.topElevation = top;
+        f.isPlaceholder = false;
+        f.icTesisatVar = icTesisatOf(formIdx);
+        if (!form.kolonVar) f.visible = !!form.katIcTesisatVar[formIdx];
+        else if (!reuse) f.visible = true; // Yeni eklenen kat görünür gelsin
+        newFloors.push(f);
+        katCursor = top;
+    }
+
+    // Placeholder'ları yeniden kur
+    const firstBot = newFloors[0]?.bottomElevation ?? form.zeminKat0Offset;
+    const lastTop  = newFloors[newFloors.length - 1]?.topElevation ?? (form.zeminKat0Offset + form.zeminKatYukseklik);
+    const lowerPlaceholder = {
+        id: 'floor-lower-placeholder',
+        name: 'ALTA KAT EKLE',
+        bottomElevation: firstBot - form.zeminKatYukseklik,
+        topElevation: firstBot,
+        visible: false, isPlaceholder: true, isBelow: true,
+    };
+    const upperPlaceholder = {
+        id: 'floor-upper-placeholder',
+        name: 'ÜSTE KAT EKLE',
+        bottomElevation: lastTop,
+        topElevation: lastTop + form.zeminKatYukseklik,
+        visible: false, isPlaceholder: true, isBelow: false,
+    };
+
+    const finalFloors = [lowerPlaceholder, ...newFloors, upperPlaceholder];
+
+    // Silinen katlardaki duvar/kapı referansları orphan olarak kalır — mevcut
+    // deleteFloor davranışıyla tutarlı (orphans rendere katılmaz, kullanıcı
+    // yeniden ekleyebilir). Burada zorla temizlemiyoruz.
+    const keptFloorIds = new Set(finalFloors.filter(f => !f.isPlaceholder).map(f => f.id));
+
+    // Mevcut currentFloor'u koru; silindiyse ZEMİN'e düş.
+    let newCurrentFloor = state.currentFloor;
+    if (!newCurrentFloor || !keptFloorIds.has(newCurrentFloor.id)) {
+        newCurrentFloor = ground;
+    } else {
+        newCurrentFloor = finalFloors.find(f => f.id === newCurrentFloor.id) || ground;
+    }
+
+    setState({
+        floors: finalFloors,
+        currentFloor: newCurrentFloor,
+        defaultFloorHeight: form.zeminKatYukseklik,
+        isinmaTipi: form.isinmaTipi,
+        projectMeta: {
+            ...(state.projectMeta || {}),
+            name: form.projectName,
+            type: form.projectType,
+            tadilatSebep: form.tadilatSebep,
+            projeKapagiNotu: form.projeKapagiNotu,
+            kolonVar: form.kolonVar,
+            kutuTipi: form.kolonVar ? form.kutuTipi : null,
+            kutuBasinc: form.kutuBasinc,
+            zeminKat0Offset: form.zeminKat0Offset,
+            mustakilProje: form.mustakilProje,
+            onProje: form.onProje,
+            adres: { ...form.adres },
+            sorumlu: { ...form.sorumlu },
+        },
+    });
+
+    if (form.projectName) {
+        document.title = `${form.projectName} — AAA CAD`;
+        const nameInput = document.getElementById('projectNameInput');
+        if (nameInput) nameInput.value = form.projectName;
+    }
 
     try { draw2D(); } catch (e) { console.warn('draw2D failed:', e); }
     try { renderMiniPanel(); } catch (e) { console.warn('renderMiniPanel failed:', e); }

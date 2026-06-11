@@ -34,21 +34,21 @@ body.light-mode .ob-overlay {
 }
 
 .ob-panel {
-    width: min(1180px, 100%);
+    width: min(1040px, 100%);
     height: min(820px, 100%);
     background: var(--bg-panel, #1e1f20);
     border: 1px solid var(--border-panel, #3c4043);
     border-radius: 14px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
     display: grid;
-    grid-template-columns: 200px 1fr 620px;
+    grid-template-columns: 180px 1fr 520px;
     grid-template-rows: auto 1fr auto;
     overflow: hidden;
     animation: obSlideUp .3s cubic-bezier(.2,.8,.2,1);
 }
 
 .ob-panel.ob-no-schematic {
-    grid-template-columns: 200px 1fr;
+    grid-template-columns: 180px 1fr;
 }
 
 @keyframes obSlideUp {
@@ -56,24 +56,27 @@ body.light-mode .ob-overlay {
     to   { transform: translateY(0)    scale(1);    opacity: 1; }
 }
 
-/* ── TOP BAR (project name) ────────────────────────────────────── */
+/* ── TOP BAR (proje adı + özet şerit + kapat — tek satır) ──────── */
 .ob-top {
     grid-column: 1 / -1;
     grid-row: 1;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 18px 12px 22px;
+    gap: 14px;
+    padding: 10px 18px 10px 22px;
     border-bottom: 1px solid var(--border-panel, #3c4043);
     background: rgba(255,255,255,0.02);
 }
 
 .ob-project-input {
-    flex: 1;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 140px;
+    max-width: 360px;
     background: transparent;
     border: none;
     padding: 4px 0;
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 600;
     color: var(--color-text, #e8eaed);
     outline: none;
@@ -868,4 +871,450 @@ select.ob-select option {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   ADRES TAB — gruplu, alt alta, net aktif/pasif görsel hiyerarşi
+   adr-* prefix'i ile tamamen ayrı bir namespace (eski ob-* karışmaz)
+   ═══════════════════════════════════════════════════════════════════ */
+
+.adr-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.adr-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+.adr-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--color-text, #e8eaed);
+    letter-spacing: 0.2px;
+}
+
+/* ── Group: bordered card, başlık + içerik ────────────────────────── */
+.adr-group {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid var(--border-panel, #3c4043);
+    border-radius: 9px;
+    padding: 8px 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: opacity .2s ease, background .2s ease, border-color .2s ease;
+}
+.adr-group-head {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--color-secondary, #9aa0a6);
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-panel, #3c4043);
+}
+
+/* Aktif grup vurgusu */
+.adr-group.is-active {
+    background: rgba(138, 180, 248, 0.06);
+    border-color: rgba(138, 180, 248, 0.45);
+}
+.adr-group.is-active .adr-group-head {
+    color: #8ab4f8;
+}
+
+/* Pasif grup soluk durur */
+.adr-group.is-passive {
+    opacity: 0.62;
+}
+
+/* İki grup yan yana — sorgulamalar solda, adres sağda */
+.adr-row-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: stretch;
+}
+
+/* ── Stack: grup içindeki satırlar dikey (alt alta) ──────────────── */
+.adr-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.adr-row {
+    display: grid;
+    grid-template-columns: 92px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    min-width: 0;
+}
+.adr-row-label {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--color-secondary, #9aa0a6);
+    text-align: right;
+    white-space: nowrap;
+}
+
+.adr-input {
+    background: var(--bg-input, #1e1f20);
+    border: 1px solid var(--border-panel, #3c4043);
+    color: var(--color-text, #e8eaed);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color .15s ease, background .15s ease;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    height: 30px;
+}
+.adr-input:focus { border-color: #8ab4f8; }
+.adr-input:disabled,
+.adr-input.is-readonly {
+    background: rgba(0, 0, 0, 0.18);
+    color: var(--color-secondary, #9aa0a6);
+    cursor: not-allowed;
+    border-color: rgba(60, 64, 67, 0.6);
+}
+.adr-select {
+    appearance: none;
+    padding-right: 26px;
+    background-image: linear-gradient(45deg, transparent 50%, var(--color-secondary, #9aa0a6) 50%),
+                      linear-gradient(135deg, var(--color-secondary, #9aa0a6) 50%, transparent 50%);
+    background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+}
+
+/* Sorgula butonu — input ile aynı yükseklik */
+.adr-btn {
+    background: rgba(138, 180, 248, 0.18);
+    border: 1px solid rgba(138, 180, 248, 0.45);
+    color: #c8dcff;
+    padding: 0 14px;
+    height: 30px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s ease;
+    white-space: nowrap;
+}
+.adr-btn:hover { background: rgba(138, 180, 248, 0.28); }
+.adr-btn:disabled {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--border-panel, #3c4043);
+    color: var(--color-secondary, #9aa0a6);
+    cursor: not-allowed;
+}
+
+/* Status text alanı — info/ok/err */
+.adr-status {
+    font-size: 11.5px;
+    color: var(--color-secondary, #9aa0a6);
+    min-height: 14px;
+    padding: 0 2px;
+}
+.adr-status.adr-status-info { color: #c8dcff; }
+.adr-status.adr-status-ok   { color: #81c995; }
+.adr-status.adr-status-err  { color: #f28b82; }
+.adr-status.ob-info { color: #c8dcff; }
+.adr-status.ob-ok   { color: #81c995; }
+.adr-status.ob-err  { color: #f28b82; }
+
+/* ── Bina özeti — 5 metrikli kompakt kart ────────────────────────── */
+.adr-bina-ozet {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(129, 201, 149, 0.05);
+    border: 1px solid rgba(129, 201, 149, 0.25);
+    border-radius: 9px;
+}
+.adr-ozet-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: center;
+    text-align: center;
+}
+.adr-ozet-k {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--color-secondary, #9aa0a6);
+}
+.adr-ozet-v {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text, #e8eaed);
+}
+
+/* ── Konum ve birimler — 2 yan yana grup ─────────────────────────── */
+.adr-konum-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: stretch;
+}
+
+/* Birim listesi içindeki tek satır kart */
+.adr-birim-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    max-height: 260px;
+    padding-right: 2px;
+}
+.adr-birim-empty {
+    padding: 10px;
+    color: var(--color-secondary, #9aa0a6);
+    font-size: 11.5px;
+    text-align: center;
+    border: 1px dashed var(--border-panel, #3c4043);
+    border-radius: 6px;
+}
+.adr-birim-card {
+    background: var(--bg-input, #1e1f20);
+    border: 1px solid var(--border-panel, #3c4043);
+    border-radius: 6px;
+    padding: 5px 9px;
+    display: grid;
+    grid-template-columns: 44px 1fr auto;
+    align-items: center;
+    gap: 10px;
+}
+.adr-birim-etiket {
+    color: #8ab4f8;
+    font-weight: 600;
+    font-size: 12px;
+}
+.adr-birim-adi {
+    color: var(--color-text, #e8eaed);
+    font-size: 11.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.adr-birim-tno {
+    color: var(--color-secondary, #9aa0a6);
+    font-size: 10.5px;
+    font-family: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+    text-align: right;
+}
+
+/* Harita grubu içi: koordinat satırı + harita */
+.adr-konum-top {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 8px;
+    align-items: end;
+}
+.adr-konum-top .ob-field { margin: 0; min-width: 0; }
+.adr-konum-top .ob-field-label {
+    font-size: 11px;
+    margin-bottom: 2px;
+    color: var(--color-secondary, #9aa0a6);
+}
+.adr-konum-top .ob-text {
+    height: 30px;
+    padding: 5px 10px;
+    font-size: 12px;
+}
+.adr-konum-btn {
+    height: 30px;
+    background: rgba(138, 180, 248, 0.18);
+    border: 1px solid rgba(138, 180, 248, 0.45);
+    color: #c8dcff;
+    padding: 0 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background .15s ease;
+}
+.adr-konum-btn:hover { background: rgba(138, 180, 248, 0.28); }
+
+.adr-map-wrap {
+    position: relative;
+    height: 220px;
+    border: 1px solid var(--border-panel, #3c4043);
+    border-radius: 6px;
+    overflow: hidden;
+    background: #1e1f20;
+}
+.adr-map-wrap .ob-map { width: 100%; height: 100%; }
+.adr-map-fallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-secondary, #9aa0a6);
+    font-size: 12px;
+    text-align: center;
+    padding: 16px;
+}
+
+/* ── COMPACT: tüm alanları sığdır, panel scroll çıkmasın ───────────── */
+.ob-form { padding: 10px 16px 12px; gap: 8px; }
+.adr-section { gap: 6px; }
+.adr-group { padding: 6px 10px 8px; gap: 5px; border-radius: 7px; }
+.adr-group-head { font-size: 10px; padding-bottom: 3px; }
+.adr-stack { gap: 4px; }
+.adr-row { gap: 6px; }
+.adr-input { height: 26px; padding: 3px 8px; font-size: 12px; border-radius: 5px; }
+.adr-btn { height: 26px; padding: 0 10px; font-size: 11.5px; border-radius: 5px; }
+.adr-status { min-height: 12px; font-size: 11px; padding: 0; }
+.adr-row-grid { gap: 8px; }
+
+/* Bina özeti — daha kompakt */
+.adr-bina-ozet { padding: 5px 12px; gap: 6px; border-radius: 7px; }
+.adr-ozet-k { font-size: 9.5px; letter-spacing: 0.3px; }
+.adr-ozet-v { font-size: 12px; }
+
+/* Konum + birimler — kısalt */
+.adr-konum-grid { gap: 8px; }
+.adr-birim-list { max-height: 170px; gap: 3px; }
+.adr-birim-card { padding: 3px 8px; gap: 8px; }
+.adr-birim-etiket { font-size: 11.5px; min-width: 38px; }
+.adr-birim-adi { font-size: 11px; }
+.adr-birim-tno { font-size: 10px; }
+.adr-konum-top .ob-text { height: 26px; padding: 3px 8px; font-size: 11.5px; }
+.adr-konum-top .ob-field-label { font-size: 10px; margin-bottom: 1px; }
+.adr-konum-btn { height: 26px; padding: 0 10px; font-size: 11.5px; }
+.adr-map-wrap { height: 170px; }
+
+/* Konum grubu içeride tek başlık — gap'i azalt */
+.adr-konum-grid .adr-group { padding: 6px 10px 8px; }
+
+/* ── COMPACT açıldı: hafif nefes alanı ───────────────────────────── */
+.ob-form { padding: 12px 18px 14px; gap: 10px; }
+.adr-section { gap: 8px; }
+.adr-group { padding: 8px 12px 10px; gap: 6px; border-radius: 8px; }
+.adr-group-head { font-size: 10.5px; padding-bottom: 4px; }
+.adr-stack { gap: 5px; }
+.adr-row { gap: 8px; }
+.adr-input { height: 28px; padding: 4px 9px; font-size: 12px; border-radius: 6px; }
+.adr-btn { height: 28px; padding: 0 12px; font-size: 12px; border-radius: 6px; }
+.adr-status { min-height: 13px; font-size: 11.5px; padding: 0 1px; }
+.adr-row-grid { gap: 10px; }
+
+.adr-bina-ozet { padding: 7px 12px; gap: 8px; border-radius: 8px; }
+.adr-ozet-k { font-size: 10px; letter-spacing: 0.4px; }
+.adr-ozet-v { font-size: 12.5px; }
+.adr-ozet-v.is-empty { color: var(--color-secondary, #9aa0a6); opacity: 0.55; font-weight: 500; }
+
+.adr-konum-grid { gap: 10px; }
+.adr-birim-list { max-height: 175px; gap: 4px; }
+.adr-birim-card { padding: 4px 8px; gap: 9px; }
+.adr-birim-etiket { font-size: 11.5px; min-width: 40px; }
+.adr-birim-adi { font-size: 11px; }
+.adr-birim-tno { font-size: 10.5px; }
+.adr-konum-top .ob-text { height: 28px; padding: 4px 9px; font-size: 12px; }
+.adr-konum-top .ob-field-label { font-size: 10.5px; margin-bottom: 2px; }
+.adr-konum-btn { height: 28px; padding: 0 11px; font-size: 12px; }
+.adr-map-wrap { height: 175px; }
+
+/* ── ÖZET ŞERİDİ — sağa hizalı (×'in yanında); orta boşluk proje adı için */
+.ob-summary-bar {
+    flex: 0 1 auto;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
+}
+.ob-summary-chip {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 3px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.045);
+    color: rgba(232, 234, 237, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    white-space: nowrap;
+}
+.ob-summary-sep {
+    color: rgba(255, 255, 255, 0.13);
+    font-weight: 300;
+    font-size: 12px;
+    padding: 0 1px;
+    user-select: none;
+}
+
+/* Tüm renk tonları aynı dingin tonu kullanır — yalnızca aktif olanların
+   metin rengi hafifçe vurgulanır. Çok renklilik kaldırıldı. */
+.ob-summary-chip.blue,
+.ob-summary-chip.amber,
+.ob-summary-chip.cyan,
+.ob-summary-chip.green,
+.ob-summary-chip.violet,
+.ob-summary-chip.pink,
+.ob-summary-chip.mute {
+    background: rgba(255, 255, 255, 0.045);
+    color: rgba(232, 234, 237, 0.82);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+.ob-summary-chip.is-empty {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.18);
+    border: 1px dashed rgba(255, 255, 255, 0.10);
+    font-weight: 500;
+}
+
+/* ── Konum & Birimler bölümünü panel altına daya, taşma yok ──────── */
+.ob-form {
+    overflow: hidden;  /* dış scroll'u kaldır — bölümler kendi sığacak */
+}
+/* Adres tab'ı içindeki son section (konum + birimler) kalan alanı kapsar */
+.ob-form > .adr-section:last-child {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.adr-konum-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
+}
+/* Grupları flex column yap, içlerindeki birim listesi / harita kalan alanı yutsun */
+.adr-konum-grid > .adr-group {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.adr-birim-list {
+    flex: 1 1 auto;
+    min-height: 80px;
+    max-height: none;     /* eski 175px sabitini kaldır */
+}
+.adr-map-wrap {
+    flex: 1 1 auto;
+    min-height: 120px;
+    height: auto;          /* sabit 175px yerine flex */
 }
