@@ -250,7 +250,31 @@ function _findBransmanForSayac(sayac, manager) {
     ) || null;
 }
 
-/** Birim çapasına (BRANSMAN vana veya sayaç) aynı birim no'yu yaz; eşine senkronla */
+// ABYS'den gelen abone listesinden eşleşeni bul ve sayacın abone ad / no
+// alanlarına yaz. Eşleşme kuralı:
+//   birimTipi=KONUT  → etiket "D"  + birimNo  (örn. D3)
+//   birimTipi=TİCARİ → etiket "DÜK" + birimNo (örn. DÜK2)
+// Diğer tipler (OFİS, KAZAN DAİRESİ) listede yer almaz → no-op.
+// state.projectMeta.aboneList onboarding sırasında setState ile yazılır.
+function _fillAboneFromAbysList(sayac) {
+    if (!sayac || sayac.type !== 'sayac') return;
+    const list = state?.projectMeta?.aboneList;
+    if (!Array.isArray(list) || list.length === 0) return;
+    const noStr = String(sayac.birimNo ?? '').trim();
+    if (!noStr || !/^\d+$/.test(noStr)) return;
+    const tipi = String(sayac.birimTipi || 'KONUT').toUpperCase();
+    let etiket = '';
+    if (tipi === 'KONUT') etiket = 'D' + noStr;
+    else if (tipi === 'TİCARİ' || tipi === 'TICARI') etiket = 'DÜK' + noStr;
+    else return;
+    const match = list.find(a => a.birimEtiketi === etiket);
+    if (!match) return;
+    sayac.aboneAdi = match.aboneAdi || '';
+    sayac.aboneNo  = String(match.aboneTuketimNo || '');
+}
+
+/** Birim çapasına (BRANSMAN vana veya sayaç) aynı birim no'yu yaz; eşine senkronla.
+ *  Eşleşen sayacın abone adı + abone no'su da ABYS listesinden otomatik dolar. */
 export function _applyBirimNoToAnchor(anchor, no, manager) {
     if (!anchor) return;
     anchor.birimNo = String(no);
@@ -260,6 +284,7 @@ export function _applyBirimNoToAnchor(anchor, no, manager) {
         if (sayac) {
             sayac.birimNo = String(no);
             if (!sayac.birimTipi && anchor.birimTipi) sayac.birimTipi = anchor.birimTipi;
+            _fillAboneFromAbysList(sayac);
         }
     } else if (anchor.type === 'sayac') {
         const vana = _findBransmanForSayac(anchor, manager);
@@ -267,6 +292,7 @@ export function _applyBirimNoToAnchor(anchor, no, manager) {
             vana.birimNo = String(no);
             if (!vana.birimTipi && anchor.birimTipi) vana.birimTipi = anchor.birimTipi;
         }
+        _fillAboneFromAbysList(anchor);
     }
 }
 
@@ -965,12 +991,12 @@ export const PROPERTY_DEFS = {
     sayacBirimTipi: {
         label: 'Birim Tipi', type: 'select', key: 'birimTipi',
         options: BIRIM_TIPLERI, default: 'KONUT', placeholder: '— seçiniz —',
-        afterChange: () => { syncBirimState(); invalidateBirimCache(); },
+        afterChange: (obj) => { _fillAboneFromAbysList(obj); syncBirimState(); invalidateBirimCache(); },
     },
     sayacBirimNo: {
         label: 'Birim No', type: 'text', key: 'birimNo',
         default: '', placeholder: 'Birim no...',
-        afterChange: () => { syncBirimState(); invalidateBirimCache(); },
+        afterChange: (obj) => { _fillAboneFromAbysList(obj); syncBirimState(); invalidateBirimCache(); },
         inlineButtons: [
             {
                 label: '⇅',

@@ -36,7 +36,7 @@ const YANDEX_JS_API_KEY       = '523911f6-824a-4ae0-b29f-c2d7e66af38d';
 const YANDEX_GEOCODER_API_KEY = '1662d8b0-5c87-4a4c-8bae-85b42f8c8b46';
 
 const DEFAULT_FORM = {
-    projectName: 'AA',
+    projectName: 'Ahmet Akbayır',
 
     // Adres
     // Mod seçimi: 'servis' = Bina Tesisat No / Abone Tüketim No ile çek (öncelik),
@@ -67,10 +67,16 @@ const DEFAULT_FORM = {
     binaBilgi: null, // Servisten gelen: { daireSayisi, dukkanSayisi, katSayisi, alan, kapasite }
 
     // Tesisat
-    projectType: 'yeni',           // 'yeni' | 'tadilat'
+    // projectType = (kolonTadilat || icTesisatTadilat) ? 'tadilat' : 'yeni'
+    // — switch'ler değiştikçe syncProjectType() tarafından türetilir.
+    projectType: 'yeni',
     tadilatSebep: '',
     projeKapagiNotu: '',
     kolonVar: true,
+    kolonTadilat: false,           // sadece kolonVar=true iken anlamlı
+    icTesisatVar: true,
+    icTesisatTadilat: false,       // sadece icTesisatVar=true iken anlamlı
+    birimTadilat: {},              // birimNo → bool (her birim için bağımsız tadilat override)
     kutuTipi: 'duvar',             // 'duvar' | 'yer'
     kutuBasinc: '21',              // '21' | '300' mbar — projeden veya servisten gelir
     zeminKatYukseklik: 300,
@@ -263,15 +269,15 @@ function renderSummaryBar() {
     const bar = overlay.querySelector('#ob-summary-bar');
     if (!bar) return;
     const items = [
+        summaryKolon(),
         summaryProjectType(),
         summaryIsinma(),
         summaryBasinc(),
-        summaryKolon(),
         summaryMustakil(),
         summaryOnProje(),
     ];
     bar.innerHTML = items.map((it, i) => {
-        const sep = i > 0 ? `<span class="ob-summary-sep">|</span>` : '';
+        const sep = i > 0 ? `<span class="ob-summary-sep"></span>` : '';
         const cls = it.empty ? 'is-empty' : (it.tone || '');
         return `${sep}<span class="ob-summary-chip ${cls}">${it.text}</span>`;
     }).join('');
@@ -292,13 +298,11 @@ function summaryBasinc() {
     return b ? { text: `${b} mbar`, tone: 'mute' } : { text: '-', empty: true };
 }
 function summaryKolon() {
-    // Kolon var + (Adres Seç değil) → İÇ TESİSAT da içeriyor varsayımı: KOLON + İÇ TES.
-    // Sadece kolon → KOLON. Sadece iç tesisat (kolon yok, en az 1 kat işaretli) → İÇ TESİSAT.
-    const hasIcTesisat = !form.kolonVar && Array.isArray(form.katIcTesisatVar)
-        && form.katIcTesisatVar.some(Boolean);
-    if (form.kolonVar && hasIcTesisat) return { text: 'KOLON + İÇ TES.', tone: 'green' };
-    if (form.kolonVar)  return { text: 'KOLON',     tone: 'green' };
-    if (hasIcTesisat || !form.kolonVar) return { text: 'İÇ TESİSAT', tone: 'green' };
+    // Kolon var + İç tesisat var → KOLON + İÇ TES.
+    // Sadece kolon → KOLON. Sadece iç tesisat → İÇ TESİSAT. İkisi de yok → "-".
+    if (form.kolonVar && form.icTesisatVar) return { text: 'KOLON + İÇ TESİSAT', tone: 'green' };
+    if (form.kolonVar)     return { text: 'KOLON',     tone: 'green' };
+    if (form.icTesisatVar) return { text: 'İÇ TESİSAT', tone: 'green' };
     return { text: '-', empty: true };
 }
 function summaryMustakil() {
@@ -316,7 +320,6 @@ function renderTabs() {
     const root = overlay.querySelector('#ob-tabs');
     const title = panelMode === 'edit' ? 'PROJE DETAYLARI' : 'YENİ PROJE';
     root.innerHTML = `
-        <div class="ob-tabs-title">${title}</div>
         ${TAB_IDS.map(id => {
             const isActive = id === currentTab;
             return `<div class="ob-tab ${isActive ? 'ob-tab-active' : ''}" data-tab="${id}">
@@ -448,18 +451,28 @@ function renderAdres() {
 
             <div class="adr-row-grid">
                 <div class="adr-group ${isServis ? 'is-active' : 'is-passive'}">
-                    <div class="adr-group-head">Servisten sorgu</div>
+                    <div class="adr-group-head">
+                        <span>Servisten sorgu</span>
+                        <button type="button" class="adr-reset-btn" id="ob-reset-servis" title="Bina/abone no'larını ve servis verisini sıfırla" aria-label="Sıfırla">
+                            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8 a 6 6 0 1 1 -1.8 -4.2"/><path d="M14 2 v 4 h -4"/></svg>
+                        </button>
+                    </div>
                     ${renderServisInputs(!isServis)}
                     <div class="adr-status" id="ob-servis-status"></div>
                 </div>
 
                 <div class="adr-group ${isServis ? 'is-passive' : 'is-active'}">
-                    <div class="adr-group-head">Adres bilgileri</div>
+                    <div class="adr-group-head">
+                        <span>Adres bilgileri</span>
+                        <button type="button" class="adr-reset-btn" id="ob-reset-adres" title="Adres alanlarını sıfırla" aria-label="Sıfırla">
+                            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8 a 6 6 0 1 1 -1.8 -4.2"/><path d="M14 2 v 4 h -4"/></svg>
+                        </button>
+                    </div>
                     ${isServis ? renderServisAdresFields() : renderAdresSec()}
                 </div>
             </div>
         </section>
-
+            <h2 class="adr-section-title"><p></h2>
         <section class="adr-section">
             <div class="adr-bina-ozet">
                 ${renderOzetItem('Daire',       ozetDaire())}
@@ -469,9 +482,9 @@ function renderAdres() {
                 ${renderOzetItem('Kat Sayısı',  ozetKatSayisi())}
             </div>
         </section>
+            <h2 class="adr-section-title"><p></h2>
 
         <section class="adr-section">
-            <h2 class="adr-section-title">Konum ve birimler</h2>
             <div class="adr-konum-grid">
                 <div class="adr-group">
                     <div class="adr-group-head">Birimler${form.birimler?.length ? ` (${form.birimler.length})` : ''}</div>
@@ -556,11 +569,16 @@ function renderBirimlerList(birimler) {
         const etiket = b.birimEtiketi || b.birimNo || '?';
         const adi    = b.aboneAdi    || '—';
         const tno    = b.aboneTuketimNo || '—';
+        // Kopyalanabilir özet metni: "D1 | Mehmet Demir | 3001"
+        const copyText = `${etiket} | ${adi} | ${tno}`;
         return `
             <div class="adr-birim-card">
                 <div class="adr-birim-etiket">${escapeHtml(etiket)}</div>
                 <div class="adr-birim-adi">${escapeHtml(adi)}</div>
                 <div class="adr-birim-tno">${escapeHtml(tno)}</div>
+                <button type="button" class="adr-birim-copy" data-copy="${escapeHtml(copyText)}" title="Kopyala" aria-label="Kopyala">
+                    <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4.5" width="8" height="9" rx="1.2"/><path d="M3 11 V3 a 1 1 0 0 1 1 -1 h 7"/></svg>
+                </button>
             </div>
         `;
     }).join('');
@@ -572,21 +590,20 @@ function renderServisInputs(disabled) {
     const s = form.servis;
     const dis = disabled ? 'disabled' : '';
     return `
-        <div class="adr-stack">
-            <div class="adr-row">
+        <div class="adr-servis-grid">
+            <div class="adr-row adr-row-no-btn">
                 <label class="adr-row-label">Bina Tesisat No</label>
                 <input type="text" class="adr-input" id="ob-bina-tesisat-no" ${dis}
                        value="${escapeHtml(s.binaTesisatNo)}" autocomplete="off"
-                       placeholder="Örn. 1234567" />
-                <button type="button" class="adr-btn" id="ob-sorgula-bina" ${dis}>Sorgula</button>
+                       placeholder="Test 1-1000 arası" />
             </div>
-            <div class="adr-row">
+            <div class="adr-row adr-row-no-btn">
                 <label class="adr-row-label">Abone Tüketim No</label>
                 <input type="text" class="adr-input" id="ob-abone-tuketim-no" ${dis}
                        value="${escapeHtml(s.aboneTuketimNo)}" autocomplete="off"
-                       placeholder="Örn. 3001" />
-                <button type="button" class="adr-btn" id="ob-sorgula-abone" ${dis}>Sorgula</button>
+                       placeholder="Test 3001-9000 arası" />
             </div>
+            <button type="button" class="adr-btn adr-sorgula-tall" id="ob-sorgula" ${dis}>Sorgula</button>
         </div>
     `;
 }
@@ -628,19 +645,19 @@ function renderAdresSec() {
     if (!indexLoaded) statusMsg = 'Adres verileri yükleniyor…';
     else if (streetsLoading && _streetsStatusShown) statusMsg = 'Cadde / sokak listesi yükleniyor…';
 
-    // Eğer servis text değeri var ama kod yok ise, select yerine readonly text
-    // göster — kullanıcı servisten gelen veriyi kaybetmesin.
+    // Servisten metin değeri geldiyse ama eşleşen kod yoksa select yerine
+    // DÜZENLENEBİLİR text input göster — kullanıcı bilgiyi görür ve değiştirebilir.
     const ilField = (!a.ilKod && a.il)
-        ? readonlyRow('İl', a.il)
+        ? textRow('İl', 'adres.il', a.il)
         : selectRow('İl', 'ilKod', iller, a.ilKod, !indexLoaded || iller.length === 0);
     const ilceField = (!a.ilceKod && a.ilce)
-        ? readonlyRow('İlçe', a.ilce)
+        ? textRow('İlçe', 'adres.ilce', a.ilce)
         : selectRow('İlçe', 'ilceKod', ilceler, a.ilceKod, !indexLoaded || !a.ilKod || ilceler.length === 0);
     const mahalleField = (!a.mahalleKod && a.mahalle)
-        ? readonlyRow('Mahalle', a.mahalle)
+        ? textRow('Mahalle', 'adres.mahalle', a.mahalle)
         : selectRow('Mahalle', 'mahalleKod', mahalleler, a.mahalleKod, !a.ilceKod || mahalleler.length === 0);
     const sokakField = (!a.cadSokKod && a.sokak)
-        ? readonlyRow('Cadde / Sokak', a.sokak)
+        ? textRow('Cadde / Sokak', 'adres.sokak', a.sokak)
         : selectRow('Cadde / Sokak', 'cadSokKod', cadSoklar, a.cadSokKod, !a.mahalleKod || streetsLoading || cadSoklar.length === 0);
 
     return `
@@ -680,53 +697,62 @@ function textRow(label, path, value) {
 }
 
 // ── TESISAT TAB ────────────────────────────────────────────────────
+// Yeni yapı:
+//   1) Kolon var / İç tesisat var — iki kategori yan yana, her birinde
+//      ana switch + Tadilat sub-switch + (iç tesisat için) birim listesi.
+//   2) Tadilat açıklaması + Proje kapağı notu — yan yana büyük textarea'lar.
+//      Tadilat açıklaması ancak kolonTadilat veya icTesisatTadilat açıkken aktif.
+//   3) Isınma + Müstakil + Ön Proje — compact tek satır.
 function renderTesisat() {
+    const anyTadilat = !!(form.kolonTadilat || (form.icTesisatVar && form.icTesisatTadilat));
     return `
-        <section class="ob-section">
-            <h2 class="ob-q-title">Proje türü</h2>
-            <div class="ob-seg ob-seg-block" id="ob-project-type">
-                <button type="button" class="ob-seg-btn ${form.projectType === 'yeni' ? 'ob-active' : ''}" data-val="yeni">Yeni</button>
-                <button type="button" class="ob-seg-btn ${form.projectType === 'tadilat' ? 'ob-active' : ''}" data-val="tadilat">Tadilat</button>
-            </div>
-            ${form.projectType === 'tadilat' ? `
-                <div class="ob-field ob-mt-10">
-                    <label class="ob-field-label">Tadilat açıklaması</label>
-                    <textarea class="ob-text" data-path="tadilatSebep" rows="2"
-                              placeholder="Hangi tadilat yapılıyor?">${escapeHtml(form.tadilatSebep)}</textarea>
-                </div>
-            ` : ''}
-            <div class="ob-field ob-mt-10">
-                <label class="ob-field-label">Proje kapağı notu</label>
-                <textarea class="ob-text" data-path="projeKapagiNotu" rows="2"
-                          placeholder="Proje kapağında görünecek not...">${escapeHtml(form.projeKapagiNotu)}</textarea>
+        <section class="tes-section">
+            <div class="tes-cat-row">
+                ${renderTesCat({
+                    title: 'Kolon var',
+                    mainId: 'ob-kolon-var',
+                    mainChecked: form.kolonVar,
+                    tadilatId: 'ob-kolon-tadilat',
+                    tadilatChecked: form.kolonTadilat,
+                    tadilatEnabled: form.kolonVar,
+                })}
+                ${renderTesCat({
+                    title: 'İç tesisat var',
+                    mainId: 'ob-ic-tesisat-var',
+                    mainChecked: form.icTesisatVar,
+                    tadilatId: 'ob-ic-tesisat-tadilat',
+                    tadilatChecked: form.icTesisatTadilat && form.kolonTadilat,
+                    // İç tesisat Tadilat ancak Kolon Tadilat AÇIK iken aktif olur.
+                    tadilatEnabled: form.icTesisatVar && form.kolonTadilat,
+                    extra: form.icTesisatVar ? renderBirimTadilatList() : '',
+                })}
             </div>
         </section>
 
-        <section class="ob-section">
-            <h2 class="ob-q-title">Isınma tipi</h2>
-            <div class="ob-radio-row" data-group="isinmaTipi">
-                <label class="ob-radio">
-                    <input type="radio" name="isinmaTipi" value="bireysel" ${form.isinmaTipi === 'bireysel' ? 'checked' : ''} />
-                    <span>Bireysel</span>
-                </label>
-                <label class="ob-radio">
-                    <input type="radio" name="isinmaTipi" value="merkezi" ${form.isinmaTipi === 'merkezi' ? 'checked' : ''} />
-                    <span>Merkezi</span>
-                </label>
-                <label class="ob-radio">
-                    <input type="radio" name="isinmaTipi" value="boylerli" ${form.isinmaTipi === 'boylerli' ? 'checked' : ''} />
-                    <span>Merkezi (Boylerli)</span>
-                </label>
-            </div>
-            <div class="ob-switch-stack">
-                <label class="ob-switch-row">
+        <section class="tes-section">
+            <div class="tes-bottom">
+                <div class="tes-isinma ob-radio-row" data-group="isinmaTipi">
+                    <label class="tes-isinma-opt">
+                        <input type="radio" name="isinmaTipi" value="bireysel" ${form.isinmaTipi === 'bireysel' ? 'checked' : ''} />
+                        <span>Bireysel</span>
+                    </label>
+                    <label class="tes-isinma-opt">
+                        <input type="radio" name="isinmaTipi" value="merkezi" ${form.isinmaTipi === 'merkezi' ? 'checked' : ''} />
+                        <span>Merkezi</span>
+                    </label>
+                    <label class="tes-isinma-opt">
+                        <input type="radio" name="isinmaTipi" value="boylerli" ${form.isinmaTipi === 'boylerli' ? 'checked' : ''} />
+                        <span>Boylerli</span>
+                    </label>
+                </div>
+                <label class="ob-switch-row tes-mini-switch">
                     <span class="ob-switch">
                         <input type="checkbox" id="ob-mustakil" ${form.mustakilProje ? 'checked' : ''} />
                         <span class="ob-switch-slider"></span>
                     </span>
-                    <span class="ob-switch-label">Müstakil proje</span>
+                    <span class="ob-switch-label">Müstakil</span>
                 </label>
-                <label class="ob-switch-row">
+                <label class="ob-switch-row tes-mini-switch">
                     <span class="ob-switch">
                         <input type="checkbox" id="ob-on-proje" ${form.onProje ? 'checked' : ''} />
                         <span class="ob-switch-slider"></span>
@@ -735,6 +761,173 @@ function renderTesisat() {
                 </label>
             </div>
         </section>
+
+        <section class="tes-section">
+            <div class="tes-notes-stack">
+                <div class="ob-field ${anyTadilat ? '' : 'is-disabled'} ${(form.projectType === 'tadilat' && !form.tadilatSebep.trim()) ? 'is-invalid' : ''}">
+                    <label class="ob-field-label">Tadilat açıklaması</label>
+                    <textarea class="ob-text" data-path="tadilatSebep" rows="2"
+                              ${anyTadilat ? '' : 'disabled'}
+                              placeholder="Hangi tadilat yapılıyor?">${escapeHtml(form.tadilatSebep)}</textarea>
+                </div>
+                <div class="ob-field">
+                    <label class="ob-field-label">Proje kapağı notu</label>
+                    <textarea class="ob-text" data-path="projeKapagiNotu" rows="2"
+                              placeholder="Proje kapağında görünecek not...">${escapeHtml(form.projeKapagiNotu)}</textarea>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function renderTesCat({ title, mainId, mainChecked, tadilatId, tadilatChecked, tadilatEnabled, extra }) {
+    return `
+        <div class="tes-cat ${mainChecked ? 'is-on' : 'is-off'}">
+            <div class="tes-cat-header">
+                <label class="tes-cat-main">
+                    <span class="ob-switch">
+                        <input type="checkbox" id="${mainId}" ${mainChecked ? 'checked' : ''} />
+                        <span class="ob-switch-slider"></span>
+                    </span>
+                    <span class="tes-cat-title">${title}</span>
+                </label>
+                <label class="tes-cat-sub ${tadilatEnabled ? '' : 'is-disabled'}">
+                    <span class="ob-switch">
+                        <input type="checkbox" id="${tadilatId}" ${tadilatChecked ? 'checked' : ''} ${tadilatEnabled ? '' : 'disabled'} />
+                        <span class="ob-switch-slider"></span>
+                    </span>
+                    <span class="tes-cat-sub-label">Tadilat</span>
+                </label>
+            </div>
+            ${extra || ''}
+        </div>
+    `;
+}
+
+// Projedeki anonim birim listesi.
+// Öncelik sırası:
+//   1) plumbingManager.components içinde mevcut sayaç/BRANSMAN'lardan benzersiz
+//      (birimTipi+birimNo) çiftlerini topla → projedeki gerçek tüm birimler.
+//   2) Hiç plumbing bileşeni yoksa form.binaBilgi.daireSayisi/dukkanSayisi'ne düş.
+//   3) O da yoksa en az D1 — yeni proje varsayılanı.
+// Projedeki kolon bileşeni var mı? (servis kutusu, regülatör vb.)
+function _projectHasServisKutusu() {
+    const pm = (typeof window !== 'undefined') ? window.plumbingManager : null;
+    return !!pm?.components?.some(c => c.type === 'servis_kutusu');
+}
+// Projede iç tesisat birimleri var mı? (sayaç veya BRANSMAN vana)
+function _projectHasIcTesisat() {
+    const pm = (typeof window !== 'undefined') ? window.plumbingManager : null;
+    return !!pm?.components?.some(c =>
+        c.type === 'sayac' || (c.type === 'vana' && c.vanaTipi === 'BRANSMAN')
+    );
+}
+// Kolon bileşenlerini sil — sağ-tık menüsündeki "Kolon Tesisatını Sil"
+// fonksiyonunu kullanır (sayaç içlerini koruyup üst zinciri kaldırır).
+async function _deleteKolonComponents() {
+    const pm = (typeof window !== 'undefined') ? window.plumbingManager : null;
+    if (!pm) return;
+    try {
+        const mod = await import('../plumbing_v2/interactions/plumbing-context-menu.js');
+        mod.deleteKolonTesisati?.(pm);
+    } catch (e) { console.warn('Kolon silme başarısız:', e); }
+}
+// İç tesisat bileşenlerini sil — sağ-tık menüsündeki "Tüm İç Tesisatları Sil"
+// fonksiyonunu projedeki tüm sayaçlara uygular.
+async function _deleteIcTesisatComponents() {
+    const pm = (typeof window !== 'undefined') ? window.plumbingManager : null;
+    if (!pm) return;
+    try {
+        const sayaclar = (pm.components || []).filter(c => c.type === 'sayac');
+        if (sayaclar.length === 0) return;
+        const mod = await import('../plumbing_v2/interactions/plumbing-context-menu.js');
+        mod.deleteIcTesisatForSayaclar?.(sayaclar, pm);
+    } catch (e) { console.warn('İç tesisat silme başarısız:', e); }
+}
+
+// Servisten gelen abone listesini (form.birimler) projedeki sayaçlara yaz.
+// Eşleme: sayac.birimTipi (KONUT→"D", TİCARİ→"DÜK") + birimNo → birimEtiketi.
+// Bulunan kayıttan sayac.aboneAdi ve sayac.aboneNo doldurulur.
+function _applyAboneListToProjectSayaclar(aboneList) {
+    if (!Array.isArray(aboneList) || aboneList.length === 0) return;
+    const pm = (typeof window !== 'undefined') ? window.plumbingManager : null;
+    if (!pm || !Array.isArray(pm.components)) return;
+    let changed = 0;
+    for (const c of pm.components) {
+        if (c.type !== 'sayac') continue;
+        const noStr = String(c.birimNo ?? '').trim();
+        if (!noStr || !/^\d+$/.test(noStr)) continue;
+        const tipi = String(c.birimTipi || 'KONUT').toUpperCase();
+        let etiket = '';
+        if (tipi === 'KONUT') etiket = 'D' + noStr;
+        else if (tipi === 'TİCARİ' || tipi === 'TICARI') etiket = 'DÜK' + noStr;
+        else continue;
+        const match = aboneList.find(a => a.birimEtiketi === etiket);
+        if (!match) continue;
+        c.aboneAdi = match.aboneAdi || '';
+        c.aboneNo  = String(match.aboneTuketimNo || '');
+        changed++;
+    }
+    if (changed > 0) {
+        try { pm.saveToState?.(); } catch {}
+    }
+}
+
+// Projedeki anonim birim listesi — SADECE projede çizilen sayaç/BRANSMAN
+// bileşenlerinden türetilir. ABYS'den (form.birimler / form.binaBilgi) gelen
+// birim sayıları burada KULLANILMAZ; "projede çizilenler" tek kaynaktır.
+function getProjectBirimler() {
+    const pm = (typeof window !== 'undefined') ? window.plumbingManager : null;
+    if (!Array.isArray(pm?.components) || pm.components.length === 0) return [];
+    const dSet = new Set(), dukSet = new Set();
+    for (const c of pm.components) {
+        const isAnchor = (c.type === 'sayac') ||
+                         (c.type === 'vana' && c.vanaTipi === 'BRANSMAN');
+        if (!isAnchor) continue;
+        const no = String(c.birimNo ?? '').trim();
+        if (!no || !/^\d+$/.test(no)) continue;
+        const tipi = String(c.birimTipi || 'KONUT').toUpperCase();
+        if (tipi === 'KONUT') dSet.add(parseInt(no, 10));
+        else if (tipi === 'TİCARİ' || tipi === 'TICARI') dukSet.add(parseInt(no, 10));
+    }
+    const list = [];
+    [...dSet].sort((a, b) => a - b).forEach(n => list.push({ key: `D${n}`,   label: `D${n}` }));
+    [...dukSet].sort((a, b) => a - b).forEach(n => list.push({ key: `DUK${n}`, label: `DÜK${n}` }));
+    return list;
+}
+
+// İç tesisat var altında, projede çizilen her birim için bağımsız tadilat switch.
+// Kurallar:
+//   - kolonTadilat=false iken birimlerde tadilat OLMAZ → switch'ler disable.
+//   - Tek (1) birim varsa liste hiç gösterilmez (tadilat için listeleme anlamsız).
+//   - 0 birim → "Projede henüz birim çizilmemiş." mesajı.
+function renderBirimTadilatList() {
+    const list = getProjectBirimler();
+    // En az 2 birim olmalı — 0 veya 1 birim varken "Birim bazında tadilat"
+    // bölümü tamamen gizli.
+    if (list.length < 2) return '';
+    const disabled = !form.kolonTadilat;
+    const rows = list.map(b => {
+        const checked = !!form.birimTadilat[b.key];
+        return `
+            <label class="tes-birim-row ${disabled ? 'is-disabled' : ''}">
+                <span class="ob-switch">
+                    <input type="checkbox" class="tes-birim-tadilat" data-birim-key="${escapeHtml(b.key)}"
+                           ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                    <span class="ob-switch-slider"></span>
+                </span>
+                <span class="tes-birim-label">${escapeHtml(b.label)}</span>
+            </label>
+        `;
+    }).join('');
+    const hint = disabled
+        ? `<span class="tes-birim-hint">Kolon Tadilat açıkken ayarlanabilir</span>`
+        : '';
+    return `
+        <div class="tes-birim-list">
+            <div class="tes-birim-head">Birim bazında tadilat (${list.length}) ${hint}</div>
+            ${rows}
+        </div>
     `;
 }
 
@@ -745,32 +938,21 @@ function renderKatlar() {
     const showList = !same; // kolonVar=false ise her zaman true
     let perFloorList = '';
     if (showList) {
+        // Görüntüleme sırası kat sırasına göre (üstten alta):
+        //   normal katlar (yüksekten alçağa) → ZEMİN → bodrumlar (1.BODRUM en üstte,
+        //   en derin alttaki).
         const items = [];
-        let idx = 0;
-        for (let i = 0; i < form.bodrumSayisi; i++) {
-            items.push(floorItemHtml(`${i + 1}. BODRUM`, idx)); idx++;
+        for (let i = form.normalKatSayisi - 1; i >= 0; i--) {
+            const idxInArr = form.bodrumSayisi + 1 + i;
+            items.push(floorItemHtml(`${i + 1}. KAT`, idxInArr));
         }
-        items.push(floorItemHtml('ZEMİN', idx)); idx++;
-        for (let i = 0; i < form.normalKatSayisi; i++) {
-            items.push(floorItemHtml(`${i + 1}. KAT`, idx)); idx++;
+        items.push(floorItemHtml('ZEMİN', form.bodrumSayisi));
+        for (let i = 0; i < form.bodrumSayisi; i++) {
+            items.push(floorItemHtml(`${i + 1}. BODRUM`, i));
         }
         perFloorList = items.join('');
     }
     return `
-        <section class="ob-section">
-            <h2 class="ob-q-title">Kolon olacak mı?</h2>
-            <div class="ob-cards" data-group="kolonVar">
-                <button type="button" class="ob-card ob-card-sm ${form.kolonVar ? 'ob-selected' : ''}" data-val="true">
-                    <div class="ob-card-icon">${ICON.kolonVar}</div>
-                    <div class="ob-card-title">Evet</div>
-                </button>
-                <button type="button" class="ob-card ob-card-sm ${!form.kolonVar ? 'ob-selected' : ''}" data-val="false">
-                    <div class="ob-card-icon">${ICON.kolonYok}</div>
-                    <div class="ob-card-title">Hayır</div>
-                </button>
-            </div>
-        </section>
-
         ${form.kolonVar ? `
         <section class="ob-section">
             <h2 class="ob-q-title">Servis kutusu tipi</h2>
@@ -957,13 +1139,91 @@ function attachTabListeners(tabId) {
         });
     });
 
-    // Project type segmented buttons (tesisat tab)
-    overlay.querySelector('#ob-project-type')?.addEventListener('click', e => {
-        const btn = e.target.closest('.ob-seg-btn');
-        if (!btn) return;
-        form.projectType = btn.dataset.val;
+    // Tesisat tab — Kolon var / Tadilat / İç tesisat var / Tadilat switch'leri
+    // Kural: Kolon ve İç tesisat aynı anda kapatılamaz (en az biri açık olmalı).
+    overlay.querySelector('#ob-kolon-var')?.addEventListener('change', e => {
+        if (!e.target.checked && !form.icTesisatVar) {
+            e.target.checked = true;
+            return; // ikisi birden kapalı kalamaz
+        }
+        // Kapatılmak isteniyorsa ve projede servis kutusu (kolon işareti) varsa
+        // önce kullanıcıya sor.
+        if (!e.target.checked && _projectHasServisKutusu()) {
+            const ok = confirm('Kolon silinip iç tesisatlar bırakılacaktır. Devam edilsin mi?');
+            if (!ok) {
+                e.target.checked = true;
+                return;
+            }
+            _deleteKolonComponents();
+        }
+        form.kolonVar = e.target.checked;
+        if (!form.kolonVar) {
+            form.kolonTadilat = false;
+            form.icTesisatTadilat = false;
+            form.birimTadilat = {};
+            form.tumKatlarAyniYukseklik = false;
+            syncKatYukseklikleri();
+        }
+        syncProjectType();
         renderForm();
-        updateCTA();
+    });
+    overlay.querySelector('#ob-kolon-tadilat')?.addEventListener('change', e => {
+        form.kolonTadilat = e.target.checked;
+        // Kolon Tadilat kapatılınca: İç tesisat Tadilat + birim bazlı tadilatlar
+        // OTOMATİK temizlenir — Kolon Tadilat üst bağımlılıktır.
+        if (!form.kolonTadilat) {
+            form.icTesisatTadilat = false;
+            form.birimTadilat = {};
+        }
+        syncProjectType();
+        renderForm();
+    });
+    overlay.querySelector('#ob-ic-tesisat-var')?.addEventListener('change', e => {
+        if (!e.target.checked && !form.kolonVar) {
+            e.target.checked = true;
+            return; // ikisi birden kapalı kalamaz
+        }
+        // Kapatılmak isteniyorsa ve projede iç tesisat (birim çapaları) varsa sor.
+        if (!e.target.checked && _projectHasIcTesisat()) {
+            const ok = confirm('İç tesisatlar silinip sadece kolon bırakılacaktır. Devam edilsin mi?');
+            if (!ok) {
+                e.target.checked = true;
+                return;
+            }
+            _deleteIcTesisatComponents();
+        }
+        form.icTesisatVar = e.target.checked;
+        if (!form.icTesisatVar) {
+            form.icTesisatTadilat = false;
+            form.birimTadilat = {};
+        }
+        syncProjectType();
+        renderForm();
+    });
+    overlay.querySelector('#ob-ic-tesisat-tadilat')?.addEventListener('change', e => {
+        form.icTesisatTadilat = e.target.checked;
+        // Tüm birimleri otomatik aynı duruma getir: işaretlenince hepsi tadilat,
+        // kaldırılınca hepsi temiz.
+        const list = getProjectBirimler();
+        if (form.icTesisatTadilat) {
+            list.forEach(b => { form.birimTadilat[b.key] = true; });
+        } else {
+            list.forEach(b => { delete form.birimTadilat[b.key]; });
+        }
+        syncProjectType();
+        renderForm();
+    });
+    // Birim bazında tadilat switch'leri
+    overlay.querySelectorAll('.tes-birim-tadilat').forEach(el => {
+        el.addEventListener('change', e => {
+            const key = e.target.dataset.birimKey;
+            if (!key) return;
+            if (e.target.checked) form.birimTadilat[key] = true;
+            else delete form.birimTadilat[key];
+            syncIcTesisatTadilatFromBirims();
+            syncProjectType();
+            renderForm(); // İç tesisat Tadilat switch ve şerit güncellensin
+        });
     });
 
     // Card groups (radio-like)
@@ -1039,7 +1299,28 @@ function attachTabListeners(tabId) {
     const sw = overlay.querySelector('#ob-same-height');
     if (sw) {
         sw.addEventListener('change', () => {
-            form.tumKatlarAyniYukseklik = sw.checked;
+            if (sw.checked) {
+                // İşaretlenince: ortak kat yüksekliği tüm katlara atanır. Eğer
+                // herhangi bir katın yüksekliği bu değerden farklıysa kullanıcıya
+                // uyarı göster.
+                const h = form.zeminKatYukseklik;
+                const hasDiff = (form.katYukseklikleri || []).some(v => v !== h);
+                if (hasDiff) {
+                    const ok = confirm(`Tüm katların yüksekliği ${h} cm yapılacak. Devam edilsin mi?`);
+                    if (!ok) {
+                        sw.checked = false;
+                        return;
+                    }
+                }
+                form.tumKatlarAyniYukseklik = true;
+            } else {
+                // Kaldırılınca: o anki ortak kat yüksekliği her katın değerine
+                // kopyalanır — kullanıcı dilediğini ayrı ayrı değiştirebilir.
+                const h = form.zeminKatYukseklik;
+                const total = (form.bodrumSayisi || 0) + 1 + (form.normalKatSayisi || 0);
+                form.katYukseklikleri = Array.from({ length: total }, () => h);
+                form.tumKatlarAyniYukseklik = false;
+            }
             syncKatYukseklikleri();
             renderForm();
             if (schematic) schematic.render();
@@ -1086,14 +1367,59 @@ function attachTabListeners(tabId) {
         renderForm();
     });
 
+    // Sıfırla butonları
+    overlay.querySelector('#ob-reset-servis')?.addEventListener('click', () => {
+        form.servis.binaTesisatNo = '';
+        form.servis.aboneTuketimNo = '';
+        form.servis.lastResult = null;
+        form.birimler = [];
+        form.binaBilgi = null;
+        form.kutuBasinc = DEFAULT_FORM.kutuBasinc;
+        form.isinmaTipi = DEFAULT_FORM.isinmaTipi;
+        Object.assign(form.adres, deepClone(DEFAULT_FORM.adres));
+        renderForm();
+        syncMapToInputs();
+    });
+    overlay.querySelector('#ob-reset-adres')?.addEventListener('click', () => {
+        // Servisten sorgu Sıfırla ile aynı: ADRES alanındaki her şeyi sıfırla.
+        form.servis.binaTesisatNo = '';
+        form.servis.aboneTuketimNo = '';
+        form.servis.lastResult = null;
+        form.birimler = [];
+        form.binaBilgi = null;
+        form.kutuBasinc = DEFAULT_FORM.kutuBasinc;
+        form.isinmaTipi = DEFAULT_FORM.isinmaTipi;
+        Object.assign(form.adres, deepClone(DEFAULT_FORM.adres));
+        renderForm();
+        syncMapToInputs();
+    });
+
+    // Birim kart kopyalama (D1 | Mehmet Demir | 3001)
+    overlay.querySelectorAll('.adr-birim-copy').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const text = btn.dataset.copy || '';
+            if (!text) return;
+            try {
+                await navigator.clipboard.writeText(text);
+                btn.classList.add('is-copied');
+                setTimeout(() => btn.classList.remove('is-copied'), 800);
+            } catch {}
+        });
+    });
+
     // Adres Seç: cascading select'ler
     overlay.querySelectorAll('select[data-cascade]').forEach(sel => {
         sel.addEventListener('change', () => onCascadeChange(sel.dataset.cascade, sel.value));
     });
 
-    // Servisten Al: sorgu butonları
-    overlay.querySelector('#ob-sorgula-bina')?.addEventListener('click', () => runServisSorgu('bina'));
-    overlay.querySelector('#ob-sorgula-abone')?.addEventListener('click', () => runServisSorgu('abone'));
+    // Tek Sorgula butonu — hangi alanda metin varsa ona göre sorgular.
+    overlay.querySelector('#ob-sorgula')?.addEventListener('click', () => {
+        const bina = (form.servis.binaTesisatNo || '').trim();
+        const abone = (form.servis.aboneTuketimNo || '').trim();
+        if (bina) return runServisSorgu('bina');
+        if (abone) return runServisSorgu('abone');
+        setServisStatus('Bina Tesisat No veya Abone Tüketim No girin.', 'err');
+    });
 
     // Servisten Al: input'lar değişince diğer input + tüm servis verisi sıfırlanır.
     const binaInput = overlay.querySelector('#ob-bina-tesisat-no');
@@ -1609,6 +1935,24 @@ function syncMapToInputs() {
 }
 
 // ── HELPERS ────────────────────────────────────────────────────────
+// kolonTadilat veya icTesisatTadilat true ise proje tipini 'tadilat' yap,
+// aksi halde 'yeni'. Şerit chip'i ve CTA validasyonu bunu okur.
+function syncProjectType() {
+    const isTadilat = !!(form.kolonTadilat || (form.icTesisatVar && form.icTesisatTadilat));
+    form.projectType = isTadilat ? 'tadilat' : 'yeni';
+}
+
+// Birim bazlı tadilatlardan icTesisatTadilat'ı türet:
+//   - En az 1 birim tadilat işaretliyse → icTesisatTadilat = true
+//   - Tüm birimler kapalıysa            → icTesisatTadilat = false
+// Yalnızca liste UI'da görünüyorsa (2+ birim) çalışır.
+function syncIcTesisatTadilatFromBirims() {
+    const list = getProjectBirimler();
+    if (list.length < 2) return; // liste gösterilmiyorsa kural devre dışı
+    const anyTadilat = list.some(b => !!form.birimTadilat[b.key]);
+    form.icTesisatTadilat = anyTadilat;
+}
+
 function syncKatYukseklikleri() {
     const total = (form.bodrumSayisi || 0) + 1 + (form.normalKatSayisi || 0);
     const arr = form.katYukseklikleri.slice(0, total);
@@ -1630,8 +1974,12 @@ function updateCTA() {
     if (!overlay) return;
     const cta = overlay.querySelector('#ob-start');
     let ok = form.projectName.trim().length > 0;
-    if (form.projectType === 'tadilat' && !form.tadilatSebep.trim()) ok = false;
+    const tadilatSebepEksik = form.projectType === 'tadilat' && !form.tadilatSebep.trim();
+    if (tadilatSebepEksik) ok = false;
     cta.disabled = !ok;
+    // Tadilat açıklaması alanı: zorunlu ama boşsa kırmızı çerçeve
+    const tadilatField = overlay.querySelector('[data-path="tadilatSebep"]')?.closest('.ob-field');
+    if (tadilatField) tadilatField.classList.toggle('is-invalid', tadilatSebepEksik);
     // Üst şerit form değişikliğine göre canlı güncellensin
     renderSummaryBar();
 }
@@ -1661,8 +2009,16 @@ function applyAndClose() {
             onProje: form.onProje,
             adres: { ...form.adres },
             sorumlu: { ...form.sorumlu },
+            binaTesisatNo: (form.servis?.binaTesisatNo || '').trim(),
+            // ABYS sayaç listesi — sayacın birimTipi+birimNo'su girilince/atanınca
+            // bu listeden abone adı + abone no otomatik dolar.
+            aboneList: Array.isArray(form.birimler) ? form.birimler.slice() : [],
         },
     });
+
+    // Uygula sonrası: projedeki sayaçlara servisten alınan abone bilgilerini
+    // (aboneAdi + aboneTuketimNo) form.birimler içinden eşle.
+    _applyAboneListToProjectSayaclar(form.birimler);
 
     if (form.projectName) document.title = `${form.projectName} — AAA CAD`;
 
@@ -1688,6 +2044,12 @@ function buildFormFromState() {
     out.tadilatSebep   = meta.tadilatSebep   || '';
     out.projeKapagiNotu = meta.projeKapagiNotu || '';
     out.kolonVar       = (typeof meta.kolonVar === 'boolean') ? meta.kolonVar : true;
+    // Projede CANLI HAT (servis kutusu yok) varsa kolonVar zorunlu FALSE.
+    const pm = (typeof window !== 'undefined') ? window.plumbingManager : null;
+    const hasComponents = Array.isArray(pm?.components) && pm.components.length > 0;
+    const hasServisKutusu = hasComponents && pm.components.some(c => c.type === 'servis_kutusu');
+    if (hasComponents && !hasServisKutusu) out.kolonVar = false;
+
     out.kutuTipi       = meta.kutuTipi       || 'duvar';
     out.kutuBasinc     = meta.kutuBasinc     || '21';
     out.zeminKat0Offset = Number.isFinite(meta.zeminKat0Offset) ? meta.zeminKat0Offset : 0;
@@ -1904,8 +2266,16 @@ function applyEditAndClose() {
             onProje: form.onProje,
             adres: { ...form.adres },
             sorumlu: { ...form.sorumlu },
+            binaTesisatNo: (form.servis?.binaTesisatNo || '').trim(),
+            // ABYS sayaç listesi — sayacın birimTipi+birimNo'su girilince/atanınca
+            // bu listeden abone adı + abone no otomatik dolar.
+            aboneList: Array.isArray(form.birimler) ? form.birimler.slice() : [],
         },
     });
+
+    // Uygula sonrası: projedeki sayaçlara servisten alınan abone bilgilerini
+    // (aboneAdi + aboneTuketimNo) form.birimler içinden eşle.
+    _applyAboneListToProjectSayaclar(form.birimler);
 
     if (form.projectName) {
         document.title = `${form.projectName} — AAA CAD`;

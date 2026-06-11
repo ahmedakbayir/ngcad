@@ -295,7 +295,7 @@ function deleteDownstreamFrom(pipe, manager) {
 
 // ─── 2. Kolon Tesisatını Sil ──────────────────────────────────────────────
 
-function deleteKolonTesisati(manager) {
+export function deleteKolonTesisati(manager) {
     saveState();
 
     // İç tesisat borularını belirle: her sayacın çıkış borusundan BFS
@@ -382,7 +382,7 @@ function deleteKolonTesisati(manager) {
 // ─── 3a. Verilen sayaçların iç tesisatlarını sil (sayaç + downstream) ─────
 // İlişkili vana BRANSMAN olarak kalır (sayaç önündeki tek parça).
 
-function deleteIcTesisatForSayaclar(sayaclar, manager) {
+export function deleteIcTesisatForSayaclar(sayaclar, manager) {
     if (!sayaclar || sayaclar.length === 0) return;
     saveState();
 
