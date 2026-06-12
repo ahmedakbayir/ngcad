@@ -5552,6 +5552,44 @@ body.light-mode .vis-panel-inner {
     margin: 2px 0;
 }
 
+/* Son Açılan Projeler — menü en altta */
+.menu-recent-header {
+    padding: 6px 16px 2px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    color: var(--color-text-muted, rgba(255, 255, 255, 0.45));
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+.dropdown-content a.menu-recent-item {
+    padding: 6px 16px;
+    gap: 8px;
+}
+
+.menu-recent-item svg {
+    flex: 0 0 14px;
+    width: 14px;
+    height: 14px;
+    opacity: 0.6;
+}
+
+.menu-recent-name {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 220px;
+}
+
+.menu-recent-time {
+    flex: 0 0 auto;
+    font-size: 10px;
+    opacity: 0.5;
+    margin-left: 6px;
+}
+
 /* Ana menü içindeki alt menü öğeleri */
 .dropdown-submenu-item {
     position: relative;

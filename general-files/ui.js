@@ -1796,9 +1796,18 @@ export function setupUIListeners() {
     const mainMenuContent = document.getElementById('mainMenuContent');
 
     if (mainMenuBtn && mainMenuContent) {
-        mainMenuBtn.addEventListener('click', (e) => {
+        mainMenuBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
             mainMenuBtn.parentElement.classList.toggle('show');
+            if (mainMenuBtn.parentElement.classList.contains('show')) {
+                try {
+                    const { renderRecentMenu } = await import('./recent-projects.js');
+                    await renderRecentMenu(
+                        document.getElementById('menuRecentList'),
+                        document.getElementById('menuRecentSeparator')
+                    );
+                } catch (err) { console.warn('renderRecentMenu:', err); }
+            }
         });
 
         document.addEventListener('click', (e) => {
@@ -1866,11 +1875,17 @@ export function setupUIListeners() {
         }
     });
 
-    // Aç İşlemi
-    document.getElementById('menuOpen')?.addEventListener('click', (e) => {
+    // Aç İşlemi — handle alabilmek için modern picker tercih edilir; yoksa eski file-input.
+    document.getElementById('menuOpen')?.addEventListener('click', async (e) => {
         e.preventDefault();
         document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
-        document.getElementById('bOpen')?.click();
+        try {
+            const { openProjectViaPicker } = await import('./file-io.js');
+            await openProjectViaPicker();
+        } catch (err) {
+            console.warn('openProjectViaPicker yedeğe düşüyor:', err);
+            document.getElementById('bOpen')?.click();
+        }
     });
 
     // DXF Aç — her tıklamada yeni dosya seçici açar.

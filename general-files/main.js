@@ -822,7 +822,7 @@ export function setDrawingMode(mode) {
 }
 
 
-function blendColorWithBackground(color, blendAmount) {
+export function blendColorWithBackground(color, blendAmount) {
     // BG rengini tam olarak al (#222325ff formatından #222325'e)
     const bgColor = getBG().substring(0, 7);
 

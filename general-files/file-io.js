@@ -9,6 +9,7 @@ import { importFromXML } from './xml-io.js'; // <-- HATA BURADAYDI (Satır 5)
 import { renderMiniPanel } from '../floor/floor-panel.js'; // <-- KAT PANELİ İÇİN EKLENDİ
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { loadDxfFile } from './dxf-io.js';
+import { recordRecent } from './recent-projects.js';
 
 export function setupFileIOListeners() {
     dom.bSave.addEventListener('click', saveProject);
@@ -277,10 +278,23 @@ function saveProject() {
                     document.title = `${actualName} - AangCAD`;
                 }
 
+                // Handle saklı ama izin sadece okuma ise yazma iznini şimdi iste.
+                if (fileHandle.queryPermission) {
+                    let perm = await fileHandle.queryPermission({ mode: 'readwrite' });
+                    if (perm !== 'granted') {
+                        perm = await fileHandle.requestPermission({ mode: 'readwrite' });
+                        if (perm !== 'granted') {
+                            alert('Dosyaya yazma izni verilmedi, proje kaydedilemedi.');
+                            return;
+                        }
+                    }
+                }
+
                 const writable = await fileHandle.createWritable();
                 await writable.write(dataStr);
                 await writable.close();
                 console.log(`Proje kaydedildi: ${window.currentProjectName}`);
+                try { await recordRecent(fileHandle, window.currentProjectName); } catch (e) { /* recents opsiyonel */ }
 
             } else {
                 // Tarayıcı desteği yoksa standart indirme
@@ -557,4 +571,58 @@ function openProject(e) {
 
     reader.readAsText(file); // JSON / XML için
     e.target.value = '';
+}
+
+// FileSystemHandle ile proje aç — handle saklanır, "Kaydet" üzerine yazar.
+export async function openProjectFromHandle(handle, displayName) {
+    if (!handle) return;
+    const file = await handle.getFile();
+    const rawName = file.name || (displayName ? `${displayName}.json` : 'proje.json');
+    const baseName = (displayName || rawName).replace(/\.[^.]+$/, '');
+    const lower = rawName.toLowerCase();
+    const text = await file.text();
+
+    if (lower.endsWith('.xml')) {
+        importFromXML(text, { fileName: baseName });
+    } else if (lower.endsWith('.json')) {
+        loadJSONProject(text);
+    } else {
+        throw new Error('Desteklenmeyen format: ' + rawName);
+    }
+
+    window.currentFileHandle = handle;
+    window.currentProjectName = baseName;
+    window.saveAsNewFile = false;
+    const nameInput = document.getElementById('projectNameInput');
+    if (nameInput) nameInput.value = baseName;
+    document.title = `${baseName} - AangCAD`;
+
+    try { await recordRecent(handle, baseName); } catch (e) { /* recents opsiyonel */ }
+}
+
+// "Proje Aç" için modern picker — handle döner, recents listesi beslenir.
+// File System Access API yoksa eski file-input akışına düşer.
+export async function openProjectViaPicker() {
+    if (!('showOpenFilePicker' in window)) {
+        document.getElementById('bOpen')?.click();
+        return;
+    }
+    try {
+        const [handle] = await window.showOpenFilePicker({
+            types: [{
+                description: 'AangCAD Proje Dosyası',
+                accept: {
+                    'application/json': ['.json'],
+                    'application/xml': ['.xml'],
+                },
+            }],
+            multiple: false,
+        });
+        await openProjectFromHandle(handle);
+    } catch (err) {
+        if (err && err.name !== 'AbortError') {
+            console.error('openProjectViaPicker:', err);
+            alert('Proje açılamadı: ' + (err.message || err));
+        }
+    }
 }

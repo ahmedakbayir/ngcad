@@ -4,7 +4,14 @@ import { screenToWorld, distToSegmentSquared, getLineIntersectionPoint } from '.
 import { getColumnCorners, isPointInColumn } from '../architectural-objects/columns.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
-import { state, dom, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, getAdjustedColor, getWallFillColor, isLightMode } from '../general-files/main.js'; // Sabitleri ve renk ayarlama fonksiyonunu import et
+import { state, dom, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, getAdjustedColor, getWallFillColor, isLightMode, blendColorWithBackground } from '../general-files/main.js'; // Sabitleri ve renk ayarlama fonksiyonunu import et
+
+// Kapı/pencere iç dolguları için: dark modda bg'ye yakın, light modda olduğu gibi.
+// Stroke'lara dokunulmaz — sadece solid fill alanları susturulur.
+function getArchFillColor(color) {
+    if (isLightMode()) return color;
+    return blendColorWithBackground(color, 0.6);
+}
 
 /*
 // Node'a bağlı duvar sayısını çizer (Şu an içeriği boş veya yorumlanmış)
@@ -75,7 +82,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false, isHo
 
     // --- YENİ EKLENEN DOLGU KODU ---
     // Kapının "ortasındaki" (iç pervazlar arasındaki) bölgeyi doldur
-    ctx2d.fillStyle = color;
+    ctx2d.fillStyle = getArchFillColor(color);
     ctx2d.beginPath();
     ctx2d.moveTo(p_line1_start.x, p_line1_start.y);
     ctx2d.lineTo(p_line1_end.x, p_line1_end.y);
@@ -83,6 +90,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false, isHo
     ctx2d.lineTo(p_line2_start.x, p_line2_start.y);
     ctx2d.closePath();
     ctx2d.fill();
+    ctx2d.fillStyle = color; // stroke sonrası başka kodlar fillStyle'a güvenmesin
     // --- YENİ KOD SONU ---
 
     // Çizim işlemi
@@ -198,7 +206,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const right2 = { x: windowP2_inset.x + nx * (halfWall - inset), y: windowP2_inset.y + ny * (halfWall - inset) };
 
     // Dolgu (sadece iç bölge)
-    ctx2d.fillStyle = color;
+    ctx2d.fillStyle = getArchFillColor(color);
     ctx2d.beginPath();
     ctx2d.moveTo(line2_start.x, line2_start.y);
     ctx2d.lineTo(line2_end.x, line2_end.y);
