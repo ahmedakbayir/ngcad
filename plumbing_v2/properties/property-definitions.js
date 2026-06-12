@@ -250,27 +250,30 @@ function _findBransmanForSayac(sayac, manager) {
     ) || null;
 }
 
-// ABYS'den gelen abone listesinden eşleşeni bul ve sayacın abone ad / no
-// alanlarına yaz. Eşleşme kuralı:
+// ABYS'den gelen abone listesinden eşleşeni bul ve sayaç / BRANSMAN vananın
+// abone ad / no alanlarına yaz. Eşleşme kuralı:
 //   birimTipi=KONUT  → etiket "D"  + birimNo  (örn. D3)
 //   birimTipi=TİCARİ → etiket "DÜK" + birimNo (örn. DÜK2)
 // Diğer tipler (OFİS, KAZAN DAİRESİ) listede yer almaz → no-op.
 // state.projectMeta.aboneList onboarding sırasında setState ile yazılır.
-function _fillAboneFromAbysList(sayac) {
-    if (!sayac || sayac.type !== 'sayac') return;
+function _fillAboneFromAbysList(obj) {
+    if (!obj) return;
+    const isSayac = obj.type === 'sayac';
+    const isBransman = obj.type === 'vana' && obj.vanaTipi === 'BRANSMAN';
+    if (!isSayac && !isBransman) return;
     const list = state?.projectMeta?.aboneList;
     if (!Array.isArray(list) || list.length === 0) return;
-    const noStr = String(sayac.birimNo ?? '').trim();
+    const noStr = String(obj.birimNo ?? '').trim();
     if (!noStr || !/^\d+$/.test(noStr)) return;
-    const tipi = String(sayac.birimTipi || 'KONUT').toUpperCase();
+    const tipi = String(obj.birimTipi || 'KONUT').toUpperCase();
     let etiket = '';
     if (tipi === 'KONUT') etiket = 'D' + noStr;
     else if (tipi === 'TİCARİ' || tipi === 'TICARI') etiket = 'DÜK' + noStr;
     else return;
     const match = list.find(a => a.birimEtiketi === etiket);
     if (!match) return;
-    sayac.aboneAdi = match.aboneAdi || '';
-    sayac.aboneNo  = String(match.aboneTuketimNo || '');
+    obj.aboneAdi = match.aboneAdi || '';
+    obj.aboneNo  = String(match.aboneTuketimNo || '');
 }
 
 /** Birim çapasına (BRANSMAN vana veya sayaç) aynı birim no'yu yaz; eşine senkronla.
@@ -280,6 +283,7 @@ export function _applyBirimNoToAnchor(anchor, no, manager) {
     anchor.birimNo = String(no);
     // BRANSMAN ↔ sayaç çift yönlü senkron: hangi taraf edit edildiyse diğeri de yansısın.
     if (anchor.type === 'vana' && anchor.vanaTipi === 'BRANSMAN') {
+        _fillAboneFromAbysList(anchor);
         const sayac = _findSayacForBransman(anchor, manager);
         if (sayac) {
             sayac.birimNo = String(no);
@@ -291,6 +295,7 @@ export function _applyBirimNoToAnchor(anchor, no, manager) {
         if (vana) {
             vana.birimNo = String(no);
             if (!vana.birimTipi && anchor.birimTipi) vana.birimTipi = anchor.birimTipi;
+            _fillAboneFromAbysList(vana);
         }
         _fillAboneFromAbysList(anchor);
     }
@@ -367,7 +372,7 @@ function _orderedRealFloors() {
  *
  * Eşleme: en yakın komşu (tolerans 100 cm). Sayaçlar da senkronize edilir.
  */
-export function _autoAssignByFloorPattern(vana, manager) {
+export function _autoAssignByFloorPattern(vana, manager, { resetAll = false } = {}) {
     if (!vana || !manager || !vana.floorId) return;
     const floors = _orderedRealFloors();
     const currentIdx = floors.findIndex(f => f.id === vana.floorId);
@@ -380,6 +385,18 @@ export function _autoAssignByFloorPattern(vana, manager) {
 
     const allHere = _unitAnchorsOnFloor(manager, vana.floorId).filter(matchTipi);
     if (allHere.length === 0) return;
+
+    // CTRL: tıklanan çapa hariç tüm katların tüm çapalarındaki mevcut birim no'yu sil ki
+    // dağıtım sıfırdan yapılsın. Tıklananın değeri tek referans olarak kalır.
+    if (resetAll) {
+        for (let k = 0; k < floors.length; k++) {
+            const targets = _unitAnchorsOnFloor(manager, floors[k].id).filter(matchTipi);
+            for (const t of targets) {
+                if (t === vana) continue;
+                _applyBirimNoToAnchor(t, '', manager);
+            }
+        }
+    }
 
     // Mevcut kattaki vanaları, no'larıyla birlikte indeksle
     const here = allHere.map((v, i) => ({ v, idx: i, no: parseInt(v.birimNo, 10) }));
@@ -876,8 +893,8 @@ export const PROPERTY_DEFS = {
                 inlineButtons: [
                     {
                         label: '⇅',
-                        title: 'Aynı birim tipindeki tüm vana ve sayaçları (kat içi + diğer katlar) otomatik numaralandır.',
-                        onClick: (obj, manager) => _autoAssignByFloorPattern(obj, manager),
+                        title: 'Aynı birim tipindeki tüm vana ve sayaçları (kat içi + diğer katlar) otomatik numaralandır. CTRL+tık: tüm mevcut no\'ları sıfırlayıp baştan ata.',
+                        onClick: (obj, manager, _panelEl, e) => _autoAssignByFloorPattern(obj, manager, { resetAll: !!e?.ctrlKey }),
                     },
                 ],
             },
@@ -991,17 +1008,40 @@ export const PROPERTY_DEFS = {
     sayacBirimTipi: {
         label: 'Birim Tipi', type: 'select', key: 'birimTipi',
         options: BIRIM_TIPLERI, default: 'KONUT', placeholder: '— seçiniz —',
-        afterChange: (obj) => { _fillAboneFromAbysList(obj); syncBirimState(); invalidateBirimCache(); },
+        afterChange: (obj, manager) => {
+            _fillAboneFromAbysList(obj);
+            // Sayaca eşli BRANSMAN'ı da ABYS abone bilgileriyle senkronla
+            if (manager) {
+                const vana = _findBransmanForSayac(obj, manager);
+                if (vana) {
+                    if (!vana.birimTipi && obj.birimTipi) vana.birimTipi = obj.birimTipi;
+                    _fillAboneFromAbysList(vana);
+                }
+            }
+            syncBirimState(); invalidateBirimCache();
+        },
     },
     sayacBirimNo: {
         label: 'Birim No', type: 'text', key: 'birimNo',
         default: '', placeholder: 'Birim no...',
-        afterChange: (obj) => { _fillAboneFromAbysList(obj); syncBirimState(); invalidateBirimCache(); },
+        afterChange: (obj, manager) => {
+            _fillAboneFromAbysList(obj);
+            // Sayaca eşli BRANSMAN'a birimNo + ABYS abone bilgileri yansısın
+            if (manager) {
+                const vana = _findBransmanForSayac(obj, manager);
+                if (vana) {
+                    vana.birimNo = String(obj.birimNo ?? '');
+                    if (!vana.birimTipi && obj.birimTipi) vana.birimTipi = obj.birimTipi;
+                    _fillAboneFromAbysList(vana);
+                }
+            }
+            syncBirimState(); invalidateBirimCache();
+        },
         inlineButtons: [
             {
                 label: '⇅',
-                title: 'Aynı birim tipindeki tüm vana ve sayaçları (kat içi + diğer katlar) otomatik numaralandır.',
-                onClick: (obj, manager) => _autoAssignByFloorPattern(obj, manager),
+                title: 'Aynı birim tipindeki tüm vana ve sayaçları (kat içi + diğer katlar) otomatik numaralandır. CTRL+tık: tüm mevcut no\'ları sıfırlayıp baştan ata.',
+                onClick: (obj, manager, _panelEl, e) => _autoAssignByFloorPattern(obj, manager, { resetAll: !!e?.ctrlKey }),
             },
         ],
     },
@@ -1156,6 +1196,9 @@ export const PROPERTY_DEFS = {
             if (obj.ilerdeKullanim) {
                 _updateIlerdeBirimNo(obj);
                 if (panelEl?._refresh) panelEl._refresh();
+            } else {
+                _fillAboneFromAbysList(obj);
+                if (panelEl?._refresh) panelEl._refresh();
             }
         },
     },
@@ -1214,8 +1257,11 @@ export const PROPERTY_DEFS = {
                 if (sayac) {
                     sayac.birimNo = String(obj.birimNo ?? '');
                     if (!sayac.birimTipi && obj.birimTipi) sayac.birimTipi = obj.birimTipi;
+                    _fillAboneFromAbysList(sayac);
                 }
             }
+            // BRANSMAN'a da ABYS abone bilgilerini yaz
+            _fillAboneFromAbysList(obj);
             // 3 m içindeki birimlere yaz, sonra sayaç (varsa) otoriter senkronu
             syncBransmanToRooms();
             syncBirimState();
@@ -1224,11 +1270,20 @@ export const PROPERTY_DEFS = {
         inlineButtons: [
             {
                 label: '⇅',
-                title: 'Önce kat içindeki boş vanaları, sonra alt/üst katları geometrik konuma göre otomatik doldur (sayaçlar dahil).',
+                title: 'Önce kat içindeki boş vanaları, sonra alt/üst katları geometrik konuma göre otomatik doldur (sayaçlar dahil). CTRL+tık: tüm mevcut no\'ları sıfırlayıp baştan ata.',
                 disabledFn: (obj) => !!obj.ilerdeKullanim,
-                onClick: (obj, manager) => _autoAssignByFloorPattern(obj, manager),
+                onClick: (obj, manager, _panelEl, e) => _autoAssignByFloorPattern(obj, manager, { resetAll: !!e?.ctrlKey }),
             },
         ],
+    },
+
+    vanaTuketimNo: {
+        label: 'Tüketim No',
+        type: 'text',
+        key: 'aboneNo',
+        default: '',
+        placeholder: 'Tüketim no...',
+        visibleFn: (obj) => obj.vanaTipi === 'BRANSMAN' && !obj.ilerdeKullanim,
     },
 
     // YANBINA ek bilgiler
@@ -2829,6 +2884,7 @@ export const OBJECT_PROPERTIES = {
         'vana_sec_birim',
         'vanaBirimTipi',
         'vanaBirimNo',
+        'vanaTuketimNo',
         'vanaBransmanDebi',
         'vanaBransmanIlerdeToplam',
         'vanaIlerdeKullanim',

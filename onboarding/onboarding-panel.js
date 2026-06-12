@@ -8,6 +8,7 @@ import { draw2D } from '../draw/draw2d.js';
 import { renderMiniPanel } from '../floor/floor-panel.js';
 import { update3DScene } from '../scene3d/scene3d-update.js';
 import { OnboardingSchematic } from './onboarding-schematic.js';
+import { renderProjeStatusBar } from './proje-status-bar.js';
 import {
     getIller,
     getIlceler,
@@ -1433,15 +1434,21 @@ function onServisInputChanged(source, newValue) {
         form.servis.aboneTuketimNo = newValue;
         form.servis.binaTesisatNo = '';
     }
-    // Tüm servis verisini default'a indir
-    Object.assign(form.adres, deepClone(DEFAULT_FORM.adres));
-    form.binaBilgi = null;
-    form.birimler = [];
-    form.servis.lastResult = null;
-    form.isinmaTipi = DEFAULT_FORM.isinmaTipi;
-    form.kutuBasinc = DEFAULT_FORM.kutuBasinc;
-    form.normalKatSayisi = DEFAULT_FORM.normalKatSayisi;
-    syncKatYukseklikleri();
+    // Edit modunda mevcut proje verisini bozma — yalnızca ABYS özet/banner'ı temizle.
+    // Create modunda servis input'u değişince tüm form'u default'a indir.
+    if (panelMode === 'edit') {
+        form.binaBilgi = null;
+        form.servis.lastResult = null;
+    } else {
+        Object.assign(form.adres, deepClone(DEFAULT_FORM.adres));
+        form.binaBilgi = null;
+        form.birimler = [];
+        form.servis.lastResult = null;
+        form.isinmaTipi = DEFAULT_FORM.isinmaTipi;
+        form.kutuBasinc = DEFAULT_FORM.kutuBasinc;
+        form.normalKatSayisi = DEFAULT_FORM.normalKatSayisi;
+        syncKatYukseklikleri();
+    }
 
     // Odak + cursor koruması
     const ae = document.activeElement;
@@ -2013,6 +2020,7 @@ function applyAndClose() {
     try { draw2D(); } catch (e) { console.warn('draw2D failed:', e); }
     try { renderMiniPanel(); } catch (e) { console.warn('renderMiniPanel failed:', e); }
     try { update3DScene(); } catch (e) { /* 3D may not be initialized */ }
+    try { renderProjeStatusBar(); } catch (e) { /* status bar not initialized */ }
 
     hideOnboardingPanel();
 }
@@ -2292,6 +2300,7 @@ function applyEditAndClose() {
     try { draw2D(); } catch (e) { console.warn('draw2D failed:', e); }
     try { renderMiniPanel(); } catch (e) { console.warn('renderMiniPanel failed:', e); }
     try { update3DScene(); } catch (e) { /* 3D may not be initialized */ }
+    try { renderProjeStatusBar(); } catch (e) { /* status bar not initialized */ }
 
     hideOnboardingPanel();
 }

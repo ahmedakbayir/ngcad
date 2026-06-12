@@ -1174,7 +1174,7 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
 
         if (aboneAdi || aboneNo) {
             if (aboneAdi) lines.push({ text: aboneAdi, sub: true });
-            if (aboneNo) lines.push({ text: aboneNo, sub: true });
+            if (aboneNo) lines.push({ text: `TN: ${aboneNo}`, sub: true });
         }
 
         if (comp.description) {
@@ -1230,6 +1230,7 @@ const uzunluk = (totalLen != null && totalLen > 0) ? (totalLen / 100).toFixed(2)
                 if (!birimTipi) birimTipi = 'KONUT';
                 const lblLines = getBirimLabelLines(birimTipi, comp.birimNo || '');
                 lblLines.forEach(t => { if (t) lines.push({ text: t, bold: true }); });
+                if (comp.aboneNo) lines.push({ text: `TN: ${comp.aboneNo}`, sub: true });
             }
             if (comp.flans) lines.push({ text: 'Flanşlı Vana', sub: true });
         } else if (vt === 'EMNIYET') {

@@ -1420,7 +1420,7 @@ function bindInputEvents(panelEl, props, obj, manager) {
             }
             const action = source?.inlineButtons?.[idx];
             if (action?.onClick) {
-                action.onClick(obj, manager, panelEl);
+                action.onClick(obj, manager, panelEl, e);
                 persist();
                 if (panelEl._refresh) panelEl._refresh();
             }

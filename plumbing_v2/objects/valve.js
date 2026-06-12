@@ -722,6 +722,9 @@ const dx = pipe.p2.x - pipe.p1.x;
             bransmanDebi: this.bransmanDebi,
             ilerdeKullanim: this.ilerdeKullanim,
             birimSayisi: this.birimSayisi,
+            birimTipi: this.birimTipi,
+            aboneAdi: this.aboneAdi,
+            aboneNo: this.aboneNo,
             description: this.description ?? ''
         };
     }
@@ -757,6 +760,9 @@ const dx = pipe.p2.x - pipe.p1.x;
         if (data.bransmanDebi !== undefined) vana.bransmanDebi = data.bransmanDebi;
         if (data.ilerdeKullanim !== undefined) vana.ilerdeKullanim = data.ilerdeKullanim;
         if (data.birimSayisi !== undefined) vana.birimSayisi = data.birimSayisi;
+        if (data.birimTipi !== undefined) vana.birimTipi = data.birimTipi;
+        if (data.aboneAdi !== undefined) vana.aboneAdi = data.aboneAdi;
+        if (data.aboneNo !== undefined) vana.aboneNo = data.aboneNo;
         vana.description = data.description ?? '';
         return vana;
     }

@@ -38,6 +38,7 @@ import { createFloorPanel, showFloorPanel, renderMiniPanel } from '../floor/floo
 import { initializeDefaultFloors } from '../floor/floor-handler.js';
 import { plumbingManager, TESISAT_MODLARI } from '../plumbing_v2/plumbing-manager.js';
 import { closePropertiesPanel } from '../plumbing_v2/properties/properties-panel.js';
+import { initProjeStatusBar } from '../onboarding/proje-status-bar.js';
 
 
 //export const BG = "#30302e"; // Dark mode varsayılan - GÜNCELLENDİ
@@ -1258,6 +1259,7 @@ function initialize() {
     initBoruCapMenu();
     initAutoCapMenu();
     initHataKontrolMenu();
+    initProjeStatusBar();
 
     const diameterColorChk = document.getElementById('vis-chk-diameter-color');
     if (diameterColorChk) {

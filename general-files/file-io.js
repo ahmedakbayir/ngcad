@@ -3,6 +3,7 @@
 
 import { state, setState, dom } from './main.js';
 import { saveState } from './history.js';
+import { renderProjeStatusBar } from '../onboarding/proje-status-bar.js';
 import { processWalls } from '../wall/wall-processor.js';
 import { importFromXML } from './xml-io.js'; // <-- HATA BURADAYDI (Satır 5)
 import { renderMiniPanel } from '../floor/floor-panel.js'; // <-- KAT PANELİ İÇİN EKLENDİ
@@ -504,6 +505,8 @@ function loadJSONProject(fileContent) {
     state.history = [];
     state.historyIndex = -1;
     saveState();
+
+    try { renderProjeStatusBar(); } catch (e) { /* status bar not initialized */ }
 
     console.log('JSON Proje başarıyla yüklendi!');
 
