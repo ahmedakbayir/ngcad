@@ -6,7 +6,7 @@
 
 const COLOR = {
     // Background regions painted onto the canvas (panel-independent).
-    sky:               '#eef2f8', // air above ground line
+    sky:               '#87ceea', // air above ground line
     earth:             '#5a4d3e', // underground earth fill
     earthLine:         '#8d8478', // ground line (sky/earth boundary)
     earthLabel:        '#f3e8d4', // "TOPRAK SEVİYESİ" text on earth

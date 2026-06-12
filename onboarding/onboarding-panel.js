@@ -474,12 +474,13 @@ function renderAdres() {
         </section>
             <h2 class="adr-section-title"><p></h2>
         <section class="adr-section">
+            <div class="adr-ozet-head">Proje · ABYS</div>
             <div class="adr-bina-ozet">
-                ${renderOzetItem('Daire',       ozetDaire())}
-                ${renderOzetItem('Dükkan',      ozetDukkan())}
-                ${renderOzetItem('Toplam Alan', ozetAlan(),     'm²')}
-                ${renderOzetItem('Kapasite',    ozetKapasite(), 'm³/h')}
-                ${renderOzetItem('Kat Sayısı',  ozetKatSayisi())}
+                ${renderOzetItem('Daire',       projeDaireSayisi(), abysVal(form.binaBilgi?.daireSayisi))}
+                ${renderOzetItem('Dükkan',      projeDukkanSayisi(), abysVal(form.binaBilgi?.dukkanSayisi))}
+                ${renderOzetItem('Toplam Alan', null,                abysVal(form.binaBilgi?.alan),     'm²')}
+                ${renderOzetItem('Kapasite',    null,                abysVal(form.binaBilgi?.kapasite), 'm³/h')}
+                ${renderOzetItem('Kat Sayısı',  projeKatSayisi(),    abysVal(form.binaBilgi?.katSayisi))}
             </div>
         </section>
             <h2 class="adr-section-title"><p></h2>
@@ -516,46 +517,38 @@ function renderAdres() {
 }
 
 // ── Bina özeti yardımcıları ────────────────────────────────────────
-// Servisten bilgi geldiyse o değer kullanılır. Adres Seç modunda ya da bilgi
-// gelmediğinde projeden türetilebilen alanlar (kat sayısı) form state'inden
-// hesaplanır; türetilemeyenler "—" görünür.
-function ozetValue(value, fallback = '—') {
-    if (value == null) return fallback;
-    if (value === '' || value === 0 || value === '0') return fallback;
-    return value;
+// Kart "Proje (ABYS)" formatında ikili gösterim yapar. Proje sütunu projede
+// çizilen bileşenlerden (sayaç/kat), ABYS sütunu form.binaBilgi'den okunur.
+// Proje tarafı:
+function projeDaireSayisi() {
+    return getProjectBirimler().filter(b => /^D\d+$/.test(b.key)).length;
 }
-function ozetDaire() {
-    const b = form.binaBilgi;
-    if (b && b.daireSayisi != null) return ozetValue(b.daireSayisi);
-    // form.birimler'den türet (sayaç listesi varsa Daire tipinde olanları say)
-    const fromBirim = (form.birimler || []).filter(x => (x.aboneTipi || '').toLowerCase() === 'daire').length;
-    return fromBirim > 0 ? fromBirim : '—';
+function projeDukkanSayisi() {
+    return getProjectBirimler().filter(b => /^DUK\d+$/.test(b.key)).length;
 }
-function ozetDukkan() {
-    const b = form.binaBilgi;
-    if (b && b.dukkanSayisi != null) return ozetValue(b.dukkanSayisi);
-    const fromBirim = (form.birimler || []).filter(x => (x.aboneTipi || '').toLowerCase() === 'dukkan').length;
-    return fromBirim > 0 ? fromBirim : '—';
+function projeKatSayisi() {
+    return (form.bodrumSayisi || 0) + 1 + (form.normalKatSayisi || 0);
 }
-function ozetAlan() {
-    return ozetValue(form.binaBilgi?.alan);
-}
-function ozetKapasite() {
-    return ozetValue(form.binaBilgi?.kapasite);
-}
-function ozetKatSayisi() {
-    if (form.binaBilgi?.katSayisi != null) return ozetValue(form.binaBilgi.katSayisi);
-    // Projeden türet: bodrum + 1 (zemin) + normal kat
-    const derived = (form.bodrumSayisi || 0) + 1 + (form.normalKatSayisi || 0);
-    return derived;
-}
-function renderOzetItem(label, value, suffix) {
-    const hasValue = value !== '—' && value !== '' && value != null;
-    const display = hasValue && suffix ? `${value} ${suffix}` : value;
+// ABYS tarafı: 0/null/'' değerini "veri yok" olarak işaretle.
+function abysVal(v) { return (v == null || v === '' || v === 0 || v === '0') ? null : v; }
+// "Proje (ABYS)" çift gösterim. Proje değeri projedeki gerçek durumdan
+// (çizilen sayaç sayısı, kat sayısı), ABYS değeri form.binaBilgi'dan gelir.
+// Veri yoksa "-" gösterilir.
+function renderOzetItem(label, proje, abys, suffix) {
+    const fmt = (v) => {
+        if (v == null || v === '') return '-';
+        return suffix ? `${v} ${suffix}` : String(v);
+    };
+    const projeTxt = fmt(proje);
+    const abysTxt  = fmt(abys);
+    const empty    = projeTxt === '-' && abysTxt === '-';
     return `
         <div class="adr-ozet-item">
             <span class="adr-ozet-k">${label}</span>
-            <span class="adr-ozet-v ${hasValue ? '' : 'is-empty'}">${display}</span>
+            <span class="adr-ozet-v ${empty ? 'is-empty' : ''}">
+                <span class="adr-ozet-proje">${projeTxt}</span>
+                <span class="adr-ozet-abys">(${abysTxt})</span>
+            </span>
         </div>
     `;
 }
@@ -645,20 +638,11 @@ function renderAdresSec() {
     if (!indexLoaded) statusMsg = 'Adres verileri yükleniyor…';
     else if (streetsLoading && _streetsStatusShown) statusMsg = 'Cadde / sokak listesi yükleniyor…';
 
-    // Servisten metin değeri geldiyse ama eşleşen kod yoksa select yerine
-    // DÜZENLENEBİLİR text input göster — kullanıcı bilgiyi görür ve değiştirebilir.
-    const ilField = (!a.ilKod && a.il)
-        ? textRow('İl', 'adres.il', a.il)
-        : selectRow('İl', 'ilKod', iller, a.ilKod, !indexLoaded || iller.length === 0);
-    const ilceField = (!a.ilceKod && a.ilce)
-        ? textRow('İlçe', 'adres.ilce', a.ilce)
-        : selectRow('İlçe', 'ilceKod', ilceler, a.ilceKod, !indexLoaded || !a.ilKod || ilceler.length === 0);
-    const mahalleField = (!a.mahalleKod && a.mahalle)
-        ? textRow('Mahalle', 'adres.mahalle', a.mahalle)
-        : selectRow('Mahalle', 'mahalleKod', mahalleler, a.mahalleKod, !a.ilceKod || mahalleler.length === 0);
-    const sokakField = (!a.cadSokKod && a.sokak)
-        ? textRow('Cadde / Sokak', 'adres.sokak', a.sokak)
-        : selectRow('Cadde / Sokak', 'cadSokKod', cadSoklar, a.cadSokKod, !a.mahalleKod || streetsLoading || cadSoklar.length === 0);
+    // Servisten metin geldiyse bile dropdown göster — kullanıcı listeden seçsin.
+    const ilField      = selectRow('İl',            'ilKod',      iller,      a.ilKod,      !indexLoaded || iller.length === 0);
+    const ilceField    = selectRow('İlçe',          'ilceKod',    ilceler,    a.ilceKod,    !indexLoaded || !a.ilKod || ilceler.length === 0);
+    const mahalleField = selectRow('Mahalle',       'mahalleKod', mahalleler, a.mahalleKod, !a.ilceKod || mahalleler.length === 0);
+    const sokakField   = selectRow('Cadde / Sokak', 'cadSokKod',  cadSoklar,  a.cadSokKod,  !a.mahalleKod || streetsLoading || cadSoklar.length === 0);
 
     return `
         <div class="adr-stack">
@@ -1562,7 +1546,10 @@ function applyServiceResult(bina, abone, kaynak) {
     // Bina özeti (Daire/Dükkan/Alan/Kapasite/Kat) — Adres tabındaki özet kutusu
     // ve Katlar tabına auto-fill için.
     form.binaBilgi = bina.bilgi ? { ...bina.bilgi } : null;
-    if (bina.bilgi) {
+    // ABYS'den gelen kat sayısı yalnızca yeni proje (create) modunda formun
+    // kat sayısını otomatik doldurur. Edit modunda kullanıcının mevcut katları
+    // korunur — ABYS verisi sadece özet kartta referans olarak gösterilir.
+    if (bina.bilgi && panelMode !== 'edit') {
         if (Number.isFinite(bina.bilgi.katSayisi)) {
             // ZEMİN dahil tüm katlar — normalKatSayisi = katSayisi - 1 (zemin hariç).
             const normal = Math.max(0, (bina.bilgi.katSayisi || 1) - 1);
@@ -2010,6 +1997,7 @@ function applyAndClose() {
             adres: { ...form.adres },
             sorumlu: { ...form.sorumlu },
             binaTesisatNo: (form.servis?.binaTesisatNo || '').trim(),
+            binaBilgi: form.binaBilgi ? { ...form.binaBilgi } : null,
             // ABYS sayaç listesi — sayacın birimTipi+birimNo'su girilince/atanınca
             // bu listeden abone adı + abone no otomatik dolar.
             aboneList: Array.isArray(form.birimler) ? form.birimler.slice() : [],
@@ -2057,6 +2045,22 @@ function buildFormFromState() {
     out.onProje        = !!meta.onProje;
     if (meta.adres)    Object.assign(out.adres, meta.adres);
     if (meta.sorumlu)  Object.assign(out.sorumlu, meta.sorumlu);
+
+    // Servisten gelen veriyi geri yükle: bina tesisat no, birimler (aboneList),
+    // bina özet bilgisi. Aksi takdirde edit modu açılınca alanlar boş gelir,
+    // kullanıcı yeniden yazınca onServisInputChanged adresi de sıfırlar.
+    if (meta.binaTesisatNo) out.servis.binaTesisatNo = String(meta.binaTesisatNo);
+    if (Array.isArray(meta.aboneList)) out.birimler = meta.aboneList.slice();
+    if (meta.binaBilgi) out.binaBilgi = { ...meta.binaBilgi };
+    if (out.servis.binaTesisatNo || out.birimler.length) {
+        out.servis.lastResult = {
+            binaTesisatNo: out.servis.binaTesisatNo,
+            aboneAdi: '',
+            adresKisa: [out.adres.mahalle, out.adres.sokak, out.adres.binaNo].filter(Boolean).join(' '),
+            birimSayisi: out.birimler.length,
+            kaynak: 'bina',
+        };
+    }
 
     out.isinmaTipi = state.isinmaTipi || 'bireysel';
 
@@ -2167,11 +2171,12 @@ function applyEditAndClose() {
         f.topElevation = slot.top;
         f.isPlaceholder = false;
         f.icTesisatVar = icTesisatOf(slot.formIdx);
-        if (!form.kolonVar) {
-            f.visible = !!form.katIcTesisatVar[slot.formIdx];
-        } else if (!reuse) {
-            // Yeni eklenen kat görünür gelsin — placeholder click ile aynı davranış.
+        // Yeni eklenen kat her zaman görünür gelsin (kolonVar değerinden bağımsız).
+        // Mevcut katın görünürlüğü kolonVar=false iken iç tesisat checkbox'ından alınır.
+        if (!reuse) {
             f.visible = true;
+        } else if (!form.kolonVar) {
+            f.visible = !!form.katIcTesisatVar[slot.formIdx];
         }
         newFloors.push(f);
     }
@@ -2188,8 +2193,8 @@ function applyEditAndClose() {
         ground = { id: 'floor-ground', name: 'ZEMİN', bottomElevation: groundBot, topElevation: groundTop, isPlaceholder: false };
     }
     ground.icTesisatVar = icTesisatOf(groundFormIdx);
-    if (!form.kolonVar) ground.visible = !!form.katIcTesisatVar[groundFormIdx];
-    else if (!existingGround) ground.visible = true;
+    if (!existingGround) ground.visible = true;
+    else if (!form.kolonVar) ground.visible = !!form.katIcTesisatVar[groundFormIdx];
     newFloors.push(ground);
 
     // Normal katlar (zemin üstü) — form sırası: 0=1.KAT (alt), ..., wantKatlar-1 (üst)
@@ -2208,8 +2213,8 @@ function applyEditAndClose() {
         f.topElevation = top;
         f.isPlaceholder = false;
         f.icTesisatVar = icTesisatOf(formIdx);
-        if (!form.kolonVar) f.visible = !!form.katIcTesisatVar[formIdx];
-        else if (!reuse) f.visible = true; // Yeni eklenen kat görünür gelsin
+        if (!reuse) f.visible = true; // Yeni eklenen kat her zaman görünür
+        else if (!form.kolonVar) f.visible = !!form.katIcTesisatVar[formIdx];
         newFloors.push(f);
         katCursor = top;
     }
@@ -2267,6 +2272,7 @@ function applyEditAndClose() {
             adres: { ...form.adres },
             sorumlu: { ...form.sorumlu },
             binaTesisatNo: (form.servis?.binaTesisatNo || '').trim(),
+            binaBilgi: form.binaBilgi ? { ...form.binaBilgi } : null,
             // ABYS sayaç listesi — sayacın birimTipi+birimNo'su girilince/atanınca
             // bu listeden abone adı + abone no otomatik dolar.
             aboneList: Array.isArray(form.birimler) ? form.birimler.slice() : [],
@@ -2306,7 +2312,7 @@ function buildGlobalFloors() {
             name: `${i + 1}.BODRUM`,
             bottomElevation: bot,
             topElevation: top,
-            visible: false,
+            visible: true,
             isPlaceholder: false,
             icTesisatVar: icTesisatOf(i),
         });
@@ -2348,7 +2354,7 @@ function buildGlobalFloors() {
             name: `${i + 1}.KAT`,
             bottomElevation: bot,
             topElevation: top,
-            visible: false,
+            visible: true,
             isPlaceholder: false,
             icTesisatVar: icTesisatOf(idxInArr),
         });

@@ -1033,6 +1033,14 @@ select.ob-select option {
 .adr-status.ob-err  { color: #f28b82; }
 
 /* ── Bina özeti — 5 metrikli kompakt kart ────────────────────────── */
+.adr-ozet-head {
+    font-size: 10px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--color-secondary, #9aa0a6);
+    opacity: 0.75;
+    margin: 0 0 4px 2px;
+}
 .adr-bina-ozet {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -1059,6 +1067,19 @@ select.ob-select option {
     font-size: 13px;
     font-weight: 600;
     color: var(--color-text, #e8eaed);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+}
+.adr-ozet-proje {
+    font-weight: 600;
+    color: #8ab4f8;
+}
+.adr-ozet-abys {
+    font-size: 11px;
+    font-weight: 500;
+    color: #f9c97a;
+    opacity: 0.9;
 }
 
 /* ── Konum ve birimler — 2 yan yana grup ─────────────────────────── */
