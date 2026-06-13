@@ -29,9 +29,10 @@ const COLOR = {
     floorNameTextPasif:   '#3e4754',
     floorHeightTextPasif: '#6a727d',
 
-    // Ellipsis floor (dashed)
+    // Ellipsis floor (dashed) — gökyüzünden ayrılması için hafif dolgu
     ellipsisStroke:    '#5d6e8f',
     ellipsisText:      '#5d6e8f',
+    ellipsisFill:      'rgba(236, 240, 247, 0.56)',
 
     // Service box (sayaç) + canlı hat
     serviceBox:        '#f5c542',
@@ -305,7 +306,10 @@ export class OnboardingSchematic {
             const h = yBottom - yTop;
 
             if (f.isCollapsed) {
-                // Dashed box with big ellipsis to indicate skipped floors
+                // Dashed box with big ellipsis to indicate skipped floors.
+                // Gökyüzü ile aynı görünmesin diye soluk koyu mavi dolgu uygula.
+                ctx.fillStyle = COLOR.ellipsisFill;
+                ctx.fillRect(xLeft, yTop, boxW, h);
                 ctx.strokeStyle = COLOR.ellipsisStroke;
                 ctx.lineWidth = 1.5;
                 ctx.setLineDash([6, 4]);

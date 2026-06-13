@@ -580,7 +580,9 @@ function renderDetailPanel() {
         let rowStyle = '';
 
         if (floor.isPlaceholder) {
-            rowStyle = 'background: rgba(95, 99, 104, 0.1);';
+            // Önceden rgba(95,99,104,0.1) — şematikteki gökyüzü tonuyla aynı düşüyor,
+            // ara-kat satırı görünmez kalıyordu. Daha kontrast bir vurgu rengi.
+            rowStyle = 'background: rgba(138, 180, 248, 0.06); border-top: 1px dashed rgba(138, 180, 248, 0.45); border-bottom: 1px dashed rgba(138, 180, 248, 0.45);';
         } else if (isActive) {
             rowStyle = 'background: rgba(138, 180, 248, 0.1); border-left: 3px solid #8ab4f8;';
         }
@@ -634,7 +636,7 @@ function renderDetailPanel() {
                 <td style="padding: 4px; text-align: center;">
                     ${floor.isPlaceholder ? '' : renderVisibilityToggle(floor)}
                 </td>
-                <td style="padding: 4px; color: ${floor.isPlaceholder ? '#5f6368' : (isActive ? themeColors.activeBg : themeColors.inputText)}; font-size: 12px; font-weight: ${floor.isPlaceholder ? 'bold' : 'normal'};">
+                <td style="padding: 4px; color: ${floor.isPlaceholder ? '#8ab4f8' : (isActive ? themeColors.activeBg : themeColors.inputText)}; font-size: 12px; font-weight: ${floor.isPlaceholder ? 'bold' : 'normal'};">
                     ${floorNameDisplay}
                     ${isActive && !floor.isPlaceholder ? '<span style="color: #24ffda; font-size: 10px;"> (AKTİF)</span>' : ''}
                 </td>

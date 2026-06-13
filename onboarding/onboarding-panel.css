@@ -1349,11 +1349,17 @@ select.ob-select option {
     gap: 8px;
 }
 
-/* Üst kategori kartları yan yana — Kolon var | İç tesisat var */
+/* Üst kategori kartları yan yana — Kolon var | İç tesisat var (eski) */
 .tes-cat-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
+}
+/* Üst kategori kartları ALT ALTA — Kolon var / İç tesisat var (yeni) */
+.tes-cat-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 .tes-cat {
     background: rgba(255, 255, 255, 0.025);
@@ -1675,3 +1681,296 @@ select.ob-select option {
     max-height: 360px;
     padding-right: 4px;
 }
+
+/* ── Tesisat tabloları (Kolon özet & Birim/Cihaz listesi) ──────── */
+.tes-tbl-wrap {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-panel, #3c4043);
+}
+.tes-tbl-wrap-scroll {
+    max-height: 320px;
+    overflow: auto;
+}
+.tes-tbl {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 11.5px;
+    color: var(--color-text, #e8eaed);
+    table-layout: auto;
+}
+.tes-tbl thead th {
+    position: sticky;
+    top: 0;
+    background: rgba(20, 22, 24, 0.96);
+    backdrop-filter: blur(4px);
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--color-secondary, #9aa0a6);
+    font-weight: 600;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-panel, #3c4043);
+    white-space: nowrap;
+}
+.tes-tbl tbody td {
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.tes-tbl tbody tr:last-child td { border-bottom: none; }
+
+/* Kompakt (cihaz/birim) tablo: daha küçük tipo, hafif satır yüksekliği */
+.tes-tbl-compact {
+    font-size: 10.5px;
+}
+.tes-tbl-compact thead th {
+    font-size: 9.5px;
+    padding: 5px 7px 4px;
+    line-height: 1.1;
+}
+.tes-th-label {
+    display: block;
+}
+.tes-th-unit {
+    display: block;
+    font-size: 8.5px;
+    font-weight: 500;
+    color: rgba(154, 160, 166, 0.7);
+    text-transform: none;
+    letter-spacing: 0.2px;
+    margin-top: 1px;
+}
+.tes-tbl-compact tbody td {
+    padding: 3px 7px;
+    font-weight: 400;
+    color: rgba(232, 234, 237, 0.88);
+}
+.tes-num {
+    font-variant-numeric: tabular-nums;
+}
+.tes-tbl-sub {
+    font-size: 9.5px;
+    color: var(--color-secondary, #9aa0a6);
+    margin-left: 2px;
+}
+
+/* Birim satırı */
+.tes-tbl-birim td {
+    background: rgba(138, 180, 248, 0.04);
+}
+.tes-tbl-birim:hover td {
+    background: rgba(138, 180, 248, 0.08);
+}
+.tes-tbl-birim-no {
+    font-weight: 600;
+    color: #8ab4f8;
+}
+
+/* Cihaz görünümü — her daire blokunu üst kenardan ayır */
+.tes-tbl-cihaz-row td {
+    background: rgba(255, 255, 255, 0.012);
+}
+.tes-tbl-cihaz-row:hover td {
+    background: rgba(255, 255, 255, 0.035);
+}
+.tes-tbl-cihaz-first td {
+    border-top: 1px solid rgba(138, 180, 248, 0.28);
+}
+.tes-tbl-cihaz-first:first-child td {
+    border-top: none;
+}
+
+/* İç tesisat görünüm seçici */
+.tes-view-seg {
+    margin-top: 10px;
+    margin-bottom: 6px;
+    width: auto;
+    display: inline-flex;
+}
+
+/* Kolon şeridi — 2 satır (PROJE + ABYS), her satır başında etiket */
+.tes-strip {
+    margin-top: 10px;
+    display: grid;
+    /* 1 etiket sütunu + 6 metrik sütun */
+    grid-template-columns: 56px repeat(6, 1fr);
+    row-gap: 4px;
+    column-gap: 10px;
+    padding: 10px 12px;
+    background: rgba(138, 180, 248, 0.05);
+    border: 1px solid rgba(138, 180, 248, 0.25);
+    border-radius: 9px;
+    align-items: center;
+}
+.tes-strip-rowlabel {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--color-secondary, #9aa0a6);
+    text-align: left;
+}
+.tes-strip-rowlabel-head { /* başlık satırının boş etiket hücresi */ }
+.tes-strip-rowlabel-proje {
+    color: #8ab4f8;
+    opacity: 0.95;
+}
+.tes-strip-rowlabel-abys {
+    color: #f9c97a;
+    opacity: 0.85;
+}
+.tes-strip-k {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--color-secondary, #9aa0a6);
+    text-align: center;
+    padding-bottom: 2px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    line-height: 1.15;
+}
+.tes-strip-k-label { display: block; }
+.tes-strip-k-unit {
+    display: block;
+    font-size: 8.5px;
+    font-weight: 500;
+    color: rgba(154, 160, 166, 0.7);
+    text-transform: none;
+    letter-spacing: 0.2px;
+    margin-top: 1px;
+}
+.tes-strip-v {
+    font-size: 13px;
+    font-weight: 600;
+    color: #8ab4f8;
+    text-align: center;
+    white-space: nowrap;
+}
+.tes-strip-v-abys {
+    color: #f9c97a;
+    font-weight: 500;
+    opacity: 0.92;
+}
+.tes-strip-suf {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--color-secondary, #9aa0a6);
+    margin-left: 1px;
+}
+.tes-strip-empty {
+    color: var(--color-secondary, #9aa0a6);
+    opacity: 0.55;
+    font-weight: 500;
+}
+
+/* PROJE satırı manuel input (kolonVar=false) */
+.tes-strip-input {
+    width: 100%;
+    max-width: 92px;
+    padding: 3px 6px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(138, 180, 248, 0.32);
+    border-radius: 4px;
+    color: #8ab4f8;
+    font-size: 12.5px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    transition: border-color .15s ease, background .15s ease;
+    /* Spinner gizle - kompakt görünüm */
+    -moz-appearance: textfield;
+}
+.tes-strip-input::-webkit-outer-spin-button,
+.tes-strip-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.tes-strip-input:hover {
+    border-color: rgba(138, 180, 248, 0.55);
+    background: rgba(255, 255, 255, 0.06);
+}
+.tes-strip-input:focus {
+    outline: none;
+    border-color: #8ab4f8;
+    background: rgba(138, 180, 248, 0.10);
+}
+.tes-strip-input::placeholder {
+    color: rgba(154, 160, 166, 0.45);
+    font-weight: 400;
+}
+
+/* ABYS → PROJE'ye aktar butonu (ABYS satır etiketi yanında) */
+.tes-strip-rowlabel-abys {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.tes-strip-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid rgba(249, 201, 122, 0.45);
+    border-radius: 4px;
+    color: #f9c97a;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;
+}
+.tes-strip-copy-btn:hover:not(:disabled) {
+    background: rgba(249, 201, 122, 0.18);
+    color: #ffd89a;
+    transform: translateY(-1px);
+}
+.tes-strip-copy-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+.tes-strip-copy-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Tadilat hücresi: küçük switch */
+.tes-tbl-tadilat {
+    text-align: center;
+}
+.tes-tbl-tadilat-cell {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+.tes-tbl-tadilat-cell.is-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.ob-switch-xs {
+    width: 26px !important;
+    height: 14px !important;
+}
+.ob-switch-xs .ob-switch-slider::before {
+    width: 10px !important;
+    height: 10px !important;
+}
+.ob-switch-xs input:checked + .ob-switch-slider::before {
+    transform: translateX(12px) !important;
+}
+
+.tes-table-empty {
+    margin-top: 8px;
+    padding: 12px;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--color-secondary, #9aa0a6);
+    font-style: italic;
+    border-top: 1px dashed var(--border-panel, #3c4043);
+}
+
+/* Tablo wrapper'ı kategori kartı genişliğince genişlet — yatay scroll'a izin ver */
+.tes-cat .tes-tbl-wrap { width: 100%; }
+.tes-cat .tes-tbl-birim-wide { min-width: 720px; }
+.tes-cat .tes-tbl-cihaz-wide { min-width: 640px; }

@@ -24,6 +24,7 @@ import {
     fetchBinaByTesisatNo,
     fetchBinaByAboneTuketimNo,
 } from './dummy-service.js';
+import { SAYAC_DEBI_TABLOSU } from '../plumbing_v2/properties/property-definitions.js';
 
 const LS_SHOW_AT_START = 'onboarding_show_at_start';
 const LS_LAST_SETTINGS = 'onboarding_last_settings';
@@ -66,6 +67,18 @@ const DEFAULT_FORM = {
     },
     birimler: [],
     binaBilgi: null, // Servisten gelen: { daireSayisi, dukkanSayisi, katSayisi, alan, kapasite }
+    // PROJE bilgileri — manuel girilebilir kolon özet değerleri.
+    // KOLON çizilmediğinde (kolonVar=false) bu alanlar TEXT olarak doldurulur.
+    // KOLON çizildiğinde proje bileşenlerinden hesaplanan değerler öncelikli görünür.
+    // ABYS satırının yanındaki "↑ aktar" ikonu binaBilgi'yi buraya kopyalar.
+    projeBilgi: {
+        daire: null,
+        dukkan: null,
+        alan: null,
+        basinc: null,
+        kapasite: null,
+        katSayisi: null,
+    },
 
     // Tesisat
     // projectType = (kolonTadilat || icTesisatTadilat) ? 'tadilat' : 'yeni'
@@ -78,6 +91,7 @@ const DEFAULT_FORM = {
     icTesisatVar: true,
     icTesisatTadilat: false,       // sadece icTesisatVar=true iken anlamlı
     birimTadilat: {},              // birimNo → bool (her birim için bağımsız tadilat override)
+    icTesisatView: 'birim',        // İç tesisat tablosu görünümü: 'birim' | 'cihaz'
     kutuTipi: 'duvar',             // 'duvar' | 'yer'
     kutuBasinc: '21',              // '21' | '300' mbar — projeden veya servisten gelir
     zeminKatYukseklik: 300,
@@ -103,10 +117,10 @@ const DEFAULT_FORM = {
     },
 };
 
-const TAB_IDS = ['adres', 'tesisat', 'katlar', 'sorumlu'];
+const TAB_IDS = ['tesisat','adres',  'katlar', 'sorumlu'];
 const TAB_META = {
-    adres:   { label: 'Adres' },
     tesisat: { label: 'Tesisat' },
+    adres:   { label: 'Adres' },
     katlar:  { label: 'Katlar' },
     sorumlu: { label: 'Sorumlu' },
 };
@@ -125,7 +139,7 @@ let panelMode = 'create';
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
 // ── PUBLIC API ─────────────────────────────────────────────────────
-export function showOnboardingPanel(force = false, mode = 'create') {
+export function showOnboardingPanel(force = false, mode = 'create', initialTab = null) {
     if (!force) {
         const pref = localStorage.getItem(LS_SHOW_AT_START);
         if (pref === 'false') return;
@@ -138,7 +152,7 @@ export function showOnboardingPanel(force = false, mode = 'create') {
         form = deepClone(DEFAULT_FORM);
     }
     syncKatYukseklikleri();
-    currentTab = 'adres';
+    currentTab = (initialTab && TAB_IDS.includes(initialTab)) ? initialTab : 'tesisat';
     renderAll();
     overlay.classList.add('ob-visible');
     setTimeout(() => {
@@ -276,7 +290,7 @@ function renderSummaryBar() {
         summaryBasinc(),
         summaryMustakil(),
         summaryOnProje(),
-    ];
+    ].filter(it => it && !it.hidden);
     bar.innerHTML = items.map((it, i) => {
         const sep = i > 0 ? `<span class="ob-summary-sep"></span>` : '';
         const cls = it.empty ? 'is-empty' : (it.tone || '');
@@ -307,10 +321,11 @@ function summaryKolon() {
     return { text: '-', empty: true };
 }
 function summaryMustakil() {
-    return form.mustakilProje ? { text: 'MÜSTAKİL', tone: 'violet' } : { text: '-', empty: true };
+    // Boşsa hiç gösterme — chip yerinden kalkar.
+    return form.mustakilProje ? { text: 'MÜSTAKİL', tone: 'violet' } : { hidden: true };
 }
 function summaryOnProje() {
-    return form.onProje ? { text: 'ÖN PROJE', tone: 'pink' } : { text: '-', empty: true };
+    return form.onProje ? { text: 'ÖN PROJE', tone: 'pink' } : { hidden: true };
 }
 
 function renderTopBar() {
@@ -426,8 +441,8 @@ function updateSchematicVisibility() {
 
 function renderTabContent(id) {
     switch (id) {
-        case 'adres':    return renderAdres();
         case 'tesisat':  return renderTesisat();
+        case 'adres':    return renderAdres();
         case 'katlar':   return renderKatlar();
         case 'sorumlu':  return renderSorumlu();
     }
@@ -471,17 +486,6 @@ function renderAdres() {
                     </div>
                     ${isServis ? renderServisAdresFields() : renderAdresSec()}
                 </div>
-            </div>
-        </section>
-            <h2 class="adr-section-title"><p></h2>
-        <section class="adr-section">
-            <div class="adr-ozet-head">Proje · ABYS</div>
-            <div class="adr-bina-ozet">
-                ${renderOzetItem('Daire',       projeDaireSayisi(), abysVal(form.binaBilgi?.daireSayisi))}
-                ${renderOzetItem('Dükkan',      projeDukkanSayisi(), abysVal(form.binaBilgi?.dukkanSayisi))}
-                ${renderOzetItem('Toplam Alan', null,                abysVal(form.binaBilgi?.alan),     'm²')}
-                ${renderOzetItem('Kapasite',    null,                abysVal(form.binaBilgi?.kapasite), 'm³/h')}
-                ${renderOzetItem('Kat Sayısı',  projeKatSayisi(),    abysVal(form.binaBilgi?.katSayisi))}
             </div>
         </section>
             <h2 class="adr-section-title"><p></h2>
@@ -639,11 +643,16 @@ function renderAdresSec() {
     if (!indexLoaded) statusMsg = 'Adres verileri yükleniyor…';
     else if (streetsLoading && _streetsStatusShown) statusMsg = 'Cadde / sokak listesi yükleniyor…';
 
-    // Servisten metin geldiyse bile dropdown göster — kullanıcı listeden seçsin.
-    const ilField      = selectRow('İl',            'ilKod',      iller,      a.ilKod,      !indexLoaded || iller.length === 0);
-    const ilceField    = selectRow('İlçe',          'ilceKod',    ilceler,    a.ilceKod,    !indexLoaded || !a.ilKod || ilceler.length === 0);
-    const mahalleField = selectRow('Mahalle',       'mahalleKod', mahalleler, a.mahalleKod, !a.ilceKod || mahalleler.length === 0);
-    const sokakField   = selectRow('Cadde / Sokak', 'cadSokKod',  cadSoklar,  a.cadSokKod,  !a.mahalleKod || streetsLoading || cadSoklar.length === 0);
+    // ABYS'den ad geldi ama kod yoksa (servis modundan geçiş sonrası) → dropdown
+    // yerine düz metin satırı göster; kullanıcı reset ile dropdown'a dönebilir.
+    const ilField      = (a.il      && !a.ilKod)      ? readonlyRow('İl',            a.il)
+                                                       : selectRow('İl',            'ilKod',      iller,      a.ilKod,      !indexLoaded || iller.length === 0);
+    const ilceField    = (a.ilce    && !a.ilceKod)    ? readonlyRow('İlçe',          a.ilce)
+                                                       : selectRow('İlçe',          'ilceKod',    ilceler,    a.ilceKod,    !indexLoaded || !a.ilKod || ilceler.length === 0);
+    const mahalleField = (a.mahalle && !a.mahalleKod) ? readonlyRow('Mahalle',       a.mahalle)
+                                                       : selectRow('Mahalle',       'mahalleKod', mahalleler, a.mahalleKod, !a.ilceKod || mahalleler.length === 0);
+    const sokakField   = (a.sokak   && !a.cadSokKod)  ? readonlyRow('Cadde / Sokak', a.sokak)
+                                                       : selectRow('Cadde / Sokak', 'cadSokKod',  cadSoklar,  a.cadSokKod,  !a.mahalleKod || streetsLoading || cadSoklar.length === 0);
 
     return `
         <div class="adr-stack">
@@ -692,58 +701,30 @@ function renderTesisat() {
     const anyTadilat = !!(form.kolonTadilat || (form.icTesisatVar && form.icTesisatTadilat));
     return `
         <section class="tes-section">
-            <div class="tes-cat-row">
+            <div class="tes-cat-stack">
                 ${renderTesCat({
-                    title: 'Kolon var',
+                    title: 'KOLON',
                     mainId: 'ob-kolon-var',
                     mainChecked: form.kolonVar,
                     tadilatId: 'ob-kolon-tadilat',
                     tadilatChecked: form.kolonTadilat,
                     tadilatEnabled: form.kolonVar,
+                    // Proje bilgileri şeridi Kolon kapalı olsa bile görünür.
+                    extra: renderKolonFloorTable(),
                 })}
                 ${renderTesCat({
-                    title: 'İç tesisat var',
+                    title: 'İÇ TESİSATLAR',
                     mainId: 'ob-ic-tesisat-var',
                     mainChecked: form.icTesisatVar,
                     tadilatId: 'ob-ic-tesisat-tadilat',
-                    tadilatChecked: form.icTesisatTadilat && form.kolonTadilat,
-                    // İç tesisat Tadilat ancak Kolon Tadilat AÇIK iken aktif olur.
-                    tadilatEnabled: form.icTesisatVar && form.kolonTadilat,
-                    extra: form.icTesisatVar ? renderBirimTadilatList() : '',
+                    // KOLON varsa, İç Tesisat Tadilat üst seviyede Kolon Tadilat'a bağlı;
+                    // KOLON yoksa, İç Tesisat Tadilat bağımsız çalışır.
+                    tadilatChecked: form.kolonVar
+                        ? (form.icTesisatTadilat && form.kolonTadilat)
+                        : form.icTesisatTadilat,
+                    tadilatEnabled: form.icTesisatVar && (!form.kolonVar || form.kolonTadilat),
+                    extra: form.icTesisatVar ? renderIcTesisatBirimTable() : '',
                 })}
-            </div>
-        </section>
-
-        <section class="tes-section">
-            <div class="tes-bottom">
-                <div class="tes-isinma ob-radio-row" data-group="isinmaTipi">
-                    <label class="tes-isinma-opt">
-                        <input type="radio" name="isinmaTipi" value="bireysel" ${form.isinmaTipi === 'bireysel' ? 'checked' : ''} />
-                        <span>Bireysel</span>
-                    </label>
-                    <label class="tes-isinma-opt">
-                        <input type="radio" name="isinmaTipi" value="merkezi" ${form.isinmaTipi === 'merkezi' ? 'checked' : ''} />
-                        <span>Merkezi</span>
-                    </label>
-                    <label class="tes-isinma-opt">
-                        <input type="radio" name="isinmaTipi" value="boylerli" ${form.isinmaTipi === 'boylerli' ? 'checked' : ''} />
-                        <span>Boylerli</span>
-                    </label>
-                </div>
-                <label class="ob-switch-row tes-mini-switch">
-                    <span class="ob-switch">
-                        <input type="checkbox" id="ob-mustakil" ${form.mustakilProje ? 'checked' : ''} />
-                        <span class="ob-switch-slider"></span>
-                    </span>
-                    <span class="ob-switch-label">Müstakil</span>
-                </label>
-                <label class="ob-switch-row tes-mini-switch">
-                    <span class="ob-switch">
-                        <input type="checkbox" id="ob-on-proje" ${form.onProje ? 'checked' : ''} />
-                        <span class="ob-switch-slider"></span>
-                    </span>
-                    <span class="ob-switch-label">Ön Proje</span>
-                </label>
             </div>
         </section>
 
@@ -916,6 +897,423 @@ function renderBirimTadilatList() {
     `;
 }
 
+// ── KOLON ŞERİTİ — 2 satırlı (PROJE + ABYS) tek satır özet ────────
+// Üst satır = projedeki sayaçlardan; alt satır = form.binaBilgi (ABYS).
+// Kolonlar: Daire · Dükkan · Alan · Basınç · Kapasite · Kutu · Kat
+function renderKolonFloorTable() {
+    const p = _computeKolonTotals();
+    const a = form.binaBilgi || {};
+    const pb = form.projeBilgi || {};
+    const cell = (v, dec) => {
+        if (v == null || v === 0 || v === '') return '<span class="tes-strip-empty">—</span>';
+        return (dec != null && typeof v === 'number') ? Number(v).toFixed(dec) : String(v);
+    };
+    // Sıra: Daire · Dükkan · Basınç · Kapasite · Alan · Kat
+    // Birim başlığa gider (m³/h, mbar, m² gibi).
+    const headers = [
+        { k: 'Daire',    u: '',      key: 'daire',     dec: 0 },
+        { k: 'Dükkan',   u: '',      key: 'dukkan',    dec: 0 },
+        { k: 'Basınç',   u: 'mbar',  key: 'basinc',    dec: 0 },
+        { k: 'Kapasite', u: 'm³/h',  key: 'kapasite',  dec: 2 },
+        { k: 'Alan',     u: 'm²',    key: 'alan',      dec: 1 },
+        { k: 'Kat',      u: '',      key: 'katSayisi', dec: 0 },
+    ];
+    const headerCols = headers.map(h => `
+        <div class="tes-strip-k">
+            <span class="tes-strip-k-label">${escapeHtml(h.k)}</span>
+            <span class="tes-strip-k-unit">${h.u ? escapeHtml(h.u) : '&nbsp;'}</span>
+        </div>
+    `).join('');
+
+    // PROJE satırı:
+    //  - kolonVar=true  → hesaplanan değerler (mevcut davranış)
+    //  - kolonVar=false → manuel girilebilir text input'lar (form.projeBilgi)
+    let projeCells;
+    if (form.kolonVar) {
+        projeCells = [
+            cell(p.daire,     0),
+            cell(p.dukkan,    0),
+            cell(p.basinc,    0),
+            cell(p.kapasite,  2),
+            cell(p.alan,      1),
+            cell(p.katSayisi, 0),
+        ].map(html => `<div class="tes-strip-v">${html}</div>`).join('');
+    } else {
+        projeCells = headers.map(h => {
+            const v = pb[h.key];
+            const val = (v == null || !Number.isFinite(Number(v))) ? '' : String(v);
+            return `<div class="tes-strip-v">
+                <input type="number" class="tes-strip-input" data-pb-key="${h.key}"
+                       step="${h.dec === 0 ? '1' : (h.dec === 1 ? '0.1' : '0.01')}"
+                       value="${escapeHtml(val)}"
+                       placeholder="—" />
+            </div>`;
+        }).join('');
+    }
+
+    // ABYS verisi yoksa basınç default ('21') sızmasın; binaBilgi yoksa null bas.
+    const abysHasData = !!form.binaBilgi;
+    const abysBasinc = abysHasData ? _abysNum(form.kutuBasinc) : null;
+    const abysCells = [
+        cell(_abysNum(a.daireSayisi),  0),
+        cell(_abysNum(a.dukkanSayisi), 0),
+        cell(abysBasinc,               0),
+        cell(_abysNum(a.kapasite),     2),
+        cell(_abysNum(a.alan),         1),
+        cell(_abysNum(a.katSayisi),    0),
+    ].map(html => `<div class="tes-strip-v tes-strip-v-abys">${html}</div>`).join('');
+
+    // ABYS → PROJE'ye aktar kısayolu. Yalnızca ABYS verisi varsa aktif.
+    const copyEnabled = abysHasData;
+    const copyBtn = `
+        <button type="button" class="tes-strip-copy-btn"
+                id="ob-abys-to-proje" title="ABYS verilerini PROJE'ye aktar"
+                ${copyEnabled ? '' : 'disabled'}>
+            <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="13" x2="8" y2="3"></line>
+                <polyline points="3 8 8 3 13 8"></polyline>
+            </svg>
+        </button>
+    `;
+
+    return `
+        <div class="tes-strip">
+            <div class="tes-strip-rowlabel tes-strip-rowlabel-head"></div>
+            ${headerCols}
+            <div class="tes-strip-rowlabel tes-strip-rowlabel-proje">PROJE</div>
+            ${projeCells}
+            <div class="tes-strip-rowlabel tes-strip-rowlabel-abys">
+                <span>ABYS</span>
+                ${copyBtn}
+            </div>
+            ${abysCells}
+        </div>
+    `;
+}
+
+// ABYS değeri: 0/null/'' → null (cell helper "—" basacak).
+function _abysNum(v) {
+    if (v == null) return null;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n === 0) return null;
+    return n;
+}
+
+// ── İÇ TESİSAT TABLOSU — Birim / Cihaz görünümü (segmented) ───────
+function renderIcTesisatBirimTable() {
+    const view = (form.icTesisatView === 'cihaz') ? 'cihaz' : 'birim';
+    const seg = `
+        <div class="ob-seg tes-view-seg" id="ob-ic-tes-view">
+            <button type="button" class="ob-seg-btn ${view === 'birim' ? 'ob-active' : ''}" data-val="birim">Birimler</button>
+            <button type="button" class="ob-seg-btn ${view === 'cihaz' ? 'ob-active' : ''}" data-val="cihaz">Cihazlar</button>
+        </div>
+    `;
+    const body = (view === 'birim') ? _renderBirimView() : _renderCihazView();
+    return seg + body;
+}
+
+// Birim hücreleri için sayı formatlama (birim hücreden çıkarıldı).
+function _numCell(v, dec) {
+    if (v == null || v === '' || (typeof v === 'number' && !Number.isFinite(v))) return '—';
+    return (dec != null && typeof v === 'number') ? Number(v).toFixed(dec) : String(v);
+}
+// Tablo başlığı — etiket + altta birim chip. Birim yoksa boş satır rezerve
+// edilir; tüm sütun başlıkları aynı yükseklikte hizalanır.
+function _th(label, unit) {
+    return `<th><span class="tes-th-label">${escapeHtml(label)}</span><span class="tes-th-unit">${unit ? escapeHtml(unit) : '&nbsp;'}</span></th>`;
+}
+
+function _renderBirimView() {
+    const birims = _computeBirimRows();
+    if (!birims.length) {
+        return `<div class="tes-table-empty">Henüz çizilmiş sayaç yok.</div>`;
+    }
+    // Kolon yokken birim tadilatı her zaman düzenlenebilir;
+    // kolon varsa, ancak Kolon Tadilat açıksa düzenlenebilir.
+    const tadilatDisabled = form.kolonVar && !form.kolonTadilat;
+    const body = birims.map(b => {
+        const tadKey = b.birimKey;
+        const tadChecked = !!form.birimTadilat[tadKey];
+        return `
+            <tr class="tes-tbl-birim">
+                <td class="tes-tbl-birim-no">${escapeHtml(b.daireNo)}</td>
+                <td>${escapeHtml(b.aboneTuketimNo || '—')}</td>
+                <td>${escapeHtml(b.aboneAdi || '—')}</td>
+                <td>${escapeHtml(b.sayacTipi || '—')}</td>
+                <td>${escapeHtml(b.sayacTuru || '—')}</td>
+                <td>${escapeHtml(b.imalatTipi || '—')}</td>
+                <td>${escapeHtml(b.esnekMarka || '—')}</td>
+                <td class="tes-num">${_numCell(b.basinc, 0)}</td>
+                <td class="tes-num">${_numCell(b.kapasite, 2)}</td>
+                <td class="tes-num">${_numCell(b.alan, 1)}</td>
+                <td class="tes-tbl-tadilat">
+                    <label class="tes-tbl-tadilat-cell ${tadilatDisabled ? 'is-disabled' : ''}">
+                        <span class="ob-switch ob-switch-xs">
+                            <input type="checkbox" class="tes-birim-tadilat" data-birim-key="${escapeHtml(tadKey)}"
+                                   ${tadChecked ? 'checked' : ''} ${tadilatDisabled ? 'disabled' : ''} />
+                            <span class="ob-switch-slider"></span>
+                        </span>
+                    </label>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    return `
+        <div class="tes-tbl-wrap tes-tbl-wrap-scroll">
+            <table class="tes-tbl tes-tbl-compact tes-tbl-birim-wide">
+                <thead>
+                    <tr>
+                        ${_th('Daire')}
+                        ${_th('Abone No')}
+                        ${_th('Abone Adı')}
+                        ${_th('Sayaç Tipi')}
+                        ${_th('Sayaç Türü')}
+                        ${_th('İmalat')}
+                        ${_th('Esnek Marka')}
+                        ${_th('Basınç', 'mbar')}
+                        ${_th('Kapasite', 'm³/h')}
+                        ${_th('Alan', 'm²')}
+                        ${_th('Tdl')}
+                    </tr>
+                </thead>
+                <tbody>${body}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function _renderCihazView() {
+    const birims = _computeBirimRows();
+    const hasAny = birims.some(b => b.cihazlar.length > 0);
+    if (!hasAny) {
+        return `<div class="tes-table-empty">Henüz çizilmiş cihaz yok.</div>`;
+    }
+    // Birim sırasıyla cihaz satırları; her birim için ilk satıra ait class ile üst kenar çizgisi.
+    const body = birims.flatMap(b => {
+        if (!b.cihazlar.length) return [];
+        return b.cihazlar.map((c, i) => {
+            const kcal = Number(c.kapasite);
+            const kw = Number.isFinite(kcal) && kcal > 0 ? (kcal / 860).toFixed(2) : null;
+            const kapHtml = (Number.isFinite(kcal) && kcal > 0)
+                ? `${kcal}<span class="tes-tbl-sub"> (${kw} kW)</span>`
+                : '—';
+            return `
+                <tr class="tes-tbl-cihaz-row ${i === 0 ? 'tes-tbl-cihaz-first' : ''}">
+                    <td class="tes-tbl-birim-no">${i === 0 ? escapeHtml(b.daireNo) : ''}</td>
+                    <td>${escapeHtml(_cihazTipiLabel(c) || '—')}</td>
+                    <td class="tes-num">${kapHtml}</td>
+                    <td class="tes-num">${_numCell(c.debi, 2)}</td>
+                    <td class="tes-num">${_numCell(c.verim, 0)}</td>
+                    <td>${escapeHtml(c.baca || '—')}</td>
+                    <td>${escapeHtml(c.marka || '—')}</td>
+                    <td>${escapeHtml(c.model || '—')}</td>
+                </tr>
+            `;
+        });
+    }).join('');
+    return `
+        <div class="tes-tbl-wrap tes-tbl-wrap-scroll">
+            <table class="tes-tbl tes-tbl-compact tes-tbl-cihaz-wide">
+                <thead>
+                    <tr>
+                        ${_th('Daire')}
+                        ${_th('Cihaz Tipi')}
+                        ${_th('Kapasite', 'kcal/h')}
+                        ${_th('Debi', 'm³/h')}
+                        ${_th('Verim', '%')}
+                        ${_th('Baca')}
+                        ${_th('Marka')}
+                        ${_th('Model')}
+                    </tr>
+                </thead>
+                <tbody>${body}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+// ── VERİ YARDIMCILARI ─────────────────────────────────────────────
+// Mahal listesinde birim/separator dışını filtreleyen yardımcı.
+const _SEPARATOR_NAMES = new Set(['SAHANLIK', 'AÇIK SAHANLIK', 'BAHÇE']);
+const _BIRIM_DISI = new Set([
+    'MAHAL', 'ASANSÖR', 'YAN BİNA', 'DEPO', 'AYDINLIK', 'GARAJ', 'BODRUM',
+    'AÇIK OTOPARK', 'KAPALI OTOPARK', 'BACA', 'TEKNİK HACİM', 'AÇIK AYDINLIK',
+    'ÇATI ARASI', 'YANGIN MERDİVENİ', 'TESİSAT ŞAFTI', 'BACA ŞAFTI',
+    'SAYAÇ ODASI', 'SAYAÇ ŞAFTI', 'KURANGLEZ', 'SIĞINAK', 'HAVALANDIRMA',
+    'TOPRAK DOLGU', 'KÖMÜRLÜK', 'ORTAK ALAN'
+]);
+function _isBirimRoom(r) {
+    if (!r) return false;
+    const nm = (r.name || '').toUpperCase().trim();
+    if (_SEPARATOR_NAMES.has(nm)) return false;
+    if (_BIRIM_DISI.has(nm)) return false;
+    return true;
+}
+
+// Kolon şeridi için proje geneli toplamlar (tek satırlık özet).
+function _computeKolonTotals() {
+    const pm = (typeof window !== 'undefined') ? window.plumbingManager : null;
+    const realFloors = (state.floors || []).filter(f => !f.isPlaceholder);
+    // Kat sayısı: state.floors varsa oradan, yoksa form'dan türet.
+    const katSayisi = realFloors.length || ((form.bodrumSayisi || 0) + 1 + (form.normalKatSayisi || 0));
+    let daire = 0, dukkan = 0, basincMax = 0;
+    const sayaclar = (pm?.components || []).filter(c => c.type === 'sayac');
+    for (const s of sayaclar) {
+        const tipi = String(s.birimTipi || 'KONUT').toUpperCase();
+        if (tipi === 'KONUT') daire++;
+        else if (tipi === 'TİCARİ' || tipi === 'TICARI') dukkan++;
+        const b = parseFloat(s.basinc); if (Number.isFinite(b)) basincMax = Math.max(basincMax, b);
+    }
+    // Bina kapasite = servis kutusundan çıkan ilk hattın debisi (m³/h).
+    let binaKapasite = null;
+    const kutu = (pm?.components || []).find(c => c.type === 'servis_kutusu');
+    if (kutu) {
+        const kutuPipe = (pm?.pipes || []).find(p => p.baslangicBaglanti?.hedefId === kutu.id);
+        const d = Number(kutuPipe?.debi);
+        if (Number.isFinite(d) && d > 0) binaKapasite = d;
+    }
+    // Toplam alan = birim odalarının (separator + birim-dışı hariç) alan toplamı.
+    let alanToplam = 0;
+    for (const r of (state.rooms || [])) {
+        if (!_isBirimRoom(r)) continue;
+        const a = Number(r.area);
+        if (Number.isFinite(a) && a > 0) alanToplam += a;
+    }
+    return {
+        katSayisi: katSayisi || null,
+        daire,
+        dukkan,
+        alan: alanToplam || null,
+        basinc: basincMax || null,
+        kapasite: binaKapasite,
+    };
+}
+
+// Bir sayaca ait birimin alan toplamı (m²).
+// Eşleme: aynı floorId + aynı birimNo (syncBirimState sayaç ↔ mahal arası birimNo'yu eşler).
+function _birimAlanForSayac(sayac) {
+    if (!sayac) return null;
+    const sNo = String(sayac.birimNo ?? '').trim();
+    if (!sNo) return null;
+    let toplam = 0;
+    for (const r of (state.rooms || [])) {
+        if (!_isBirimRoom(r)) continue;
+        if (sayac.floorId != null && r.floorId != null && r.floorId !== sayac.floorId) continue;
+        const rNo = String(r.birimNo ?? '').trim();
+        if (rNo !== sNo) continue;
+        const a = Number(r.area);
+        if (Number.isFinite(a) && a > 0) toplam += a;
+    }
+    return toplam > 0 ? toplam : null;
+}
+
+function _sayacKapasite(sayac, debiTablo) {
+    if (!debiTablo) return null;
+    const row = debiTablo.find(r => r.Tip === sayac.sayacTipi);
+    if (!row) return null;
+    const is300 = String(sayac.basinc) === '300';
+    return is300 ? row.Qmax300 : row.Qmax21;
+}
+
+function _computeBirimRows() {
+    const pm = (typeof window !== 'undefined') ? window.plumbingManager : null;
+    if (!Array.isArray(pm?.components)) return [];
+    const sayaclar = pm.components.filter(c => c.type === 'sayac');
+    if (!sayaclar.length) return [];
+    // Daire numarasına göre sırala: D1, D2..., DÜK1, DÜK2...
+    sayaclar.sort((a, b) => {
+        const ta = String(a.birimTipi || 'KONUT').toUpperCase();
+        const tb = String(b.birimTipi || 'KONUT').toUpperCase();
+        if (ta !== tb) return ta === 'KONUT' ? -1 : 1;
+        const na = parseInt(a.birimNo, 10) || 0;
+        const nb = parseInt(b.birimNo, 10) || 0;
+        return na - nb;
+    });
+    return sayaclar.map(s => {
+        const tipi = String(s.birimTipi || 'KONUT').toUpperCase();
+        const no   = String(s.birimNo ?? '').trim();
+        const daireNo  = no ? (tipi === 'KONUT' ? 'D' + no : 'DÜK' + no) : '—';
+        const birimKey = no ? (tipi === 'KONUT' ? `D${no}` : `DUK${no}`) : '';
+        const cihazlar = _findCihazlarDownstream(pm, s);
+        // Birim kapasitesi = sayaç çıkışındaki ilk hattın debisi (m³/h).
+        const cikisPipe = (pm?.pipes || []).find(p => p.id === s.cikisBagliBoruId);
+        const cikisDebi = Number(cikisPipe?.debi);
+        const birimKapasite = Number.isFinite(cikisDebi) && cikisDebi > 0 ? cikisDebi : null;
+        return {
+            birimKey,
+            daireNo,
+            aboneTuketimNo: s.aboneNo || '',
+            aboneAdi: s.aboneAdi || '',
+            sayacTipi: s.sayacTipi || '',
+            sayacTuru: s.sayacTuru || '',
+            imalatTipi: _imalatLabel(s),
+            esnekMarka: s.esnekMarka || '',
+            basinc: s.basinc ? Math.round(Number(s.basinc)) : null,
+            kapasite: birimKapasite,
+            alan: _birimAlanForSayac(s),
+            cihazlar,
+        };
+    });
+}
+
+// Sayaç imalat (bağlantı) tipi: Dişli / Kaynaklı / Esnek.
+function _imalatLabel(s) {
+    if (!s) return '';
+    if (String(s.birimBoruTipi || '').toUpperCase() === 'ESNEK') return 'Esnek';
+    const b = String(s.birimBaglantiTipi || '').toUpperCase();
+    if (b === 'DİŞLİ' || b === 'DISLI') return 'Dişli';
+    if (b === 'KAYNAKLI') return 'Kaynaklı';
+    return '';
+}
+
+// Cihaz tipi etiketi: TICARI ise ticariCihazTipi göster, yoksa cihazTipi.
+function _cihazTipiLabel(c) {
+    const t = String(c?.tipi || '').toUpperCase();
+    if (t === 'TICARI' || t === 'TİCARİ') {
+        return (c.ticariCihazTipi && String(c.ticariCihazTipi).trim()) || 'Ticari';
+    }
+    return c?.tipi || '';
+}
+
+// Sayaçtan aşağıya doğru pipe-baslangicBaglanti zincirini izleyerek bağlı cihazları topla.
+function _findCihazlarDownstream(pm, sayac) {
+    if (!pm) return [];
+    const downstreamPipeIds = new Set();
+    const sourceIds = new Set([sayac.id]);
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const pipe of (pm.pipes || [])) {
+            if (downstreamPipeIds.has(pipe.id)) continue;
+            const bag = pipe.baslangicBaglanti;
+            if (bag?.hedefId && sourceIds.has(bag.hedefId)) {
+                downstreamPipeIds.add(pipe.id);
+                sourceIds.add(pipe.id);
+                changed = true;
+            }
+        }
+    }
+    const cihazlar = (pm.components || []).filter(c =>
+        c.type === 'cihaz' && c.fleksBaglanti?.boruId && downstreamPipeIds.has(c.fleksBaglanti.boruId));
+    return cihazlar.map(c => ({
+        tipi:   c.cihazTipi || '',
+        ticariCihazTipi: c.ticariCihazTipi || '',
+        kapasite: c.kapasiteKcal || null,
+        debi:   _cihazDebi(c),
+        verim:  c.verim || '',
+        baca:   c.bacaTipi || '',
+        marka:  c.marka || '',
+        model:  c.model || '',
+    }));
+}
+
+function _cihazDebi(c) {
+    const kcal = parseFloat(c.kapasiteKcal);
+    if (!Number.isFinite(kcal) || kcal <= 0) return null;
+    const verim = (parseFloat(c.verim) || 100) / 100;
+    return kcal / 8250 / verim;
+}
+
 function renderKatlar() {
     // kolon=Hayır iken "tüm katların yüksekliği aynı" seçeneği yoktur;
     // tüm katlar her zaman alt alta listelenir (yükseklik + iç tesisat checkbox bir arada).
@@ -1059,6 +1457,40 @@ function renderSorumlu() {
                 ${textField('Usta', 'sorumlu.usta', s.usta)}
             </div>
         </section>
+
+        <section class="ob-section">
+            <h2 class="ob-q-title">Proje bilgileri</h2>
+            <div class="tes-bottom">
+                <div class="tes-isinma ob-radio-row" data-group="isinmaTipi">
+                    <label class="tes-isinma-opt">
+                        <input type="radio" name="isinmaTipi" value="bireysel" ${form.isinmaTipi === 'bireysel' ? 'checked' : ''} />
+                        <span>Bireysel</span>
+                    </label>
+                    <label class="tes-isinma-opt">
+                        <input type="radio" name="isinmaTipi" value="merkezi" ${form.isinmaTipi === 'merkezi' ? 'checked' : ''} />
+                        <span>Merkezi</span>
+                    </label>
+                    <label class="tes-isinma-opt">
+                        <input type="radio" name="isinmaTipi" value="boylerli" ${form.isinmaTipi === 'boylerli' ? 'checked' : ''} />
+                        <span>Boylerli</span>
+                    </label>
+                </div>
+                <label class="ob-switch-row tes-mini-switch">
+                    <span class="ob-switch">
+                        <input type="checkbox" id="ob-mustakil" ${form.mustakilProje ? 'checked' : ''} />
+                        <span class="ob-switch-slider"></span>
+                    </span>
+                    <span class="ob-switch-label">Müstakil</span>
+                </label>
+                <label class="ob-switch-row tes-mini-switch">
+                    <span class="ob-switch">
+                        <input type="checkbox" id="ob-on-proje" ${form.onProje ? 'checked' : ''} />
+                        <span class="ob-switch-slider"></span>
+                    </span>
+                    <span class="ob-switch-label">Ön Proje</span>
+                </label>
+            </div>
+        </section>
     `;
 }
 
@@ -1143,9 +1575,9 @@ function attachTabListeners(tabId) {
         }
         form.kolonVar = e.target.checked;
         if (!form.kolonVar) {
+            // KOLON kapanınca yalnızca KOLON-TADİLAT temizlenir;
+            // İç tesisat tadilatı bağımsız olduğundan korunur.
             form.kolonTadilat = false;
-            form.icTesisatTadilat = false;
-            form.birimTadilat = {};
             form.tumKatlarAyniYukseklik = false;
             syncKatYukseklikleri();
         }
@@ -1198,6 +1630,42 @@ function attachTabListeners(tabId) {
         syncProjectType();
         renderForm();
     });
+    // PROJE şerit input'ları — manuel kolon bilgileri (kolonVar=false).
+    overlay.querySelectorAll('.tes-strip-input').forEach(el => {
+        el.addEventListener('input', () => {
+            const key = el.dataset.pbKey;
+            if (!key || !form.projeBilgi) return;
+            const raw = el.value.trim();
+            form.projeBilgi[key] = raw === '' ? null : (Number.isFinite(parseFloat(raw)) ? parseFloat(raw) : null);
+        });
+    });
+
+    // ABYS → PROJE'ye aktarma kısayolu.
+    overlay.querySelector('#ob-abys-to-proje')?.addEventListener('click', e => {
+        e.preventDefault();
+        if (!form.binaBilgi) return;
+        const a = form.binaBilgi;
+        form.projeBilgi = {
+            daire:     _abysNum(a.daireSayisi),
+            dukkan:    _abysNum(a.dukkanSayisi),
+            alan:      _abysNum(a.alan),
+            basinc:    _abysNum(form.kutuBasinc),
+            kapasite:  _abysNum(a.kapasite),
+            katSayisi: _abysNum(a.katSayisi),
+        };
+        renderForm();
+    });
+
+    // İç tesisat görünüm seçici (Birimler / Cihazlar)
+    overlay.querySelector('#ob-ic-tes-view')?.addEventListener('click', e => {
+        const btn = e.target.closest('.ob-seg-btn');
+        if (!btn) return;
+        const val = btn.dataset.val;
+        if (val === form.icTesisatView) return;
+        form.icTesisatView = (val === 'cihaz') ? 'cihaz' : 'birim';
+        renderForm();
+    });
+
     // Birim bazında tadilat switch'leri
     overlay.querySelectorAll('.tes-birim-tadilat').forEach(el => {
         el.addEventListener('change', e => {
@@ -1996,6 +2464,10 @@ function applyAndClose() {
             tadilatSebep: form.tadilatSebep,
             projeKapagiNotu: form.projeKapagiNotu,
             kolonVar: form.kolonVar,
+            kolonTadilat: form.kolonTadilat,
+            icTesisatTadilat: form.icTesisatTadilat,
+            birimTadilat: { ...(form.birimTadilat || {}) },
+            projeBilgi: { ...(form.projeBilgi || {}) },
             kutuTipi: form.kolonVar ? form.kutuTipi : null,
             kutuBasinc: form.kutuBasinc,
             zeminKat0Offset: form.zeminKat0Offset,
@@ -2051,6 +2523,19 @@ function buildFormFromState() {
     out.zeminKat0Offset = Number.isFinite(meta.zeminKat0Offset) ? meta.zeminKat0Offset : 0;
     out.mustakilProje  = !!meta.mustakilProje;
     out.onProje        = !!meta.onProje;
+    // Tadilat durumları — meta'dan geri yükle, yoksa projectType='tadilat' iken
+    // kolonTadilat'ı varsayılan AÇIK kabul et (geriye dönük uyum; eski projelerde
+    // sadece type yazılıydı).
+    out.kolonTadilat      = (typeof meta.kolonTadilat      === 'boolean') ? meta.kolonTadilat
+                          : (out.projectType === 'tadilat');
+    out.icTesisatTadilat  = (typeof meta.icTesisatTadilat  === 'boolean') ? meta.icTesisatTadilat
+                          : false;
+    out.birimTadilat      = (meta.birimTadilat && typeof meta.birimTadilat === 'object')
+                          ? { ...meta.birimTadilat } : {};
+    // Manuel kolon bilgileri (kolonVar=false iken kullanılır).
+    if (meta.projeBilgi && typeof meta.projeBilgi === 'object') {
+        Object.assign(out.projeBilgi, meta.projeBilgi);
+    }
     if (meta.adres)    Object.assign(out.adres, meta.adres);
     if (meta.sorumlu)  Object.assign(out.sorumlu, meta.sorumlu);
 
@@ -2272,6 +2757,10 @@ function applyEditAndClose() {
             tadilatSebep: form.tadilatSebep,
             projeKapagiNotu: form.projeKapagiNotu,
             kolonVar: form.kolonVar,
+            kolonTadilat: form.kolonTadilat,
+            icTesisatTadilat: form.icTesisatTadilat,
+            birimTadilat: { ...(form.birimTadilat || {}) },
+            projeBilgi: { ...(form.projeBilgi || {}) },
             kutuTipi: form.kolonVar ? form.kutuTipi : null,
             kutuBasinc: form.kutuBasinc,
             zeminKat0Offset: form.zeminKat0Offset,
