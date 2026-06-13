@@ -9,7 +9,10 @@
     z-index: 100020;
     flex-direction: column;
 }
-.kapak-overlay.kapak-visible { display: flex; }
+
+.kapak-overlay.kapak-visible {
+    display: flex;
+}
 
 .kapak-toolbar {
     flex: 0 0 auto;
@@ -21,6 +24,7 @@
     border-bottom: 1px solid #3c4043;
     color: #e8eaed;
 }
+
 .kapak-tb-title {
     flex: 1;
     text-align: center;
@@ -29,6 +33,7 @@
     letter-spacing: 0.5px;
     color: #c8dcff;
 }
+
 .kapak-tb-btn {
     height: 28px;
     padding: 0 12px;
@@ -41,16 +46,19 @@
     font-weight: 500;
     transition: background .15s ease, border-color .15s ease;
 }
+
 .kapak-tb-btn:hover {
     background: rgba(138, 180, 248, 0.18);
     border-color: rgba(138, 180, 248, 0.45);
 }
+
 .kapak-tb-primary {
     background: #8ab4f8;
     color: #1e1f20;
     font-weight: 600;
     border-color: #8ab4f8;
 }
+
 .kapak-tb-primary:hover {
     background: #a4c2fa;
     border-color: #a4c2fa;
@@ -63,13 +71,13 @@
     display: flex;
     justify-content: center;
     padding: 24px;
-    background: #4a4a4a;
+    /* background: #4a4a4a; */
 }
 
-/* ── A4 sayfa (210 × 297 mm) ─────────────────────────────────────── */
+/* ── A4 sayfa (210 × 297 mm) — dış çerçeve dahil ─────────────────── */
 .kapak-page {
     width: 210mm;
-    min-height: 297mm;
+    height: 297mm;
     background: #ffffff;
     color: #111111;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
@@ -77,10 +85,42 @@
     font-size: 9pt;
     line-height: 1.18;
     box-sizing: border-box;
-    padding: 6mm 7mm 7mm 7mm;
+    padding: 3mm 4mm 3mm 4mm;
+    overflow: hidden;
     color-adjust: exact;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+}
+
+/* Dış container — kendi border'ı YOK. Logo ve tablolar kendi border'larıyla
+   tutarlı bir dış kontur oluşturur. height: auto ile alt fazlalık alan olmaz. */
+.kp-frame {
+    border: none;
+    padding: 0;
+    box-sizing: border-box;
+    height: auto;
+}
+
+/* Logo şeridi — üç kenarda (üst/sol/sağ) tablolarla AYNI kalınlıkta border.
+   Altında border yok; ilk tablonun (Onay) üst border'ı zaten ayırıcı görevi yapar. */
+.kp-logo-wrap {
+    border-top:    0.45mm solid #000;
+    border-left:   0.45mm solid #000;
+    border-right:  0.45mm solid #000;
+    border-bottom: none;
+    height: 24mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+/* Birbirini takip eden tablolar arasındaki çift çizgiyi engelle:
+   ilk tablo border-top'unu korur (logo şeridine bitişir);
+   sonraki tablolarda border-top kaldırılır → tek 0.45mm ayırıcı. */
+.kp-tbl + .kp-tbl {
+    border-top: none;
 }
 
 /* Logo (üst) */
@@ -91,10 +131,13 @@
     justify-content: center;
     margin-bottom: 1mm;
 }
-.kp-logo-wrap svg {
+
+.kp-logo-wrap svg,
+.kp-logo-wrap img {
     height: 18mm;
     width: auto;
     max-width: 70mm;
+    display: block;
 }
 
 /* ── Tablo ortakları ─────────────────────────────────────────────── */
@@ -104,9 +147,13 @@
     table-layout: fixed;
     margin: 0;
 }
+
+.kp-tbl {
+    border: 0.45mm solid #000;       /* tablo dış çerçevesi — kp-frame ile aynı */
+}
 .kp-tbl th,
 .kp-tbl td {
-    border: 0.35mm solid #000;
+    border: 0.18mm solid #444;       /* iç hücreler ince */
     padding: 1mm 1.5mm;
     text-align: center;
     vertical-align: middle;
@@ -116,6 +163,18 @@
     word-wrap: break-word;
     line-height: 1.18;
 }
+/* Section bandı (BİNANIN / PROJE TASARIMCISININ / FİRMANIN) — dış kenarla
+   aynı kalınlık, tutarlı görünüm */
+.kp-section-head {
+    border-top: 0.45mm solid #000 !important;
+    border-bottom: 0.45mm solid #000 !important;
+}
+/* Birim chip (m³/h, m²) — başlık uppercase olsa da küçük kalır */
+.kp-unit {
+    text-transform: none;
+    font-weight: 600;
+}
+
 .kp-tbl th {
     background: #ffffff;
     font-weight: 700;
@@ -123,139 +182,254 @@
     letter-spacing: 0.2px;
 }
 
-/* "BİNANIN", "PROJE TASARIMCISININ", "FİRMANIN" gibi merkez bantlar */
+/* Merkez bant başlıkları — alttan üstten rahat nefes alsın */
 .kp-section-head {
-    font-size: 10.5pt !important;
-    letter-spacing: 1.2px !important;
-    padding: 1.5mm 1.5mm !important;
+    font-size: 11pt !important;
+    letter-spacing: 1.5px !important;
+    padding: 3.5mm 2mm !important;
+    line-height: 1.2 !important;
 }
 
-/* ── ONAY tablosu — 2 sütun, sağ rowspan=3 ───────────────────────── */
-.kp-tbl-onay th,
-.kp-tbl-onay td { width: 50%; }
-.kp-tbl-onay thead th {
-    font-size: 9pt;
-    padding: 1.5mm !important;
+/* ── ONAY tablosu — tek hücre, içinde 3 stacked div ──────────────── */
+.kp-onay-box-left-container {
+    padding: 0 !important;
+    vertical-align: top !important;
+    height: 68mm;
 }
-.kp-onay-box-top { height: 42mm; background: #fff; }
-.kp-onay-box-right { background: #fff; }
-.kp-onay-mid {
-    text-align: center;
-    font-size: 8pt;
-    padding: 1mm 2mm !important;
+
+.kp-onay-box-right {
+    height: 68mm;
     background: #fff;
-    height: 6mm;
-    font-style: italic;
+    vertical-align: top;
 }
+
+.kp-onay-box-top {
+    height: 25mm;
+    background: #fff;
+}
+
+.kp-onay-mid {
+    text-align: left;
+    font-size: 8pt;
+    padding: 1mm 3mm 1.5mm 3mm;
+    background: #fff;
+    font-style: italic;
+    height: 5mm;
+    /* PDF'teki gibi alta ÇİFT yatay çizgi */
+    border-bottom: 1.2mm double #000;
+    line-height: 1.2;
+}
+
 .kp-onay-notes {
     text-align: left;
-    padding: 1.5mm 2.5mm !important;
-    height: 22mm;
     vertical-align: top;
+    padding: 2mm 3mm;
+    height: 37mm;
     background: #fff;
 }
-.kp-onay-notes > div { margin-bottom: 2mm; line-height: 1.25; font-size: 8.5pt; }
-.kp-onay-notes strong { font-weight: 700; }
 
-/* ── 3 sütun veri (KULLANIM BASINCI vb.) ─────────────────────────── */
+.kp-onay-notes>div {
+    text-align: left;
+    margin-bottom: 2mm;
+    line-height: 1.25;
+    font-size: 8.5pt;
+}
+
+.kp-onay-notes strong {
+    font-weight: 700;
+}
+
+/* ── 3 sütun veri ────────────────────────────────────────────────── */
 .kp-tbl-3col th,
-.kp-tbl-3col td { height: 7mm; }
+.kp-tbl-3col td {
+    height: 6.5mm;
+}
+
 .kp-tbl-3col th {
     text-align: left;
     padding-left: 2mm !important;
     font-size: 7pt;
     line-height: 1.1;
 }
-.kp-tbl-3col td { font-size: 9pt; }
-/* Label sütunları geniş (etiketler tek satıra sığsın), value sütunları dar */
-.kp-tbl-3col col.kp-3col-lbl { width: 18%; }
-.kp-tbl-3col col.kp-3col-val { width: 15.33%; }
 
-/* ── BİNANIN tablosu ─────────────────────────────────────────────── */
-.kp-tbl-bina th { font-size: 7.5pt; padding: 1mm !important; line-height: 1.1; }
-.kp-tbl-bina td { height: 8mm; font-size: 9pt; }
-
-/* ── PROJE TASARIMCISININ + FİRMANIN ─────────────────────────────── */
-.kp-tbl-tasarimci th { font-size: 7.5pt; padding: 0.8mm !important; line-height: 1.1; }
-.kp-tbl-tasarimci td { height: 6mm; font-size: 9pt; }
-
-/* ── İMZA bloku ─────────────────────────────────────────────────── */
-.kp-tbl-imza col.kp-imza-c1 { width: 18%; }
-.kp-tbl-imza col.kp-imza-c2 { width: 14%; }
-.kp-tbl-imza col.kp-imza-c3 { width: 50%; }
-.kp-tbl-imza col.kp-imza-c4 { width: 18%; }
-.kp-tbl-imza th {
-    text-align: center;
-    padding: 0.8mm !important;
-    font-size: 7.5pt;
-    line-height: 1.1;
-}
-.kp-tbl-imza td {
-    height: 6.5mm;
-    text-align: center;
-    padding: 0.8mm !important;
+.kp-tbl-3col td {
     font-size: 9pt;
 }
-/* Sol sütun blok başlığı (YAPAN/ÇİZEN/KONTROL) — sola dayalı */
-.kp-tbl-imza tr > th:first-child {
-    text-align: left;
-    padding-left: 2.5mm !important;
-    font-size: 8pt;
+
+/* ── BİNANIN tablosu ─────────────────────────────────────────────── */
+.kp-tbl-bina th {
+    font-size: 7.5pt;
+    padding: 1mm !important;
+    line-height: 1.1;
 }
-/* tarih hücresi — italik */
-.kp-tbl-imza .kp-tar {
+
+.kp-tbl-bina td {
+    height: 7mm;
+    font-size: 9pt;
+}
+
+/* ── PROJE TASARIMCISININ + FİRMANIN ─────────────────────────────── */
+.kp-tbl-tasarimci th {
+    font-size: 7.5pt;
+    padding: 0.8mm !important;
+    line-height: 1.1;
     text-align: left;
     padding-left: 2mm !important;
+}
+
+/* Header satırı — ortalanmış */
+.kp-tbl-tasarimci thead th {
+    text-align: center;
+    padding-left: 1mm !important;
+}
+/* tbody'deki ADRES (ilk th) sol-dayalı; VERGİ NO + TELEFON (sonraki th'lar) ortalanır */
+.kp-tbl-tasarimci tbody th:not(:first-child) {
+    text-align: center !important;
+    padding-left: 1mm !important;
+}
+
+.kp-tbl-tasarimci td {
+    text-align: center;
+    height: 6.5mm;
+    font-size: 9pt;
+}
+
+/* ── İMZA bloku — 4 sütun, 3 blok × 3 satır, merged cells ─────────── */
+.kp-tbl-imza col.kp-imza-c1 {
+    width: 15%;
+}
+
+.kp-tbl-imza col.kp-imza-c2 {
+    width: 15%;
+}
+
+.kp-tbl-imza col.kp-imza-c3 {
+    width: 50%;
+}
+
+.kp-tbl-imza col.kp-imza-c4 {
+    width: 20%;
+}
+
+.kp-tbl-imza th {
+    text-align: left;
+    padding: 3mm 2mm !important;
+    font-size: 7.5pt;
+    line-height: 1.1;
+    background: #fff;
+}
+
+.kp-tbl-imza td {
+    text-align: left;
+    padding: 0.8mm 2mm !important;
+    font-size: 9pt;
+    height: 6mm;
+}
+
+/* Tarih hücresi — italik */
+.kp-tbl-imza .kp-tar {
     font-style: italic;
     font-size: 7.5pt;
     color: #555;
 }
-/* yapan/çizen/kontrol ad hücresi */
-.kp-tbl-imza .kp-imza-ad {
-    text-align: left;
+
+/* Ad satırı (yapan/çizen/kontrol ad) */
+.kp-tbl-imza .kp-imza-ad-left {
     padding-left: 3mm !important;
 }
-.kp-tbl-imza .kp-imza-sublbl {
-    font-size: 7pt;
-    color: #444;
-    text-align: center;
+
+/* Birleşik orta hücreler — rowspan=3, label üstte + yatay çizgi + value altta */
+.kp-tbl-imza .kp-imza-merged {
+    vertical-align: top;
+    padding: 0 !important;
+    text-align: left;
+}
+
+.kp-tbl-imza .kp-mg-lbl {
+    font-size: 7.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    line-height: 1.1;
+    padding: 1mm 2mm 1mm 2mm;
+    text-align: left;          /* etiket sola dayalı kalır */
+}
+
+.kp-tbl-imza .kp-mg-val {
+    font-size: 12pt;
+    font-weight: 600;
+    padding: 1mm 2mm;
+    text-align: center;        /* gelen metin (firma adı, proje adı vs) ORTALANIR */
 }
 
 /* ── Proje verisi (kırmızı) ──────────────────────────────────────── */
 .kp-var {
-    color: #c1121f;
+    color: #000;
     font-weight: 600;
 }
-.kp-var:empty::before { content: ""; }
 
-/* ── Yazdırma: yalnızca kapak sayfası A4 ─────────────────────────── */
+.kp-var:empty::before {
+    content: "";
+}
+
+/* ── Yazdırma ───────────────────────────────────────────────────── */
 @page {
     size: A4 portrait;
     margin: 0;
 }
+
 @media print {
-    html, body { width: 210mm; height: 297mm; margin: 0; padding: 0; background: #fff; }
-    body.kapak-printing * { visibility: hidden !important; }
+
+    html,
+    body {
+        width: 210mm;
+        height: 297mm;
+        margin: 0;
+        padding: 0;
+        background: #fff;
+    }
+
+    body.kapak-printing * {
+        visibility: hidden !important;
+    }
+
     body.kapak-printing .kapak-page,
-    body.kapak-printing .kapak-page * { visibility: visible !important; }
+    body.kapak-printing .kapak-page * {
+        visibility: visible !important;
+    }
+
     body.kapak-printing .kapak-overlay {
         position: absolute !important;
         inset: 0 !important;
         background: #fff !important;
         display: block !important;
     }
-    body.kapak-printing .kapak-toolbar { display: none !important; }
+
+    body.kapak-printing .kapak-toolbar {
+        display: none !important;
+    }
+
     body.kapak-printing .kapak-scroll {
         overflow: visible !important;
         padding: 0 !important;
         background: #fff !important;
         display: block !important;
     }
+
     body.kapak-printing .kapak-page {
         box-shadow: none !important;
         margin: 0 !important;
         width: 210mm !important;
-        min-height: 297mm !important;
-        page-break-after: avoid;
+        height: 297mm !important;
+        max-height: 297mm !important;
+        overflow: hidden !important;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
+        page-break-before: avoid !important;
+    }
+    body.kapak-printing .kp-frame {
+        height: auto !important;
+        max-height: 285mm !important;
+        overflow: hidden !important;
     }
 }
