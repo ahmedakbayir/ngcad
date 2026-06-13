@@ -1842,6 +1842,28 @@ export function setupUIListeners() {
         document.getElementById('bDelete')?.click(); // Gizli orijinal silme butonunu tetikler
     });
 
+    // ── Form alt menüsü ──────────────────────────────────────────
+    document.getElementById('menuFormKapak')?.addEventListener('click', async (e) => {
+        e.preventDefault();
+        document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
+        try {
+            const mod = await import('../form/kapak.js');
+            mod.showKapak();
+        } catch (err) {
+            console.warn('Kapak açılamadı:', err);
+        }
+    });
+    document.getElementById('menuFormIzometri')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
+        document.getElementById('bIso')?.click();
+    });
+    document.getElementById('menuFormProjeDetay')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
+        window.__showOnboarding && window.__showOnboarding(true, 'edit');
+    });
+
     // Kaydet İşlemi (Üzerine yaz / update et)
     document.getElementById('menuSave')?.addEventListener('click', (e) => {
         e.preventDefault();

@@ -5670,6 +5670,14 @@ body.light-mode .vis-panel-inner {
     color: var(--color-button-active);
 }
 
+/* Soluk menü item — henüz işlevsiz veya devre dışı */
+.dropdown-content a.is-muted,
+.dropdown-submenu-content a.is-muted {
+    opacity: 0.45;
+    pointer-events: none;
+    cursor: default;
+}
+
 /* Üçüncü seviye (iç içe) alt menü desteği */
 /* 1) İçinde alt menü taşıyan outer submenu, taşan iç menüyü kırpmasın */
 .dropdown-submenu-content:has(.dropdown-submenu-item) {

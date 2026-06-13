@@ -7,6 +7,7 @@
   <title>Profesyonel 2D/3D Mimari Editör</title>
   <link rel="stylesheet" href="./general-files/style.css" />
   <link rel="stylesheet" href="./onboarding/onboarding-panel.css" />
+  <link rel="stylesheet" href="./form/kapak.css" />
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
   <link rel="icon" type="image/png" href="./general-files/aaalogo.png" />
 </head>
@@ -33,78 +34,93 @@
               d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z">
             </path>
           </svg>
-          Proje Detayları
+          Proje Özellikleri
         </a>
         <div class="menu-separator"></div>
 
-        <a href="#" id="menuNewProject"
-          onclick="event.preventDefault(); window.__showOnboarding && window.__showOnboarding(true);">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-            <line x1="12" y1="18" x2="12" y2="12"></line>
-            <line x1="9" y1="15" x2="15" y2="15"></line>
-          </svg>
-          Yeni Proje
-        </a>
-
-        <a href="#" id="menuOpen">
-          <span style="display:inline-block; width:18px; height:18px;
-                       background-color: currentColor;
-                       -webkit-mask: url('./general-files/aaalogo.png') no-repeat center / contain;
-                       mask: url('./general-files/aaalogo.png') no-repeat center / contain;"></span>
-          Proje Aç
-
-          <a href="#" id="menuDxfImport">
-            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-              <path
-                d="m14.574 1.0203c-0.097-0.096997-0.29099-0.58198-0.97097-0.58198h-6.7038s0.97097 0.096997 1.36 1.068c0 0 1.069 2.5269 2.0399 4.9558 2.8179 6.6068 7.1898 17.099 7.1898 17.099h6.5108c0.097-0.097-9.3267-22.443-9.4247-22.54zm-8.8407 0.87497-5.3438 12.631c-0.29199 0.87497-0.097997 1.9439 1.457 1.9439h4.1779l3.6919-8.8417c-1.166-2.9149-2.1359-5.2478-2.1359-5.2478-0.096997-0.29199-0.38899-1.069-0.97197-1.069-0.58298 0-0.77698 0.48598-0.87397 0.58298zm-0.097997 15.643h-4.4689c-0.77698 0-1.166-0.48598-1.166-0.48598 0.77698 1.36 3.0119 5.6358 3.0119 5.6358 0.38899 0.48598 0.77698 0.77698 1.36 0.77698 1.263 0 3.2069-1.263 3.2069-1.263l7.4808-4.6639z">
-              </path>
+        <div class="dropdown-submenu-item">
+          <a href="#" id="menuProje" class="dropdown-submenu-trigger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
             </svg>
-            DXF Aç
+            Proje
+            <span class="dropdown-submenu-arrow">▶</span>
           </a>
-
-          <div class="menu-separator"></div>
-        </a>
-        <a href="#" id="menuSave">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-            <polyline points="17 21 17 13 7 13 7 21"></polyline>
-            <polyline points="7 3 7 8 15 8"></polyline>
-          </svg>
-          Kaydet
-        </a>
-        <a href="#" id="menuSaveAs">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-            <polyline points="14 2 14 8 20 8"></polyline>
-            <line x1="12" y1="18" x2="12" y2="12"></line>
-            <line x1="9" y1="15" x2="15" y2="15"></line>
-          </svg>
-          Farklı Kaydet
-        </a>
+          <div class="dropdown-submenu-content">
+            <a href="#" id="menuNewProject"
+              onclick="event.preventDefault(); window.__showOnboarding && window.__showOnboarding(true);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <line x1="9" y1="15" x2="15" y2="15"></line>
+              </svg>
+              Yeni Proje
+            </a>
+            <a href="#" id="menuOpen">
+              <span style="display:inline-block; width:18px; height:18px;
+                           background-color: currentColor;
+                           -webkit-mask: url('./general-files/aaalogo.png') no-repeat center / contain;
+                           mask: url('./general-files/aaalogo.png') no-repeat center / contain;"></span>
+              Proje Aç
+            </a>
+            <a href="#" id="menuDxfImport">
+              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <path
+                  d="m14.574 1.0203c-0.097-0.096997-0.29099-0.58198-0.97097-0.58198h-6.7038s0.97097 0.096997 1.36 1.068c0 0 1.069 2.5269 2.0399 4.9558 2.8179 6.6068 7.1898 17.099 7.1898 17.099h6.5108c0.097-0.097-9.3267-22.443-9.4247-22.54zm-8.8407 0.87497-5.3438 12.631c-0.29199 0.87497-0.097997 1.9439 1.457 1.9439h4.1779l3.6919-8.8417c-1.166-2.9149-2.1359-5.2478-2.1359-5.2478-0.096997-0.29199-0.38899-1.069-0.97197-1.069-0.58298 0-0.77698 0.48598-0.87397 0.58298zm-0.097997 15.643h-4.4689c-0.77698 0-1.166-0.48598-1.166-0.48598 0.77698 1.36 3.0119 5.6358 3.0119 5.6358 0.38899 0.48598 0.77698 0.77698 1.36 0.77698 1.263 0 3.2069-1.263 3.2069-1.263l7.4808-4.6639z">
+                </path>
+              </svg>
+              DXF Aç
+            </a>
+            <div class="menu-separator"></div>
+            <a href="#" id="menuSave">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                <polyline points="7 3 7 8 15 8"></polyline>
+              </svg>
+              Kaydet
+            </a>
+            <a href="#" id="menuSaveAs">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <line x1="9" y1="15" x2="15" y2="15"></line>
+              </svg>
+              Farklı Kaydet
+            </a>
+          </div>
+        </div>
 
         <div class="menu-separator"></div>
 
-        <a href="#" id="menuUndo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round">
-            <path d="M3 7v6h6" />
-            <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
-          </svg>
-          Geri Al
-        </a>
-        <a href="#" id="menuRedo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round">
-            <path d="M21 7v6h-6" />
-            <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
-          </svg>
-          İleri Al
-        </a>
+        <div class="dropdown-submenu-item">
+          <a href="#" id="menuForm" class="dropdown-submenu-trigger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round">
+              <rect x="4" y="3" width="16" height="18" rx="2"></rect>
+              <line x1="8" y1="8" x2="16" y2="8"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+              <line x1="8" y1="16" x2="13" y2="16"></line>
+            </svg>
+            Form
+            <span class="dropdown-submenu-arrow">▶</span>
+          </a>
+          <div class="dropdown-submenu-content">
+            <a href="#" id="menuFormKapak">Kapak</a>
+            <a href="#" id="menuFormVaziyet" class="is-muted" title="Yakında">Vaziyet Planı</a>
+            <a href="#" id="menuFormIzometri">İzometri</a>
+            <a href="#" id="menuFormProjeDetay" class="is-muted" title="Yakında">Proje Detayları</a>
+            <a href="#" id="menuFormStandartlar" class="is-muted" title="Yakında">Standartlar Tablosu</a>
+            <a href="#" id="menuFormCihazDegisim" class="is-muted" title="Yakında">Cihaz Değişim Formu</a>
+          </div>
+        </div>
 
         <div class="menu-separator"></div>
 
@@ -132,6 +148,23 @@
             <a href="#" id="menuHesapAutoCap">Otomatik Çap</a>
           </div>
         </div>
+
+        <a href="#" id="menuUndo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M3 7v6h6" />
+            <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+          </svg>
+          Geri Al
+        </a>
+        <a href="#" id="menuRedo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M21 7v6h-6" />
+            <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
+          </svg>
+          İleri Al
+        </a>
 
         <div class="menu-separator"></div>
 
