@@ -263,13 +263,16 @@ function _renderPage() {
                     <td>${r('')}</td><td>${r('')}</td>
                     <td>${r('')}</td><td>${r('')}</td>
                 </tr>
-                <tr><th colspan="4">ADRES</th><th>VERGİ NO</th></tr>
                 <tr>
-                    <td colspan="4">${r([adres.mahalle, adres.sokak, adres.binaNo, adres.ilce, adres.il].filter(Boolean).join(' '))}</td>
+                    <th colspan="3">ADRES</th>
+                    <th>TELEFON</th>
+                    <th>VERGİ NO</th>
+                </tr>
+                <tr>
+                    <td colspan="3">${r([adres.mahalle, adres.sokak, adres.binaNo, adres.ilce, adres.il].filter(Boolean).join(' '))}</td>
+                    <td>${r('')}</td>
                     <td>${r('')}</td>
                 </tr>
-                <tr><th colspan="4">TELEFON</th><th>CEP TEL NO</th></tr>
-                <tr><td colspan="4">${r('')}</td><td>${r('')}</td></tr>
             </tbody>
         </table>
 
