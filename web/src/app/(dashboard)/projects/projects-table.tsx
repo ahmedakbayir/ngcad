@@ -24,6 +24,13 @@ interface ProjectRowJoined {
 
 const CAD_BASE = process.env.NEXT_PUBLIC_CAD_URL || '../../index.html';
 
+const DURUM_OPTIONS = [
+  { value: 'taslak',     label: 'Taslak' },
+  { value: 'onaylandi',  label: 'Onaylandı' },
+  { value: 'tamamlandi', label: 'Tamamlandı' },
+  { value: 'iptal',      label: 'İptal' },
+];
+
 const columns: ColumnDef<ProjectRowJoined>[] = [
   {
     id: 'no',
@@ -31,6 +38,9 @@ const columns: ColumnDef<ProjectRowJoined>[] = [
     header: 'No',
     size: 60,
     cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">#{row.original.no}</span>,
+    meta: { filter: { type: 'text', placeholder: '#' } },
+    filterFn: (row, _id, value) =>
+      String(row.original.no).includes(String(value).replace(/^#/, '')),
   },
   {
     id: 'ad',
@@ -44,6 +54,8 @@ const columns: ColumnDef<ProjectRowJoined>[] = [
         <span className="font-medium">{row.original.proje_adi}</span>
       </Link>
     ),
+    meta: { filter: { type: 'text' } },
+    filterFn: 'includesString',
   },
   {
     id: 'pf',
@@ -58,6 +70,8 @@ const columns: ColumnDef<ProjectRowJoined>[] = [
         </Link>
       );
     },
+    meta: { filter: { type: 'text' } },
+    filterFn: 'includesString',
   },
   {
     id: 'df',
@@ -72,6 +86,8 @@ const columns: ColumnDef<ProjectRowJoined>[] = [
         </Link>
       );
     },
+    meta: { filter: { type: 'text' } },
+    filterFn: 'includesString',
   },
   {
     id: 'owner',
@@ -86,11 +102,13 @@ const columns: ColumnDef<ProjectRowJoined>[] = [
         </Link>
       );
     },
+    meta: { filter: { type: 'text' } },
+    filterFn: 'includesString',
   },
   {
     id: 'durum',
     header: 'Durum',
-    accessorKey: 'durum',
+    accessorFn: (r) => r.durum ?? 'taslak',
     cell: ({ row }) => {
       const d = row.original.durum ?? 'taslak';
       const variant =
@@ -100,6 +118,8 @@ const columns: ColumnDef<ProjectRowJoined>[] = [
         'secondary';
       return <Badge variant={variant as 'success' | 'info' | 'destructive' | 'secondary'}>{d}</Badge>;
     },
+    meta: { filter: { type: 'select', options: DURUM_OPTIONS } },
+    filterFn: 'equalsString',
   },
   {
     id: 'actions',

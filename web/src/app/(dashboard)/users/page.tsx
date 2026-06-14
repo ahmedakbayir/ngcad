@@ -9,12 +9,16 @@ export const dynamic = 'force-dynamic';
 
 export default async function UsersListPage() {
   const supabase = await supabaseServer();
-  const { data: users, error } = await supabase
-    .from('users')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(1000);
+  const [usersRes, pfRes, dfRes, upfRes, udfRes, pfDfRes] = await Promise.all([
+    supabase.from('users').select('*').order('created_at', { ascending: false }).limit(1000),
+    supabase.from('proje_firmalari').select('id, firma_adi'),
+    supabase.from('dagitim_firmalari').select('id, firma_adi'),
+    supabase.from('user_pf').select('user_id, pf_id'),
+    supabase.from('user_df').select('user_id, df_id'),
+    supabase.from('pf_df').select('pf_id, df_id'),
+  ]);
 
+  const error = usersRes.error;
   if (error) {
     return (
       <div className="mx-auto max-w-6xl space-y-2">
@@ -27,6 +31,30 @@ export default async function UsersListPage() {
       </div>
     );
   }
+
+  const pfById = new Map(((pfRes.data ?? []) as { id: string; firma_adi: string }[]).map((p) => [p.id, p]));
+  const dfById = new Map(((dfRes.data ?? []) as { id: string; firma_adi: string }[]).map((d) => [d.id, d]));
+
+  const pfToDfs: Record<string, { id: string; firma_adi: string }[]> = {};
+  (pfDfRes.data ?? []).forEach((r) => {
+    const df = dfById.get(r.df_id);
+    if (!df) return;
+    (pfToDfs[r.pf_id] ??= []).push(df);
+  });
+
+  const userPfMap: Record<string, { id: string; firma_adi: string; dfs: { id: string; firma_adi: string }[] }[]> = {};
+  (upfRes.data ?? []).forEach((r) => {
+    const pf = pfById.get(r.pf_id);
+    if (!pf) return;
+    (userPfMap[r.user_id] ??= []).push({ ...pf, dfs: pfToDfs[pf.id] ?? [] });
+  });
+
+  const userDfMap: Record<string, { id: string; firma_adi: string }[]> = {};
+  (udfRes.data ?? []).forEach((r) => {
+    const df = dfById.get(r.df_id);
+    if (!df) return;
+    (userDfMap[r.user_id] ??= []).push(df);
+  });
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -45,7 +73,11 @@ export default async function UsersListPage() {
         </Button>
       </div>
 
-      <UsersTable users={(users ?? []) as UserRow[]} />
+      <UsersTable
+        users={(usersRes.data ?? []) as UserRow[]}
+        userPfMap={userPfMap}
+        userDfMap={userDfMap}
+      />
     </div>
   );
 }

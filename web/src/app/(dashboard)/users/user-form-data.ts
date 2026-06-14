@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { PFListItem, YoneticiAday } from './user-form';
+import type { DFListItem, PFListItem, YoneticiAday } from './user-form';
 
 // User formunun ihtiyaç duyduğu tüm seçenekler tek server fetch ile.
 export async function loadUserFormOptions(supabase: SupabaseClient) {
   const [pfRes, dfRes, yonRes, upfRes, udfRes, pfdfRes] = await Promise.all([
-    supabase.from('proje_firmalari').select('id, firma_adi').order('firma_adi'),
-    supabase.from('dagitim_firmalari').select('id, firma_adi').order('firma_adi'),
+    supabase.from('proje_firmalari').select('id, firma_adi, parent_id').order('firma_adi'),
+    supabase.from('dagitim_firmalari').select('id, firma_adi, parent_id').order('firma_adi'),
     supabase
       .from('users')
       .select('id, adi, firma_yonetici, gdf_yonetici')
@@ -16,8 +16,8 @@ export async function loadUserFormOptions(supabase: SupabaseClient) {
     supabase.from('pf_df').select('pf_id, df_id'),
   ]);
 
-  const pfRows = pfRes.data ?? [];
-  const dfRows = dfRes.data ?? [];
+  const pfRows = (pfRes.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
+  const dfRows = (dfRes.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
   const dfAdById = new Map(dfRows.map((d) => [d.id, d.firma_adi]));
 
   // PF → bağlı DF adları (yetkili firmalar listesinde "(GDF: X)" hint'i için)
@@ -32,7 +32,14 @@ export async function loadUserFormOptions(supabase: SupabaseClient) {
   const pfList: PFListItem[] = pfRows.map((p) => ({
     id: p.id,
     firma_adi: p.firma_adi,
+    parent_id: p.parent_id,
     df_adlari: pfToDfAdlari.get(p.id) ?? [],
+  }));
+
+  const dfList: DFListItem[] = dfRows.map((d) => ({
+    id: d.id,
+    firma_adi: d.firma_adi,
+    parent_id: d.parent_id,
   }));
 
   // Yönetici adayları: her birinin yetkili olduğu firma_ids (kanala göre)
@@ -61,7 +68,7 @@ export async function loadUserFormOptions(supabase: SupabaseClient) {
 
   return {
     pfList,
-    dfList: dfRows,
+    dfList,
     yoneticiler,
   };
 }

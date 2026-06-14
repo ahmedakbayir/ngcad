@@ -10,7 +10,7 @@ export default async function NewPFPage() {
   const supabase = await supabaseServer();
   const [pf, df] = await Promise.all([
     supabase.from('proje_firmalari').select('id, firma_adi').order('firma_adi'),
-    supabase.from('dagitim_firmalari').select('id, firma_adi').order('firma_adi'),
+    supabase.from('dagitim_firmalari').select('id, firma_adi, parent_id').order('firma_adi'),
   ]);
 
   return (

@@ -136,6 +136,8 @@ create table public.proje_firmalari (
     adres           text,
     yeterlilik_no   text,
     yetkili_user_id uuid references public.users(id) on delete set null,
+    -- İşaretliyse firma "üst firma"dır: DF bağı taşımaz, alt birimlerin parent'ı olur.
+    ust_firma       boolean not null default false,
 
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()

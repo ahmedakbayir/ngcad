@@ -16,7 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Save, Trash2 } from 'lucide-react';
-import type { UserRow, FirmaRow } from '@/lib/supabase/types';
+import type { UserRow } from '@/lib/supabase/types';
+import { FirmMultiSelect, type FirmOption } from '@/components/firm-multiselect';
 
 // ── ZOD ŞEMASI ──────────────────────────────────────────────────────────────
 const schema = z.object({
@@ -96,14 +97,21 @@ export interface YoneticiAday {
 export interface PFListItem {
   id: string;
   firma_adi: string;
+  parent_id: string | null;
   df_adlari?: string[];   // bu PF'in bağlı olduğu DF adları (gösterimde "(GDF: X, Y)")
+}
+
+export interface DFListItem {
+  id: string;
+  firma_adi: string;
+  parent_id: string | null;
 }
 
 interface UserFormProps {
   initial?: UserRow & { yetkili_firma_ids: string[] };
   candidateYoneticiler: YoneticiAday[];
   pfList: PFListItem[];
-  dfList: Pick<FirmaRow, 'id' | 'firma_adi'>[];
+  dfList: DFListItem[];
   mode: 'create' | 'edit';
 }
 
@@ -197,10 +205,19 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
   ]);
 
   // Aktif kanala göre firma listesi (PF veya DF)
-  const firmaListesi = w.gdf_kullanicisi
-    ? dfList.map((d) => ({ id: d.id, firma_adi: d.firma_adi, df_adlari: undefined as string[] | undefined }))
+  const firmaOptions: FirmOption[] = w.gdf_kullanicisi
+    ? dfList.map((d) => ({
+        id: d.id,
+        firma_adi: d.firma_adi,
+        parent_id: d.parent_id,
+      }))
     : w.firma_kullanicisi
-      ? pfList.map((p) => ({ id: p.id, firma_adi: p.firma_adi, df_adlari: p.df_adlari }))
+      ? pfList.map((p) => ({
+          id: p.id,
+          firma_adi: p.firma_adi,
+          parent_id: p.parent_id,
+          hint: p.df_adlari && p.df_adlari.length > 0 ? p.df_adlari : undefined,
+        }))
       : [];
 
   // Bağlı olduğu yönetici adayları: kullanıcının seçtiği firmalardan birinde yetkili olan yöneticiler.
@@ -264,20 +281,20 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
         <CardHeader>
           <CardTitle className="text-base">Kimlik</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <Field label="Adı Soyadı" error={form.formState.errors.adi?.message}>
+        <CardContent className="space-y-3">
+          <RowField label="Adı Soyadı" error={form.formState.errors.adi?.message}>
             <Input {...form.register('adi')} placeholder="Ahmet Yılmaz" />
-          </Field>
-          <Field label="E-posta" error={form.formState.errors.email?.message}>
+          </RowField>
+          <RowField label="E-posta" error={form.formState.errors.email?.message}>
             <Input type="email" {...form.register('email')} placeholder="ahmet@firma.com" />
-          </Field>
-          <Field label="GSM">
+          </RowField>
+          <RowField label="GSM">
             <Input {...form.register('gsm')} placeholder="0532 123 45 67" />
-          </Field>
-          <Field label="Profil Fotoğrafı (URL)">
+          </RowField>
+          <RowField label="Profil Fotoğrafı (URL)">
             <Input {...form.register('profil_fotografi')} placeholder="https://..." />
-          </Field>
-          <div className="sm:col-span-2 flex items-center justify-between rounded-md border p-3">
+          </RowField>
+          <div className="flex items-center justify-between rounded-md border p-3">
             <div>
               <Label className="text-sm">Admin</Label>
               <p className="text-xs text-muted-foreground">Tüm verilere yazma/silme yetkisi.</p>
@@ -290,6 +307,9 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
           </div>
         </CardContent>
       </Card>
+
+      {/* ── PF + DF KART ÇİFTİ (yan yana) ────────────────────────────── */}
+      <div className="grid items-start gap-4 md:grid-cols-2">
 
       {/* ── FİRMA KULLANICISI (PF) ───────────────────────────────────── */}
       <Card>
@@ -310,7 +330,7 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
               <p className="text-xs text-destructive">{form.formState.errors.firma_kullanicisi.message}</p>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-3">
               {/* — YÖNETİCİ — */}
               <RoleBox name="firma_yonetici" label="Yönetici" form={form}>
                 {w.firma_yonetici && (
@@ -404,7 +424,7 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
               <p className="text-xs text-destructive">{form.formState.errors.gdf_kullanicisi.message}</p>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-3">
               <RoleBox name="gdf_yonetici" label="Yönetici" form={form}>
                 {w.gdf_yonetici && (
                   <NestedBox error={form.formState.errors.gdf_yonetici_kademe?.message}>
@@ -452,6 +472,8 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
         )}
       </Card>
 
+      </div>
+
       {/* ── YETKİLİ OLDUĞU FİRMALAR + YÖNETİCİ ───────────────────────── */}
       {(w.firma_kullanicisi || w.gdf_kullanicisi) && (
         <Card>
@@ -461,41 +483,21 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid max-h-64 gap-2 overflow-auto rounded-md border p-3 sm:grid-cols-2">
-              {firmaListesi.length === 0 && (
-                <p className="text-xs text-muted-foreground">Tanımlı firma yok.</p>
+            <Controller
+              control={form.control}
+              name="yetkili_firma_ids"
+              render={({ field }) => (
+                <FirmMultiSelect
+                  options={firmaOptions}
+                  value={field.value}
+                  onChange={field.onChange}
+                  comboboxLabel={w.gdf_kullanicisi ? 'DF Firmaları' : 'PF Firmaları'}
+                  listboxLabel="Yetkili Olduğu Firmalar"
+                  placeholder="Firma adıyla ara…"
+                  emptyText={w.gdf_kullanicisi ? 'Tanımlı DF yok.' : 'Tanımlı PF yok.'}
+                />
               )}
-              <Controller
-                control={form.control}
-                name="yetkili_firma_ids"
-                render={({ field }) => (
-                  <>
-                    {firmaListesi.map((f) => {
-                      const checked = field.value.includes(f.id);
-                      const dfHint =
-                        f.df_adlari && f.df_adlari.length > 0
-                          ? ` (GDF: ${f.df_adlari.join(', ')})`
-                          : '';
-                      return (
-                        <label key={f.id} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1 hover:bg-accent">
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) => {
-                              if (v) field.onChange([...field.value, f.id]);
-                              else field.onChange(field.value.filter((id) => id !== f.id));
-                            }}
-                          />
-                          <span className="text-sm">
-                            {f.firma_adi}
-                            {dfHint && <span className="text-muted-foreground">{dfHint}</span>}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </>
-                )}
-              />
-            </div>
+            />
 
             <Separator />
 
@@ -568,6 +570,27 @@ function Field({
       <Label className="text-xs">{label}</Label>
       {children}
       {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
+
+// Label solda, input sağda — tek satır (Kimlik gibi temel alanlar için)
+function RowField({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <Label className="mt-2 w-32 shrink-0 text-xs text-muted-foreground">{label}</Label>
+      <div className="flex-1 space-y-1">
+        {children}
+        {error && <p className="text-xs text-destructive">{error}</p>}
+      </div>
     </div>
   );
 }

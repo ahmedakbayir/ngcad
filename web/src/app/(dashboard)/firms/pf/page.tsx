@@ -9,10 +9,22 @@ export const dynamic = 'force-dynamic';
 
 export default async function PFListPage() {
   const supabase = await supabaseServer();
-  const { data, error } = await supabase
-    .from('proje_firmalari')
-    .select('*')
-    .order('firma_adi');
+  const [pfRes, dfRes, pfDfRes] = await Promise.all([
+    supabase.from('proje_firmalari').select('*').order('firma_adi'),
+    supabase.from('dagitim_firmalari').select('id, firma_adi').order('firma_adi'),
+    supabase.from('pf_df').select('pf_id, df_id'),
+  ]);
+
+  const error = pfRes.error;
+  const dfRows = (dfRes.data ?? []) as { id: string; firma_adi: string }[];
+  const dfById = new Map(dfRows.map((d) => [d.id, d]));
+
+  const pfDfMap: Record<string, { id: string; firma_adi: string }[]> = {};
+  (pfDfRes.data ?? []).forEach((r) => {
+    const df = dfById.get(r.df_id);
+    if (!df) return;
+    (pfDfMap[r.pf_id] ??= []).push(df);
+  });
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -31,7 +43,12 @@ export default async function PFListPage() {
       {error ? (
         <p className="text-sm text-destructive">Veri çekilemedi: {error.message}</p>
       ) : (
-        <FirmaTable firmas={(data ?? []) as FirmaRow[]} basePath="/firms/pf" />
+        <FirmaTable
+          firmas={(pfRes.data ?? []) as FirmaRow[]}
+          basePath="/firms/pf"
+          pfDfMap={pfDfMap}
+          dfFilterList={dfRows}
+        />
       )}
     </div>
   );

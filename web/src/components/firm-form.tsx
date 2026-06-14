@@ -9,11 +9,35 @@ import { supabaseBrowser } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Save, Trash2 } from 'lucide-react';
 import type { FirmaRow, UserRow } from '@/lib/supabase/types';
+import { FirmMultiSelect, type FirmOption } from '@/components/firm-multiselect';
+import { cn } from '@/lib/utils';
+
+// Label sol, kontrol sağ — kompakt tek satır
+function RowField({
+  label,
+  error,
+  className,
+  children,
+}: {
+  label: string;
+  error?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn('flex items-start gap-3', className)}>
+      <Label className="mt-2 w-28 shrink-0 text-xs text-muted-foreground">{label}</Label>
+      <div className="flex-1 space-y-1">
+        {children}
+        {error && <p className="text-xs text-destructive">{error}</p>}
+      </div>
+    </div>
+  );
+}
 
 const schema = z.object({
   firma_adi: z.string().min(2),
@@ -39,7 +63,7 @@ interface FirmFormProps {
   mode: 'create' | 'edit';
   yetkiliUsers: Pick<UserRow, 'id' | 'adi'>[];
   parentList: Pick<FirmaRow, 'id' | 'firma_adi'>[];
-  dfList?: Pick<FirmaRow, 'id' | 'firma_adi'>[]; // sadece kind=pf için
+  dfList?: Pick<FirmaRow, 'id' | 'firma_adi' | 'parent_id'>[]; // sadece kind=pf için
 }
 
 export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList = [] }: FirmFormProps) {
@@ -71,10 +95,13 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
         mode === 'edit'
           ? `/api/firms/${kind}/${initial!.id}`
           : `/api/firms/${kind}`;
+      // DF tablosunda yeterlilik_no kolonu yok — DF kaydederken kaldır.
+      const payload: Record<string, unknown> = { ...values };
+      if (kind === 'df') delete payload.yeterlilik_no;
       const res = await fetch(url, {
         method: mode === 'edit' ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -119,17 +146,16 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
         <CardHeader>
           <CardTitle className="text-base">Firma Bilgileri</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label className="text-xs">Firma Adı</Label>
+        <CardContent className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+          <RowField
+            label="Firma Adı"
+            error={form.formState.errors.firma_adi?.message}
+            className="sm:col-span-2"
+          >
             <Input {...form.register('firma_adi')} placeholder="Örn: AKRE ISI MÜHENDİSLİK" />
-            {form.formState.errors.firma_adi && (
-              <p className="text-xs text-destructive">{form.formState.errors.firma_adi.message}</p>
-            )}
-          </div>
+          </RowField>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Üst Firma (varsa alt birim)</Label>
+          <RowField label="Üst Firma">
             <Controller
               control={form.control}
               name="parent_id"
@@ -147,10 +173,9 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
                 </Select>
               )}
             />
-          </div>
+          </RowField>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Yetkili Kullanıcı</Label>
+          <RowField label="Yetkili Kullanıcı">
             <Controller
               control={form.control}
               name="yetkili_user_id"
@@ -181,42 +206,36 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
               )}
             />
             {yetkiliUsers.length === 0 && mode === 'edit' && (
-              <p className="text-xs text-muted-foreground">
-                Yetkili olarak seçilebilmesi için önce bir kullanıcının bu firmayı
-                &quot;Yetkili olduğu firmalar&quot; listesinde işaretlemesi gerekir.
+              <p className="text-[11px] text-muted-foreground">
+                Yetkili olarak seçilebilmesi için kullanıcının önce bu firmayı
+                yetkili firmalar listesinde işaretlemesi gerekir.
               </p>
             )}
-          </div>
+          </RowField>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Telefon</Label>
+          <RowField label="Telefon">
             <Input {...form.register('firma_tel')} placeholder="0212 555 11 22" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">E-posta</Label>
+          </RowField>
+          <RowField label="E-posta">
             <Input type="email" {...form.register('firma_email')} placeholder="info@firma.com" />
-          </div>
+          </RowField>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Vergi Dairesi</Label>
+          <RowField label="Vergi Dairesi">
             <Input {...form.register('vergi_dairesi')} />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Vergi No</Label>
+          </RowField>
+          <RowField label="Vergi No">
             <Input {...form.register('vergi_no')} />
-          </div>
+          </RowField>
 
           {kind === 'pf' && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Yeterlilik No</Label>
+            <RowField label="Yeterlilik No">
               <Input {...form.register('yeterlilik_no')} />
-            </div>
+            </RowField>
           )}
 
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label className="text-xs">Adres</Label>
+          <RowField label="Adres" className="sm:col-span-2">
             <Input {...form.register('adres')} />
-          </div>
+          </RowField>
         </CardContent>
       </Card>
 
@@ -227,35 +246,28 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
             <p className="text-xs text-muted-foreground">Bu PF hangi GDF'lerde yetkili çalışıyor?</p>
           </CardHeader>
           <CardContent>
-            <div className="grid max-h-64 gap-2 overflow-auto rounded-md border p-3 sm:grid-cols-2">
-              {dfList.length === 0 && (
-                <p className="text-xs text-muted-foreground">Henüz DF tanımlanmamış.</p>
-              )}
-              <Controller
-                control={form.control}
-                name="df_ids"
-                render={({ field }) => (
-                  <>
-                    {dfList.map((d) => {
-                      const arr = field.value ?? [];
-                      const checked = arr.includes(d.id);
-                      return (
-                        <label key={d.id} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1 hover:bg-accent">
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) => {
-                              if (v) field.onChange([...arr, d.id]);
-                              else field.onChange(arr.filter((id) => id !== d.id));
-                            }}
-                          />
-                          <span className="text-sm">{d.firma_adi}</span>
-                        </label>
-                      );
-                    })}
-                  </>
-                )}
-              />
-            </div>
+            <Controller
+              control={form.control}
+              name="df_ids"
+              render={({ field }) => {
+                const dfOptions: FirmOption[] = dfList.map((d) => ({
+                  id: d.id,
+                  firma_adi: d.firma_adi,
+                  parent_id: d.parent_id ?? null,
+                }));
+                return (
+                  <FirmMultiSelect
+                    options={dfOptions}
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                    comboboxLabel="DF Firmaları"
+                    listboxLabel="Bağlı DF'ler"
+                    placeholder="DF adıyla ara…"
+                    emptyText="Henüz DF tanımlanmamış."
+                  />
+                );
+              }}
+            />
           </CardContent>
         </Card>
       )}

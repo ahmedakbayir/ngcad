@@ -1548,7 +1548,7 @@ function renderUserEditor(u) {
                 </label>
                 <label class="srm-radio-pill ${kanal === 'gdf' ? 'is-on' : ''}">
                     <input type="radio" name="srm-channel" value="gdf" ${kanal === 'gdf' ? 'checked' : ''} />
-                    <span>GDF Kullanıcısı</span>
+                    <span>DF Kullanıcısı</span>
                 </label>
                 <label class="srm-radio-pill ${kanal === 'yok' ? 'is-on' : ''}">
                     <input type="radio" name="srm-channel" value="yok" ${kanal === 'yok' ? 'checked' : ''} />

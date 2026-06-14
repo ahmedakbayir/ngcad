@@ -1,3 +1,4 @@
+import * as React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -19,7 +20,7 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
 
   const [pf, df, pfdf, usersLinked, children] = await Promise.all([
     supabase.from('proje_firmalari').select('id, firma_adi').order('firma_adi'),
-    supabase.from('dagitim_firmalari').select('id, firma_adi').order('firma_adi'),
+    supabase.from('dagitim_firmalari').select('id, firma_adi, parent_id').order('firma_adi'),
     supabase.from('pf_df').select('df_id').eq('pf_id', id),
     supabase
       .from('user_pf')
@@ -39,6 +40,40 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
     const u: any = r.users;
     return { id: u.id as string, adi: u.adi as string };
   });
+
+  // Bu PF'e bağlı her user'ın DİĞER firmalarını (PF/DF) yükle — listede bağlam göster.
+  const userIds = eligibleYetkililer.map((u) => u.id);
+  type FirmRef = { id: string; firma_adi: string };
+  const userOtherPfs: Record<string, FirmRef[]> = {};
+  const userDfs: Record<string, FirmRef[]> = {};
+  if (userIds.length > 0) {
+    const [otherPfRes, dfRes] = await Promise.all([
+      supabase
+        .from('user_pf')
+        .select('user_id, proje_firmalari:proje_firmalari!inner(id, firma_adi)')
+        .in('user_id', userIds)
+        .neq('pf_id', id),
+      supabase
+        .from('user_df')
+        .select('user_id, dagitim_firmalari:dagitim_firmalari!inner(id, firma_adi)')
+        .in('user_id', userIds),
+    ]);
+    (otherPfRes.data ?? []).forEach((r) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p: any = r.proje_firmalari;
+      (userOtherPfs[r.user_id as string] ??= []).push({ id: p.id, firma_adi: p.firma_adi });
+    });
+    (dfRes.data ?? []).forEach((r) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d: any = r.dagitim_firmalari;
+      (userDfs[r.user_id as string] ??= []).push({ id: d.id, firma_adi: d.firma_adi });
+    });
+  }
+
+  // Bu PF'in bağlı DF'leri (sayfada ayrıca gösterilecek)
+  const dfAdById = new Map(((df.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[])
+    .map((d) => [d.id, d.firma_adi]));
+  const linkedDfAdlari = df_ids.map((id) => dfAdById.get(id)).filter(Boolean) as string[];
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -90,6 +125,14 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
             <Users className="h-4 w-4" />
             Bu firmaya bağlı kullanıcılar ({usersLinked.data?.length ?? 0})
           </CardTitle>
+          {linkedDfAdlari.length > 0 && (
+            <div className="space-y-0.5 text-xs text-muted-foreground">
+              <div>Bağlı DF:</div>
+              {linkedDfAdlari.map((ad) => (
+                <div key={ad}>{ad}</div>
+              ))}
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {!usersLinked.data || usersLinked.data.length === 0 ? (
@@ -99,11 +142,39 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
               {usersLinked.data.map((r) => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const u: any = r.users;
+                const otherPfs = userOtherPfs[u.id] ?? [];
+                const dfs = userDfs[u.id] ?? [];
                 return (
                   <li key={u.id} className="py-2">
                     <Link href={`/users/${u.id}`} className="text-sm hover:underline">
                       {u.adi} <span className="text-muted-foreground">— {u.email}</span>
                     </Link>
+                    {(otherPfs.length > 0 || dfs.length > 0) && (
+                      <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                        {otherPfs.length > 0 && (
+                          <span>
+                            Diğer PF:{' '}
+                            {otherPfs.map((p, i) => (
+                              <React.Fragment key={p.id}>
+                                {i > 0 && ', '}
+                                <Link href={`/firms/pf/${p.id}`} className="hover:underline">{p.firma_adi}</Link>
+                              </React.Fragment>
+                            ))}
+                          </span>
+                        )}
+                        {dfs.length > 0 && (
+                          <span>
+                            DF:{' '}
+                            {dfs.map((d, i) => (
+                              <React.Fragment key={d.id}>
+                                {i > 0 && ', '}
+                                <Link href={`/firms/df/${d.id}`} className="hover:underline">{d.firma_adi}</Link>
+                              </React.Fragment>
+                            ))}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </li>
                 );
               })}

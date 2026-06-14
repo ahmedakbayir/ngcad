@@ -16,6 +16,13 @@ import { ChevronDown, ChevronsUpDown, ChevronUp, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -25,6 +32,19 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
+// Kolon başına filtre meta'sı. ColumnDef.meta.filter ile verilir.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+declare module '@tanstack/react-table' {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends unknown, TValue> {
+    filter?: ColumnFilterConfig;
+  }
+}
+
+export type ColumnFilterConfig =
+  | { type: 'text'; placeholder?: string }
+  | { type: 'select'; options: { value: string; label: string }[]; placeholder?: string };
+
 interface DataTableProps<T> {
   columns: ColumnDef<T, unknown>[];
   data: T[];
@@ -32,6 +52,9 @@ interface DataTableProps<T> {
   globalFilterFn?: (row: T, q: string) => boolean;
   emptyText?: string;
   toolbar?: React.ReactNode;
+  // Arama kutusunun SOLuna yerleştirilecek içerik (örn. tab sekmeleri).
+  // Verildiğinde arama kutusu sağ tarafa, içeriğin yanına alınır.
+  headerLeft?: React.ReactNode;
   pageSize?: number;
 }
 
@@ -42,6 +65,7 @@ export function DataTable<T>({
   globalFilterFn,
   emptyText = 'Kayıt yok.',
   toolbar,
+  headerLeft,
   pageSize = 25,
 }: DataTableProps<T>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -73,7 +97,11 @@ export function DataTable<T>({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[240px] max-w-md">
+        {headerLeft}
+        <div className={cn(
+          'relative min-w-[240px] max-w-md',
+          headerLeft ? 'ml-auto' : 'flex-1',
+        )}>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={globalFilter}
@@ -82,42 +110,88 @@ export function DataTable<T>({
             className="pl-9"
           />
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">{toolbar}</div>
+        <div className={cn('flex flex-wrap items-center gap-2', !headerLeft && 'ml-auto')}>{toolbar}</div>
       </div>
 
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
-            {table.getHeaderGroups().map((hg) => (
-              <TableRow key={hg.id}>
-                {hg.headers.map((h) => {
-                  const canSort = h.column.getCanSort();
-                  const sorted = h.column.getIsSorted();
-                  return (
-                    <TableHead key={h.id} style={{ width: h.getSize?.() || undefined }}>
-                      {h.isPlaceholder ? null : (
-                        <button
-                          type="button"
-                          disabled={!canSort}
-                          onClick={h.column.getToggleSortingHandler()}
-                          className={cn(
-                            'flex items-center gap-1',
-                            canSort && 'cursor-pointer select-none hover:text-foreground',
+            {table.getHeaderGroups().map((hg) => {
+              const hasAnyFilter = hg.headers.some(
+                (h) => (h.column.columnDef.meta as { filter?: ColumnFilterConfig } | undefined)?.filter,
+              );
+              return (
+                <React.Fragment key={hg.id}>
+                  <TableRow>
+                    {hg.headers.map((h) => {
+                      const canSort = h.column.getCanSort();
+                      const sorted = h.column.getIsSorted();
+                      return (
+                        <TableHead key={h.id} style={{ width: h.getSize?.() || undefined }}>
+                          {h.isPlaceholder ? null : (
+                            <button
+                              type="button"
+                              disabled={!canSort}
+                              onClick={h.column.getToggleSortingHandler()}
+                              className={cn(
+                                'flex items-center gap-1',
+                                canSort && 'cursor-pointer select-none hover:text-foreground',
+                              )}
+                            >
+                              {flexRender(h.column.columnDef.header, h.getContext())}
+                              {canSort && (
+                                sorted === 'asc' ? <ChevronUp className="h-3 w-3" /> :
+                                sorted === 'desc' ? <ChevronDown className="h-3 w-3" /> :
+                                <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                              )}
+                            </button>
                           )}
-                        >
-                          {flexRender(h.column.columnDef.header, h.getContext())}
-                          {canSort && (
-                            sorted === 'asc' ? <ChevronUp className="h-3 w-3" /> :
-                            sorted === 'desc' ? <ChevronDown className="h-3 w-3" /> :
-                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
-                          )}
-                        </button>
-                      )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
+                        </TableHead>
+                      );
+                    })}
+                  </TableRow>
+                  {hasAnyFilter && (
+                    <TableRow className="border-t bg-muted/30 hover:bg-muted/30">
+                      {hg.headers.map((h) => {
+                        const cfg = (h.column.columnDef.meta as { filter?: ColumnFilterConfig } | undefined)?.filter;
+                        if (!cfg) return <TableHead key={h.id} className="py-1.5" />;
+                        const val = (h.column.getFilterValue() as string) ?? '';
+                        if (cfg.type === 'select') {
+                          return (
+                            <TableHead key={h.id} className="py-1.5">
+                              <Select
+                                value={val === '' ? '__all__' : val}
+                                onValueChange={(v) => h.column.setFilterValue(v === '__all__' ? undefined : v)}
+                              >
+                                <SelectTrigger className="h-7 w-full px-2 text-xs">
+                                  <SelectValue placeholder={cfg.placeholder ?? 'Tümü'} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__all__">Tümü</SelectItem>
+                                  {cfg.options.map((opt) => (
+                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableHead>
+                          );
+                        }
+                        return (
+                          <TableHead key={h.id} className="py-1.5">
+                            <Input
+                              value={val}
+                              onChange={(e) => h.column.setFilterValue(e.target.value || undefined)}
+                              placeholder={cfg.placeholder ?? 'Ara…'}
+                              className="h-7 px-2 text-xs"
+                            />
+                          </TableHead>
+                        );
+                      })}
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.length === 0 ? (
