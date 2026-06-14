@@ -159,15 +159,18 @@ body.light-mode .ob-overlay {
     display: flex;
     flex-direction: column;
     min-width: 0;
+    min-height: 0; /* nested-flex scroll fix — .ob-form scrollbar'ı için */
 }
 
 .ob-form {
-    flex: 1;
+    flex: 1 1 0;
     padding: 16px 22px 18px;
     overflow-y: auto;
+    overscroll-behavior: contain;
     display: flex;
     flex-direction: column;
     gap: 14px;
+    min-height: 0; /* nested-flex scroll fix */
 }
 
 .ob-section {
@@ -755,19 +758,29 @@ body.light-mode .ob-footer {
 }
 
 /* ── SCROLLBARS ────────────────────────────────────────────────── */
-.ob-tabs::-webkit-scrollbar,
-.ob-form::-webkit-scrollbar {
+.ob-tabs::-webkit-scrollbar {
     width: 6px;
+}
+.ob-form::-webkit-scrollbar {
+    width: 10px;
 }
 .ob-tabs::-webkit-scrollbar-track,
 .ob-form::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgba(255,255,255,0.03);
 }
 .ob-tabs::-webkit-scrollbar-thumb,
 .ob-form::-webkit-scrollbar-thumb {
-    background: var(--border-panel, #3c4043);
-    border-radius: 3px;
+    background: #5f6368;
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
+.ob-form::-webkit-scrollbar-thumb:hover {
+    background: #8ab4f8;
+    background-clip: padding-box;
+    border: 2px solid transparent;
+}
+.ob-form { scrollbar-width: thin; scrollbar-color: #5f6368 rgba(255,255,255,0.03); }
 
 /* ── RESPONSIVE ────────────────────────────────────────────────── */
 @media (max-width: 1000px) {
@@ -1974,3 +1987,240 @@ select.ob-select option {
 .tes-cat .tes-tbl-wrap { width: 100%; }
 .tes-cat .tes-tbl-birim-wide { min-width: 720px; }
 .tes-cat .tes-tbl-cihaz-wide { min-width: 640px; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   SORUMLU TAB — Mühendis (User) + Proje Firması editör
+   ═══════════════════════════════════════════════════════════════════ */
+.srm-section {
+    background: var(--bg-panel-secondary, #2a2b2d);
+    border: 1px solid var(--border-panel, #3c4043);
+    border-radius: 10px;
+    padding: 0;
+}
+/* Sub-tab bar rounded-corners: subtab kabuğunun üstünü yuvarla */
+.srm-subtabs { border-top-left-radius: 9px; border-top-right-radius: 9px; overflow: hidden; }
+
+/* ── Sub-tab bar ───────────────────────────────────────────────── */
+.srm-subtabs {
+    display: flex;
+    gap: 0;
+    background: var(--bg-button, #3c4043);
+    border-bottom: 1px solid var(--border-panel, #3c4043);
+}
+.srm-subtab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--color-secondary, #9aa0a6);
+    padding: 9px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    font-family: inherit;
+    border-bottom: 2px solid transparent;
+    transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+.srm-subtab:hover { color: var(--color-text, #e8eaed); }
+.srm-subtab.is-active {
+    color: #8ab4f8;
+    background: var(--bg-panel-secondary, #2a2b2d);
+    border-bottom-color: #8ab4f8;
+}
+
+.srm-body {
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* ── Dropdown picker satırı (Mühendis / Firma seçim) ──────────── */
+.srm-pick-row {
+    display: grid;
+    grid-template-columns: 96px 1fr auto;
+    gap: 10px;
+    align-items: center;
+}
+.srm-pick-label {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text, #e8eaed);
+}
+.srm-pick-select { font-weight: 600; }
+.srm-add-btn {
+    background: var(--bg-button, #3c4043);
+    border: 1px solid var(--border-panel, #3c4043);
+    color: var(--color-text, #e8eaed);
+    padding: 6px 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s ease;
+}
+.srm-add-btn:hover { background: var(--bg-button-hover, #5f6368); }
+
+.srm-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--color-secondary, #9aa0a6);
+    font-style: italic;
+}
+
+/* Yetkili Firmalar / Bağlı Yönetici bloklarında veri yokken placeholder hint */
+.srm-empty-hint {
+    padding: 6px 2px;
+    font-size: 11.5px;
+    color: var(--color-secondary, #9aa0a6);
+    font-style: italic;
+}
+
+/* ── Standart 2-kolonlu form grid (kullanıcı/firma alanları) ─── */
+.srm-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+}
+.srm-grid-span-2 { grid-column: span 2; }
+
+/* ── Kullanıcı kanal kutusu (Firma / GDF / Hiçbiri radio) ────────── */
+.srm-channel-block {
+    border-left: 3px solid #8ab4f8;
+}
+.srm-channel-radios {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 4px 0 10px;
+}
+.srm-radio-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border: 1px solid var(--border-panel, #3c4043);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--color-text, #e8eaed);
+    background: var(--bg-button, #3c4043);
+    transition: background .15s ease, border-color .15s ease;
+}
+.srm-radio-pill input[type="radio"] {
+    accent-color: #8ab4f8;
+    cursor: pointer;
+    margin: 0;
+}
+.srm-radio-pill:hover { background: var(--bg-button-hover, #5f6368); }
+.srm-radio-pill.is-on {
+    background: rgba(138, 180, 248, 0.15);
+    border-color: #8ab4f8;
+    color: #c8dcff;
+    font-weight: 600;
+}
+.srm-channel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(60, 64, 67, 0.7);
+}
+
+/* ── Rol satırları (Yönetici, Proje Mühendisi vb.) ───────────── */
+.srm-role-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 0;
+    border-bottom: 1px dashed rgba(60, 64, 67, 0.6);
+}
+.srm-role-row:last-child { border-bottom: none; }
+.srm-role-chk {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--color-text, #e8eaed);
+}
+.srm-role-chk input[type="checkbox"] {
+    accent-color: #8ab4f8;
+    cursor: pointer;
+}
+.srm-role-chk input:disabled { cursor: not-allowed; }
+
+.srm-role-detail {
+    padding-left: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 2px;
+}
+.srm-role-detail.srm-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+}
+.srm-role-detail.is-hidden { display: none; }
+
+.srm-radio,
+.srm-chk-mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    color: var(--color-text, #e8eaed);
+    cursor: pointer;
+}
+.srm-radio input,
+.srm-chk-mini input {
+    accent-color: #8ab4f8;
+    cursor: pointer;
+}
+
+/* ── Yetkili Firmalar / GDF listesi (multi-check) ────────────── */
+.srm-block {
+    background: var(--bg-input, #1e1f20);
+    border: 1px solid var(--border-panel, #3c4043);
+    border-radius: 8px;
+    padding: 8px 10px 10px;
+}
+.srm-block-head {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--color-secondary, #9aa0a6);
+    letter-spacing: 0.3px;
+    margin-bottom: 6px;
+}
+.srm-firmalar-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+}
+.srm-firmalar-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--color-text, #e8eaed);
+    cursor: pointer;
+    padding: 2px 0;
+}
+.srm-firmalar-row input { accent-color: #8ab4f8; cursor: pointer; }
+.srm-firmalar-name { font-weight: 500; }
+.srm-firmalar-tag {
+    font-size: 10.5px;
+    color: var(--color-secondary, #9aa0a6);
+    font-style: italic;
+}
+
+@media (max-width: 900px) {
+    .srm-grid,
+    .srm-firmalar-list,
+    .srm-role-detail.srm-grid {
+        grid-template-columns: 1fr;
+    }
+}

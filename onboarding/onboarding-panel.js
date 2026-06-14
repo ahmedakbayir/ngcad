@@ -24,6 +24,12 @@ import {
     fetchBinaByTesisatNo,
     fetchBinaByAboneTuketimNo,
 } from './dummy-service.js';
+import {
+    listUsers, listProjeFirmas, listGdfs,
+    getUserById, getProjeFirmaById, getGdfById,
+    getCandidateYoneticiler,
+    newUser, newProjeFirma, addUser, addProjeFirma,
+} from './sorumlu-data.js';
 import { SAYAC_DEBI_TABLOSU } from '../plumbing_v2/properties/property-definitions.js';
 
 const LS_SHOW_AT_START = 'onboarding_show_at_start';
@@ -108,12 +114,19 @@ const DEFAULT_FORM = {
     mustakilProje: false,
     onProje: false,
 
-    // Sorumlu (dummy defaults)
+    // Sorumlu — Mühendis (user) + Proje Firması seçimi.
+    // muhendisId / firmaId katalogdaki kayıtlara işaret eder; ad+strings applyAndClose'da
+    // türetilip projeMeta.sorumlu içine yazılır (kapak.js bu adları kullanır).
     sorumlu: {
-        yetkiliFirma: 'AKRE ISI MÜHENDİSLİK',
+        muhendisId: 'user-ahmet',
+        firmaId:    'pf-akre',
+        subTab:     'muhendis', // 'muhendis' | 'firma' — UI alt tab durumu
+        // Geriye dönük uyum için tutulan string'ler (kapak.js bunları okur).
+        // applyAndClose seçili user/firma'dan türeterek günceller.
+        yetkiliFirma:    'AKRE ISI MÜHENDİSLİK',
         yetkiliMuhendis: 'AHMET AKBAYIR',
-        projeyiCizen: 'ÖMER ÇELİK',
-        usta: 'FATİH KAYA',
+        projeyiCizen:    'ÖMER ÇELİK',
+        usta:            'FATİH KAYA',
     },
 };
 
@@ -1445,16 +1458,19 @@ function floorItemHtml(name, idx) {
 }
 
 // ── SORUMLU TAB ────────────────────────────────────────────────────
+// İki alt sekme: MÜHENDİS (User) ve PROJE FİRMASI. Üst kısımda dropdown
+// (seçili kaydı belirler), altında o kaydın tüm özellik formu. Veriler
+// global katalogdadır (sorumlu-data.js) — TÜM PROJELER için ortak.
 function renderSorumlu() {
-    const s = form.sorumlu;
+    const sub = form.sorumlu.subTab || 'muhendis';
     return `
-        <section class="ob-section">
-            <h2 class="ob-q-title">Sorumlu kişiler</h2>
-            <div class="ob-grid ob-grid-2">
-                ${textField('Yetkili Firma', 'sorumlu.yetkiliFirma', s.yetkiliFirma)}
-                ${textField('Yetkili Mühendis', 'sorumlu.yetkiliMuhendis', s.yetkiliMuhendis)}
-                ${textField('Projeyi Çizen', 'sorumlu.projeyiCizen', s.projeyiCizen)}
-                ${textField('Usta', 'sorumlu.usta', s.usta)}
+        <section class="ob-section srm-section">
+            <div class="srm-subtabs" id="ob-srm-subtabs">
+                <button type="button" class="srm-subtab ${sub === 'muhendis' ? 'is-active' : ''}" data-srm-tab="muhendis">MÜHENDİS</button>
+                <button type="button" class="srm-subtab ${sub === 'firma'    ? 'is-active' : ''}" data-srm-tab="firma">PROJE FİRMASI</button>
+            </div>
+            <div class="srm-body">
+                ${sub === 'firma' ? renderSorumluFirmaTab() : renderSorumluMuhendisTab()}
             </div>
         </section>
 
@@ -1492,6 +1508,546 @@ function renderSorumlu() {
             </div>
         </section>
     `;
+}
+
+// ── MÜHENDİS sub-tab ───────────────────────────────────────────────
+function renderSorumluMuhendisTab() {
+    const users = listUsers();
+    const sel = getUserById(form.sorumlu.muhendisId) || users[0] || null;
+    if (sel && form.sorumlu.muhendisId !== sel.id) form.sorumlu.muhendisId = sel.id;
+
+    const dropdown = `
+        <div class="srm-pick-row">
+            <label class="ob-field-label srm-pick-label">Mühendis</label>
+            <select class="ob-text srm-pick-select" id="ob-srm-user-pick">
+                ${users.map(u => `<option value="${escapeHtml(u.id)}" ${sel && u.id === sel.id ? 'selected' : ''}>${escapeHtml(u.adi || '(isimsiz)')}</option>`).join('')}
+            </select>
+            <button type="button" class="srm-add-btn" id="ob-srm-user-add" title="Yeni mühendis ekle">+ Yeni</button>
+        </div>
+    `;
+
+    if (!sel) return dropdown + `<div class="srm-empty">Kayıtlı mühendis yok.</div>`;
+
+    return `
+        ${dropdown}
+        ${renderUserEditor(sel)}
+    `;
+}
+
+function renderUserEditor(u) {
+    // Kanal seçimi mutually exclusive: Firma | GDF | Yok. Açık radio grubu —
+    // tıklayan kişi bunun bir "tip seçimi" olduğunu fark etmeli (sekme değil).
+    const kanal = u.firmaKullanicisi ? 'firma' : (u.gdfKullanicisi ? 'gdf' : 'yok');
+    const channelBlock = `
+        <div class="srm-block srm-channel-block">
+            <div class="srm-block-head">Kullanıcı Tipi</div>
+            <div class="srm-channel-radios" id="ob-srm-channel-radios">
+                <label class="srm-radio-pill ${kanal === 'firma' ? 'is-on' : ''}">
+                    <input type="radio" name="srm-channel" value="firma" ${kanal === 'firma' ? 'checked' : ''} />
+                    <span>Firma Kullanıcısı</span>
+                </label>
+                <label class="srm-radio-pill ${kanal === 'gdf' ? 'is-on' : ''}">
+                    <input type="radio" name="srm-channel" value="gdf" ${kanal === 'gdf' ? 'checked' : ''} />
+                    <span>GDF Kullanıcısı</span>
+                </label>
+                <label class="srm-radio-pill ${kanal === 'yok' ? 'is-on' : ''}">
+                    <input type="radio" name="srm-channel" value="yok" ${kanal === 'yok' ? 'checked' : ''} />
+                    <span>Hiçbiri</span>
+                </label>
+            </div>
+            ${kanal === 'firma' ? `<div class="srm-channel-body">${renderUserFirmaRoles(u)}</div>` : ''}
+            ${kanal === 'gdf'   ? `<div class="srm-channel-body">${renderUserGdfRoles(u)}</div>`   : ''}
+        </div>
+    `;
+
+    return `
+        <div class="srm-grid">
+            <div class="ob-field">
+                <label class="ob-field-label">Adı</label>
+                <input type="text" class="ob-text srm-user-fld" data-fld="adi" value="${escapeHtml(u.adi || '')}" autocomplete="off" />
+            </div>
+            <div class="ob-field">
+                <label class="ob-field-label">E-Mail</label>
+                <input type="text" class="ob-text srm-user-fld" data-fld="email" value="${escapeHtml(u.email || '')}" autocomplete="off" />
+            </div>
+            <div class="ob-field">
+                <label class="ob-field-label">GSM</label>
+                <input type="text" class="ob-text srm-user-fld" data-fld="gsm" value="${escapeHtml(u.gsm || '')}" autocomplete="off" />
+            </div>
+            <div class="ob-field">
+                <label class="ob-field-label">Profil Fotoğrafı (yol/URL)</label>
+                <input type="text" class="ob-text srm-user-fld" data-fld="profilFotografi" value="${escapeHtml(u.profilFotografi || '')}" autocomplete="off" />
+            </div>
+        </div>
+
+        ${channelBlock}
+
+        ${renderUserYetkiliFirmalar(u)}
+        ${renderUserBagliYonetici(u)}
+    `;
+}
+
+function renderUserFirmaRoles(u) {
+    const disabled = !u.firmaKullanicisi;
+    const r = u.firmaRoller || {};
+    const ust  = u.firmaYoneticiKademe === 'ust';
+    const orta = !ust;
+    const yoneticiBlock = `
+        <div class="srm-role-row">
+            <label class="srm-role-chk">
+                <input type="checkbox" class="srm-user-firma-rol" data-rol="yonetici" ${r.yonetici ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                <span>Yönetici</span>
+            </label>
+            <div class="srm-role-detail ${r.yonetici ? '' : 'is-hidden'}">
+                <label class="srm-radio">
+                    <input type="radio" name="srm-firma-kademe" class="srm-user-firma-kademe" value="ust" ${ust ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                    <span>Üst Yönetici</span>
+                </label>
+                <label class="srm-radio">
+                    <input type="radio" name="srm-firma-kademe" class="srm-user-firma-kademe" value="orta" ${orta ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                    <span>Orta Kademe</span>
+                </label>
+            </div>
+        </div>
+    `;
+    const projeMuhBlock = `
+        <div class="srm-role-row">
+            <label class="srm-role-chk">
+                <input type="checkbox" class="srm-user-firma-rol" data-rol="projeMuhendisi" ${r.projeMuhendisi ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                <span>Proje Mühendisi</span>
+            </label>
+            <div class="srm-role-detail srm-grid ${r.projeMuhendisi ? '' : 'is-hidden'}">
+                <div class="ob-field">
+                    <label class="ob-field-label">Oda Sicil No</label>
+                    <input type="number" class="ob-text srm-user-fld" data-fld="projeMuhendisiOdaSicilNo" value="${escapeHtml(u.projeMuhendisiOdaSicilNo || '')}" autocomplete="off" />
+                </div>
+                <div class="ob-field">
+                    <label class="ob-field-label">Kayıt No</label>
+                    <input type="text" class="ob-text srm-user-fld" data-fld="projeMuhendisiKayitNo" value="${escapeHtml(u.projeMuhendisiKayitNo || '')}" autocomplete="off" />
+                </div>
+                <div class="ob-field">
+                    <label class="ob-field-label">Yetki Durumu</label>
+                    <select class="ob-text srm-user-fld" data-fld="projeMuhendisiYetkiDurumu">
+                        <option value="icTesisat"  ${u.projeMuhendisiYetkiDurumu === 'icTesisat'  ? 'selected' : ''}>İç Tesisat</option>
+                        <option value="endustriyel" ${u.projeMuhendisiYetkiDurumu === 'endustriyel' ? 'selected' : ''}>Endüstriyel</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    `;
+    const cizimBlock = `
+        <div class="srm-role-row">
+            <label class="srm-role-chk">
+                <input type="checkbox" class="srm-user-firma-rol" data-rol="projeCizimSorumlusu" ${r.projeCizimSorumlusu ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                <span>Proje Çizim Sorumlusu</span>
+            </label>
+        </div>
+    `;
+    const ust2 = u.ustaRoller || {};
+    const ustaBlock = `
+        <div class="srm-role-row">
+            <label class="srm-role-chk">
+                <input type="checkbox" class="srm-user-firma-rol" data-rol="tesisatUstasi" ${r.tesisatUstasi ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                <span>Tesisat Ustası</span>
+            </label>
+            <div class="srm-role-detail ${r.tesisatUstasi ? '' : 'is-hidden'}">
+                <label class="srm-chk-mini">
+                    <input type="checkbox" class="srm-user-usta" data-rol="montaj" ${ust2.montaj ? 'checked' : ''} />
+                    <span>Montaj Ustası</span>
+                </label>
+                <label class="srm-chk-mini">
+                    <input type="checkbox" class="srm-user-usta" data-rol="celikKaynak" ${ust2.celikKaynak ? 'checked' : ''} />
+                    <span>Çelik Kaynak</span>
+                </label>
+                <label class="srm-chk-mini">
+                    <input type="checkbox" class="srm-user-usta" data-rol="peKaynak" ${ust2.peKaynak ? 'checked' : ''} />
+                    <span>PE Kaynak</span>
+                </label>
+            </div>
+        </div>
+    `;
+    return yoneticiBlock + projeMuhBlock + cizimBlock + ustaBlock;
+}
+
+function renderUserGdfRoles(u) {
+    const disabled = !u.gdfKullanicisi;
+    const r = u.gdfRoller || {};
+    const ust  = u.gdfYoneticiKademe === 'ust';
+    const orta = !ust;
+    const yoneticiBlock = `
+        <div class="srm-role-row">
+            <label class="srm-role-chk">
+                <input type="checkbox" class="srm-user-gdf-rol" data-rol="yonetici" ${r.yonetici ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                <span>Yönetici</span>
+            </label>
+            <div class="srm-role-detail ${r.yonetici ? '' : 'is-hidden'}">
+                <label class="srm-radio">
+                    <input type="radio" name="srm-gdf-kademe" class="srm-user-gdf-kademe" value="ust" ${ust ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                    <span>Üst Yönetici</span>
+                </label>
+                <label class="srm-radio">
+                    <input type="radio" name="srm-gdf-kademe" class="srm-user-gdf-kademe" value="orta" ${orta ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                    <span>Orta Kademe</span>
+                </label>
+            </div>
+        </div>
+    `;
+    const onayBlock = `
+        <div class="srm-role-row">
+            <label class="srm-role-chk">
+                <input type="checkbox" class="srm-user-gdf-rol" data-rol="onayMuhendisi" ${r.onayMuhendisi ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                <span>Onay Mühendisi</span>
+            </label>
+            <div class="srm-role-detail ${r.onayMuhendisi ? '' : 'is-hidden'}">
+                <div class="ob-field">
+                    <label class="ob-field-label">GDF Sicil No</label>
+                    <input type="text" class="ob-text srm-user-fld" data-fld="onayMuhendisiGdfSicilNo" value="${escapeHtml(u.onayMuhendisiGdfSicilNo || '')}" autocomplete="off" />
+                </div>
+            </div>
+        </div>
+    `;
+    const gazBlock = `
+        <div class="srm-role-row">
+            <label class="srm-role-chk">
+                <input type="checkbox" class="srm-user-gdf-rol" data-rol="gazAcmaMuhendisi" ${r.gazAcmaMuhendisi ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                <span>Gaz Açma Mühendisi</span>
+            </label>
+            <div class="srm-role-detail ${r.gazAcmaMuhendisi ? '' : 'is-hidden'}">
+                <div class="ob-field">
+                    <label class="ob-field-label">Ekip No</label>
+                    <input type="text" class="ob-text srm-user-fld" data-fld="gazAcmaMuhendisiEkipNo" value="${escapeHtml(u.gazAcmaMuhendisiEkipNo || '')}" autocomplete="off" />
+                </div>
+            </div>
+        </div>
+    `;
+    const onBuroBlock = `
+        <div class="srm-role-row">
+            <label class="srm-role-chk">
+                <input type="checkbox" class="srm-user-gdf-rol" data-rol="onBuroYetkilisi" ${r.onBuroYetkilisi ? 'checked' : ''} ${disabled ? 'disabled' : ''} />
+                <span>Ön Büro Yetkilisi</span>
+            </label>
+        </div>
+    `;
+    return yoneticiBlock + onayBlock + gazBlock + onBuroBlock;
+}
+
+function renderUserYetkiliFirmalar(u) {
+    // Firma kullanıcısıysa ProjeFirma listesi; GDF kullanıcısıysa GDF listesi.
+    // "Hiçbiri" seçiliyse de bloğu gösteriyoruz (boş mesaj) — kullanıcı sonradan
+    // tip seçince doğrudan görsün.
+    const showFirma = !!u.firmaKullanicisi;
+    const showGdf   = !!u.gdfKullanicisi;
+    const setIds = new Set(u.yetkiliFirmalar || []);
+    const rows = [];
+    if (showFirma) {
+        for (const f of listProjeFirmas()) {
+            const gdfNames = (f.projeFirmaGdfList || []).map(id => getGdfById(id)?.adi).filter(Boolean).join(', ');
+            const checked = setIds.has(f.id) ? 'checked' : '';
+            rows.push(`
+                <label class="srm-firmalar-row">
+                    <input type="checkbox" class="srm-user-yfirma" data-firma-id="${escapeHtml(f.id)}" ${checked} />
+                    <span class="srm-firmalar-name">${escapeHtml(f.firmaAdi)}</span>
+                    ${gdfNames ? `<span class="srm-firmalar-tag">GDF: ${escapeHtml(gdfNames)}</span>` : ''}
+                </label>
+            `);
+        }
+    } else if (showGdf) {
+        for (const g of listGdfs()) {
+            const parent = g.parentId ? getGdfById(g.parentId) : null;
+            const checked = setIds.has(g.id) ? 'checked' : '';
+            rows.push(`
+                <label class="srm-firmalar-row">
+                    <input type="checkbox" class="srm-user-yfirma" data-firma-id="${escapeHtml(g.id)}" ${checked} />
+                    <span class="srm-firmalar-name">${escapeHtml(g.adi)}</span>
+                    ${parent ? `<span class="srm-firmalar-tag">⤷ ${escapeHtml(parent.adi)}</span>` : ''}
+                </label>
+            `);
+        }
+    }
+    const body = rows.length
+        ? `<div class="srm-firmalar-list">${rows.join('')}</div>`
+        : `<div class="srm-empty-hint">Önce Firma veya GDF kullanıcısı seçilmeli.</div>`;
+    return `
+        <div class="srm-block">
+            <div class="srm-block-head">Yetkili Olduğu Firmalar</div>
+            ${body}
+        </div>
+    `;
+}
+
+function renderUserBagliYonetici(u) {
+    // Üst yönetici ise bağlı olduğu kimse yok — sade bir bilgi göster.
+    const isFirmaUst = u.firmaKullanicisi && u.firmaRoller?.yonetici && u.firmaYoneticiKademe === 'ust';
+    const isGdfUst   = u.gdfKullanicisi   && u.gdfRoller?.yonetici   && u.gdfYoneticiKademe   === 'ust';
+    const isAnyUst   = isFirmaUst || isGdfUst;
+    const kanal = u.firmaKullanicisi ? 'firma' : (u.gdfKullanicisi ? 'gdf' : null);
+    if (!kanal) {
+        return `
+            <div class="srm-block">
+                <div class="srm-block-head">Bağlı Olduğu Yönetici</div>
+                <div class="srm-empty-hint">Önce Firma veya GDF kullanıcısı seçilmeli.</div>
+            </div>
+        `;
+    }
+    if (isAnyUst) {
+        return `
+            <div class="srm-block">
+                <div class="srm-block-head">Bağlı Olduğu Yönetici</div>
+                <div class="srm-empty-hint">Üst yönetici — bağlı olduğu kimse yok.</div>
+            </div>
+        `;
+    }
+    const candidates = getCandidateYoneticiler(u.id, kanal);
+    const opts = candidates.map(c => `<option value="${escapeHtml(c.id)}" ${u.bagliOlduguYoneticiUserId === c.id ? 'selected' : ''}>${escapeHtml(c.adi)}</option>`).join('');
+    return `
+        <div class="srm-block">
+            <div class="ob-field">
+                <label class="ob-field-label">Bağlı Olduğu Yönetici</label>
+                <select class="ob-text srm-user-fld" data-fld="bagliOlduguYoneticiUserId">
+                    <option value="">— Seçilmedi —</option>
+                    ${opts}
+                </select>
+            </div>
+        </div>
+    `;
+}
+
+// ── PROJE FİRMASI sub-tab ──────────────────────────────────────────
+function renderSorumluFirmaTab() {
+    const firmas = listProjeFirmas();
+    const sel = getProjeFirmaById(form.sorumlu.firmaId) || firmas[0] || null;
+    if (sel && form.sorumlu.firmaId !== sel.id) form.sorumlu.firmaId = sel.id;
+
+    const dropdown = `
+        <div class="srm-pick-row">
+            <label class="ob-field-label srm-pick-label">Proje Firması</label>
+            <select class="ob-text srm-pick-select" id="ob-srm-firma-pick">
+                ${firmas.map(f => `<option value="${escapeHtml(f.id)}" ${sel && f.id === sel.id ? 'selected' : ''}>${escapeHtml(f.firmaAdi || '(isimsiz)')}</option>`).join('')}
+            </select>
+            <button type="button" class="srm-add-btn" id="ob-srm-firma-add" title="Yeni firma ekle">+ Yeni</button>
+        </div>
+    `;
+    if (!sel) return dropdown + `<div class="srm-empty">Kayıtlı firma yok.</div>`;
+    return dropdown + renderFirmaEditor(sel);
+}
+
+function renderFirmaEditor(f) {
+    // Yetkili user — firmaKullanicisi=true olan tüm kullanıcılar.
+    const firmaUsers = listUsers().filter(u => u.firmaKullanicisi);
+    const userOpts = firmaUsers.map(u => `<option value="${escapeHtml(u.id)}" ${u.id === f.yetkiliUserId ? 'selected' : ''}>${escapeHtml(u.adi)}</option>`).join('');
+    const gdfSet = new Set(f.projeFirmaGdfList || []);
+    const gdfRows = listGdfs().map(g => {
+        const parent = g.parentId ? getGdfById(g.parentId) : null;
+        const checked = gdfSet.has(g.id) ? 'checked' : '';
+        return `
+            <label class="srm-firmalar-row">
+                <input type="checkbox" class="srm-firma-gdf" data-gdf-id="${escapeHtml(g.id)}" ${checked} />
+                <span class="srm-firmalar-name">${escapeHtml(g.adi)}</span>
+                ${parent ? `<span class="srm-firmalar-tag">⤷ ${escapeHtml(parent.adi)}</span>` : ''}
+            </label>
+        `;
+    }).join('');
+
+    return `
+        <div class="srm-grid">
+            <div class="ob-field">
+                <label class="ob-field-label">Firma Adı</label>
+                <input type="text" class="ob-text srm-firma-fld" data-fld="firmaAdi" value="${escapeHtml(f.firmaAdi || '')}" autocomplete="off" />
+            </div>
+            <div class="ob-field">
+                <label class="ob-field-label">Firma Tel</label>
+                <input type="text" class="ob-text srm-firma-fld" data-fld="firmaTel" value="${escapeHtml(f.firmaTel || '')}" autocomplete="off" />
+            </div>
+            <div class="ob-field">
+                <label class="ob-field-label">Firma E-Mail</label>
+                <input type="text" class="ob-text srm-firma-fld" data-fld="firmaEMail" value="${escapeHtml(f.firmaEMail || '')}" autocomplete="off" />
+            </div>
+            <div class="ob-field">
+                <label class="ob-field-label">Yeterlilik No</label>
+                <input type="text" class="ob-text srm-firma-fld" data-fld="yeterlilikNo" value="${escapeHtml(f.yeterlilikNo || '')}" autocomplete="off" />
+            </div>
+            <div class="ob-field">
+                <label class="ob-field-label">Vergi Dairesi</label>
+                <input type="text" class="ob-text srm-firma-fld" data-fld="vergiDairesi" value="${escapeHtml(f.vergiDairesi || '')}" autocomplete="off" />
+            </div>
+            <div class="ob-field">
+                <label class="ob-field-label">Vergi No</label>
+                <input type="text" class="ob-text srm-firma-fld" data-fld="vergiNo" value="${escapeHtml(f.vergiNo || '')}" autocomplete="off" />
+            </div>
+            <div class="ob-field srm-grid-span-2">
+                <label class="ob-field-label">Adres</label>
+                <input type="text" class="ob-text srm-firma-fld" data-fld="adres" value="${escapeHtml(f.adres || '')}" autocomplete="off" />
+            </div>
+            <div class="ob-field srm-grid-span-2">
+                <label class="ob-field-label">Yetkili User</label>
+                <select class="ob-text srm-firma-fld" data-fld="yetkiliUserId">
+                    <option value="">— Seçilmedi —</option>
+                    ${userOpts}
+                </select>
+            </div>
+        </div>
+
+        <div class="srm-block">
+            <div class="srm-block-head">Proje Firma GDF Listesi (Çoklu)</div>
+            <div class="srm-firmalar-list">${gdfRows}</div>
+        </div>
+    `;
+}
+
+// ── SORUMLU listeners ──────────────────────────────────────────────
+function _attachSorumluListeners() {
+    // Sub-tab switch
+    overlay.querySelector('#ob-srm-subtabs')?.addEventListener('click', e => {
+        const btn = e.target.closest('.srm-subtab');
+        if (!btn) return;
+        const tab = btn.dataset.srmTab;
+        if (tab !== form.sorumlu.subTab) {
+            form.sorumlu.subTab = tab;
+            renderForm();
+        }
+    });
+
+    // Dropdown — mühendis seçimi
+    const userPick = overlay.querySelector('#ob-srm-user-pick');
+    if (userPick) userPick.addEventListener('change', () => {
+        form.sorumlu.muhendisId = userPick.value;
+        renderForm();
+    });
+
+    // + Yeni Mühendis
+    overlay.querySelector('#ob-srm-user-add')?.addEventListener('click', () => {
+        const adi = (prompt('Yeni mühendisin adı:') || '').trim();
+        if (!adi) return;
+        const u = newUser();
+        u.adi = adi;
+        addUser(u);
+        form.sorumlu.muhendisId = u.id;
+        renderForm();
+    });
+
+    // Dropdown — firma seçimi
+    const firmaPick = overlay.querySelector('#ob-srm-firma-pick');
+    if (firmaPick) firmaPick.addEventListener('change', () => {
+        form.sorumlu.firmaId = firmaPick.value;
+        renderForm();
+    });
+
+    // + Yeni Firma
+    overlay.querySelector('#ob-srm-firma-add')?.addEventListener('click', () => {
+        const adi = (prompt('Yeni proje firmasının adı:') || '').trim();
+        if (!adi) return;
+        const f = newProjeFirma();
+        f.firmaAdi = adi;
+        addProjeFirma(f);
+        form.sorumlu.firmaId = f.id;
+        renderForm();
+    });
+
+    const u = getUserById(form.sorumlu.muhendisId);
+    const f = getProjeFirmaById(form.sorumlu.firmaId);
+
+    // ── USER form bindings ────────────────────────────────────────
+    if (u) {
+        overlay.querySelectorAll('.srm-user-fld').forEach(el => {
+            el.addEventListener('input', () => {
+                const fld = el.dataset.fld;
+                if (!fld) return;
+                if (el.type === 'number') {
+                    const raw = el.value;
+                    u[fld] = (raw === '' ? '' : String(raw));
+                } else {
+                    u[fld] = el.value;
+                }
+                // Adı değişirse dropdown etiketini de güncelle (re-render)
+                if (fld === 'adi') {
+                    const opt = overlay.querySelector(`#ob-srm-user-pick option[value="${u.id}"]`);
+                    if (opt) opt.textContent = u.adi || '(isimsiz)';
+                }
+            });
+        });
+        overlay.querySelectorAll('#ob-srm-channel-radios input[name="srm-channel"]').forEach(r => {
+            r.addEventListener('change', () => {
+                if (!r.checked) return;
+                const k = r.value;
+                // Mutually exclusive: tek seferde tek kanal aktif olabilir.
+                u.firmaKullanicisi = (k === 'firma');
+                u.gdfKullanicisi   = (k === 'gdf');
+                renderForm();
+            });
+        });
+        overlay.querySelectorAll('.srm-user-firma-rol').forEach(el => {
+            el.addEventListener('change', () => {
+                const r = el.dataset.rol;
+                if (!u.firmaRoller) u.firmaRoller = {};
+                u.firmaRoller[r] = el.checked;
+                renderForm();
+            });
+        });
+        overlay.querySelectorAll('.srm-user-firma-kademe').forEach(el => {
+            el.addEventListener('change', () => {
+                if (el.checked) {
+                    u.firmaYoneticiKademe = el.value === 'ust' ? 'ust' : 'orta';
+                    renderForm();
+                }
+            });
+        });
+        overlay.querySelectorAll('.srm-user-usta').forEach(el => {
+            el.addEventListener('change', () => {
+                const r = el.dataset.rol;
+                if (!u.ustaRoller) u.ustaRoller = {};
+                u.ustaRoller[r] = el.checked;
+            });
+        });
+        overlay.querySelectorAll('.srm-user-gdf-rol').forEach(el => {
+            el.addEventListener('change', () => {
+                const r = el.dataset.rol;
+                if (!u.gdfRoller) u.gdfRoller = {};
+                u.gdfRoller[r] = el.checked;
+                renderForm();
+            });
+        });
+        overlay.querySelectorAll('.srm-user-gdf-kademe').forEach(el => {
+            el.addEventListener('change', () => {
+                if (el.checked) {
+                    u.gdfYoneticiKademe = el.value === 'ust' ? 'ust' : 'orta';
+                    renderForm();
+                }
+            });
+        });
+        overlay.querySelectorAll('.srm-user-yfirma').forEach(el => {
+            el.addEventListener('change', () => {
+                const id = el.dataset.firmaId;
+                if (!Array.isArray(u.yetkiliFirmalar)) u.yetkiliFirmalar = [];
+                const set = new Set(u.yetkiliFirmalar);
+                if (el.checked) set.add(id); else set.delete(id);
+                u.yetkiliFirmalar = [...set];
+            });
+        });
+    }
+
+    // ── FIRMA form bindings ──────────────────────────────────────
+    if (f) {
+        overlay.querySelectorAll('.srm-firma-fld').forEach(el => {
+            el.addEventListener('input', () => {
+                const fld = el.dataset.fld;
+                if (!fld) return;
+                f[fld] = el.value;
+                if (fld === 'firmaAdi') {
+                    const opt = overlay.querySelector(`#ob-srm-firma-pick option[value="${f.id}"]`);
+                    if (opt) opt.textContent = f.firmaAdi || '(isimsiz)';
+                }
+            });
+        });
+        overlay.querySelectorAll('.srm-firma-gdf').forEach(el => {
+            el.addEventListener('change', () => {
+                const id = el.dataset.gdfId;
+                if (!Array.isArray(f.projeFirmaGdfList)) f.projeFirmaGdfList = [];
+                const set = new Set(f.projeFirmaGdfList);
+                if (el.checked) set.add(id); else set.delete(id);
+                f.projeFirmaGdfList = [...set];
+            });
+        });
+    }
 }
 
 // ── FIELD HELPERS ──────────────────────────────────────────────────
@@ -1806,6 +2362,9 @@ function attachTabListeners(tabId) {
     if (mst) mst.addEventListener('change', () => { form.mustakilProje = mst.checked; renderSummaryBar(); });
     const op = overlay.querySelector('#ob-on-proje');
     if (op) op.addEventListener('change', () => { form.onProje = op.checked; renderSummaryBar(); });
+
+    // Sorumlu sub-tabs + mühendis/firma editor wiring
+    if (tabId === 'sorumlu') _attachSorumluListeners();
 
     // Geocode button (adres tab)
     overlay.querySelector('#ob-geocode')?.addEventListener('click', () => runGeocode());
@@ -2447,6 +3006,38 @@ function updateCTA() {
 }
 
 // ── APPLY TO GLOBAL STATE ──────────────────────────────────────────
+// Seçili Mühendis + Proje Firması'ndan kapak.js'in beklediği düz string'leri türet
+// (yetkiliFirma, yetkiliMuhendis, projeyiCizen, usta). Çizim sorumlusu/usta için
+// firmanın bağlı user listesinde uygun rolü olan ilk kullanıcıyı seçer; yoksa
+// projeyiCizen=usta=yetkiliMuhendis fallback'i kullanılır.
+function _deriveSorumluStrings() {
+    const u = getUserById(form.sorumlu.muhendisId);
+    const f = getProjeFirmaById(form.sorumlu.firmaId);
+    const muh = u?.adi || form.sorumlu.yetkiliMuhendis || '';
+    const fir = f?.firmaAdi || form.sorumlu.yetkiliFirma || '';
+    // Firma'nın yetkili user listesinden rol bazlı seçim — yoksa seçili mühendis fallback.
+    const firmaUserIds = new Set(listUsers()
+        .filter(uu => uu.firmaKullanicisi && (uu.yetkiliFirmalar || []).includes(f?.id))
+        .map(uu => uu.id));
+    const findRole = (predicate) => {
+        for (const uu of listUsers()) {
+            if (!firmaUserIds.has(uu.id)) continue;
+            if (predicate(uu)) return uu.adi;
+        }
+        return '';
+    };
+    const cizen = findRole(uu => uu.firmaRoller?.projeCizimSorumlusu) || form.sorumlu.projeyiCizen || muh;
+    const usta  = findRole(uu => uu.firmaRoller?.tesisatUstasi)       || form.sorumlu.usta          || muh;
+    return {
+        muhendisId: form.sorumlu.muhendisId || '',
+        firmaId:    form.sorumlu.firmaId    || '',
+        yetkiliMuhendis: muh,
+        yetkiliFirma:    fir,
+        projeyiCizen:    cizen,
+        usta:            usta,
+    };
+}
+
 function applyAndClose() {
     try { localStorage.setItem(LS_LAST_SETTINGS, JSON.stringify(form)); } catch {}
 
@@ -2474,7 +3065,7 @@ function applyAndClose() {
             mustakilProje: form.mustakilProje,
             onProje: form.onProje,
             adres: { ...form.adres },
-            sorumlu: { ...form.sorumlu },
+            sorumlu: _deriveSorumluStrings(),
             binaTesisatNo: (form.servis?.binaTesisatNo || '').trim(),
             binaBilgi: form.binaBilgi ? { ...form.binaBilgi } : null,
             // ABYS sayaç listesi — sayacın birimTipi+birimNo'su girilince/atanınca
@@ -2767,7 +3358,7 @@ function applyEditAndClose() {
             mustakilProje: form.mustakilProje,
             onProje: form.onProje,
             adres: { ...form.adres },
-            sorumlu: { ...form.sorumlu },
+            sorumlu: _deriveSorumluStrings(),
             binaTesisatNo: (form.servis?.binaTesisatNo || '').trim(),
             binaBilgi: form.binaBilgi ? { ...form.binaBilgi } : null,
             // ABYS sayaç listesi — sayacın birimTipi+birimNo'su girilince/atanınca
