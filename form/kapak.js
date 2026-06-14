@@ -97,6 +97,13 @@ function _toplamKapasite() {
     return Number.isFinite(abys) && abys > 0 ? abys : null;
 }
 
+// Servis kutusu componentinin gerçek tipi: S200/S300/S700/S2200/CES200.
+// meta.kutuTipi ('duvar'/'yer') sadece ilk yerleştirme kararıdır; kapakta yeri yok.
+function _servisKutusuTipi() {
+    const kutu = (_pm()?.components || []).find(c => c.type === 'servis_kutusu');
+    return kutu?.kutuTipi || '';
+}
+
 // "Kolon + D1, D2, Dük1..." — gaz alan birimler listesi.
 function _gazAlanDaire() {
     const seen = new Map();
@@ -151,7 +158,7 @@ function _renderPage() {
     const r = (v) => `<span class="kp-var">${_esc(v ?? '')}</span>`;
 
     const basinc = String(meta.kutuBasinc || '21');
-    const kutuTipi = meta.kutuTipi || ''; 
+    const kutuTipi = _servisKutusuTipi();
     const sayacTipleri = _sayacTipleri();
     const alan = _toplamAlan();
     const kapasite = _toplamKapasite();
@@ -291,10 +298,10 @@ function _renderPage() {
                     <th>VERGİ NO</th>
                     <td>${r('')}</td>
                 </tr>
-                <!-- ADRES col 1 = 15% (dar) + veri cs=4 + TELEFON + data -->
+                <!-- ADRES = FİRMA adresi (henüz veri yok, boş bırak) -->
                 <tr>
                     <th>ADRES</th>
-                    <td colspan="4">${r([adres.mahalle, adres.sokak, adres.binaNo, adres.ilce, adres.il].filter(Boolean).join(' '))}</td>
+                    <td colspan="4">${r('')}</td>
                     <th>TELEFON</th>
                     <td>${r('')}</td>
                 </tr>

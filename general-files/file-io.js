@@ -211,6 +211,12 @@ function saveProject() {
 
         // DXF arka plan referansı (varsa)
         dxfImport: state.dxfImport || null,
+
+        // Proje meta verisi (onboarding'den gelen sorumlu, adres, binaTesisatNo,
+        // tadilatSebep, projeKapagiNotu, kolonVar, kutuTipi, kutuBasinc,
+        // projeBilgi, binaBilgi, aboneList vs.) — kapak ve status bar bu veriyi
+        // kullanır; kaydetmezsek dosyayı tekrar açınca tamamı kaybolur.
+        projectMeta: state.projectMeta || null,
     };
 
     const dataStr = JSON.stringify(projectData, null, 2);
@@ -501,6 +507,10 @@ function loadJSONProject(fileContent) {
 
         // DXF arka plan referansı (eski projelerde yoksa null)
         dxfImport: projectData.dxfImport || null,
+
+        // Proje meta verisi (onboarding'den) — kapak, status bar ve proje
+        // detayları paneli bu objeyi okur. Eski projelerde yoksa null bırak.
+        projectMeta: projectData.projectMeta || null,
     });
 
     // Tesisat yöneticisini güncelle

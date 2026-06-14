@@ -62,6 +62,17 @@ export class ServisKutusu {
 
         // Duvar bilgisi (snap için)
         this.snapliDuvar = null;
+
+        // Panel özellikleri — property-definitions.js'deki default'larla aynı.
+        // Constructor'da set edilmezse kapak/3D etiketlerde undefined kalıyor;
+        // S200 = en yaygın duvar tipi default. Kullanıcı paneldeki dropdown'dan
+        // S300/S700/S2200/CES200'e çevirebilir.
+        this.kutuTipi = 'S200';
+        this.kutuBasinc = '21';
+        this.cikisCap = 'DN32';
+        this.kutuBoruTipi = 'ÇELİK';
+        this.kutuBaglantiTipi = 'KAYNAKLI';
+        this.description = '';
     }
 
     /**

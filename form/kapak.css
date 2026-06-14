@@ -102,34 +102,21 @@
 }
 
 /* Logo şeridi — üç kenarda (üst/sol/sağ) tablolarla AYNI kalınlıkta border.
-   Altında border yok; ilk tablonun (Onay) üst border'ı zaten ayırıcı görevi yapar. */
+   Altında border yok; ilk tablonun (Onay) üst border'ı ayırıcı görevi yapar.
+   margin: 0 — altındaki tablonun sol/sağ border'ı logo border'ıyla aynı x'te
+   buluşur; arada boşluk kalmaz. */
 .kp-logo-wrap {
-    border-top:    0.45mm solid #000;
-    border-left:   0.45mm solid #000;
-    border-right:  0.45mm solid #000;
+    border-top:    0.25mm solid #000;
+    border-left:   0.25mm solid #000;
+    border-right:  0.25mm solid #000;
     border-bottom: none;
-    height: 24mm;
+    height: 22mm;
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0;
+    padding: 0;
     box-sizing: border-box;
-}
-
-/* Birbirini takip eden tablolar arasındaki çift çizgiyi engelle:
-   ilk tablo border-top'unu korur (logo şeridine bitişir);
-   sonraki tablolarda border-top kaldırılır → tek 0.45mm ayırıcı. */
-.kp-tbl + .kp-tbl {
-    border-top: none;
-}
-
-/* Logo (üst) */
-.kp-logo-wrap {
-    height: 20mm;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 1mm;
 }
 
 .kp-logo-wrap svg,
@@ -138,6 +125,13 @@
     width: auto;
     max-width: 70mm;
     display: block;
+}
+
+/* Birbirini takip eden tablolar arasındaki çift çizgiyi engelle:
+   ilk tablo border-top'unu korur (logo şeridine bitişir);
+   sonraki tablolarda border-top kaldırılır → tek ince ayırıcı. */
+.kp-tbl + .kp-tbl {
+    border-top: none;
 }
 
 /* ── Tablo ortakları ─────────────────────────────────────────────── */
@@ -149,11 +143,11 @@
 }
 
 .kp-tbl {
-    border: 0.45mm solid #000;       /* tablo dış çerçevesi — kp-frame ile aynı */
+    border: 0.25mm solid #000;       /* tek tip ince dış çerçeve */
 }
 .kp-tbl th,
 .kp-tbl td {
-    border: 0.18mm solid #444;       /* iç hücreler ince */
+    border: 0.25mm solid #000;       /* iç hücreler aynı ince border */
     padding: 1mm 1.5mm;
     text-align: center;
     vertical-align: middle;
@@ -163,21 +157,16 @@
     word-wrap: break-word;
     line-height: 1.18;
 }
-/* Section bandı (BİNANIN / PROJE TASARIMCISININ / FİRMANIN) — dış kenarla
-   aynı kalınlık, tutarlı görünüm */
-.kp-section-head {
-    border-top: 0.45mm solid #000 !important;
-    border-bottom: 0.45mm solid #000 !important;
-}
 /* Birim chip (m³/h, m²) — başlık uppercase olsa da küçük kalır */
 .kp-unit {
     text-transform: none;
-    font-weight: 600;
+    font-weight: 400;
 }
 
+/* Form label'ları — ince (eski 700 bold kaldırıldı). Veriler .kp-var ile bold. */
 .kp-tbl th {
     background: #ffffff;
-    font-weight: 700;
+    font-weight: 400;
     text-transform: uppercase;
     letter-spacing: 0.2px;
 }
@@ -215,8 +204,9 @@
     background: #fff;
     font-style: italic;
     height: 5mm;
-    /* PDF'teki gibi alta ÇİFT yatay çizgi */
-    border-bottom: 1.2mm double #000;
+    /* Tek tip ince ayırıcı (eski 1.2mm double kaldırıldı).
+       0.25mm = PDF'te güvenli minimum hairline. */
+    border-bottom: 0.25mm solid #000;
     line-height: 1.2;
 }
 
@@ -247,7 +237,7 @@
 
 .kp-tbl-3col th {
     text-align: left;
-    padding-left: 2mm !important;
+    padding: 1.6mm 2mm !important;     /* üst/alt nefes payı */
     font-size: 7pt;
     line-height: 1.1;
 }
@@ -259,8 +249,8 @@
 /* ── BİNANIN tablosu ─────────────────────────────────────────────── */
 .kp-tbl-bina th {
     font-size: 7.5pt;
-    padding: 1mm !important;
-    line-height: 1.1;
+    padding: 2mm 1mm !important;       /* sıkışık label satırına nefes */
+    line-height: 1.15;
 }
 
 .kp-tbl-bina td {
@@ -271,10 +261,9 @@
 /* ── PROJE TASARIMCISININ + FİRMANIN ─────────────────────────────── */
 .kp-tbl-tasarimci th {
     font-size: 7.5pt;
-    padding: 0.8mm !important;
-    line-height: 1.1;
+    padding: 1.6mm 2mm !important;     /* üst/alt nefes payı */
+    line-height: 1.15;
     text-align: left;
-    padding-left: 2mm !important;
 }
 
 /* Header satırı — ortalanmış */
@@ -347,7 +336,7 @@
 
 .kp-tbl-imza .kp-mg-lbl {
     font-size: 7.5pt;
-    font-weight: 700;
+    font-weight: 400;          /* label ince — diğer th'larla aynı */
     text-transform: uppercase;
     letter-spacing: 0.3px;
     line-height: 1.1;
@@ -362,10 +351,10 @@
     text-align: center;        /* gelen metin (firma adı, proje adı vs) ORTALANIR */
 }
 
-/* ── Proje verisi (kırmızı) ──────────────────────────────────────── */
+/* ── Forma eklenen veriler — BOLD (label'lar ince kalır, veriler kalın) ── */
 .kp-var {
     color: #000;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .kp-var:empty::before {
@@ -387,6 +376,7 @@
         margin: 0;
         padding: 0;
         background: #fff;
+        overflow: hidden !important;     /* fazlalık satır 2. sayfayı tetiklemesin */
     }
 
     body.kapak-printing * {
@@ -403,6 +393,9 @@
         inset: 0 !important;
         background: #fff !important;
         display: block !important;
+        overflow: hidden !important;
+        height: 297mm !important;
+        max-height: 297mm !important;
     }
 
     body.kapak-printing .kapak-toolbar {
@@ -410,10 +403,12 @@
     }
 
     body.kapak-printing .kapak-scroll {
-        overflow: visible !important;
+        overflow: hidden !important;
         padding: 0 !important;
         background: #fff !important;
         display: block !important;
+        height: 297mm !important;
+        max-height: 297mm !important;
     }
 
     body.kapak-printing .kapak-page {
@@ -422,14 +417,31 @@
         width: 210mm !important;
         height: 297mm !important;
         max-height: 297mm !important;
+        /* Print'te dikey padding'i 1mm'e indir — alt kenarda içerik kırpılmasın.
+           Yan padding 4mm logo/tablo border'larını kağıt kenarından uzak tutar. */
+        padding: 1mm 4mm 1mm 4mm !important;
         overflow: hidden !important;
         page-break-inside: avoid !important;
         page-break-after: avoid !important;
         page-break-before: avoid !important;
+        break-inside: avoid !important;
+        break-after: avoid !important;
+        break-before: avoid !important;
     }
     body.kapak-printing .kp-frame {
         height: auto !important;
-        max-height: 285mm !important;
+        /* 297mm kağıt - 2mm dikey padding = 295mm kullanılabilir */
+        max-height: 295mm !important;
         overflow: hidden !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+    /* Tablolar arasında sayfa kırılması olmasın */
+    body.kapak-printing .kp-tbl,
+    body.kapak-printing .kp-tbl tr,
+    body.kapak-printing .kp-tbl td,
+    body.kapak-printing .kp-tbl th {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
     }
 }
