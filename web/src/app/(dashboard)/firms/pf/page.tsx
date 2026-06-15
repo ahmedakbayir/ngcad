@@ -11,15 +11,15 @@ export default async function PFListPage() {
   const supabase = await supabaseServer();
   const [pfRes, dfRes, pfDfRes] = await Promise.all([
     supabase.from('proje_firmalari').select('*').order('firma_adi'),
-    supabase.from('dagitim_firmalari').select('id, firma_adi').order('firma_adi'),
+    supabase.from('dagitim_firmalari').select('id, firma_adi, parent_id').order('firma_adi'),
     supabase.from('pf_df').select('pf_id, df_id'),
   ]);
 
   const error = pfRes.error;
-  const dfRows = (dfRes.data ?? []) as { id: string; firma_adi: string }[];
+  const dfRows = (dfRes.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
   const dfById = new Map(dfRows.map((d) => [d.id, d]));
 
-  const pfDfMap: Record<string, { id: string; firma_adi: string }[]> = {};
+  const pfDfMap: Record<string, { id: string; firma_adi: string; parent_id: string | null }[]> = {};
   (pfDfRes.data ?? []).forEach((r) => {
     const df = dfById.get(r.df_id);
     if (!df) return;
@@ -47,7 +47,7 @@ export default async function PFListPage() {
           firmas={(pfRes.data ?? []) as FirmaRow[]}
           basePath="/firms/pf"
           pfDfMap={pfDfMap}
-          dfFilterList={dfRows}
+          dfMaster={dfRows.map((d) => ({ id: d.id, parent_id: d.parent_id }))}
         />
       )}
     </div>

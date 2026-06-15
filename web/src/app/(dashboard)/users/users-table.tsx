@@ -10,14 +10,19 @@ import { DataTable } from '@/components/data-table';
 import { getUserKategori, type UserKategori, type UserRow } from '@/lib/supabase/types';
 import { Mail, Phone, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { collapseFirmHierarchy } from '@/lib/firm-hierarchy';
+import { smartColumnFilterFn } from '@/lib/smart-filter';
 
-interface FirmaRef { id: string; firma_adi: string }
+interface FirmaRef { id: string; firma_adi: string; parent_id?: string | null }
 interface PFWithDfs extends FirmaRef { dfs: FirmaRef[] }
 
 export interface UsersTableProps {
   users: UserRow[];
   userPfMap?: Record<string, PFWithDfs[]>;
   userDfMap?: Record<string, FirmaRef[]>;
+  // parent_id daraltma için master listeler (id → parent_id)
+  pfMaster?: { id: string; parent_id: string | null }[];
+  dfMaster?: { id: string; parent_id: string | null }[];
 }
 
 function kategoriBadge(k: UserKategori) {
@@ -82,7 +87,13 @@ const ROL_OPTIONS = [
 function buildColumns(
   userPfMap?: Record<string, PFWithDfs[]>,
   userDfMap?: Record<string, FirmaRef[]>,
+  pfMaster?: { id: string; parent_id: string | null }[],
+  dfMaster?: { id: string; parent_id: string | null }[],
 ): ColumnDef<UserRow>[] {
+  const collapsePfs = (refs: PFWithDfs[]): PFWithDfs[] =>
+    collapseFirmHierarchy(refs, pfMaster ?? []) as PFWithDfs[];
+  const collapseDfs = (refs: FirmaRef[]): FirmaRef[] =>
+    collapseFirmHierarchy(refs, dfMaster ?? []);
   return [
     {
       id: 'adi',
@@ -101,7 +112,7 @@ function buildColumns(
         );
       },
       meta: { filter: { type: 'text', placeholder: 'Ad, e-posta…' } },
-      filterFn: 'includesString',
+      filterFn: smartColumnFilterFn,
     },
     {
       id: 'iletisim',
@@ -124,7 +135,7 @@ function buildColumns(
         );
       },
       meta: { filter: { type: 'text', placeholder: 'E-posta, GSM…' } },
-      filterFn: 'includesString',
+      filterFn: smartColumnFilterFn,
     },
     {
       id: 'kategori',
@@ -137,6 +148,8 @@ function buildColumns(
     {
       id: 'firmalar',
       header: 'Firmalar',
+      size: 360,
+      minSize: 280,
       // Sıralama: ilk firma adına göre. Filtre: tüm firma adlarında contains.
       sortingFn: (a, b) => {
         const firstName = (u: UserRow) =>
@@ -153,39 +166,55 @@ function buildColumns(
         return `${pfNames} ${dfNames}`;
       },
       meta: { filter: { type: 'text', placeholder: 'Firma adı…' } },
-      filterFn: 'includesString',
+      filterFn: smartColumnFilterFn,
       cell: ({ row }) => {
         const u = row.original;
         const kat = getUserKategori(u);
         if (kat === 'pf') {
-          const pfs = userPfMap?.[u.id] ?? [];
+          const pfs = collapsePfs(userPfMap?.[u.id] ?? []);
           if (pfs.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
           return (
-            <div className="space-y-1 text-xs">
-              {pfs.map((pf) => (
-                <div key={pf.id} className="leading-tight">
-                  <Link href={`/firms/pf/${pf.id}`} className="font-medium hover:underline">
-                    {pf.firma_adi}
-                  </Link>
-                  {pf.dfs.length > 0 && (
-                    <div className="space-y-0.5 text-[10px] text-muted-foreground">
-                      {pf.dfs.map((d) => (
-                        <div key={d.id}>{d.firma_adi}</div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="min-w-[260px] space-y-1.5 text-xs">
+              {pfs.map((pf) => {
+                const dfs = collapseDfs(pf.dfs);
+                return (
+                  <div key={pf.id} className="leading-tight">
+                    <Link
+                      href={`/firms/pf/${pf.id}`}
+                      className="font-medium uppercase tracking-wide hover:underline"
+                    >
+                      {pf.firma_adi}
+                    </Link>
+                    {dfs.length > 0 && (
+                      <span className="ml-1.5 italic text-[10.5px] text-muted-foreground">
+                        ·{' '}
+                        {dfs.map((d, i) => (
+                          <React.Fragment key={d.id}>
+                            {i > 0 && ', '}
+                            <Link href={`/firms/df/${d.id}`} className="hover:underline">
+                              {d.firma_adi}
+                            </Link>
+                          </React.Fragment>
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           );
         }
         if (kat === 'df') {
-          const dfs = userDfMap?.[u.id] ?? [];
+          const dfs = collapseDfs(userDfMap?.[u.id] ?? []);
           if (dfs.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
           return (
-            <div className="flex flex-col gap-0.5 text-xs">
+            <div className="flex min-w-[260px] flex-col gap-0.5 text-xs">
               {dfs.map((d) => (
-                <Link key={d.id} href={`/firms/df/${d.id}`} className="hover:underline">
+                <Link
+                  key={d.id}
+                  href={`/firms/df/${d.id}`}
+                  className="italic hover:underline"
+                >
                   {d.firma_adi}
                 </Link>
               ))}
@@ -242,10 +271,13 @@ const TAB_OPTIONS: { value: 'all' | UserKategori; label: string }[] = [
   { value: 'general', label: 'General' },
 ];
 
-export function UsersTable({ users, userPfMap, userDfMap }: UsersTableProps) {
+export function UsersTable({ users, userPfMap, userDfMap, pfMaster, dfMaster }: UsersTableProps) {
   const [tab, setTab] = React.useState<'all' | UserKategori>('all');
 
-  const columns = React.useMemo(() => buildColumns(userPfMap, userDfMap), [userPfMap, userDfMap]);
+  const columns = React.useMemo(
+    () => buildColumns(userPfMap, userDfMap, pfMaster, dfMaster),
+    [userPfMap, userDfMap, pfMaster, dfMaster],
+  );
 
   const filtered = React.useMemo(() => {
     if (tab === 'all') return users;

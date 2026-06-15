@@ -61,8 +61,16 @@ export interface BaseFirmaRow {
 // PF için yeterlilik_no var, DF için yok.
 export interface ProjeFirmaRow extends BaseFirmaRow {
   yeterlilik_no: string | null;
+  // İşaretliyse PF "üst firma"dır; DF bağı taşımaz, alt birim PF'lerin parent'ı olur.
+  ust_firma: boolean;
 }
-export type DagitimFirmaRow = BaseFirmaRow;
+export interface DagitimFirmaRow extends BaseFirmaRow {
+  son_guncelleme: string | null; // date (YYYY-MM-DD)
+  guncel_surum:   number | null; // yalnız parent / standalone DF'lerde anlamlı
+  df_no:          number | null;
+  // İşaretliyse DF "üst firma"dır; PF doğrudan bağlanamaz, alt birim DF'lerin parent'ı olur.
+  ust_firma:      boolean;
+}
 
 // Tablo komponentleri her ikisini de aldığı için union.
 export type FirmaRow = ProjeFirmaRow | DagitimFirmaRow;

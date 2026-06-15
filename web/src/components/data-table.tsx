@@ -12,7 +12,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ChevronDown, ChevronsUpDown, ChevronUp, Search } from 'lucide-react';
+import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -56,6 +56,16 @@ interface DataTableProps<T> {
   // Verildiğinde arama kutusu sağ tarafa, içeriğin yanına alınır.
   headerLeft?: React.ReactNode;
   pageSize?: number;
+  // Satır başına ek Tailwind sınıfı (grup vurgusu, vb.).
+  rowClassName?: (row: T, index: number) => string | undefined;
+  // Satır başına inline style (örn. CSS değişkeniyle grup rengi).
+  rowStyle?: (row: T, index: number) => React.CSSProperties | undefined;
+  // Kontrollü sıralama: dışarıdan state geçilirse TanStack iç state yerine
+  // bu state kullanılır; manualSorting true olunca verinin sırası dışarıda
+  // hazırlanır (TanStack yeniden sıralamaz).
+  sorting?: SortingState;
+  onSortingChange?: (s: SortingState) => void;
+  manualSorting?: boolean;
 }
 
 export function DataTable<T>({
@@ -67,19 +77,26 @@ export function DataTable<T>({
   toolbar,
   headerLeft,
   pageSize = 25,
+  rowClassName,
+  rowStyle,
+  sorting: sortingControlled,
+  onSortingChange,
+  manualSorting,
 }: DataTableProps<T>) {
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sortingInner, setSortingInner] = React.useState<SortingState>([]);
+  const sorting = sortingControlled ?? sortingInner;
+  const setSorting = (updater: React.SetStateAction<SortingState>) => {
+    const next = typeof updater === 'function'
+      ? (updater as (prev: SortingState) => SortingState)(sorting)
+      : updater;
+    if (onSortingChange) onSortingChange(next);
+    if (!sortingControlled) setSortingInner(next);
+  };
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [globalFilter, setGlobalFilter] = React.useState('');
-
-  const filtered = React.useMemo(() => {
-    if (!globalFilter.trim()) return data;
-    if (globalFilterFn) {
-      return data.filter((r) => globalFilterFn(r, globalFilter.toLowerCase()));
-    }
-    const q = globalFilter.toLowerCase();
-    return data.filter((r) => JSON.stringify(r).toLowerCase().includes(q));
-  }, [data, globalFilter, globalFilterFn]);
+  // Global arama kaldırıldı; her kolonda kendi filtresi var.
+  const filtered = data;
+  void globalFilterFn;
+  void searchPlaceholder;
 
   const table = useReactTable({
     data: filtered,
@@ -88,30 +105,21 @@ export function DataTable<T>({
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    getSortedRowModel: manualSorting ? undefined : getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    manualSorting,
     initialState: { pagination: { pageSize } },
   });
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {headerLeft}
-        <div className={cn(
-          'relative min-w-[240px] max-w-md',
-          headerLeft ? 'ml-auto' : 'flex-1',
-        )}>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="pl-9"
-          />
+      {(headerLeft || toolbar) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {headerLeft}
+          <div className="ml-auto flex flex-wrap items-center gap-2">{toolbar}</div>
         </div>
-        <div className={cn('flex flex-wrap items-center gap-2', !headerLeft && 'ml-auto')}>{toolbar}</div>
-      </div>
+      )}
 
       <div className="rounded-md border bg-card">
         <Table>
@@ -201,8 +209,12 @@ export function DataTable<T>({
                 </TableCell>
               </TableRow>
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+              table.getRowModel().rows.map((row, idx) => (
+                <TableRow
+                  key={row.id}
+                  className={rowClassName?.(row.original, idx)}
+                  style={rowStyle?.(row.original, idx)}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -216,10 +228,7 @@ export function DataTable<T>({
       </div>
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <div>
-          Toplam {filtered.length} kayıt
-          {globalFilter && data.length !== filtered.length && ` (${data.length} içinden)`}
-        </div>
+        <div>Toplam {filtered.length} kayıt</div>
         <div className="flex items-center gap-2">
           <span>
             Sayfa {table.getState().pagination.pageIndex + 1} / {table.getPageCount() || 1}

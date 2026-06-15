@@ -20,16 +20,33 @@ export async function POST(
   if (!table) return NextResponse.json({ error: 'Geçersiz tip' }, { status: 400 });
 
   const body = await req.json();
-  const { df_ids = [], ...firmData } = body;
+  const { df_ids = [], alt_firma_ids = [], ...firmData } = body;
 
   const admin = supabaseAdmin();
   const { data, error } = await admin.from(table).insert(firmData).select('id').single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  if (kind === 'pf' && Array.isArray(df_ids) && df_ids.length > 0) {
-    await admin
-      .from('pf_df')
-      .insert(df_ids.map((df_id: string) => ({ pf_id: data.id, df_id })));
+  if (kind === 'pf') {
+    if (firmData.ust_firma) {
+      if (Array.isArray(alt_firma_ids) && alt_firma_ids.length > 0) {
+        await admin
+          .from('proje_firmalari')
+          .update({ parent_id: data.id })
+          .in('id', alt_firma_ids);
+      }
+    } else if (Array.isArray(df_ids) && df_ids.length > 0) {
+      await admin
+        .from('pf_df')
+        .insert(df_ids.map((df_id: string) => ({ pf_id: data.id, df_id })));
+    }
+  } else if (kind === 'df') {
+    if (firmData.ust_firma && Array.isArray(alt_firma_ids) && alt_firma_ids.length > 0) {
+      // Seçilen alt DF'lerin parent_id'sini bu üst firmaya çevir.
+      await admin
+        .from('dagitim_firmalari')
+        .update({ parent_id: data.id })
+        .in('id', alt_firma_ids);
+    }
   }
 
   return NextResponse.json({ id: data.id });

@@ -7,6 +7,7 @@ import { ArrowLeft, Users, Building2, Network } from 'lucide-react';
 import { FirmForm } from '@/components/firm-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { collapseFirmHierarchy } from '@/lib/firm-hierarchy';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,8 +18,11 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
   const { data: firm } = await supabase.from('dagitim_firmalari').select('*').eq('id', id).maybeSingle();
   if (!firm) notFound();
 
-  const [df, usersLinked, pfLinked, children] = await Promise.all([
-    supabase.from('dagitim_firmalari').select('id, firma_adi').order('firma_adi'),
+  const [df, usersLinked, pfLinked, children, pfMaster] = await Promise.all([
+    supabase
+      .from('dagitim_firmalari')
+      .select('id, firma_adi, parent_id, ust_firma')
+      .order('firma_adi'),
     supabase
       .from('user_df')
       .select('user_id, users:users!inner(id, adi, email)')
@@ -32,7 +36,12 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
       .select('id, no, firma_adi')
       .eq('parent_id', id)
       .order('firma_adi'),
+    supabase.from('proje_firmalari').select('id, parent_id'),
   ]);
+
+  const dfMasterAll = (df.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
+  const dfRefById = new Map(dfMasterAll.map((d) => [d.id, d]));
+  const pfMasterAll = (pfMaster.data ?? []) as { id: string; parent_id: string | null }[];
 
   const eligibleYetkililer = (usersLinked.data ?? []).map((r) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,7 +112,10 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
       <FirmForm
         kind="df"
         mode="edit"
-        initial={firm}
+        initial={{
+          ...firm,
+          alt_firma_ids: (children.data ?? []).map((c) => c.id as string),
+        }}
         parentList={df.data ?? []}
         yetkiliUsers={eligibleYetkililer}
       />
@@ -146,8 +158,22 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
                 {usersLinked.data.map((r) => {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const u: any = r.users;
-                  const otherDfs = userOtherDfs[u.id] ?? [];
-                  const pfs = userPfs[u.id] ?? [];
+                  const otherDfsRaw = userOtherDfs[u.id] ?? [];
+                  const pfsRaw = userPfs[u.id] ?? [];
+                  const otherDfs = collapseFirmHierarchy(
+                    otherDfsRaw.map((d) => ({
+                      ...d,
+                      parent_id: dfRefById.get(d.id)?.parent_id ?? null,
+                    })),
+                    dfMasterAll.map((m) => ({ id: m.id, parent_id: m.parent_id })),
+                  );
+                  const pfs = collapseFirmHierarchy(
+                    pfsRaw.map((p) => ({
+                      ...p,
+                      parent_id: pfMasterAll.find((m) => m.id === p.id)?.parent_id ?? null,
+                    })),
+                    pfMasterAll,
+                  );
                   return (
                     <li key={u.id} className="py-2 text-sm">
                       <Link href={`/users/${u.id}`} className="hover:underline">
@@ -202,7 +228,14 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
                 {pfLinked.data.map((r) => {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const p: any = r.proje_firmalari;
-                  const otherDfs = pfOtherDfs[p.id] ?? [];
+                  const otherDfsRaw = pfOtherDfs[p.id] ?? [];
+                  const otherDfs = collapseFirmHierarchy(
+                    otherDfsRaw.map((d) => ({
+                      ...d,
+                      parent_id: dfRefById.get(d.id)?.parent_id ?? null,
+                    })),
+                    dfMasterAll.map((m) => ({ id: m.id, parent_id: m.parent_id })),
+                  );
                   return (
                     <li key={p.id} className="py-2 text-sm">
                       <Link href={`/firms/pf/${p.id}`} className="hover:underline">

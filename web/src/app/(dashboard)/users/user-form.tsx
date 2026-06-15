@@ -167,10 +167,12 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
     }
   }, [w.firma_kullanicisi, w.gdf_kullanicisi, form]);
 
-  // Sub-flag temizlikleri
+  // Sub-flag temizlikleri (yalnız üst kullanıcı türü kapanırsa ya da rol
+  // checkbox'ı kapanırsa o role ait veri alanları sıfırlanır).
   React.useEffect(() => {
     if (!w.firma_kullanicisi) {
       form.setValue('firma_yonetici', false);
+      form.setValue('firma_yonetici_kademe', null);
       form.setValue('firma_proje_muhendisi', false);
       form.setValue('firma_cizim_sorumlusu', false);
       form.setValue('firma_tesisat_ustasi', false);
@@ -193,6 +195,7 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
   React.useEffect(() => {
     if (!w.gdf_kullanicisi) {
       form.setValue('gdf_yonetici', false);
+      form.setValue('gdf_yonetici_kademe', null);
       form.setValue('gdf_onay_muhendisi', false);
       form.setValue('gdf_gaz_acma_muhendisi', false);
       form.setValue('gdf_on_buro_yetkilisi', false);
@@ -203,6 +206,83 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
   }, [
     w.gdf_kullanicisi, w.gdf_yonetici, w.gdf_onay_muhendisi, w.gdf_gaz_acma_muhendisi, form,
   ]);
+
+  // ── PF birincil yetki (tek seçim) ───────────────────────────────────────────
+  type PFRole = 'ust_yon' | 'orta_yon' | 'proje_muh' | 'cizim' | 'tesisat';
+  const pfPrimary: PFRole | null = w.firma_yonetici
+    ? w.firma_yonetici_kademe === 'ust'
+      ? 'ust_yon'
+      : w.firma_yonetici_kademe === 'orta'
+        ? 'orta_yon'
+        : null
+    : w.firma_proje_muhendisi
+      ? 'proje_muh'
+      : w.firma_cizim_sorumlusu
+        ? 'cizim'
+        : w.firma_tesisat_ustasi
+          ? 'tesisat'
+          : null;
+
+  function setPfPrimary(p: PFRole) {
+    // Tüm PF rollerini sıfırla, sonra birincil rolü işaretle. Alt-yetki
+    // checkbox'ları işaretsiz kalır.
+    form.setValue('firma_yonetici',         p === 'ust_yon' || p === 'orta_yon');
+    form.setValue('firma_yonetici_kademe',  p === 'ust_yon' ? 'ust' : p === 'orta_yon' ? 'orta' : null);
+    form.setValue('firma_proje_muhendisi',  p === 'proje_muh');
+    form.setValue('firma_cizim_sorumlusu',  p === 'cizim');
+    form.setValue('firma_tesisat_ustasi',   p === 'tesisat');
+    // Veri alanlarını temizle.
+    form.setValue('proje_muh_oda_sicil_no', null);
+    form.setValue('proje_muh_kayit_no',     '');
+    form.setValue('proje_muh_yetki_durumu', null);
+    form.setValue('usta_montaj',            false);
+    form.setValue('usta_celik_kaynak',      false);
+    form.setValue('usta_pe_kaynak',         false);
+    form.setValue('usta_montaj_belge_no',       '');
+    form.setValue('usta_celik_kaynak_belge_no', '');
+    form.setValue('usta_pe_kaynak_belge_no',    '');
+  }
+
+  // PF birincil rolü altında listelenecek alt-yetki checkbox'ları.
+  const pfDescendants: ('proje_muh' | 'cizim' | 'tesisat')[] =
+    pfPrimary === 'ust_yon' || pfPrimary === 'orta_yon'
+      ? ['proje_muh', 'cizim', 'tesisat']
+      : [];
+
+  // ── DF birincil yetki (tek seçim) ───────────────────────────────────────────
+  type DFRole = 'ust_yon' | 'orta_yon' | 'onay_muh' | 'gaz_acma' | 'on_buro';
+  const dfPrimary: DFRole | null = w.gdf_yonetici
+    ? w.gdf_yonetici_kademe === 'ust'
+      ? 'ust_yon'
+      : w.gdf_yonetici_kademe === 'orta'
+        ? 'orta_yon'
+        : null
+    : w.gdf_onay_muhendisi
+      ? 'onay_muh'
+      : w.gdf_gaz_acma_muhendisi
+        ? 'gaz_acma'
+        : w.gdf_on_buro_yetkilisi
+          ? 'on_buro'
+          : null;
+
+  function setDfPrimary(p: DFRole) {
+    form.setValue('gdf_yonetici',          p === 'ust_yon' || p === 'orta_yon');
+    form.setValue('gdf_yonetici_kademe',   p === 'ust_yon' ? 'ust' : p === 'orta_yon' ? 'orta' : null);
+    form.setValue('gdf_onay_muhendisi',    p === 'onay_muh');
+    form.setValue('gdf_gaz_acma_muhendisi',p === 'gaz_acma');
+    form.setValue('gdf_on_buro_yetkilisi', p === 'on_buro');
+    form.setValue('onay_muh_gdf_sicil_no', '');
+    form.setValue('gaz_acma_muh_ekip_no',  '');
+  }
+
+  // DF birincil rolü altında listelenecek alt-yetki checkbox'ları.
+  // Hiyerarşi: Üst/Orta → [Onay, Ön Büro, Gaz Açma]; Onay → [Ön Büro].
+  const dfDescendants: ('onay_muh' | 'gaz_acma' | 'on_buro')[] =
+    dfPrimary === 'ust_yon' || dfPrimary === 'orta_yon'
+      ? ['onay_muh', 'gaz_acma', 'on_buro']
+      : dfPrimary === 'onay_muh'
+        ? ['on_buro']
+        : [];
 
   // Aktif kanala göre firma listesi (PF veya DF)
   const firmaOptions: FirmOption[] = w.gdf_kullanicisi
@@ -231,6 +311,21 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
 
   async function onSubmit(values: UserFormData) {
     setErr(null);
+    // DF kullanıcısı: yetkili firmalar yalnız tek bir anchor (parent/standalone)
+    // ağacında olmalı.
+    if (values.gdf_kullanicisi && values.yetkili_firma_ids.length > 0) {
+      const anchors = new Set<string>();
+      for (const id of values.yetkili_firma_ids) {
+        const opt = dfList.find((d) => d.id === id);
+        if (!opt) continue;
+        anchors.add(opt.parent_id ?? opt.id);
+        if (anchors.size > 1) break;
+      }
+      if (anchors.size > 1) {
+        setErr('DF kullanıcısı yalnız tek bir üst firma (veya tek başına bölge) ağacında olabilir.');
+        return;
+      }
+    }
     setPending(true);
     try {
       const res = await fetch(`/api/users${mode === 'edit' ? `/${initial!.id}` : ''}`, {
@@ -242,8 +337,8 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);
       }
-      const out = await res.json();
-      router.push(`/users/${out.id ?? initial?.id}`);
+      await res.json();
+      router.push('/users');
       router.refresh();
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Kaydedilemedi.');
@@ -331,31 +426,54 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
             )}
 
             <div className="space-y-3">
-              {/* — YÖNETİCİ — */}
-              <RoleBox name="firma_yonetici" label="Yönetici" form={form}>
-                {w.firma_yonetici && (
-                  <NestedBox error={form.formState.errors.firma_yonetici_kademe?.message}>
-                    <Controller
-                      control={form.control}
-                      name="firma_yonetici_kademe"
-                      render={({ field }) => (
-                        <RadioGroup
-                          className="flex flex-col gap-1"
-                          value={field.value ?? ''}
-                          onValueChange={(v) => field.onChange(v as 'ust' | 'orta')}
-                        >
-                          <RadioLabel value="ust">Üst Yönetici</RadioLabel>
-                          <RadioLabel value="orta">Orta Kademe Yönetici</RadioLabel>
-                        </RadioGroup>
-                      )}
-                    />
-                  </NestedBox>
-                )}
-              </RoleBox>
+              <Label className="text-xs">Yetki (tek seçim)</Label>
+              <RadioGroup
+                className="flex flex-col gap-1"
+                value={pfPrimary ?? ''}
+                onValueChange={(v) => setPfPrimary(v as PFRole)}
+              >
+                <RadioLabel value="ust_yon">Üst Yönetici</RadioLabel>
+                <RadioLabel value="orta_yon">Orta Kademe Yönetici</RadioLabel>
+                <RadioLabel value="proje_muh">Proje Mühendisi</RadioLabel>
+                <RadioLabel value="cizim">Proje Çizim Sorumlusu</RadioLabel>
+                <RadioLabel value="tesisat">Tesisat Ustası</RadioLabel>
+              </RadioGroup>
 
-              {/* — PROJE MÜHENDİSİ — */}
-              <RoleBox name="firma_proje_muhendisi" label="Proje Mühendisi" form={form}>
-                {w.firma_proje_muhendisi && (
+              {pfDescendants.length > 0 && (
+                <div className="rounded-md border border-dashed p-3">
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Yöneticilik altındaki alt yetkilerden bu kişide bulunanları işaretleyin.
+                  </p>
+                  <div className="space-y-1.5">
+                    {pfDescendants.includes('proje_muh') && (
+                      <CheckLabel
+                        control={form.control}
+                        name="firma_proje_muhendisi"
+                        label="Proje Mühendisi"
+                      />
+                    )}
+                    {pfDescendants.includes('cizim') && (
+                      <CheckLabel
+                        control={form.control}
+                        name="firma_cizim_sorumlusu"
+                        label="Proje Çizim Sorumlusu"
+                      />
+                    )}
+                    {pfDescendants.includes('tesisat') && (
+                      <CheckLabel
+                        control={form.control}
+                        name="firma_tesisat_ustasi"
+                        label="Tesisat Ustası"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* PROJE MÜHENDİSİ verileri */}
+              {w.firma_proje_muhendisi && (
+                <div className="rounded-md border p-3">
+                  <p className="mb-2 text-sm font-medium">Proje Mühendisi</p>
                   <NestedBox>
                     <InlineField label="Oda Sicil No">
                       <Input type="number" className="h-8" {...form.register('proje_muh_oda_sicil_no')} />
@@ -384,22 +502,20 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
                       />
                     </InlineField>
                   </NestedBox>
-                )}
-              </RoleBox>
+                </div>
+              )}
 
-              {/* — ÇİZİM SORUMLUSU — */}
-              <RoleBox name="firma_cizim_sorumlusu" label="Proje Çizim Sorumlusu" form={form} />
-
-              {/* — TESİSAT USTASI — */}
-              <RoleBox name="firma_tesisat_ustasi" label="Tesisat Ustası" form={form}>
-                {w.firma_tesisat_ustasi && (
+              {/* TESİSAT USTASI verileri */}
+              {w.firma_tesisat_ustasi && (
+                <div className="rounded-md border p-3">
+                  <p className="mb-2 text-sm font-medium">Tesisat Ustası</p>
                   <NestedBox error={form.formState.errors.firma_tesisat_ustasi?.message}>
                     <UstaRow form={form} checkName="usta_montaj"      belgeName="usta_montaj_belge_no"      label="Montaj"      active={w.usta_montaj} />
                     <UstaRow form={form} checkName="usta_celik_kaynak" belgeName="usta_celik_kaynak_belge_no" label="Çelik Kaynak" active={w.usta_celik_kaynak} />
                     <UstaRow form={form} checkName="usta_pe_kaynak"   belgeName="usta_pe_kaynak_belge_no"   label="PE Kaynak"   active={w.usta_pe_kaynak} />
                   </NestedBox>
-                )}
-              </RoleBox>
+                </div>
+              )}
             </div>
           </CardContent>
         )}
@@ -425,48 +541,73 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
             )}
 
             <div className="space-y-3">
-              <RoleBox name="gdf_yonetici" label="Yönetici" form={form}>
-                {w.gdf_yonetici && (
-                  <NestedBox error={form.formState.errors.gdf_yonetici_kademe?.message}>
-                    <Controller
-                      control={form.control}
-                      name="gdf_yonetici_kademe"
-                      render={({ field }) => (
-                        <RadioGroup
-                          className="flex flex-col gap-1"
-                          value={field.value ?? ''}
-                          onValueChange={(v) => field.onChange(v as 'ust' | 'orta')}
-                        >
-                          <RadioLabel value="ust">Üst Yönetici</RadioLabel>
-                          <RadioLabel value="orta">Orta Kademe Yönetici</RadioLabel>
-                        </RadioGroup>
-                      )}
-                    />
-                  </NestedBox>
-                )}
-              </RoleBox>
+              <Label className="text-xs">Yetki (tek seçim)</Label>
+              <RadioGroup
+                className="flex flex-col gap-1"
+                value={dfPrimary ?? ''}
+                onValueChange={(v) => setDfPrimary(v as DFRole)}
+              >
+                <RadioLabel value="ust_yon">Üst Yönetici</RadioLabel>
+                <RadioLabel value="orta_yon">Orta Kademe Yönetici</RadioLabel>
+                <RadioLabel value="onay_muh">Onay Mühendisi</RadioLabel>
+                <RadioLabel value="gaz_acma">Gaz Açma Mühendisi</RadioLabel>
+                <RadioLabel value="on_buro">Ön Büro Yetkilisi</RadioLabel>
+              </RadioGroup>
 
-              <RoleBox name="gdf_onay_muhendisi" label="Onay Mühendisi" form={form}>
-                {w.gdf_onay_muhendisi && (
+              {dfDescendants.length > 0 && (
+                <div className="rounded-md border border-dashed p-3">
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    Seçili yetki altındaki alt yetkilerden bu kişide bulunanları işaretleyin.
+                  </p>
+                  <div className="space-y-1.5">
+                    {dfDescendants.includes('onay_muh') && (
+                      <CheckLabel
+                        control={form.control}
+                        name="gdf_onay_muhendisi"
+                        label="Onay Mühendisi"
+                      />
+                    )}
+                    {dfDescendants.includes('gaz_acma') && (
+                      <CheckLabel
+                        control={form.control}
+                        name="gdf_gaz_acma_muhendisi"
+                        label="Gaz Açma Mühendisi"
+                      />
+                    )}
+                    {dfDescendants.includes('on_buro') && (
+                      <CheckLabel
+                        control={form.control}
+                        name="gdf_on_buro_yetkilisi"
+                        label="Ön Büro Yetkilisi"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ONAY MÜHENDİSİ verileri */}
+              {w.gdf_onay_muhendisi && (
+                <div className="rounded-md border p-3">
+                  <p className="mb-2 text-sm font-medium">Onay Mühendisi</p>
                   <NestedBox>
                     <InlineField label="GDF Sicil No">
                       <Input className="h-8" {...form.register('onay_muh_gdf_sicil_no')} />
                     </InlineField>
                   </NestedBox>
-                )}
-              </RoleBox>
+                </div>
+              )}
 
-              <RoleBox name="gdf_gaz_acma_muhendisi" label="Gaz Açma Mühendisi" form={form}>
-                {w.gdf_gaz_acma_muhendisi && (
+              {/* GAZ AÇMA MÜHENDİSİ verileri */}
+              {w.gdf_gaz_acma_muhendisi && (
+                <div className="rounded-md border p-3">
+                  <p className="mb-2 text-sm font-medium">Gaz Açma Mühendisi</p>
                   <NestedBox>
                     <InlineField label="Ekip No">
                       <Input className="h-8" {...form.register('gaz_acma_muh_ekip_no')} />
                     </InlineField>
                   </NestedBox>
-                )}
-              </RoleBox>
-
-              <RoleBox name="gdf_on_buro_yetkilisi" label="Ön Büro Yetkilisi" form={form} />
+                </div>
+              )}
             </div>
           </CardContent>
         )}
@@ -495,6 +636,7 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
                   listboxLabel="Yetkili Olduğu Firmalar"
                   placeholder="Firma adıyla ara…"
                   emptyText={w.gdf_kullanicisi ? 'Tanımlı DF yok.' : 'Tanımlı PF yok.'}
+                  singleAnchor={w.gdf_kullanicisi}
                 />
               )}
             />

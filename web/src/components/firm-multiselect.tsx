@@ -41,6 +41,9 @@ interface Props {
   comboboxLabel?: string;
   listboxLabel?: string;
   emptyText?: string;
+  // Seçim tek bir anchor (parent veya standalone) ağacıyla sınırlandırılır.
+  // Bir anchor seçildikten sonra başka anchor'lara ait satırlar tıklanamaz olur.
+  singleAnchor?: boolean;
 }
 
 export function FirmMultiSelect({
@@ -51,6 +54,7 @@ export function FirmMultiSelect({
   comboboxLabel = 'Firmalar',
   listboxLabel = 'Seçilenler',
   emptyText = 'Tanımlı firma yok.',
+  singleAnchor = false,
 }: Props) {
   const [query, setQuery] = React.useState('');
 
@@ -68,10 +72,12 @@ export function FirmMultiSelect({
     return m;
   }, [options]);
 
-  // Üst düzey: parent_id null olanlar.
+  // Üst düzey: parent_id olmayan VEYA parent'ı bu seçim havuzunda bulunmayan
+  // ("öksüz") firmalar. Aksi halde üst firmasının filtrelenip listede olmaması
+  // durumunda alt birim hiyerarşide görünmez ve aramada bulunamaz.
   const topLevel = React.useMemo(
-    () => options.filter((o) => !o.parent_id),
-    [options],
+    () => options.filter((o) => !o.parent_id || !byId.has(o.parent_id)),
+    [options, byId],
   );
 
   // Hiyerarşik düz liste: her parent + altında children sıralı.
@@ -113,6 +119,27 @@ export function FirmMultiSelect({
   }, [hierarchy, query, byId]);
 
   const valueSet = React.useMemo(() => new Set(value), [value]);
+
+  // Aktif anchor (singleAnchor=true ise): mevcut seçimdeki ilk öğenin parent_id'si
+  // (varsa) veya id'si. Yoksa null — yeni anchor seçilebilir.
+  const activeAnchorId = React.useMemo<string | null>(() => {
+    if (!singleAnchor || value.length === 0) return null;
+    for (const id of value) {
+      const opt = byId.get(id);
+      if (!opt) continue;
+      return opt.parent_id ?? opt.id;
+    }
+    return null;
+  }, [singleAnchor, value, byId]);
+
+  function anchorOf(opt: FirmOption): string {
+    return opt.parent_id ?? opt.id;
+  }
+
+  function isAnchorBlocked(opt: FirmOption): boolean {
+    if (!singleAnchor || !activeAnchorId) return false;
+    return anchorOf(opt) !== activeAnchorId;
+  }
 
   function handleAddParent(opt: FirmOption) {
     const children = childrenByParent.get(opt.id) ?? [];
@@ -190,6 +217,7 @@ export function FirmMultiSelect({
                   const partiallyAdded = isParent && !fully && (
                     valueSet.has(item.id) || children.some((c) => valueSet.has(c.id))
                   );
+                  const blocked = !fully && isAnchorBlocked(item);
                   const onClick = isParent
                     ? () => handleAddParent(item)
                     : item.parent_id
@@ -199,14 +227,15 @@ export function FirmMultiSelect({
                     <li key={item.id}>
                       <button
                         type="button"
-                        disabled={fully}
+                        disabled={fully || blocked}
+                        title={blocked ? 'Aynı anda yalnız tek bir üst firma seçilebilir' : undefined}
                         onClick={onClick}
                         className={cn(
                           'flex w-full items-start justify-between gap-2 py-2 pr-3 text-left text-sm transition-colors',
                           depth === 1 ? 'pl-8' : 'pl-3',
-                          fully
-                            ? 'cursor-default opacity-50'
-                            : 'hover:bg-accent',
+                          fully && 'cursor-default opacity-50',
+                          blocked && 'cursor-not-allowed opacity-40',
+                          !fully && !blocked && 'hover:bg-accent',
                         )}
                       >
                         <div className="min-w-0">

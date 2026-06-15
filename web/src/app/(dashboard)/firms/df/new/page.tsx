@@ -10,7 +10,7 @@ export default async function NewDFPage() {
   const supabase = await supabaseServer();
   const { data: df } = await supabase
     .from('dagitim_firmalari')
-    .select('id, firma_adi')
+    .select('id, firma_adi, parent_id, ust_firma')
     .order('firma_adi');
 
   return (
