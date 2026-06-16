@@ -1,7 +1,4 @@
-import Link from 'next/link';
 import { supabaseServer } from '@/lib/supabase/server';
-import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
 import { UsersTable } from './users-table';
 import type { UserRow } from '@/lib/supabase/types';
 
@@ -60,27 +57,26 @@ export default async function UsersListPage() {
     (userDfMap[r.user_id] ??= []).push(df);
   });
 
+  // Yönetici lookup: user_id → { id, adi }
+  const users = (usersRes.data ?? []) as UserRow[];
+  const usersById = new Map(users.map((u) => [u.id, u]));
+  const managerByUserId: Record<string, { id: string; adi: string }> = {};
+  users.forEach((u) => {
+    if (!u.bagli_oldugu_yonetici_id) return;
+    const m = usersById.get(u.bagli_oldugu_yonetici_id);
+    if (m) managerByUserId[u.id] = { id: m.id, adi: m.adi };
+  });
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Kullanıcılar</h1>
-
-        </div>
-        <Button asChild>
-          <Link href="/users/new">
-            <Plus className="h-4 w-4" />
-            Yeni Kullanıcı
-          </Link>
-        </Button>
-      </div>
-
       <UsersTable
-        users={(usersRes.data ?? []) as UserRow[]}
+        users={users}
         userPfMap={userPfMap}
         userDfMap={userDfMap}
         pfMaster={pfRows.map((p) => ({ id: p.id, parent_id: p.parent_id }))}
         dfMaster={dfRows.map((d) => ({ id: d.id, parent_id: d.parent_id }))}
+        managerByUserId={managerByUserId}
+        dfList={dfRows.map((d) => ({ id: d.id, firma_adi: d.firma_adi, parent_id: d.parent_id }))}
       />
     </div>
   );

@@ -19,7 +19,10 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
   const { data: firm } = await supabase.from('proje_firmalari').select('*').eq('id', id).maybeSingle();
   if (!firm) notFound();
 
-  const [pf, df, usersLinked, children] = await Promise.all([
+  // Yetkili kullanıcı adaylarını da kapsayacak şekilde: bu PF + (varsa) parent PF.
+  const userPfIds = firm.parent_id ? [id, firm.parent_id] : [id];
+
+  const [pf, df, usersLinked, children, allPfUsers, allUserPfLinks] = await Promise.all([
     supabase
       .from('proje_firmalari')
       .select('id, firma_adi, parent_id, ust_firma')
@@ -30,22 +33,39 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
       .order('firma_adi'),
     supabase
       .from('user_pf')
-      .select('user_id, users:users!inner(id, adi, email)')
-      .eq('pf_id', id),
+      .select('pf_id, user_id, users:users!inner(id, adi, email)')
+      .in('pf_id', userPfIds),
     supabase
       .from('proje_firmalari')
       .select('id, no, firma_adi')
       .eq('parent_id', id)
       .order('firma_adi'),
+    // Bağımsız (henüz hiçbir PF'ye bağlanmamış) PF kullanıcıları için aday havuzu.
+    supabase.from('users').select('id, adi').eq('firma_kullanicisi', true),
+    supabase.from('user_pf').select('user_id'),
   ]);
 
   const alt_firma_ids = (children.data ?? []).map((c) => c.id as string);
-  // Bu PF'e bağlı user'lar → "Yetkili Kullanıcı" select'inde sadece bunlar aday.
-  const eligibleYetkililer = (usersLinked.data ?? []).map((r) => {
+  // Sadece bu PF'e doğrudan bağlı user'lar — "Bağlı kullanıcılar" kartı için.
+  const directLinks = (usersLinked.data ?? []).filter((r) => (r as { pf_id: string }).pf_id === id);
+  // "Yetkili Kullanıcı" dropdown adayları: bu PF + parent'a bağlı + hiç PF'ye
+  // bağlanmamış serbest PF kullanıcıları.
+  const seen = new Set<string>();
+  const eligibleYetkililer: { id: string; adi: string }[] = [];
+  (usersLinked.data ?? []).forEach((r) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const u: any = r.users;
-    return { id: u.id as string, adi: u.adi as string };
+    if (!u || seen.has(u.id)) return;
+    seen.add(u.id);
+    eligibleYetkililer.push({ id: u.id as string, adi: u.adi as string });
   });
+  const linkedPfUserIds = new Set((allUserPfLinks.data ?? []).map((r) => r.user_id));
+  (allPfUsers.data ?? []).forEach((u) => {
+    if (seen.has(u.id) || linkedPfUserIds.has(u.id)) return;
+    seen.add(u.id);
+    eligibleYetkililer.push({ id: u.id, adi: u.adi });
+  });
+  eligibleYetkililer.sort((a, b) => a.adi.localeCompare(b.adi, 'tr'));
 
   // Bu PF'e bağlı her user'ın DİĞER firmalarını (PF/DF) yükle — listede bağlam göster.
   const userIds = eligibleYetkililer.map((u) => u.id);
@@ -137,7 +157,7 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-4 w-4" />
-            Bu firmaya bağlı kullanıcılar ({usersLinked.data?.length ?? 0})
+            Bu firmaya bağlı kullanıcılar ({directLinks.length})
           </CardTitle>
           {linkedDfAdlari.length > 0 && (
             <div className="space-y-0.5 text-xs text-muted-foreground">
@@ -149,11 +169,11 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
           )}
         </CardHeader>
         <CardContent>
-          {!usersLinked.data || usersLinked.data.length === 0 ? (
+          {directLinks.length === 0 ? (
             <p className="text-sm text-muted-foreground">Henüz kullanıcı yok.</p>
           ) : (
             <ul className="divide-y">
-              {usersLinked.data.map((r) => {
+              {directLinks.map((r) => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const u: any = r.users;
                 // Master listeler üzerinden parent+tüm child seçili ise parent'a daralt.

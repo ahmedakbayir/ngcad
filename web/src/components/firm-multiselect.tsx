@@ -5,6 +5,7 @@ import { Check, Plus, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 // Combobox + listbox: tüm firmalar hiyerarşik olarak listelenir (parent'lar
@@ -47,6 +48,11 @@ interface Props {
   // Seçim tek bir anchor (parent veya standalone) ağacıyla sınırlandırılır.
   // Bir anchor seçildikten sonra başka anchor'lara ait satırlar tıklanamaz olur.
   singleAnchor?: boolean;
+  // Üst firma id'leri için auto_inherit bayrağı. Bu listede olan parent'ın
+  // altında listbox'ta bir switch görünür; switch açıkken yeni alt birim
+  // eklendiğinde sunucu tarafı kullanıcıyı otomatik bağlar.
+  autoInheritIds?: string[];
+  onAutoInheritChange?: (parentId: string, value: boolean) => void;
 }
 
 export function FirmMultiSelect({
@@ -58,7 +64,13 @@ export function FirmMultiSelect({
   listboxLabel = 'Seçilenler',
   emptyText = 'Tanımlı firma yok.',
   singleAnchor = false,
+  autoInheritIds,
+  onAutoInheritChange,
 }: Props) {
+  const autoInheritSet = React.useMemo(
+    () => new Set(autoInheritIds ?? []),
+    [autoInheritIds],
+  );
   const [query, setQuery] = React.useState('');
 
   const byId = React.useMemo(() => new Map(options.map((o) => [o.id, o])), [options]);
@@ -359,6 +371,19 @@ export function FirmMultiSelect({
                             </li>
                           ))}
                         </ul>
+                      )}
+                      {/* Üst firma için auto-inherit switch'i — yalnız bu parent listede ve callback verilmişse. */}
+                      {isParentBadge && onAutoInheritChange && (
+                        <div className="mt-2 flex items-center gap-2 rounded-md border border-dashed bg-muted/30 px-2 py-1.5">
+                          <Switch
+                            checked={autoInheritSet.has(opt.id)}
+                            onCheckedChange={(v) => onAutoInheritChange(opt.id, v)}
+                          />
+                          <span className="text-[11px] leading-tight text-muted-foreground">
+                            <span className="font-medium text-foreground">{opt.firma_adi}</span>{' '}
+                            altına eklenecek yeni firmalar için de yetkili olsun
+                          </span>
+                        </div>
                       )}
                     </li>
                   );

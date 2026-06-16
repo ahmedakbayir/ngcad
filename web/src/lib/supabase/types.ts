@@ -7,6 +7,7 @@ export type ProjeMuhYetki  = 'icTesisat' | 'endustriyel';
 export interface UserRow {
   id: string;
   adi: string;
+  unvan: string | null;
   email: string;
   gsm: string | null;
   profil_fotografi: string | null;
@@ -67,6 +68,7 @@ export interface ProjeFirmaRow extends BaseFirmaRow {
   ust_firma: boolean;
 }
 export interface DagitimFirmaRow extends BaseFirmaRow {
+  sahip:          string | null; // DF'i sahiplenen üst kuruluş (ör. "Aksa Doğal Gaz")
   son_guncelleme: string | null; // date (YYYY-MM-DD)
   guncel_surum:   number | null; // yalnız parent / standalone DF'lerde anlamlı
   df_no:          number | null;

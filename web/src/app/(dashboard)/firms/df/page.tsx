@@ -9,10 +9,15 @@ export const dynamic = 'force-dynamic';
 
 export default async function DFListPage() {
   const supabase = await supabaseServer();
-  const { data, error } = await supabase
-    .from('dagitim_firmalari')
-    .select('*')
-    .order('firma_adi');
+  const [{ data, error }, usersRes] = await Promise.all([
+    supabase.from('dagitim_firmalari').select('*').order('firma_adi'),
+    supabase.from('users').select('id, adi'),
+  ]);
+
+  const yetkiliUserById: Record<string, { id: string; adi: string }> = {};
+  (usersRes.data ?? []).forEach((u) => {
+    yetkiliUserById[u.id] = { id: u.id, adi: u.adi };
+  });
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -28,7 +33,12 @@ export default async function DFListPage() {
       {error ? (
         <p className="text-sm text-destructive">Veri çekilemedi: {error.message}</p>
       ) : (
-        <FirmaTable firmas={(data ?? []) as FirmaRow[]} basePath="/firms/df" />
+        <FirmaTable
+          firmas={(data ?? []) as FirmaRow[]}
+          basePath="/firms/df"
+          compact
+          yetkiliUserById={yetkiliUserById}
+        />
       )}
     </div>
   );

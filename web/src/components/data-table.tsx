@@ -12,7 +12,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ChevronDown, ChevronsUpDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronsUpDown, ChevronUp, FilterX } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,9 +41,30 @@ declare module '@tanstack/react-table' {
   }
 }
 
+export type SelectOptionVariant =
+  | 'default' | 'default-soft' | 'secondary' | 'success' | 'warning' | 'info' | 'destructive';
+
+export interface SelectFilterOption {
+  value: string;
+  label: string;
+  variant?: SelectOptionVariant;
+}
+
 export type ColumnFilterConfig =
   | { type: 'text'; placeholder?: string }
-  | { type: 'select'; options: { value: string; label: string }[]; placeholder?: string };
+  | { type: 'select'; options: SelectFilterOption[]; placeholder?: string };
+
+// Combobox seçenekleri için yumuşak (filter dropdown'ında göze batmayan) tonlar.
+// "default" = Üst Yönetici gibi baskın; "default-soft" = orta kademe Yönetici.
+const VARIANT_CLS: Record<SelectOptionVariant, string> = {
+  default:        'bg-primary/15 text-primary',
+  'default-soft': 'bg-primary/5 text-primary/80',
+  secondary:      'bg-muted text-muted-foreground',
+  destructive:    'bg-destructive/10 text-destructive',
+  success:        'bg-emerald-50 text-emerald-700',
+  warning:        'bg-amber-50 text-amber-700',
+  info:           'bg-sky-50 text-sky-700',
+};
 
 interface DataTableProps<T> {
   columns: ColumnDef<T, unknown>[];
@@ -66,6 +87,11 @@ interface DataTableProps<T> {
   sorting?: SortingState;
   onSortingChange?: (s: SortingState) => void;
   manualSorting?: boolean;
+  // Kompakt mod: hücre padding'leri ve header yüksekliği daralır.
+  compact?: boolean;
+  // Filtre satırının en sağdaki konfigürasyonsuz hücresinde (Filtreleri Temizle
+  // butonunun yanında) render edilecek ek aksiyonlar.
+  filterActions?: React.ReactNode;
 }
 
 export function DataTable<T>({
@@ -82,9 +108,28 @@ export function DataTable<T>({
   sorting: sortingControlled,
   onSortingChange,
   manualSorting,
+  compact = false,
+  filterActions,
 }: DataTableProps<T>) {
   const [sortingInner, setSortingInner] = React.useState<SortingState>([]);
   const sorting = sortingControlled ?? sortingInner;
+  // Excel benzeri çoklu kolon sıralaması: yalnız son iki tıklama tutulur.
+  // İlk tıklama → tek kolon. İkinci farklı kolon → yeni birincil, eskisi ikincil
+  // (tie-breaker). Aynı kolona tekrar tıklama → yönü çevirir (asc/desc).
+  const handleSortClick = (colId: string) => {
+    const cur = sorting;
+    const primary = cur[0];
+    let next: SortingState;
+    if (primary && primary.id === colId) {
+      const flipped = { id: colId, desc: !primary.desc };
+      next = cur.length > 1 ? [flipped, cur[1]] : [flipped];
+    } else {
+      const newPrim = { id: colId, desc: false };
+      next = primary ? [newPrim, primary] : [newPrim];
+    }
+    if (onSortingChange) onSortingChange(next);
+    if (!sortingControlled) setSortingInner(next);
+  };
   const setSorting = (updater: React.SetStateAction<SortingState>) => {
     const next = typeof updater === 'function'
       ? (updater as (prev: SortingState) => SortingState)(sorting)
@@ -130,17 +175,23 @@ export function DataTable<T>({
               );
               return (
                 <React.Fragment key={hg.id}>
+                  {/* Kolon başlıkları üstte. */}
                   <TableRow>
                     {hg.headers.map((h) => {
                       const canSort = h.column.getCanSort();
-                      const sorted = h.column.getIsSorted();
+                      const sortIdx = sorting.findIndex((s) => s.id === h.column.id);
+                      const sortEntry = sortIdx >= 0 ? sorting[sortIdx] : undefined;
                       return (
-                        <TableHead key={h.id} style={{ width: h.getSize?.() || undefined }}>
+                        <TableHead
+                          key={h.id}
+                          style={{ width: h.getSize?.() || undefined }}
+                          className={compact ? 'h-8 px-2 text-xs' : undefined}
+                        >
                           {h.isPlaceholder ? null : (
                             <button
                               type="button"
                               disabled={!canSort}
-                              onClick={h.column.getToggleSortingHandler()}
+                              onClick={() => canSort && handleSortClick(h.column.id)}
                               className={cn(
                                 'flex items-center gap-1',
                                 canSort && 'cursor-pointer select-none hover:text-foreground',
@@ -148,9 +199,16 @@ export function DataTable<T>({
                             >
                               {flexRender(h.column.columnDef.header, h.getContext())}
                               {canSort && (
-                                sorted === 'asc' ? <ChevronUp className="h-3 w-3" /> :
-                                sorted === 'desc' ? <ChevronDown className="h-3 w-3" /> :
-                                <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                                sortEntry
+                                  ? sortEntry.desc
+                                    ? <ChevronDown className="h-3 w-3" />
+                                    : <ChevronUp className="h-3 w-3" />
+                                  : <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                              )}
+                              {sortIdx === 1 && (
+                                <span className="ml-0.5 rounded bg-muted px-1 text-[9px] font-medium text-muted-foreground">
+                                  2
+                                </span>
                               )}
                             </button>
                           )}
@@ -158,11 +216,47 @@ export function DataTable<T>({
                       );
                     })}
                   </TableRow>
-                  {hasAnyFilter && (
-                    <TableRow className="border-t bg-muted/30 hover:bg-muted/30">
-                      {hg.headers.map((h) => {
+                  {hasAnyFilter && (() => {
+                    // Filtre satırı (kolon başlığı altında). Styling yumuşatıldı.
+                    // En sağdaki "konfigürasyonsuz" hücreye Filtreleri Temizle +
+                    // filterActions buton(lar)ı yerleşir.
+                    const lastEmptyIdx = (() => {
+                      for (let i = hg.headers.length - 1; i >= 0; i--) {
+                        const c = (hg.headers[i].column.columnDef.meta as { filter?: ColumnFilterConfig } | undefined)?.filter;
+                        if (!c) return i;
+                      }
+                      return -1;
+                    })();
+                    const hasActiveFilters = table.getState().columnFilters.length > 0;
+                    return (
+                    <TableRow className="border-b bg-muted/20 hover:bg-muted/20">
+                      {hg.headers.map((h, idx) => {
                         const cfg = (h.column.columnDef.meta as { filter?: ColumnFilterConfig } | undefined)?.filter;
-                        if (!cfg) return <TableHead key={h.id} className="py-1.5" />;
+                        if (!cfg) {
+                          if (idx === lastEmptyIdx && (hasActiveFilters || filterActions)) {
+                            return (
+                              <TableHead key={h.id} className="py-1.5">
+                                <div className="flex items-center justify-end gap-1">
+                                  {filterActions}
+                                  {hasActiveFilters && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                      onClick={() => table.resetColumnFilters()}
+                                      title="Filtreleri Temizle"
+                                      aria-label="Filtreleri Temizle"
+                                    >
+                                      <FilterX className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableHead>
+                            );
+                          }
+                          return <TableHead key={h.id} className="py-1.5" />;
+                        }
                         const val = (h.column.getFilterValue() as string) ?? '';
                         if (cfg.type === 'select') {
                           return (
@@ -171,13 +265,23 @@ export function DataTable<T>({
                                 value={val === '' ? '__all__' : val}
                                 onValueChange={(v) => h.column.setFilterValue(v === '__all__' ? undefined : v)}
                               >
-                                <SelectTrigger className="h-7 w-full px-2 text-xs">
+                                <SelectTrigger className="h-7 w-full rounded-md border-input/40 bg-background px-2.5 text-[11px] font-normal text-muted-foreground/90 shadow-none">
                                   <SelectValue placeholder={cfg.placeholder ?? 'Tümü'} />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="__all__">Tümü</SelectItem>
                                   {cfg.options.map((opt) => (
-                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    <SelectItem
+                                      key={opt.value}
+                                      value={opt.value}
+                                      className={
+                                        opt.variant
+                                          ? cn('my-0.5', VARIANT_CLS[opt.variant])
+                                          : undefined
+                                      }
+                                    >
+                                      {opt.label}
+                                    </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -190,13 +294,14 @@ export function DataTable<T>({
                               value={val}
                               onChange={(e) => h.column.setFilterValue(e.target.value || undefined)}
                               placeholder={cfg.placeholder ?? 'Ara…'}
-                              className="h-7 px-2 text-xs"
+                              className="h-7 rounded-md border-input/40 bg-background px-2.5 text-[11px] font-normal placeholder:text-muted-foreground/60 focus-visible:ring-1"
                             />
                           </TableHead>
                         );
                       })}
                     </TableRow>
-                  )}
+                    );
+                  })()}
                 </React.Fragment>
               );
             })}
@@ -216,7 +321,10 @@ export function DataTable<T>({
                   style={rowStyle?.(row.original, idx)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      className={compact ? 'px-2 py-1 text-xs' : undefined}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

@@ -1,4 +1,3 @@
-import * as React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -7,7 +6,6 @@ import { ArrowLeft, Users, Building2, Network } from 'lucide-react';
 import { FirmForm } from '@/components/firm-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { collapseFirmHierarchy } from '@/lib/firm-hierarchy';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,15 +16,27 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
   const { data: firm } = await supabase.from('dagitim_firmalari').select('*').eq('id', id).maybeSingle();
   if (!firm) notFound();
 
-  const [df, usersLinked, pfLinked, children, pfMaster] = await Promise.all([
+  // Yetkili kullanıcı adaylarını da kapsayacak şekilde: bu DF + (varsa) parent DF.
+  const userDfIds = firm.parent_id ? [id, firm.parent_id] : [id];
+
+  const [df, usersLinked, pfLinked, children, allDfUsers, allUserDfLinks] = await Promise.all([
     supabase
       .from('dagitim_firmalari')
       .select('id, firma_adi, parent_id, ust_firma')
       .order('firma_adi'),
     supabase
       .from('user_df')
-      .select('user_id, users:users!inner(id, adi, email)')
-      .eq('df_id', id),
+      .select(`
+        df_id, user_id,
+        users:users!inner(
+          id, adi, email, unvan,
+          firma_yonetici, firma_yonetici_kademe,
+          firma_proje_muhendisi, firma_cizim_sorumlusu, firma_tesisat_ustasi,
+          gdf_yonetici, gdf_yonetici_kademe,
+          gdf_onay_muhendisi, gdf_gaz_acma_muhendisi, gdf_on_buro_yetkilisi
+        )
+      `)
+      .in('df_id', userDfIds),
     supabase
       .from('proje_firmalari')
       .select('id, firma_adi, no, df_id')
@@ -37,49 +47,32 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
       .select('id, no, firma_adi')
       .eq('parent_id', id)
       .order('firma_adi'),
-    supabase.from('proje_firmalari').select('id, parent_id'),
+    // Bağımsız (henüz hiçbir DF'ye bağlanmamış) DF kullanıcıları için aday havuzu.
+    supabase.from('users').select('id, adi').eq('gdf_kullanicisi', true),
+    supabase.from('user_df').select('user_id'),
   ]);
 
-  const dfMasterAll = (df.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
-  const dfRefById = new Map(dfMasterAll.map((d) => [d.id, d]));
-  const pfMasterAll = (pfMaster.data ?? []) as { id: string; parent_id: string | null }[];
+  // Sadece bu DF'ye doğrudan bağlı kullanıcılar — "Bağlı kullanıcılar" kartı için.
+  const directLinks = (usersLinked.data ?? []).filter((r) => (r as { df_id: string }).df_id === id);
 
-  const eligibleYetkililer = (usersLinked.data ?? []).map((r) => {
+  // Yetkili kullanıcı dropdown'ı için adaylar: bu DF + parent'a bağlı kullanıcılar
+  // + hiçbir DF'ye bağlanmamış (free agent) DF kullanıcıları.
+  const seen = new Set<string>();
+  const eligibleYetkililer: { id: string; adi: string }[] = [];
+  (usersLinked.data ?? []).forEach((r) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const u: any = r.users;
-    return { id: u.id as string, adi: u.adi as string };
+    if (!u || seen.has(u.id)) return;
+    seen.add(u.id);
+    eligibleYetkililer.push({ id: u.id as string, adi: u.adi as string });
   });
-
-  // Bağlı kullanıcıların DİĞER DF'lerini ve (varsa) PF'lerini yükle.
-  const userIds = eligibleYetkililer.map((u) => u.id);
-  type FirmRef = { id: string; firma_adi: string };
-  const userOtherDfs: Record<string, FirmRef[]> = {};
-  const userPfs: Record<string, FirmRef[]> = {};
-  if (userIds.length > 0) {
-    const [otherDfRes, pfRes] = await Promise.all([
-      supabase
-        .from('user_df')
-        .select('user_id, dagitim_firmalari:dagitim_firmalari!inner(id, firma_adi)')
-        .in('user_id', userIds)
-        .neq('df_id', id),
-      supabase
-        .from('user_pf')
-        .select('user_id, proje_firmalari:proje_firmalari!inner(id, firma_adi)')
-        .in('user_id', userIds),
-    ]);
-    (otherDfRes.data ?? []).forEach((r) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const d: any = r.dagitim_firmalari;
-      (userOtherDfs[r.user_id as string] ??= []).push({ id: d.id, firma_adi: d.firma_adi });
-    });
-    (pfRes.data ?? []).forEach((r) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const p: any = r.proje_firmalari;
-      (userPfs[r.user_id as string] ??= []).push({ id: p.id, firma_adi: p.firma_adi });
-    });
-  }
-
-  // Tek-DF modeli: PF'in başka bir DF bağı yok; "diğer DF" listesi anlamsız.
+  const linkedDfUserIds = new Set((allUserDfLinks.data ?? []).map((r) => r.user_id));
+  (allDfUsers.data ?? []).forEach((u) => {
+    if (seen.has(u.id) || linkedDfUserIds.has(u.id)) return;
+    seen.add(u.id);
+    eligibleYetkililer.push({ id: u.id, adi: u.adi });
+  });
+  eligibleYetkililer.sort((a, b) => a.adi.localeCompare(b.adi, 'tr'));
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -131,63 +124,42 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Users className="h-4 w-4" />
-              Bağlı kullanıcılar ({usersLinked.data?.length ?? 0})
+              Bağlı kullanıcılar ({directLinks.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!usersLinked.data || usersLinked.data.length === 0 ? (
+            {directLinks.length === 0 ? (
               <p className="text-sm text-muted-foreground">Henüz kullanıcı yok.</p>
             ) : (
               <ul className="divide-y">
-                {usersLinked.data.map((r) => {
+                {directLinks.map((r) => {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const u: any = r.users;
-                  const otherDfsRaw = userOtherDfs[u.id] ?? [];
-                  const pfsRaw = userPfs[u.id] ?? [];
-                  const otherDfs = collapseFirmHierarchy(
-                    otherDfsRaw.map((d) => ({
-                      ...d,
-                      parent_id: dfRefById.get(d.id)?.parent_id ?? null,
-                    })),
-                    dfMasterAll.map((m) => ({ id: m.id, parent_id: m.parent_id })),
-                  );
-                  const pfs = collapseFirmHierarchy(
-                    pfsRaw.map((p) => ({
-                      ...p,
-                      parent_id: pfMasterAll.find((m) => m.id === p.id)?.parent_id ?? null,
-                    })),
-                    pfMasterAll,
-                  );
+                  const rol = userRolEtiketi(u);
                   return (
-                    <li key={u.id} className="py-2 text-sm">
-                      <Link href={`/users/${u.id}`} className="hover:underline">
-                        {u.adi} <span className="text-muted-foreground">— {u.email}</span>
-                      </Link>
-                      {(otherDfs.length > 0 || pfs.length > 0) && (
-                        <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                          {otherDfs.length > 0 && (
-                            <span>
-                              Diğer DF:{' '}
-                              {otherDfs.map((d, i) => (
-                                <React.Fragment key={d.id}>
-                                  {i > 0 && ', '}
-                                  <Link href={`/firms/df/${d.id}`} className="hover:underline">{d.firma_adi}</Link>
-                                </React.Fragment>
-                              ))}
-                            </span>
-                          )}
-                          {pfs.length > 0 && (
-                            <span>
-                              PF:{' '}
-                              {pfs.map((p, i) => (
-                                <React.Fragment key={p.id}>
-                                  {i > 0 && ', '}
-                                  <Link href={`/firms/pf/${p.id}`} className="hover:underline">{p.firma_adi}</Link>
-                                </React.Fragment>
-                              ))}
-                            </span>
-                          )}
-                        </div>
+                    <li key={u.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                      <div className="min-w-0 leading-tight">
+                        <Link href={`/users/${u.id}`} className="font-medium hover:underline">
+                          {u.adi}
+                        </Link>
+                        {u.unvan && (
+                          <span className="ml-1.5 text-[11px] italic text-muted-foreground">
+                            · {u.unvan}
+                          </span>
+                        )}
+                        <div className="text-[11px] text-muted-foreground">{u.email}</div>
+                      </div>
+                      {rol && (
+                        <Badge
+                          variant={rol.variant}
+                          className={
+                            rol.className
+                              ? `${rol.className} shrink-0 text-[10px] font-normal`
+                              : 'shrink-0 text-[10px] font-normal'
+                          }
+                        >
+                          {rol.label}
+                        </Badge>
                       )}
                     </li>
                   );
@@ -223,4 +195,31 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
       </div>
     </div>
   );
+}
+
+// Tek birincil rol rozetini üretir (en yetkili rol kazanır).
+type RolBadge = {
+  label: string;
+  variant: 'default' | 'secondary' | 'info' | 'success' | 'warning';
+  className?: string;
+};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function userRolEtiketi(u: any): RolBadge | null {
+  if (u.firma_yonetici) {
+    return u.firma_yonetici_kademe === 'ust'
+      ? { label: 'Üst Yönetici', variant: 'default' }
+      : { label: 'Yönetici',     variant: 'default', className: 'bg-primary/40 hover:bg-primary/40' };
+  }
+  if (u.firma_proje_muhendisi)  return { label: 'Proje Müh.',   variant: 'info'    };
+  if (u.firma_cizim_sorumlusu)  return { label: 'Çizim Sor.',   variant: 'success' };
+  if (u.firma_tesisat_ustasi)   return { label: 'Tesisat Ust.', variant: 'warning' };
+  if (u.gdf_yonetici) {
+    return u.gdf_yonetici_kademe === 'ust'
+      ? { label: 'Üst Yönetici', variant: 'default' }
+      : { label: 'Yönetici',     variant: 'default', className: 'bg-primary/40 hover:bg-primary/40' };
+  }
+  if (u.gdf_onay_muhendisi)     return { label: 'Onay Müh.',    variant: 'info'    };
+  if (u.gdf_gaz_acma_muhendisi) return { label: 'Gaz Açma',     variant: 'success' };
+  if (u.gdf_on_buro_yetkilisi)  return { label: 'Ön Büro',      variant: 'warning' };
+  return null;
 }

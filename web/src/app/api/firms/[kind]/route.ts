@@ -46,5 +46,86 @@ export async function POST(
     }
   }
 
+  // AUTO-INHERIT CASCADE: Yeni firma bir parent altına eklendiyse, parent'ta
+  // auto_inherit=true bayraklı user_pf/user_df sahiplerine bu yeni firmayı da
+  // (auto_inherit=false ile) bind et.
+  if (firmData.parent_id) {
+    const junctionTable = kind === 'pf' ? 'user_pf' : 'user_df';
+    const firmCol = kind === 'pf' ? 'pf_id' : 'df_id';
+    const { data: inherits } = await admin
+      .from(junctionTable)
+      .select('user_id')
+      .eq(firmCol, firmData.parent_id)
+      .eq('auto_inherit', true);
+    if (inherits && inherits.length > 0) {
+      await admin.from(junctionTable).insert(
+        inherits.map((r: { user_id: string }) => ({
+          user_id: r.user_id,
+          [firmCol]: data.id,
+          auto_inherit: false,
+        })),
+      );
+    }
+  }
+
+  // BACKFILL: ÜST FİRMA modunda alt_firma_ids ile var olan child'ları aldıysak,
+  // her child'a bağlı kullanıcıları bu yeni parent'a da bağla.
+  if (firmData.ust_firma && Array.isArray(alt_firma_ids) && alt_firma_ids.length > 0) {
+    const junctionTable = kind === 'pf' ? 'user_pf' : 'user_df';
+    const firmCol = kind === 'pf' ? 'pf_id' : 'df_id';
+    for (const childId of alt_firma_ids as string[]) {
+      const { data: links } = await admin
+        .from(junctionTable)
+        .select('user_id')
+        .eq(firmCol, childId);
+      const userIds = ((links ?? []) as { user_id: string }[]).map((r) => r.user_id);
+      if (userIds.length > 0) {
+        await admin.from(junctionTable).upsert(
+          userIds.map((uid) => ({ user_id: uid, [firmCol]: data.id, auto_inherit: false })),
+          { onConflict: `user_id,${firmCol}` },
+        );
+      }
+    }
+  }
+
+  // Yetkili kullanıcı seçildiyse junction'ı garanti et. Üst firma yetkililerinde
+  // auto_inherit=true varsayılan; parent varsa parent için de ekle.
+  if (firmData.yetkili_user_id) {
+    const junctionTable = kind === 'pf' ? 'user_pf' : 'user_df';
+    const firmCol = kind === 'pf' ? 'pf_id' : 'df_id';
+    const rows: Record<string, unknown>[] = [
+      { user_id: firmData.yetkili_user_id, [firmCol]: data.id, auto_inherit: !!firmData.ust_firma },
+    ];
+    if (firmData.parent_id) {
+      rows.push({ user_id: firmData.yetkili_user_id, [firmCol]: firmData.parent_id, auto_inherit: false });
+    }
+    await admin.from(junctionTable).upsert(rows, { onConflict: `user_id,${firmCol}` });
+
+    // Bağlı yönetici otomatik ata: child firmada yetkili belirleniyorsa parent'ın
+    // yetkili user'ı bu kullanıcının üst yöneticisi olur (mevcut null ise).
+    if (firmData.parent_id) {
+      const { data: parentRow } = await admin
+        .from(table)
+        .select('yetkili_user_id')
+        .eq('id', firmData.parent_id)
+        .single();
+      const parentYetkili = (parentRow as { yetkili_user_id?: string | null } | null)?.yetkili_user_id;
+      if (parentYetkili && parentYetkili !== firmData.yetkili_user_id) {
+        const { data: userRow } = await admin
+          .from('users')
+          .select('bagli_oldugu_yonetici_id')
+          .eq('id', firmData.yetkili_user_id)
+          .single();
+        const curMgr = (userRow as { bagli_oldugu_yonetici_id?: string | null } | null)?.bagli_oldugu_yonetici_id;
+        if (!curMgr) {
+          await admin
+            .from('users')
+            .update({ bagli_oldugu_yonetici_id: parentYetkili })
+            .eq('id', firmData.yetkili_user_id);
+        }
+      }
+    }
+  }
+
   return NextResponse.json({ id: data.id });
 }

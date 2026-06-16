@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await req.json();
-  const { yetkili_firma_ids = [], password, ...userData } = body;
+  const { yetkili_firma_ids = [], auto_inherit_firma_ids = [], password, ...userData } = body;
 
   if (!password || typeof password !== 'string' || password.length < 6) {
     return NextResponse.json(
@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
     !!userData.firma_kullanicisi,
     !!userData.gdf_kullanicisi,
     yetkili_firma_ids,
+    auto_inherit_firma_ids,
   );
 
   return NextResponse.json({ id: userId });

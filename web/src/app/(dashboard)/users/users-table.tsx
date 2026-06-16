@@ -6,11 +6,13 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/data-table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getUserKategori, type UserKategori, type UserRow } from '@/lib/supabase/types';
-import { Mail, Phone, Pencil } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { collapseFirmHierarchy } from '@/lib/firm-hierarchy';
 import { smartColumnFilterFn } from '@/lib/smart-filter';
+import { cn } from '@/lib/utils';
 
 interface FirmaRef { id: string; firma_adi: string; parent_id?: string | null }
 interface PFWithDfs extends FirmaRef { dfs: FirmaRef[] }
@@ -22,33 +24,49 @@ export interface UsersTableProps {
   // parent_id daraltma için master listeler (id → parent_id)
   pfMaster?: { id: string; parent_id: string | null }[];
   dfMaster?: { id: string; parent_id: string | null }[];
+  // Yönetici kolonu için user_id → { manager id, adı } eşlemesi
+  managerByUserId?: Record<string, { id: string; adi: string }>;
+  // DF filtre combobox'ı için tüm DF listesi (parent + child)
+  dfList?: { id: string; firma_adi: string; parent_id: string | null }[];
 }
 
 function kategoriBadge(k: UserKategori) {
-  const map: Record<UserKategori, { label: string; variant: 'default' | 'info' | 'warning' | 'secondary' }> = {
-    admin:   { label: 'Admin',       variant: 'default' },
-    pf:      { label: 'PF User',     variant: 'info' },
-    df:      { label: 'DF User',     variant: 'warning' },
-    general: { label: 'General',     variant: 'secondary' },
+  // 'general' kategori UI'dan kaldırıldı — yine de tip union'da kalıyor.
+  const map: Partial<Record<UserKategori, { label: string; variant: 'default' | 'info' | 'warning' | 'secondary' }>> = {
+    admin: { label: 'Admin',   variant: 'default' },
+    pf:    { label: 'PF User', variant: 'info'    },
+    df:    { label: 'DF User', variant: 'warning' },
   };
-  const { label, variant } = map[k];
-  return <Badge variant={variant}>{label}</Badge>;
+  const entry = map[k];
+  if (!entry) return <span className="text-xs text-muted-foreground">—</span>;
+  return <Badge variant={entry.variant}>{entry.label}</Badge>;
 }
 
 type RolVariant = 'default' | 'secondary' | 'info' | 'success' | 'warning';
-interface RolEtiket { label: string; variant: RolVariant }
+interface RolEtiket {
+  label: string;
+  variant: RolVariant;
+  className?: string;
+}
 
 function rolEtiketleri(u: UserRow): RolEtiket[] {
-  // Yalnız BİRİNCİL rol gösterilir. Formdaki radio + alt-yetki hiyerarşisine
-  // göre öncelik: Yönetici > sonraki tekil roller. Alt-yetki checkbox'ları
-  // (örn. Yönetici altındaki Onay Müh.) listede ayrı rozet olarak çıkmaz.
+  // Yalnız BİRİNCİL rol gösterilir. Üst Yönetici baskın (default = bg-primary);
+  // Orta kademe Yönetici aynı renkten daha açık (bg-primary/40).
   // ── PF birincil rol ──
-  if (u.firma_yonetici)         return [{ label: 'Yönetici',     variant: 'default' }];
+  if (u.firma_yonetici) {
+    return u.firma_yonetici_kademe === 'ust'
+      ? [{ label: 'Üst Yönetici', variant: 'default' }]
+      : [{ label: 'Yönetici',     variant: 'default', className: 'bg-primary/40 hover:bg-primary/40' }];
+  }
   if (u.firma_proje_muhendisi)  return [{ label: 'Proje Müh.',   variant: 'info'    }];
   if (u.firma_cizim_sorumlusu)  return [{ label: 'Çizim Sor.',   variant: 'success' }];
   if (u.firma_tesisat_ustasi)   return [{ label: 'Tesisat Ust.', variant: 'warning' }];
   // ── DF birincil rol ──
-  if (u.gdf_yonetici)           return [{ label: 'GDF Yön.',     variant: 'default' }];
+  if (u.gdf_yonetici) {
+    return u.gdf_yonetici_kademe === 'ust'
+      ? [{ label: 'Üst Yönetici', variant: 'default' }]
+      : [{ label: 'Yönetici',     variant: 'default', className: 'bg-primary/40 hover:bg-primary/40' }];
+  }
   if (u.gdf_onay_muhendisi)     return [{ label: 'Onay Müh.',    variant: 'info'    }];
   if (u.gdf_gaz_acma_muhendisi) return [{ label: 'Gaz Açma',     variant: 'success' }];
   if (u.gdf_on_buro_yetkilisi)  return [{ label: 'Ön Büro',      variant: 'warning' }];
@@ -56,74 +74,109 @@ function rolEtiketleri(u: UserRow): RolEtiket[] {
 }
 
 const KATEGORI_OPTIONS = [
-  { value: 'admin',   label: 'Admin' },
-  { value: 'pf',      label: 'PF User' },
-  { value: 'df',      label: 'DF User' },
-  { value: 'general', label: 'General' },
+  { value: 'admin', label: 'Admin',   variant: 'default' as const },
+  { value: 'pf',    label: 'PF User', variant: 'info'    as const },
+  { value: 'df',    label: 'DF User', variant: 'warning' as const },
 ];
 
-const ROL_OPTIONS = [
-  { value: 'firma_yonetici',         label: 'Firma Yönetici' },
-  { value: 'firma_proje_muhendisi',  label: 'Proje Mühendisi' },
-  { value: 'firma_cizim_sorumlusu',  label: 'Çizim Sorumlusu' },
-  { value: 'firma_tesisat_ustasi',   label: 'Tesisat Ustası' },
-  { value: 'gdf_yonetici',           label: 'GDF Yönetici' },
-  { value: 'gdf_onay_muhendisi',     label: 'Onay Mühendisi' },
-  { value: 'gdf_gaz_acma_muhendisi', label: 'Gaz Açma Müh.' },
-  { value: 'gdf_on_buro_yetkilisi',  label: 'Ön Büro' },
+type RoleVariant = 'default' | 'default-soft' | 'info' | 'success' | 'warning';
+interface RolOption {
+  value: string;
+  label: string;
+  variant: RoleVariant;
+  kategori: 'pf' | 'df';
+}
+
+const ROL_OPTIONS_ALL: RolOption[] = [
+  { value: 'firma_yonetici:ust',     label: 'Üst Yönetici (PF)', variant: 'default',      kategori: 'pf' },
+  { value: 'firma_yonetici:orta',    label: 'Yönetici (PF)',     variant: 'default-soft', kategori: 'pf' },
+  { value: 'firma_proje_muhendisi',  label: 'Proje Mühendisi',   variant: 'info',         kategori: 'pf' },
+  { value: 'firma_cizim_sorumlusu',  label: 'Çizim Sorumlusu',   variant: 'success',      kategori: 'pf' },
+  { value: 'firma_tesisat_ustasi',   label: 'Tesisat Ustası',    variant: 'warning',      kategori: 'pf' },
+  { value: 'gdf_yonetici:ust',       label: 'Üst Yönetici (DF)', variant: 'default',      kategori: 'df' },
+  { value: 'gdf_yonetici:orta',      label: 'Yönetici (DF)',     variant: 'default-soft', kategori: 'df' },
+  { value: 'gdf_onay_muhendisi',     label: 'Onay Mühendisi',    variant: 'info',         kategori: 'df' },
+  { value: 'gdf_gaz_acma_muhendisi', label: 'Gaz Açma Müh.',     variant: 'success',      kategori: 'df' },
+  { value: 'gdf_on_buro_yetkilisi',  label: 'Ön Büro',           variant: 'warning',      kategori: 'df' },
 ];
 
 function buildColumns(
-  userPfMap?: Record<string, PFWithDfs[]>,
-  userDfMap?: Record<string, FirmaRef[]>,
-  pfMaster?: { id: string; parent_id: string | null }[],
-  dfMaster?: { id: string; parent_id: string | null }[],
+  userPfMap: Record<string, PFWithDfs[]> | undefined,
+  userDfMap: Record<string, FirmaRef[]> | undefined,
+  pfMaster: { id: string; parent_id: string | null }[] | undefined,
+  dfMaster: { id: string; parent_id: string | null }[] | undefined,
+  managerByUserId: Record<string, { id: string; adi: string }> | undefined,
+  rolOptions: RolOption[],
+  dfList: { id: string; firma_adi: string; parent_id: string | null }[] | undefined,
 ): ColumnDef<UserRow>[] {
+  const trCmp = (a: string, b: string) => a.localeCompare(b, 'tr');
+  const sortByName = <T extends { firma_adi: string }>(arr: T[]): T[] =>
+    arr.slice().sort((a, b) => trCmp(a.firma_adi, b.firma_adi));
   const collapsePfs = (refs: PFWithDfs[]): PFWithDfs[] =>
-    collapseFirmHierarchy(refs, pfMaster ?? []) as PFWithDfs[];
+    sortByName(collapseFirmHierarchy(refs, pfMaster ?? []) as PFWithDfs[]).map((p) => ({
+      ...p,
+      dfs: sortByName(p.dfs),
+    }));
   const collapseDfs = (refs: FirmaRef[]): FirmaRef[] =>
-    collapseFirmHierarchy(refs, dfMaster ?? []);
+    sortByName(collapseFirmHierarchy(refs, dfMaster ?? []));
+
+  // Bir DF id'sinden ağacın tepesindeki üst firmayı bul.
+  const dfById = new Map((dfList ?? []).map((d) => [d.id, d]));
+  function topDfOf(id: string | undefined): { id: string; firma_adi: string } | null {
+    if (!id) return null;
+    let cur = dfById.get(id);
+    while (cur?.parent_id) {
+      const p = dfById.get(cur.parent_id);
+      if (!p) break;
+      cur = p;
+    }
+    return cur ? { id: cur.id, firma_adi: cur.firma_adi } : null;
+  }
+  // Kullanıcının bağlı olduğu (DF doğrudan veya PF → DF) ilk üst GDF.
+  function userUstGdf(u: UserRow): { id: string; firma_adi: string } | null {
+    const directDfId = userDfMap?.[u.id]?.[0]?.id;
+    const pfDfId = userPfMap?.[u.id]?.[0]?.dfs?.[0]?.id;
+    return topDfOf(directDfId) ?? topDfOf(pfDfId);
+  }
+  // Üst GDF filter combobox seçenekleri: parent'ı olmayan tüm DF'ler (parent
+  // firma veya standalone), alfabetik.
+  const ustGdfOptions = (dfList ?? [])
+    .filter((d) => !d.parent_id)
+    .slice()
+    .sort((a, b) => trCmp(a.firma_adi, b.firma_adi))
+    .map((d) => ({ value: d.id, label: d.firma_adi }));
   return [
     {
       id: 'adi',
-      accessorFn: (u) => `${u.adi} ${u.email}`,
+      accessorFn: (u) => `${u.adi} ${u.unvan ?? ''} ${u.email}`,
       header: 'Kullanıcı',
       cell: ({ row }) => {
         const u = row.original;
         return (
           <Link href={`/users/${u.id}`} className="flex items-center gap-3 hover:underline">
             <Avatar src={u.profil_fotografi} name={u.adi} size={32} />
-            <div>
-              <div className="font-medium leading-tight">{u.adi}</div>
+            <div className="leading-tight">
+              <div className="font-medium">{u.adi}</div>
               <div className="text-xs text-muted-foreground">{u.email}</div>
             </div>
           </Link>
         );
       },
-      meta: { filter: { type: 'text', placeholder: 'Ad, e-posta…' } },
+      meta: { filter: { type: 'text', placeholder: 'Ad, ünvan, e-posta…' } },
       filterFn: smartColumnFilterFn,
     },
     {
-      id: 'iletisim',
-      header: 'İletişim',
-      enableSorting: false,
-      accessorFn: (u) => `${u.email} ${u.gsm ?? ''}`,
+      id: 'unvan',
+      header: 'Ünvan',
+      size: 180,
+      minSize: 140,
+      accessorFn: (u) => u.unvan ?? '',
       cell: ({ row }) => {
-        const u = row.original;
-        return (
-          <div className="space-y-1 text-xs">
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Mail className="h-3 w-3" /> {u.email}
-            </div>
-            {u.gsm && (
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Phone className="h-3 w-3" /> {u.gsm}
-              </div>
-            )}
-          </div>
-        );
+        const v = row.original.unvan;
+        if (!v) return <span className="text-xs text-muted-foreground">—</span>;
+        return <span className="text-xs">{v}</span>;
       },
-      meta: { filter: { type: 'text', placeholder: 'E-posta, GSM…' } },
+      meta: { filter: { type: 'text', placeholder: 'Ünvan…' } },
       filterFn: smartColumnFilterFn,
     },
     {
@@ -131,15 +184,69 @@ function buildColumns(
       header: 'Kategori',
       accessorFn: (u) => getUserKategori(u),
       cell: ({ row }) => kategoriBadge(getUserKategori(row.original)),
+      // Tabs ile birlikte kolon filtresi de korunur (görünüm bozulmasın diye).
       meta: { filter: { type: 'select', options: KATEGORI_OPTIONS } },
       filterFn: 'equalsString',
     },
     {
+      id: 'roller',
+      header: 'Roller',
+      accessorFn: (u) => rolEtiketleri(u)[0]?.label ?? '',
+      cell: ({ row }) => {
+        const tags = rolEtiketleri(row.original);
+        if (tags.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {tags.map((t) => (
+              <Badge
+                key={t.label}
+                variant={t.variant}
+                className={cn('text-[10px] font-normal', t.className)}
+              >
+                {t.label}
+              </Badge>
+            ))}
+          </div>
+        );
+      },
+      meta: { filter: { type: 'select', options: rolOptions } },
+      filterFn: (row, _id, value) => {
+        const u = row.original;
+        const raw = String(value);
+        if (raw.includes(':')) {
+          const [key, kademe] = raw.split(':') as [keyof UserRow, 'ust' | 'orta'];
+          if (!u[key]) return false;
+          const kademeKey = key === 'firma_yonetici' ? 'firma_yonetici_kademe' : 'gdf_yonetici_kademe';
+          return u[kademeKey] === kademe;
+        }
+        return Boolean(u[raw as keyof UserRow]);
+      },
+      sortingFn: 'alphanumeric',
+    },
+    {
+      id: 'ust_gdf',
+      header: 'Üst GDF',
+      accessorFn: (u) => userUstGdf(u)?.firma_adi ?? '',
+      cell: ({ row }) => {
+        const t = userUstGdf(row.original);
+        if (!t) return <span className="text-xs text-muted-foreground">—</span>;
+        return (
+          <Link href={`/firms/df/${t.id}`} className="text-xs font-medium hover:underline">
+            {t.firma_adi}
+          </Link>
+        );
+      },
+      meta: { filter: { type: 'select', options: ustGdfOptions } },
+      filterFn: (row, _id, value) => {
+        const t = userUstGdf(row.original);
+        return t?.id === String(value);
+      },
+    },
+    {
       id: 'firmalar',
       header: 'Firmalar',
-      size: 360,
-      minSize: 280,
-      // Sıralama: ilk firma adına göre. Filtre: tüm firma adlarında contains.
+      size: 240,
+      minSize: 200,
       sortingFn: (a, b) => {
         const firstName = (u: UserRow) =>
           (userPfMap?.[u.id]?.[0]?.firma_adi ??
@@ -163,7 +270,7 @@ function buildColumns(
           const pfs = collapsePfs(userPfMap?.[u.id] ?? []);
           if (pfs.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
           return (
-            <div className="min-w-[260px] space-y-1.5 text-xs">
+            <div className="min-w-[200px] space-y-1.5 text-xs">
               {pfs.map((pf) => {
                 const dfs = collapseDfs(pf.dfs);
                 return (
@@ -197,7 +304,7 @@ function buildColumns(
           const dfs = collapseDfs(userDfMap?.[u.id] ?? []);
           if (dfs.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
           return (
-            <div className="flex min-w-[260px] flex-col gap-0.5 text-xs">
+            <div className="flex min-w-[200px] flex-col gap-0.5 text-xs">
               {dfs.map((d) => (
                 <Link
                   key={d.id}
@@ -214,28 +321,20 @@ function buildColumns(
       },
     },
     {
-      id: 'roller',
-      header: 'Roller',
-      // Sıralama: ilk rol etiketine göre alfabetik.
-      accessorFn: (u) => rolEtiketleri(u)[0]?.label ?? '',
+      id: 'yonetici',
+      header: 'Yönetici',
+      accessorFn: (u) => managerByUserId?.[u.id]?.adi ?? '',
       cell: ({ row }) => {
-        const tags = rolEtiketleri(row.original);
-        if (tags.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+        const m = managerByUserId?.[row.original.id];
+        if (!m) return <span className="text-xs text-muted-foreground">—</span>;
         return (
-          <div className="flex flex-wrap gap-1">
-            {tags.map((t) => (
-              <Badge key={t.label} variant={t.variant} className="text-[10px] font-normal">{t.label}</Badge>
-            ))}
-          </div>
+          <Link href={`/users/${m.id}`} className="text-xs hover:underline">
+            {m.adi}
+          </Link>
         );
       },
-      meta: { filter: { type: 'select', options: ROL_OPTIONS } },
-      filterFn: (row, _id, value) => {
-        const u = row.original;
-        const key = value as keyof UserRow;
-        return Boolean(u[key]);
-      },
-      sortingFn: 'alphanumeric',
+      meta: { filter: { type: 'text', placeholder: 'Yönetici…' } },
+      filterFn: smartColumnFilterFn,
     },
     {
       id: 'actions',
@@ -252,24 +351,147 @@ function buildColumns(
   ];
 }
 
-export function UsersTable({ users, userPfMap, userDfMap, pfMaster, dfMaster }: UsersTableProps) {
+type KategoriTab = 'all' | 'admin' | 'pf' | 'df';
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded px-3 py-1 text-xs font-medium transition-colors',
+        active
+          ? 'bg-background text-foreground shadow-sm'
+          : 'text-muted-foreground hover:text-foreground',
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function UsersTable({
+  users,
+  userPfMap,
+  userDfMap,
+  pfMaster,
+  dfMaster,
+  managerByUserId,
+  dfList,
+}: UsersTableProps) {
+  const [kategoriTab, setKategoriTab] = React.useState<KategoriTab>('all');
+  const [dfFilter, setDfFilter] = React.useState<string>('all');
+
+  // Kategori tab + DF filtresine göre veriyi daralt.
+  const filtered = React.useMemo(() => {
+    let result = users;
+    if (kategoriTab !== 'all') {
+      result = result.filter((u) => getUserKategori(u) === kategoriTab);
+    }
+    if (dfFilter !== 'all') {
+      result = result.filter((u) => {
+        const directDfs = userDfMap?.[u.id] ?? [];
+        if (directDfs.some((d) => d.id === dfFilter)) return true;
+        const pfs = userPfMap?.[u.id] ?? [];
+        return pfs.some((pf) => pf.dfs.some((d) => d.id === dfFilter));
+      });
+    }
+    // Admin'ler en üstte; sonra created_at DESC (en son eklenen üstte).
+    return result.slice().sort((a, b) => {
+      if (a.is_admin !== b.is_admin) return a.is_admin ? -1 : 1;
+      return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+    });
+  }, [users, kategoriTab, dfFilter, userPfMap, userDfMap]);
+
+  // Roller filtresi tab'a göre daralır (admin → boş, pf → sadece PF rolleri, vb.)
+  const rolOptions = React.useMemo<RolOption[]>(() => {
+    if (kategoriTab === 'admin') return [];
+    if (kategoriTab === 'pf') return ROL_OPTIONS_ALL.filter((r) => r.kategori === 'pf');
+    if (kategoriTab === 'df') return ROL_OPTIONS_ALL.filter((r) => r.kategori === 'df');
+    return ROL_OPTIONS_ALL;
+  }, [kategoriTab]);
+
   const columns = React.useMemo(
-    () => buildColumns(userPfMap, userDfMap, pfMaster, dfMaster),
-    [userPfMap, userDfMap, pfMaster, dfMaster],
+    () => buildColumns(userPfMap, userDfMap, pfMaster, dfMaster, managerByUserId, rolOptions, dfList),
+    [userPfMap, userDfMap, pfMaster, dfMaster, managerByUserId, rolOptions, dfList],
   );
 
-  const filtered = users;
+  // DF filtre Select için alfabetik + hiyerarşik liste (parent + child).
+  const dfOrdered = React.useMemo(() => {
+    if (!dfList) return [];
+    const trCmp = (a: string, b: string) => a.localeCompare(b, 'tr');
+    const byId = new Map(dfList.map((d) => [d.id, d]));
+    const tops = dfList
+      .filter((d) => !d.parent_id || !byId.has(d.parent_id))
+      .slice()
+      .sort((a, b) => trCmp(a.firma_adi, b.firma_adi));
+    const childrenOf = (pid: string) =>
+      dfList
+        .filter((c) => c.parent_id === pid)
+        .slice()
+        .sort((a, b) => trCmp(a.firma_adi, b.firma_adi));
+    const ordered: { d: { id: string; firma_adi: string }; depth: 0 | 1 }[] = [];
+    tops.forEach((p) => {
+      ordered.push({ d: p, depth: 0 });
+      childrenOf(p.id).forEach((c) => ordered.push({ d: c, depth: 1 }));
+    });
+    return ordered;
+  }, [dfList]);
 
   return (
-    <DataTable
-      columns={columns}
-      data={filtered}
-      searchPlaceholder="Ad, e-posta, GSM ara…"
-      globalFilterFn={(u, q) =>
-        [u.adi, u.email, u.gsm ?? '']
-          .some((v) => v.toLowerCase().includes(q))
-      }
-      emptyText="Bu filtreye uyan kullanıcı bulunamadı."
-    />
+    <div className="space-y-4">
+      {/* Sayfa başlığı + ortada tab/DF filtreleri + sağda Yeni Kullanıcı butonu */}
+      <div className="flex flex-wrap items-center gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight">Kullanıcılar</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex rounded-md border bg-muted/30 p-0.5">
+            <TabBtn active={kategoriTab === 'all'}   onClick={() => setKategoriTab('all')}>Hepsi</TabBtn>
+            <TabBtn active={kategoriTab === 'admin'} onClick={() => setKategoriTab('admin')}>Admin</TabBtn>
+            <TabBtn active={kategoriTab === 'df'}    onClick={() => setKategoriTab('df')}>DFirm</TabBtn>
+            <TabBtn active={kategoriTab === 'pf'}    onClick={() => setKategoriTab('pf')}>PFirm</TabBtn>
+          </div>
+          {dfList && dfList.length > 0 && (
+            <Select value={dfFilter} onValueChange={setDfFilter}>
+              <SelectTrigger className="h-9 w-[220px]">
+                <SelectValue placeholder="GDF" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">GDF</SelectItem>
+                {dfOrdered.map(({ d, depth }) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {depth === 1 ? `↳ ${d.firma_adi}` : d.firma_adi}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        <Button asChild className="ml-auto">
+          <Link href="/users/new">
+            <Plus className="h-4 w-4" />
+            Yeni Kullanıcı
+          </Link>
+        </Button>
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={filtered}
+        searchPlaceholder="Ad, e-posta, GSM ara…"
+        globalFilterFn={(u, q) =>
+          [u.adi, u.email, u.gsm ?? '']
+            .some((v) => v.toLowerCase().includes(q))
+        }
+        emptyText="Bu filtreye uyan kullanıcı bulunamadı."
+      />
+    </div>
   );
 }

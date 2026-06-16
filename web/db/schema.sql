@@ -17,6 +17,7 @@ create table public.users (
 
     -- Temel kimlik
     adi                   text not null,
+    unvan                 text,                     -- ör. "Müdür", "Mühendis"
     email                 text not null unique,
     gsm                   text,
     profil_fotografi      text,                     -- storage URL veya dataURL
@@ -115,6 +116,7 @@ create table public.dagitim_firmalari (
     -- NOT: yeterlilik_no DF için yok (sadece PF taşır).
     yetkili_user_id uuid references public.users(id) on delete set null,
     -- DF-özel alanlar
+    sahip           text,                             -- DF'i sahiplenen üst kuruluş (ör. "Aksa Doğal Gaz")
     son_guncelleme  date,
     guncel_surum    integer,                          -- yalnız parent/standalone'da kullanılır
     df_no           integer,                          -- manuel DfirmNo
@@ -160,6 +162,9 @@ create index ix_pf_df_col on public.proje_firmalari(df_id);
 create table public.user_pf (
     user_id uuid not null references public.users(id)            on delete cascade,
     pf_id   uuid not null references public.proje_firmalari(id)  on delete cascade,
+    -- İşaretliyse bu PF üst firma; altına yeni alt birim eklenince kullanıcıya
+    -- otomatik (auto_inherit=false ile) bağlanır.
+    auto_inherit boolean not null default false,
     created_at timestamptz not null default now(),
     primary key (user_id, pf_id)
 );
@@ -172,6 +177,9 @@ create index ix_user_pf_pf on public.user_pf(pf_id);
 create table public.user_df (
     user_id uuid not null references public.users(id)               on delete cascade,
     df_id   uuid not null references public.dagitim_firmalari(id)   on delete cascade,
+    -- İşaretliyse bu DF üst firma; altına yeni alt birim (bölge) eklenince
+    -- kullanıcıya otomatik (auto_inherit=false ile) bağlanır.
+    auto_inherit boolean not null default false,
     created_at timestamptz not null default now(),
     primary key (user_id, df_id)
 );
@@ -254,3 +262,12 @@ create policy write_admin_df    on public.dagitim_firmalari for all using (publi
 create policy write_admin_upf   on public.user_pf           for all using (public.is_admin()) with check (public.is_admin());
 create policy write_admin_udf   on public.user_df           for all using (public.is_admin()) with check (public.is_admin());
 create policy write_admin_proj  on public.projects          for all using (public.is_admin()) with check (public.is_admin());
+
+-- ============================================================================
+-- MIGRATION (idempotent): junction tablolarına auto_inherit kolonu
+-- Mevcut DB'de schema.sql'i yeniden çalıştıramayanlar için.
+-- ============================================================================
+alter table public.user_pf add column if not exists auto_inherit boolean not null default false;
+alter table public.user_df add column if not exists auto_inherit boolean not null default false;
+alter table public.users               add column if not exists unvan        text;
+alter table public.dagitim_firmalari   add column if not exists sahip        text;

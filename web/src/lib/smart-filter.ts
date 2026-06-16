@@ -4,6 +4,12 @@
 //   - '!=' / '<>' → İÇERMEYEN (substring negate)
 //   - diğer operatörler metin için kullanılmaz → fallback substring contains
 // Operatörsüz değer: case-insensitive substring contains (Türkçe locale).
+//
+// Tarih desteği: hem hücre hem de filtre değeri ISO formatında (YYYY-MM-DD,
+// YYYY-MM veya YYYY) ise tarih karşılaştırması uygulanır. Operatöre göre
+// kısmi tarihler aralığın uç noktasına genişler: >2026 → 2026-12-31'den sonra,
+// <2026 → 2026-01-01'den önce gibi. Tırnaklı yazımlar ("YYYY-MM-DD") da
+// kabul edilir.
 
 const PREFIXES = ['>=', '<=', '!=', '<>', '>', '<'] as const;
 type Op = (typeof PREFIXES)[number];
@@ -17,18 +23,49 @@ function parse(raw: string): Parsed {
   const v = raw.trimStart();
   for (const p of PREFIXES) {
     if (v.startsWith(p)) {
-      return { op: p, rest: v.slice(p.length).trim() };
+      return { op: p, rest: stripQuotes(v.slice(p.length).trim()) };
     }
   }
-  return { op: null, rest: v.trim() };
+  return { op: null, rest: stripQuotes(v.trim()) };
+}
+
+function stripQuotes(s: string): string {
+  if (s.length >= 2) {
+    const f = s[0], l = s[s.length - 1];
+    if ((f === '"' || f === "'") && f === l) return s.slice(1, -1);
+  }
+  return s;
 }
 
 function toNum(s: string): number | null {
   if (s === '') return null;
+  // Tarih biçimindeki değerleri sayıya çevirme (dash içerirler) — açıkça reddet.
+  if (/^\d{4}-\d{2}(-\d{2})?$/.test(s)) return null;
   // Türkçe ondalık için virgülü noktaya çevir.
   const normalized = s.replace(',', '.');
   const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
+}
+
+// ISO biçimi tarihleri (YYYY, YYYY-MM, YYYY-MM-DD) sayısal YYYYMMDD'ye çevirir.
+// Aralık karşılaştırmaları için 'edge': 'low' (ay/yıl başlangıcı) ya da 'high'
+// (ay/yıl sonu) seçeneğiyle eksik bileşenler doldurulur.
+function toDate(s: string, edge: 'low' | 'high' | 'exact'): number | null {
+  const m = s.match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/);
+  if (!m) return null;
+  const y = parseInt(m[1], 10);
+  let mo = m[2] ? parseInt(m[2], 10) : null;
+  let d  = m[3] ? parseInt(m[3], 10) : null;
+  if (mo == null) mo = edge === 'high' ? 12 : 1;
+  if (d == null) {
+    if (edge === 'high') {
+      // Ayın son günü
+      d = new Date(y, mo, 0).getDate();
+    } else {
+      d = 1;
+    }
+  }
+  return y * 10000 + mo * 100 + d;
 }
 
 function lc(s: string): string {
@@ -46,13 +83,34 @@ export function smartMatch(rowValueRaw: unknown, filterRaw: string): boolean {
   // Sayısal değer denemesi (hem hücre hem filtre tarafında).
   const cellNum = toNum(cellStr);
   const filterNum = toNum(rest);
+  // Tarih değeri denemesi — hücre her zaman tam tarih kabul edilir.
+  const cellDate = toDate(cellStr, 'exact');
 
   if (op === '!=' || op === '<>') {
+    if (cellDate != null) {
+      const f = toDate(rest, 'exact');
+      if (f != null) return cellDate !== f;
+    }
     if (cellNum != null && filterNum != null) return cellNum !== filterNum;
     return !lc(cellStr).includes(lc(rest));
   }
 
   if (op === '>' || op === '>=' || op === '<' || op === '<=') {
+    // Önce tarih karşılaştırması — kısmi tarihler aralık uç noktasına genişler.
+    if (cellDate != null) {
+      // >YYYY → YYYY-12-31'den sonra; <YYYY → YYYY-01-01'den önce
+      const edge: 'low' | 'high' =
+        op === '>' || op === '<=' ? 'high' : 'low';
+      const f = toDate(rest, edge);
+      if (f != null) {
+        switch (op) {
+          case '>':  return cellDate >  f;
+          case '>=': return cellDate >= f;
+          case '<':  return cellDate <  f;
+          case '<=': return cellDate <= f;
+        }
+      }
+    }
     if (cellNum == null || filterNum == null) return false;
     switch (op) {
       case '>':  return cellNum >  filterNum;

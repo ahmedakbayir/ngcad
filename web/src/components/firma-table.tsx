@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/data-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, ChevronDown, ChevronRight, Mail, Pencil, Phone } from 'lucide-react';
+import { Building2, ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import type { FirmaRow } from '@/lib/supabase/types';
 import { collapseFirmHierarchy } from '@/lib/firm-hierarchy';
 import { smartColumnFilterFn } from '@/lib/smart-filter';
@@ -42,6 +42,8 @@ export function FirmaTable({
   pfDfMap,
   dfFilterList,
   dfMaster,
+  compact = false,
+  yetkiliUserById,
 }: {
   firmas: FirmaRow[];
   basePath: '/firms/pf' | '/firms/df';
@@ -49,6 +51,10 @@ export function FirmaTable({
   dfFilterList?: DFRef[];
   // Tüm DF'lerin parent_id bilgisi — bağlı DF kolonunda hiyerarşi daraltma için.
   dfMaster?: { id: string; parent_id: string | null }[];
+  // Kompakt mod: satır padding'leri ve ikon boyutları küçülür (DF sayfası gibi).
+  compact?: boolean;
+  // Firma yetkili kullanıcı kolonu için lookup (verilirse kolon görünür).
+  yetkiliUserById?: Record<string, { id: string; adi: string }>;
 }) {
   const showDfColumn = basePath === '/firms/pf' && !!pfDfMap;
   const [dfFilter, setDfFilter] = React.useState<string>('all');
@@ -259,11 +265,24 @@ export function FirmaTable({
 
   // Manual sıralama: parent çocuklarının üstünde kalır; gruplar parent'ın
   // değerine göre asc/desc yönüne saygı duyarak konumlanır.
+  // Çok kolonlu: sortingState[0] birincil, [1] (varsa) tie-breaker.
   const sortedFirmas = React.useMemo(() => {
-    const sk = sortingState[0];
-    if (!sk) return filteredFirmas;
-    const colId = sk.id;
-    const dir = sk.desc ? -1 : 1;
+    const sk0 = sortingState[0];
+    if (!sk0) return filteredFirmas;
+    const sk1 = sortingState[1];
+    const cmpWith = (a: FirmaRow, b: FirmaRow) => {
+      const c0 = (sk0.desc ? -1 : 1) * compareForSort(colValue(a, sk0.id), colValue(b, sk0.id), sk0.id);
+      if (c0 !== 0 || !sk1) return c0;
+      return (sk1.desc ? -1 : 1) * compareForSort(colValue(a, sk1.id), colValue(b, sk1.id), sk1.id);
+    };
+    const cmpAnchorVals = (g1: string, g2: string) => {
+      const r1 = firmById.get(g1);
+      const r2 = firmById.get(g2);
+      if (!r1 || !r2) return 0;
+      const c0 = (sk0.desc ? -1 : 1) * compareForSort(colValue(r1, sk0.id), colValue(r2, sk0.id), sk0.id);
+      if (c0 !== 0 || !sk1) return c0;
+      return (sk1.desc ? -1 : 1) * compareForSort(colValue(r1, sk1.id), colValue(r2, sk1.id), sk1.id);
+    };
     const groups: { anchor: string; rows: FirmaRow[] }[] = [];
     const indexByAnchor = new Map<string, number>();
     filteredFirmas.forEach((f) => {
@@ -281,20 +300,27 @@ export function FirmaTable({
         const aIsAnchor = a.id === anchor;
         const bIsAnchor = b.id === anchor;
         if (aIsAnchor !== bIsAnchor) return aIsAnchor ? -1 : 1;
-        return dir * compareForSort(colValue(a, colId), colValue(b, colId), colId);
+        return cmpWith(a, b);
       });
     });
-    const anchorVal = (id: string): string => {
-      const r = firmById.get(id);
-      return r ? colValue(r, colId) : '';
-    };
-    groups.sort((g1, g2) =>
-      dir * compareForSort(anchorVal(g1.anchor), anchorVal(g2.anchor), colId),
-    );
+    groups.sort((g1, g2) => cmpAnchorVals(g1.anchor, g2.anchor));
     const out: FirmaRow[] = [];
     groups.forEach((g) => g.rows.forEach((r) => out.push(r)));
     return out;
   }, [filteredFirmas, sortingState, groupAnchorById, firmById, colValue]);
+
+  // Sahip kolonu için combobox seçenekleri: DF firmalarındaki distinct sahip değerleri.
+  const sahipOptions = React.useMemo(() => {
+    if (basePath !== '/firms/df') return [];
+    const set = new Set<string>();
+    firmas.forEach((f) => {
+      const v = (f as { sahip?: string | null }).sahip;
+      if (v && v.trim()) set.add(v.trim());
+    });
+    return Array.from(set)
+      .sort((a, b) => a.localeCompare(b, 'tr'))
+      .map((v) => ({ value: v, label: v }));
+  }, [firmas, basePath]);
 
   const columns = React.useMemo<ColumnDef<FirmaRow>[]>(
     () => [
@@ -350,8 +376,8 @@ export function FirmaTable({
                 <div className="rounded-md bg-primary/10 p-1.5 text-primary">
                   <Building2 className="h-4 w-4" />
                 </div>
-                <div>
-                  <div className="font-medium leading-tight">
+                <div className="min-w-0">
+                  <div className="whitespace-nowrap font-medium leading-tight">
                     {r.firma_adi}
                     {isParentWithChildren && (
                       <span className="ml-1.5 text-[10px] font-normal text-muted-foreground">
@@ -360,7 +386,7 @@ export function FirmaTable({
                     )}
                   </div>
                   {'yeterlilik_no' in r && r.yeterlilik_no && (
-                    <div className="text-xs text-muted-foreground">{r.yeterlilik_no}</div>
+                    <div className="whitespace-nowrap text-xs text-muted-foreground">{r.yeterlilik_no}</div>
                   )}
                 </div>
               </Link>
@@ -371,39 +397,17 @@ export function FirmaTable({
         filterFn: smartColumnFilterFn,
       },
       {
-        id: 'iletisim',
-        header: 'İletişim',
-        sortingFn: groupedSortingFn,
-        accessorFn: (r) => `${r.firma_email ?? ''} ${r.firma_tel ?? ''}`,
-        cell: ({ row }) => {
-          const r = row.original;
-          return (
-            <div className="space-y-1 text-xs">
-              {r.firma_email && (
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Mail className="h-3 w-3" /> {r.firma_email}
-                </div>
-              )}
-              {r.firma_tel && (
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Phone className="h-3 w-3" /> {r.firma_tel}
-                </div>
-              )}
-            </div>
-          );
-        },
-        meta: { filter: { type: 'text', placeholder: 'E-posta, tel…' } },
-        filterFn: smartColumnFilterFn,
-      },
-      {
         id: 'parent',
-        header: 'Üst Firma',
+        header: 'Firma Tipi',
         sortingFn: groupedSortingFn,
         accessorFn: (r) => {
           const isUstFlag = 'ust_firma' in r && (r as { ust_firma?: boolean }).ust_firma;
           const isParentInList = (groupSizeByAnchor.get(r.id) ?? 1) > 1;
           if (isUstFlag || isParentInList) return 'ÜST FİRMA';
-          return r.parent_id ? adById.get(r.parent_id) ?? '' : '';
+          if (r.parent_id && adById.has(r.parent_id)) {
+            return `ALT FİRMA ${adById.get(r.parent_id) ?? ''}`;
+          }
+          return 'TEKİL FİRMA';
         },
         cell: ({ row }) => {
           const r = row.original;
@@ -413,21 +417,37 @@ export function FirmaTable({
             return <Badge variant="info" className="text-[10px]">ÜST FİRMA</Badge>;
           }
           const pid = r.parent_id;
-          if (!pid) return <span className="text-xs text-muted-foreground">—</span>;
-          const ad = adById.get(pid);
-          return ad ? (
-            <Link href={`${basePath}/${pid}`} className="text-xs hover:underline">
-              {ad}
-            </Link>
-          ) : (
-            <Badge variant="outline" className="text-[10px]">Alt birim</Badge>
-          );
+          if (pid && adById.has(pid)) {
+            const ad = adById.get(pid)!;
+            return (
+              <Badge variant="warning" className="gap-1.5 whitespace-nowrap text-[10px]">
+                <span>ALT FİRMA</span>
+                <span className="opacity-60">|</span>
+                <Link href={`${basePath}/${pid}`} className="hover:underline">
+                  {ad}
+                </Link>
+              </Badge>
+            );
+          }
+          return <Badge variant="success" className="text-[10px]">TEKİL FİRMA</Badge>;
         },
         meta: { filter: { type: 'text' } },
         filterFn: smartColumnFilterFn,
       },
       ...(basePath === '/firms/df'
         ? [
+            {
+              id: 'sahip',
+              header: 'Sahip',
+              accessorFn: (r: FirmaRow) => (r as { sahip?: string | null }).sahip ?? '',
+              cell: ({ row }: { row: { original: FirmaRow } }) => {
+                const v = (row.original as { sahip?: string | null }).sahip;
+                if (!v) return <span className="text-xs text-muted-foreground">—</span>;
+                return <span className="text-xs">{v}</span>;
+              },
+              meta: { filter: { type: 'select', options: sahipOptions } },
+              filterFn: 'equalsString',
+            } as ColumnDef<FirmaRow>,
             {
               id: 'df_no',
               header: 'DfirmNo',
@@ -456,7 +476,7 @@ export function FirmaTable({
                 if (!v) return <span className="text-xs text-muted-foreground">—</span>;
                 return <span className="font-mono text-xs">{v}</span>;
               },
-              meta: { filter: { type: 'text', placeholder: 'YYYY-MM-DD' } },
+              meta: { filter: { type: 'text', placeholder: '>2026-01-01' } },
               filterFn: smartColumnFilterFn,
             } as ColumnDef<FirmaRow>,
             {
@@ -511,6 +531,26 @@ export function FirmaTable({
             filterFn: smartColumnFilterFn,
           } as ColumnDef<FirmaRow>]
         : []),
+      ...(yetkiliUserById
+        ? [{
+            id: 'yetkili_user',
+            header: 'Yetkili Kullanıcı',
+            accessorFn: (r: FirmaRow) => yetkiliUserById[r.yetkili_user_id ?? '']?.adi ?? '',
+            cell: ({ row }: { row: { original: FirmaRow } }) => {
+              const uid = row.original.yetkili_user_id;
+              if (!uid) return <span className="text-xs text-muted-foreground">—</span>;
+              const u = yetkiliUserById[uid];
+              if (!u) return <span className="text-xs text-muted-foreground">—</span>;
+              return (
+                <Link href={`/users/${u.id}`} className="text-xs hover:underline">
+                  {u.adi}
+                </Link>
+              );
+            },
+            meta: { filter: { type: 'text', placeholder: 'Yetkili…' } },
+            filterFn: smartColumnFilterFn,
+          } as ColumnDef<FirmaRow>]
+        : []),
       {
         id: 'actions',
         header: '',
@@ -536,6 +576,8 @@ export function FirmaTable({
       groupSizeByAnchor,
       collapsed,
       toggleCollapse,
+      yetkiliUserById,
+      sahipOptions,
     ],
   );
 
@@ -555,39 +597,43 @@ export function FirmaTable({
     else setCollapsed(new Set(multiAnchorIds));
   };
 
-  const toolbar = (
-    <div className="flex items-center gap-2">
-      {multiAnchorIds.length > 0 && (
-        <Button variant="outline" size="sm" onClick={toggleAll}>
-          {allCollapsed ? (
-            <>
-              <ChevronDown className="h-3.5 w-3.5" /> Hepsini Aç
-            </>
-          ) : (
-            <>
-              <ChevronRight className="h-3.5 w-3.5" /> Hepsini Kapat
-            </>
-          )}
-        </Button>
-      )}
-      {dfFilterList && dfFilterList.length > 0 && (
-        <>
-          <span className="text-xs text-muted-foreground">DF</span>
-          <Select value={dfFilter} onValueChange={setDfFilter}>
-            <SelectTrigger className="h-9 w-[220px]">
-              <SelectValue placeholder="Hepsi" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Hepsi</SelectItem>
-              {dfFilterList.map((d) => (
-                <SelectItem key={d.id} value={d.id}>{d.firma_adi}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </>
-      )}
-    </div>
-  );
+  // Sadece DF filtre Select'i toolbar'da kalır; "Hepsini Aç/Kapat" filtre
+  // satırına alındı (filterActions üzerinden).
+  const toolbar =
+    dfFilterList && dfFilterList.length > 0 ? (
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">DF</span>
+        <Select value={dfFilter} onValueChange={setDfFilter}>
+          <SelectTrigger className="h-9 w-[220px]">
+            <SelectValue placeholder="Hepsi" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Hepsi</SelectItem>
+            {dfFilterList.map((d) => (
+              <SelectItem key={d.id} value={d.id}>{d.firma_adi}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    ) : null;
+
+  const filterActions =
+    multiAnchorIds.length > 0 ? (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+        onClick={toggleAll}
+        title={allCollapsed ? 'Hepsini Aç' : 'Hepsini Kapat'}
+        aria-label={allCollapsed ? 'Hepsini Aç' : 'Hepsini Kapat'}
+      >
+        {allCollapsed ? (
+          <ChevronRight className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5" />
+        )}
+      </Button>
+    ) : null;
 
   return (
     <DataTable
@@ -596,6 +642,8 @@ export function FirmaTable({
       sorting={sortingState}
       onSortingChange={setSortingState}
       manualSorting
+      compact={compact}
+      filterActions={filterActions}
       searchPlaceholder="Firma adı, e-posta ara…"
       globalFilterFn={(r, q) =>
         [r.firma_adi, r.firma_email ?? '', r.firma_tel ?? '', r.vergi_no ?? '', r.vergi_dairesi ?? '']

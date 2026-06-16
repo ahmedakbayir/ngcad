@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,9 +13,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, Trash2 } from 'lucide-react';
+import { Loader2, Save, Trash2, UserPlus } from 'lucide-react';
 import type { FirmaRow, UserRow } from '@/lib/supabase/types';
 import { FirmMultiSelect, type FirmOption } from '@/components/firm-multiselect';
+import { QuickUserDialog } from '@/components/quick-user-dialog';
 import { cn } from '@/lib/utils';
 
 // Label sol, kontrol sağ — kompakt tek satır
@@ -57,6 +58,7 @@ const schema = z.object({
   ust_firma: z.boolean().optional(),
   alt_firma_ids: z.array(z.string()).optional(),
   // sadece DF için
+  sahip: z.string().optional().or(z.literal('')),
   son_guncelleme: z.string().optional().or(z.literal('')),
   guncel_surum: z.union([z.coerce.number().int(), z.literal('')]).optional(),
   df_no: z.union([z.coerce.number().int(), z.literal('')]).optional(),
@@ -93,22 +95,54 @@ interface FirmFormProps {
   dfList?: DFListEntry[];
 }
 
+// Türkçe karakterleri ASCII'ye düşürüp slug üretir.
+function trSlug(s: string): string {
+  const map: Record<string, string> = {
+    'ş': 's', 'Ş': 's', 'ı': 'i', 'İ': 'i', 'ç': 'c', 'Ç': 'c',
+    'ğ': 'g', 'Ğ': 'g', 'ö': 'o', 'Ö': 'o', 'ü': 'u', 'Ü': 'u',
+  };
+  return s
+    .replace(/[şŞıİçÇğĞöÖüÜ]/g, (c) => map[c] ?? c)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+// Firma adından otomatik e-posta türetir ("SAMGAZ" → info@samgaz.com).
+function deriveFirmEmail(firmaAdi: string): string {
+  const slug = trSlug(firmaAdi);
+  if (!slug) return 'info@firma.com';
+  return `info@${slug}.com`;
+}
+
+// 6 haneli random yeterlilik no: "YT-123456"
+function randomYeterlilikNo(): string {
+  const n = Math.floor(100000 + Math.random() * 900000);
+  return `YT-${n}`;
+}
+
 export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList = [] }: FirmFormProps) {
   const router = useRouter();
   const [pending, setPending] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
+
+  // Yeni firma için rastgele yeterlilik no — her yeni form mount'unda sabit kalsın.
+  const randomYeterlilik = React.useMemo(
+    () => (mode === 'create' && kind === 'pf' ? randomYeterlilikNo() : ''),
+    [mode, kind],
+  );
 
   const form = useForm<FirmFormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       firma_adi: initial?.firma_adi ?? '',
       parent_id: initial?.parent_id ?? null,
-      firma_tel: initial?.firma_tel ?? '',
+      firma_tel: initial?.firma_tel ?? (mode === 'create' ? '0212 255 55 55' : ''),
       firma_email: initial?.firma_email ?? '',
-      vergi_dairesi: initial?.vergi_dairesi ?? '',
-      vergi_no: initial?.vergi_no ?? '',
-      adres: initial?.adres ?? '',
-      yeterlilik_no: (initial && 'yeterlilik_no' in initial ? initial.yeterlilik_no : '') ?? '',
+      vergi_dairesi: initial?.vergi_dairesi ?? (mode === 'create' ? 'İstanbul' : ''),
+      vergi_no: initial?.vergi_no ?? (mode === 'create' ? '1234567890' : ''),
+      adres: initial?.adres ?? (mode === 'create' ? 'Güneştepe Mah. Dibek Başı Sokak No:4 Merkez' : ''),
+      yeterlilik_no:
+        (initial && 'yeterlilik_no' in initial ? initial.yeterlilik_no : randomYeterlilik) ?? randomYeterlilik,
       yetkili_user_id: initial?.yetkili_user_id ?? null,
       df_id: (initial && 'df_id' in initial ? (initial as { df_id?: string | null }).df_id : null) ?? null,
       // Bayrak yoksa ama alt birim varsa, firma fiilen "üst firma"dır
@@ -117,6 +151,10 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
         (initial && 'ust_firma' in initial ? Boolean(initial.ust_firma) : false) ||
         Boolean(initial?.hasChildren),
       alt_firma_ids: initial?.alt_firma_ids ?? [],
+      sahip:
+        initial && 'sahip' in initial
+          ? (initial as { sahip: string | null }).sahip ?? ''
+          : '',
       son_guncelleme:
         initial && 'son_guncelleme' in initial
           ? (initial as { son_guncelleme: string | null }).son_guncelleme ?? ''
@@ -136,10 +174,42 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
   const dfParentId = kind === 'df' ? form.watch('parent_id') : null;
   const dfIsChild = kind === 'df' && !!dfParentId;
 
+  // YENİ firma: firma adı girildikçe e-posta otomatik türetilir; admin elle
+  // değiştirirse (son türetilen ile uyuşmuyorsa) auto-update durur.
+  const watchedAdi = form.watch('firma_adi') ?? '';
+  const lastAutoEmail = React.useRef<string>('');
+  React.useEffect(() => {
+    if (mode !== 'create') return;
+    const current = form.getValues('firma_email') ?? '';
+    if (current && current !== lastAutoEmail.current) return;
+    const auto = deriveFirmEmail(watchedAdi);
+    if (auto !== current) {
+      form.setValue('firma_email', auto);
+      lastAutoEmail.current = auto;
+    }
+  }, [watchedAdi, mode, form]);
+
   // ÜST FİRMA toggle reaktif izlenir; PF ve DF için ortak.
   const ustFirmaActive = form.watch('ust_firma') ?? false;
 
-  async function onSubmit(values: FirmFormData) {
+  // Hızlı Yeni Kullanıcı popup state.
+  const [quickUserOpen, setQuickUserOpen] = React.useState(false);
+
+  // URL'de ?addUser=1 varsa (Yeni Kullanıcı → save-then-redirect akışı) popup'ı
+  // otomatik aç. Param tüketildikten sonra URL'yi temizle.
+  const searchParams = useSearchParams();
+  React.useEffect(() => {
+    if (mode !== 'edit') return;
+    if (searchParams.get('addUser') === '1') {
+      setQuickUserOpen(true);
+      const url = `/firms/${kind}/${initial!.id}`;
+      router.replace(url);
+    }
+  // sadece ilk mount'ta tetiklesin
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function onSubmit(values: FirmFormData, opts: { stay: boolean; then?: 'addUser' }) {
     setErr(null);
     setPending(true);
     try {
@@ -157,6 +227,7 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
         if (payload.son_guncelleme === '') payload.son_guncelleme = null;
         if (payload.df_no === '') payload.df_no = null;
         if (payload.guncel_surum === '') payload.guncel_surum = null;
+        if (payload.sahip === '') payload.sahip = null;
         if (payload.ust_firma) {
           // ÜST FİRMA: parent_id null; Sürüm/Tarih KORUNUR (kullanıcı girer).
           payload.parent_id = null;
@@ -175,6 +246,7 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
         delete payload.son_guncelleme;
         delete payload.guncel_surum;
         delete payload.df_no;
+        delete payload.sahip;
         // ÜST FİRMA modu: DF bağı olmaz, parent_id null olur.
         if (payload.ust_firma) {
           payload.df_id = null;
@@ -193,9 +265,23 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);
       }
-      await res.json();
-      router.push(`/firms/${kind}`);
-      router.refresh();
+      const data = (await res.json().catch(() => ({}))) as { id?: string };
+      if (opts.stay) {
+        // Sayfada kal: create modu ise yeni id'nin edit URL'sine geç.
+        if (mode === 'create' && data.id) {
+          // "addUser" intent'i URL query'sine yazılır; edit sayfasına geçince
+          // popup otomatik açılır.
+          const qs = opts.then === 'addUser' ? '?addUser=1' : '';
+          router.replace(`/firms/${kind}/${data.id}${qs}`);
+        } else if (mode === 'edit' && opts.then === 'addUser') {
+          // Zaten edit modundayız — popup'ı doğrudan aç.
+          setQuickUserOpen(true);
+        }
+        router.refresh();
+      } else {
+        router.push(`/firms/${kind}`);
+        router.refresh();
+      }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Kaydedilemedi.');
     } finally {
@@ -221,7 +307,10 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <form
+      onSubmit={form.handleSubmit((v) => onSubmit(v, { stay: false }))}
+      className="space-y-6"
+    >
       {err && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {err}
@@ -233,7 +322,14 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
           <CardTitle className="text-base">Firma Bilgileri</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-          <RowField label="ÜST FİRMA" className="sm:col-span-2">
+          <RowField
+            label="Firma Adı"
+            error={form.formState.errors.firma_adi?.message}
+          >
+            <Input {...form.register('firma_adi')} placeholder="Örn: AKRE ISI MÜHENDİSLİK" />
+          </RowField>
+
+          <RowField label="ÜST FİRMA">
             <Controller
               control={form.control}
               name="ust_firma"
@@ -244,12 +340,16 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
                     disabled={Boolean(initial?.hasChildren)}
                     onCheckedChange={(v) => field.onChange(v)}
                   />
-                  <div className="text-xs text-muted-foreground">
-                    {initial?.hasChildren
-                      ? "Bu firmanın alt birimleri olduğu için üst firma işareti zorunlu. Önce alt birimleri kaldırın."
-                      : kind === 'pf'
-                        ? "İşaretliyse bu firma alt birim PF'lerin üst firmasıdır. DF bağı taşımaz; alt firmalar Alt Firmalar bölümünden seçilir."
-                        : "İşaretliyse bu firma alt birim DF'lerin üst firmasıdır. PF'ler doğrudan buna bağlanamaz (alt birim DF'lere bağlanır)."}
+                  <div
+                    className="text-xs text-muted-foreground"
+                    title={
+                      initial?.hasChildren
+                        ? "Bu firmanın alt birimleri olduğu için üst firma işareti zorunlu. Önce alt birimleri kaldırın."
+                        : kind === 'pf'
+                          ? "İşaretliyse bu firma alt birim PF'lerin üst firmasıdır. DF bağı taşımaz; alt firmalar Alt Firmalar bölümünden seçilir."
+                          : "İşaretliyse bu firma alt birim DF'lerin üst firmasıdır. PF'ler doğrudan buna bağlanamaz (alt birim DF'lere bağlanır)."
+                    }
+                  >
                   </div>
                   {field.value && (
                     <Badge variant="info" className="ml-auto text-[10px]">ÜST FİRMA</Badge>
@@ -257,14 +357,6 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
                 </div>
               )}
             />
-          </RowField>
-
-          <RowField
-            label="Firma Adı"
-            error={form.formState.errors.firma_adi?.message}
-            className="sm:col-span-2"
-          >
-            <Input {...form.register('firma_adi')} placeholder="Örn: AKRE ISI MÜHENDİSLİK" />
           </RowField>
 
           {!ustFirmaActive && (
@@ -305,41 +397,61 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
           )}
 
           <RowField label="Yetkili Kullanıcı">
-            <Controller
-              control={form.control}
-              name="yetkili_user_id"
-              render={({ field }) => (
-                <Select
-                  value={field.value ?? '__none__'}
-                  onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
-                  disabled={yetkiliUsers.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        mode === 'create'
-                          ? 'Önce firmayı kaydedip kullanıcı bağlayın'
-                          : yetkiliUsers.length === 0
-                            ? 'Bu firmaya bağlı kullanıcı yok'
-                            : 'Seçilmedi'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— Seçilmedi —</SelectItem>
-                    {yetkiliUsers.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>{u.adi}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {yetkiliUsers.length === 0 && mode === 'edit' && (
-              <p className="text-[11px] text-muted-foreground">
-                Yetkili olarak seçilebilmesi için kullanıcının önce bu firmayı
-                yetkili firmalar listesinde işaretlemesi gerekir.
-              </p>
-            )}
+            <div className="flex items-center gap-2">
+              <Controller
+                control={form.control}
+                name="yetkili_user_id"
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? '__none__'}
+                    onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
+                    disabled={yetkiliUsers.length === 0}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue
+                        placeholder={
+                          mode === 'create'
+                            ? 'Önce firmayı kaydedip kullanıcı bağlayın'
+                            : yetkiliUsers.length === 0
+                              ? 'Bu firmaya bağlı kullanıcı yok'
+                              : 'Seçilmedi'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Seçilmedi —</SelectItem>
+                      {yetkiliUsers.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.adi}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                title="Yeni yetkili kullanıcı tanımla"
+                onClick={() => {
+                  // Edit modu: doğrudan popup aç.
+                  if (mode === 'edit') {
+                    setQuickUserOpen(true);
+                    return;
+                  }
+                  // Create modu: firma adı dolu mu?
+                  const adi = (form.getValues('firma_adi') ?? '').trim();
+                  if (adi.length < 2) {
+                    setErr('Önce firma adını girin, sonra Yeni Kullanıcı.');
+                    return;
+                  }
+                  // Önce firmayı kaydet, sonra edit moduna geçince popup açılsın.
+                  form.handleSubmit((v) => onSubmit(v, { stay: true, then: 'addUser' }))();
+                }}
+              >
+                <UserPlus className="h-3.5 w-3.5" /> Yeni
+              </Button>
+            </div>
           </RowField>
 
           <RowField label="Telefon">
@@ -364,6 +476,12 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
 
           {kind === 'df' && (
             <>
+              <RowField label="Sahip">
+                <Input
+                  {...form.register('sahip')}
+                  placeholder="Örn: Aksa Doğal Gaz"
+                />
+              </RowField>
               <RowField label="DfirmNo">
                 <Input
                   type="number"
@@ -398,7 +516,6 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Bağlı Dağıtım Firması (DF)</CardTitle>
-            <p className="text-xs text-muted-foreground">Bu PF hangi GDF bölgesinde çalışıyor? Bir PF yalnız tek DF'ye bağlanır.</p>
           </CardHeader>
           <CardContent>
             <Controller
@@ -511,11 +628,34 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
         ) : (
           <span />
         )}
-        <Button type="submit" disabled={pending}>
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Kaydet
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={form.handleSubmit((v) => onSubmit(v, { stay: true }))}
+          >
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Uygula
+          </Button>
+          <Button type="submit" disabled={pending}>
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Kaydet ve Bitir
+          </Button>
+        </div>
       </div>
+
+      {mode === 'edit' && initial && (
+        <QuickUserDialog
+          open={quickUserOpen}
+          onOpenChange={setQuickUserOpen}
+          kind={kind}
+          firmaId={initial.id}
+          firmaAdi={form.getValues('firma_adi') || initial.firma_adi}
+          firmaParentId={initial.parent_id ?? null}
+          onCreated={(uid) => form.setValue('yetkili_user_id', uid)}
+        />
+      )}
     </form>
   );
 }

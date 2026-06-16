@@ -11,17 +11,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Loader2, Save, Trash2 } from 'lucide-react';
 import type { UserRow } from '@/lib/supabase/types';
 import { FirmMultiSelect, type FirmOption } from '@/components/firm-multiselect';
+import { cn } from '@/lib/utils';
 
 // ── ZOD ŞEMASI ──────────────────────────────────────────────────────────────
 const schema = z.object({
   adi: z.string().min(2, 'En az 2 karakter'),
+  unvan: z.string().optional().or(z.literal('')),
   email: z.string().email('Geçerli e-posta gerekli'),
   // Yalnız oluşturmada zorunlu — düzenlemede boş bırakılabilir, sunucu yoksayar.
   password: z.string().optional().or(z.literal('')),
@@ -57,6 +57,12 @@ const schema = z.object({
   gaz_acma_muh_ekip_no: z.string().nullable().or(z.literal('').transform(() => null)),
 
   yetkili_firma_ids: z.array(z.string()),
+  // Üst firma id'leri — altına yeni alt birim eklenince bu user'a otomatik bağlanacak.
+  auto_inherit_firma_ids: z.array(z.string()),
+})
+.refine((d) => d.is_admin || d.firma_kullanicisi || d.gdf_kullanicisi, {
+  message: 'Kullanıcı Admin, PF veya DF olmalı (General tipi kullanılmıyor).',
+  path: ['is_admin'],
 })
 .refine((d) => !(d.firma_kullanicisi && d.gdf_kullanicisi), {
   message: 'Bir kullanıcı SADECE PF ya da DF olabilir.',
@@ -110,18 +116,42 @@ export interface DFListItem {
 }
 
 interface UserFormProps {
-  initial?: UserRow & { yetkili_firma_ids: string[] };
+  initial?: UserRow & { yetkili_firma_ids: string[]; auto_inherit_firma_ids: string[] };
   candidateYoneticiler: YoneticiAday[];
   pfList: PFListItem[];
   dfList: DFListItem[];
   mode: 'create' | 'edit';
 }
 
-const defaults = (init?: UserFormProps['initial']): UserFormData => ({
+// Türkçe karakterleri ASCII'ye düşürüp e-posta yerel kısmı için temiz slug üretir.
+function trSlug(s: string): string {
+  const map: Record<string, string> = {
+    'ş': 's', 'Ş': 's', 'ı': 'i', 'İ': 'i', 'ç': 'c', 'Ç': 'c',
+    'ğ': 'g', 'Ğ': 'g', 'ö': 'o', 'Ö': 'o', 'ü': 'u', 'Ü': 'u',
+  };
+  return s
+    .replace(/[şŞıİçÇğĞöÖüÜ]/g, (c) => map[c] ?? c)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+// "İbrahim Yılmaz" → "ibrahim@yilmaz.com"; tek kelime → "adi@soyadi.com"
+function deriveEmailFromAdi(adi: string): string {
+  const parts = adi.trim().split(/\s+/).filter(Boolean).map(trSlug).filter(Boolean);
+  if (parts.length === 0) return 'adi@soyadi.com';
+  const first = parts[0];
+  const last = parts.length > 1 ? parts[parts.length - 1] : 'soyadi';
+  return `${first}@${last}.com`;
+}
+
+const defaults = (init: UserFormProps['initial'] | undefined, mode: 'create' | 'edit'): UserFormData => ({
   adi: init?.adi ?? '',
+  unvan: init?.unvan ?? '',
   email: init?.email ?? '',
-  password: '',
-  gsm: init?.gsm ?? '',
+  // Yeni: varsayılan 123456. Edit: alanı boş bırakmak yerine 123456 gösterilir;
+  // admin aynı bıraksa bile sunucu mevcutla aynı parolayı set eder.
+  password: '123456',
+  gsm: init?.gsm ?? (mode === 'create' ? '0212 255 55 55' : ''),
   profil_fotografi: init?.profil_fotografi ?? '',
   is_admin: init?.is_admin ?? false,
   firma_kullanicisi: init?.firma_kullanicisi ?? false,
@@ -149,6 +179,7 @@ const defaults = (init?: UserFormProps['initial']): UserFormData => ({
   onay_muh_gdf_sicil_no: init?.onay_muh_gdf_sicil_no ?? '',
   gaz_acma_muh_ekip_no: init?.gaz_acma_muh_ekip_no ?? '',
   yetkili_firma_ids: init?.yetkili_firma_ids ?? [],
+  auto_inherit_firma_ids: init?.auto_inherit_firma_ids ?? [],
 });
 
 export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }: UserFormProps) {
@@ -158,8 +189,25 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(schema),
-    defaultValues: defaults(initial),
+    defaultValues: defaults(initial, mode),
   });
+
+  // YENİ kullanıcı: isim girildikçe e-posta otomatik türetilir
+  // ("İbrahim Yılmaz" → ibrahim@yilmaz.com). Admin e-postayı el ile değiştirirse
+  // (yani değer son türetilenden farklıysa) otomatik güncelleme durur.
+  const lastAutoEmail = React.useRef<string>('');
+  React.useEffect(() => {
+    if (mode !== 'create') return;
+    const current = form.getValues('email');
+    if (current && current !== lastAutoEmail.current) return;
+    const auto = deriveEmailFromAdi(form.getValues('adi'));
+    if (auto !== current) {
+      form.setValue('email', auto);
+      lastAutoEmail.current = auto;
+    }
+  // form.watch('adi') ile reaktif tetik
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.watch('adi'), mode]);
 
   const w = form.watch();
 
@@ -210,82 +258,22 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
     w.gdf_kullanicisi, w.gdf_yonetici, w.gdf_onay_muhendisi, w.gdf_gaz_acma_muhendisi, form,
   ]);
 
-  // ── PF birincil yetki (tek seçim) ───────────────────────────────────────────
-  type PFRole = 'ust_yon' | 'orta_yon' | 'proje_muh' | 'cizim' | 'tesisat';
-  const pfPrimary: PFRole | null = w.firma_yonetici
-    ? w.firma_yonetici_kademe === 'ust'
-      ? 'ust_yon'
-      : w.firma_yonetici_kademe === 'orta'
-        ? 'orta_yon'
-        : null
-    : w.firma_proje_muhendisi
-      ? 'proje_muh'
-      : w.firma_cizim_sorumlusu
-        ? 'cizim'
-        : w.firma_tesisat_ustasi
-          ? 'tesisat'
-          : null;
+  // ── PF / DF yetki toggle'ları ───────────────────────────────────────────────
+  // Tüm yetkiler bağımsız switch; YALNIZ kademe (Üst/Orta) mutually exclusive.
+  // "Primary" rol display amaçlı users-table'da hesaplanır — en üst rank kazanır.
+  const pfUstActive  = !!w.firma_yonetici && w.firma_yonetici_kademe === 'ust';
+  const pfOrtaActive = !!w.firma_yonetici && w.firma_yonetici_kademe === 'orta';
+  const dfUstActive  = !!w.gdf_yonetici && w.gdf_yonetici_kademe === 'ust';
+  const dfOrtaActive = !!w.gdf_yonetici && w.gdf_yonetici_kademe === 'orta';
 
-  function setPfPrimary(p: PFRole) {
-    // Tüm PF rollerini sıfırla, sonra birincil rolü işaretle. Alt-yetki
-    // checkbox'ları işaretsiz kalır.
-    form.setValue('firma_yonetici',         p === 'ust_yon' || p === 'orta_yon');
-    form.setValue('firma_yonetici_kademe',  p === 'ust_yon' ? 'ust' : p === 'orta_yon' ? 'orta' : null);
-    form.setValue('firma_proje_muhendisi',  p === 'proje_muh');
-    form.setValue('firma_cizim_sorumlusu',  p === 'cizim');
-    form.setValue('firma_tesisat_ustasi',   p === 'tesisat');
-    // Veri alanlarını temizle.
-    form.setValue('proje_muh_oda_sicil_no', null);
-    form.setValue('proje_muh_kayit_no',     '');
-    form.setValue('proje_muh_yetki_durumu', null);
-    form.setValue('usta_montaj',            false);
-    form.setValue('usta_celik_kaynak',      false);
-    form.setValue('usta_pe_kaynak',         false);
-    form.setValue('usta_montaj_belge_no',       '');
-    form.setValue('usta_celik_kaynak_belge_no', '');
-    form.setValue('usta_pe_kaynak_belge_no',    '');
+  function setPfKademe(kademe: 'ust' | 'orta', on: boolean) {
+    form.setValue('firma_yonetici', on);
+    form.setValue('firma_yonetici_kademe', on ? kademe : null);
   }
-
-  // PF birincil rolü altında listelenecek alt-yetki checkbox'ları.
-  const pfDescendants: ('proje_muh' | 'cizim' | 'tesisat')[] =
-    pfPrimary === 'ust_yon' || pfPrimary === 'orta_yon'
-      ? ['proje_muh', 'cizim', 'tesisat']
-      : [];
-
-  // ── DF birincil yetki (tek seçim) ───────────────────────────────────────────
-  type DFRole = 'ust_yon' | 'orta_yon' | 'onay_muh' | 'gaz_acma' | 'on_buro';
-  const dfPrimary: DFRole | null = w.gdf_yonetici
-    ? w.gdf_yonetici_kademe === 'ust'
-      ? 'ust_yon'
-      : w.gdf_yonetici_kademe === 'orta'
-        ? 'orta_yon'
-        : null
-    : w.gdf_onay_muhendisi
-      ? 'onay_muh'
-      : w.gdf_gaz_acma_muhendisi
-        ? 'gaz_acma'
-        : w.gdf_on_buro_yetkilisi
-          ? 'on_buro'
-          : null;
-
-  function setDfPrimary(p: DFRole) {
-    form.setValue('gdf_yonetici',          p === 'ust_yon' || p === 'orta_yon');
-    form.setValue('gdf_yonetici_kademe',   p === 'ust_yon' ? 'ust' : p === 'orta_yon' ? 'orta' : null);
-    form.setValue('gdf_onay_muhendisi',    p === 'onay_muh');
-    form.setValue('gdf_gaz_acma_muhendisi',p === 'gaz_acma');
-    form.setValue('gdf_on_buro_yetkilisi', p === 'on_buro');
-    form.setValue('onay_muh_gdf_sicil_no', '');
-    form.setValue('gaz_acma_muh_ekip_no',  '');
+  function setDfKademe(kademe: 'ust' | 'orta', on: boolean) {
+    form.setValue('gdf_yonetici', on);
+    form.setValue('gdf_yonetici_kademe', on ? kademe : null);
   }
-
-  // DF birincil rolü altında listelenecek alt-yetki checkbox'ları.
-  // Hiyerarşi: Üst/Orta → [Onay, Ön Büro, Gaz Açma]; Onay → [Ön Büro].
-  const dfDescendants: ('onay_muh' | 'gaz_acma' | 'on_buro')[] =
-    dfPrimary === 'ust_yon' || dfPrimary === 'orta_yon'
-      ? ['onay_muh', 'gaz_acma', 'on_buro']
-      : dfPrimary === 'onay_muh'
-        ? ['on_buro']
-        : [];
 
   // Aktif kanala göre firma listesi (PF veya DF).
   const firmaOptions: FirmOption[] = w.gdf_kullanicisi
@@ -303,16 +291,48 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
         }))
       : [];
 
-  // Bağlı olduğu yönetici adayları: kullanıcının seçtiği firmalardan birinde yetkili olan yöneticiler.
+  // Bağlı olduğu yönetici adayları: kullanıcının ETKİN (operasyonel) firmalarından
+  // birinde yetkili olan yöneticiler. FirmMultiSelect bir alt birim eklenince
+  // üst firmayı da otomatik dahil ettiği için (parent context), salt parent
+  // eşleşmesinden yönetici önermek hatalı — örn. AKSA'nın üst yöneticisi,
+  // henüz ADANA'ya yetkilendirilmediyse ADANA'lı yeni kullanıcıya önerilmemeli.
   const aktifKanal: 'pf' | 'df' | null =
     w.firma_kullanicisi ? 'pf' : w.gdf_kullanicisi ? 'df' : null;
+  const effectiveYetkiliFirmaIds = (() => {
+    const set = new Set(w.yetkili_firma_ids);
+    const list = aktifKanal === 'pf' ? pfList : aktifKanal === 'df' ? dfList : [];
+    const childIdsByParent = new Map<string, string[]>();
+    list.forEach((f) => {
+      if (!f.parent_id) return;
+      const arr = childIdsByParent.get(f.parent_id) ?? [];
+      arr.push(f.id);
+      childIdsByParent.set(f.parent_id, arr);
+    });
+    // Alt birimi de seçili olan üst firmayı çıkar — geriye operasyonel firmalar kalır.
+    return w.yetkili_firma_ids.filter((id) => {
+      const kids = childIdsByParent.get(id) ?? [];
+      return !kids.some((cid) => set.has(cid));
+    });
+  })();
   const yoneticiAdaylari = candidateYoneticiler.filter((y) => {
     if (!aktifKanal || y.kanal !== aktifKanal) return false;
     if (y.id === initial?.id) return false;
-    return y.firma_ids.some((fid) => w.yetkili_firma_ids.includes(fid));
+    return y.firma_ids.some((fid) => effectiveYetkiliFirmaIds.includes(fid));
   });
 
-  async function onSubmit(values: UserFormData) {
+  // Üst Yönetici hiyerarşinin tepesinde — kendisine ayrıca yönetici atanmaz.
+  const isUstYonetici =
+    (w.firma_yonetici && w.firma_yonetici_kademe === 'ust') ||
+    (w.gdf_yonetici && w.gdf_yonetici_kademe === 'ust');
+
+  // Üst Yöneticiye geçince varsa bağlı_yönetici_id temizlensin.
+  React.useEffect(() => {
+    if (isUstYonetici && w.bagli_oldugu_yonetici_id != null) {
+      form.setValue('bagli_oldugu_yonetici_id', null);
+    }
+  }, [isUstYonetici, w.bagli_oldugu_yonetici_id, form]);
+
+  async function onSubmit(values: UserFormData, opts: { stay: boolean }) {
     setErr(null);
     // DF kullanıcısı: yetkili firmalar yalnız tek bir anchor (parent/standalone)
     // ağacında olmalı.
@@ -354,9 +374,18 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);
       }
-      await res.json().catch(() => ({}));
-      router.push('/users');
-      router.refresh();
+      const data = (await res.json().catch(() => ({}))) as { id?: string };
+      if (opts.stay) {
+        // Sayfada kal: create modu ise yeni id'nin edit URL'sine geç ki form
+        // edit moduna dönsün ve candidate yöneticiler taze veriyle yüklensin.
+        if (mode === 'create' && data.id) {
+          router.replace(`/users/${data.id}`);
+        }
+        router.refresh();
+      } else {
+        router.push('/users');
+        router.refresh();
+      }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Kaydedilemedi.');
     } finally {
@@ -381,21 +410,30 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
   }
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <form
+      onSubmit={form.handleSubmit((v) => onSubmit(v, { stay: false }))}
+      className="space-y-6"
+    >
       {err && (
         <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {err}
         </div>
       )}
 
+      {/* ── KİMLİK + PF/DF YETKİ BLOĞU (yan yana, alt hizalı) ────────── */}
+      <div className="grid gap-4 md:grid-cols-2">
+
       {/* ── KİMLİK ───────────────────────────────────────────────────── */}
-      <Card>
+      <Card className="h-full">
         <CardHeader>
           <CardTitle className="text-base">Kimlik</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <RowField label="Adı Soyadı" error={form.formState.errors.adi?.message}>
             <Input {...form.register('adi')} placeholder="Ahmet Yılmaz" />
+          </RowField>
+          <RowField label="Ünvan">
+            <Input {...form.register('unvan')} placeholder="Müdür, Mühendis, …" />
           </RowField>
           <RowField label="E-posta" error={form.formState.errors.email?.message}>
             <Input type="email" {...form.register('email')} placeholder="ahmet@firma.com" />
@@ -415,6 +453,39 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
           <RowField label="GSM">
             <Input {...form.register('gsm')} placeholder="0532 123 45 67" />
           </RowField>
+          {(w.firma_kullanicisi || w.gdf_kullanicisi) && !isUstYonetici && (
+            <RowField label="Bağlı Yönetici">
+              <Controller
+                control={form.control}
+                name="bagli_oldugu_yonetici_id"
+                render={({ field }) => (
+                  <Select
+                    value={field.value ?? '__none__'}
+                    onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
+                    disabled={yoneticiAdaylari.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          w.yetkili_firma_ids.length === 0
+                            ? 'Önce yetkili firmaları seçip Uygula deyin'
+                            : yoneticiAdaylari.length === 0
+                              ? 'Seçili firmalarda yönetici yok'
+                              : 'Seçilmedi'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Seçilmedi —</SelectItem>
+                      {yoneticiAdaylari.map((y) => (
+                        <SelectItem key={y.id} value={y.id}>{y.adi}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </RowField>
+          )}
           <RowField label="Profil Fotoğrafı (URL)">
             <Input {...form.register('profil_fotografi')} placeholder="https://..." />
           </RowField>
@@ -432,8 +503,8 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
         </CardContent>
       </Card>
 
-      {/* ── PF + DF KART ÇİFTİ (yan yana) ────────────────────────────── */}
-      <div className="grid items-start gap-4 md:grid-cols-2">
+      {/* ── PF + DF KARTLARI (sağ kolon — alt hizaya genişler) ──────── */}
+      <div className="flex h-full flex-col gap-4">
 
       {/* ── FİRMA KULLANICISI (PF) ───────────────────────────────────── */}
       <Card>
@@ -455,49 +526,36 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
             )}
 
             <div className="space-y-3">
-              <Label className="text-xs">Yetki (tek seçim)</Label>
-              <RadioGroup
-                className="flex flex-col gap-1"
-                value={pfPrimary ?? ''}
-                onValueChange={(v) => setPfPrimary(v as PFRole)}
-              >
-                <RadioLabel value="ust_yon">Üst Yönetici</RadioLabel>
-                <RadioLabel value="orta_yon">Orta Kademe Yönetici</RadioLabel>
-                <RadioLabel value="proje_muh">Proje Mühendisi</RadioLabel>
-                <RadioLabel value="cizim">Proje Çizim Sorumlusu</RadioLabel>
-                <RadioLabel value="tesisat">Tesisat Ustası</RadioLabel>
-              </RadioGroup>
-
-              {pfDescendants.length > 0 && (
-                <div className="rounded-md border border-dashed p-3">
-                  <p className="mb-2 text-xs text-muted-foreground">
-                    Yöneticilik altındaki alt yetkilerden bu kişide bulunanları işaretleyin.
-                  </p>
-                  <div className="space-y-1.5">
-                    {pfDescendants.includes('proje_muh') && (
-                      <CheckLabel
-                        control={form.control}
-                        name="firma_proje_muhendisi"
-                        label="Proje Mühendisi"
-                      />
-                    )}
-                    {pfDescendants.includes('cizim') && (
-                      <CheckLabel
-                        control={form.control}
-                        name="firma_cizim_sorumlusu"
-                        label="Proje Çizim Sorumlusu"
-                      />
-                    )}
-                    {pfDescendants.includes('tesisat') && (
-                      <CheckLabel
-                        control={form.control}
-                        name="firma_tesisat_ustasi"
-                        label="Tesisat Ustası"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
+              <Label className="text-xs">Yetkiler</Label>
+              <div className="space-y-1.5">
+                <YetkiSwitch
+                  label="Üst Yönetici"
+                  checked={pfUstActive}
+                  disabled={pfOrtaActive}
+                  onChange={(on) => setPfKademe('ust', on)}
+                />
+                <YetkiSwitch
+                  label="Orta Kademe Yönetici"
+                  checked={pfOrtaActive}
+                  disabled={pfUstActive}
+                  onChange={(on) => setPfKademe('orta', on)}
+                />
+                <YetkiSwitch
+                  label="Proje Mühendisi"
+                  checked={w.firma_proje_muhendisi}
+                  onChange={(on) => form.setValue('firma_proje_muhendisi', on)}
+                />
+                <YetkiSwitch
+                  label="Proje Çizim Sorumlusu"
+                  checked={w.firma_cizim_sorumlusu}
+                  onChange={(on) => form.setValue('firma_cizim_sorumlusu', on)}
+                />
+                <YetkiSwitch
+                  label="Tesisat Ustası"
+                  checked={w.firma_tesisat_ustasi}
+                  onChange={(on) => form.setValue('firma_tesisat_ustasi', on)}
+                />
+              </div>
 
               {/* PROJE MÜHENDİSİ verileri */}
               {w.firma_proje_muhendisi && (
@@ -550,8 +608,8 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
         )}
       </Card>
 
-      {/* ── GDF KULLANICISI (DF) ─────────────────────────────────────── */}
-      <Card>
+      {/* ── GDF KULLANICISI (DF) — son kart, kalan dikey alanı doldurur ── */}
+      <Card className="flex-1">
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
             <CardTitle className="text-base">GDF Kullanıcısı (DF)</CardTitle>
@@ -570,49 +628,36 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
             )}
 
             <div className="space-y-3">
-              <Label className="text-xs">Yetki (tek seçim)</Label>
-              <RadioGroup
-                className="flex flex-col gap-1"
-                value={dfPrimary ?? ''}
-                onValueChange={(v) => setDfPrimary(v as DFRole)}
-              >
-                <RadioLabel value="ust_yon">Üst Yönetici</RadioLabel>
-                <RadioLabel value="orta_yon">Orta Kademe Yönetici</RadioLabel>
-                <RadioLabel value="onay_muh">Onay Mühendisi</RadioLabel>
-                <RadioLabel value="gaz_acma">Gaz Açma Mühendisi</RadioLabel>
-                <RadioLabel value="on_buro">Ön Büro Yetkilisi</RadioLabel>
-              </RadioGroup>
-
-              {dfDescendants.length > 0 && (
-                <div className="rounded-md border border-dashed p-3">
-                  <p className="mb-2 text-xs text-muted-foreground">
-                    Seçili yetki altındaki alt yetkilerden bu kişide bulunanları işaretleyin.
-                  </p>
-                  <div className="space-y-1.5">
-                    {dfDescendants.includes('onay_muh') && (
-                      <CheckLabel
-                        control={form.control}
-                        name="gdf_onay_muhendisi"
-                        label="Onay Mühendisi"
-                      />
-                    )}
-                    {dfDescendants.includes('gaz_acma') && (
-                      <CheckLabel
-                        control={form.control}
-                        name="gdf_gaz_acma_muhendisi"
-                        label="Gaz Açma Mühendisi"
-                      />
-                    )}
-                    {dfDescendants.includes('on_buro') && (
-                      <CheckLabel
-                        control={form.control}
-                        name="gdf_on_buro_yetkilisi"
-                        label="Ön Büro Yetkilisi"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
+              <Label className="text-xs">Yetkiler</Label>
+              <div className="space-y-1.5">
+                <YetkiSwitch
+                  label="Üst Yönetici"
+                  checked={dfUstActive}
+                  disabled={dfOrtaActive}
+                  onChange={(on) => setDfKademe('ust', on)}
+                />
+                <YetkiSwitch
+                  label="Orta Kademe Yönetici"
+                  checked={dfOrtaActive}
+                  disabled={dfUstActive}
+                  onChange={(on) => setDfKademe('orta', on)}
+                />
+                <YetkiSwitch
+                  label="Onay Mühendisi"
+                  checked={w.gdf_onay_muhendisi}
+                  onChange={(on) => form.setValue('gdf_onay_muhendisi', on)}
+                />
+                <YetkiSwitch
+                  label="Gaz Açma Mühendisi"
+                  checked={w.gdf_gaz_acma_muhendisi}
+                  onChange={(on) => form.setValue('gdf_gaz_acma_muhendisi', on)}
+                />
+                <YetkiSwitch
+                  label="Ön Büro Yetkilisi"
+                  checked={w.gdf_on_buro_yetkilisi}
+                  onChange={(on) => form.setValue('gdf_on_buro_yetkilisi', on)}
+                />
+              </div>
 
               {/* ONAY MÜHENDİSİ verileri */}
               {w.gdf_onay_muhendisi && (
@@ -644,7 +689,9 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
 
       </div>
 
-      {/* ── YETKİLİ OLDUĞU FİRMALAR + YÖNETİCİ ───────────────────────── */}
+      </div>
+
+      {/* ── YETKİLİ OLDUĞU FİRMALAR ──────────────────────────────────── */}
       {(w.firma_kullanicisi || w.gdf_kullanicisi) && (
         <Card>
           <CardHeader>
@@ -652,7 +699,7 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
               Yetkili Olduğu Firmalar ({w.gdf_kullanicisi ? 'DF' : 'PF'})
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <Controller
               control={form.control}
               name="yetkili_firma_ids"
@@ -660,49 +707,31 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
                 <FirmMultiSelect
                   options={firmaOptions}
                   value={field.value}
-                  onChange={field.onChange}
+                  onChange={(ids) => {
+                    field.onChange(ids);
+                    // Listeden çıkarılan firmaların auto_inherit bayrağını da temizle.
+                    const set = new Set(ids);
+                    const ai = form.getValues('auto_inherit_firma_ids');
+                    const next = ai.filter((x) => set.has(x));
+                    if (next.length !== ai.length) {
+                      form.setValue('auto_inherit_firma_ids', next);
+                    }
+                  }}
                   comboboxLabel={w.gdf_kullanicisi ? 'DF Firmaları' : 'PF Firmaları'}
                   listboxLabel="Yetkili Olduğu Firmalar"
                   placeholder="Firma adıyla ara…"
                   emptyText={w.gdf_kullanicisi ? 'Tanımlı DF yok.' : 'Tanımlı PF yok.'}
                   singleAnchor={w.gdf_kullanicisi}
+                  autoInheritIds={w.auto_inherit_firma_ids}
+                  onAutoInheritChange={(parentId, on) => {
+                    const cur = new Set(form.getValues('auto_inherit_firma_ids'));
+                    if (on) cur.add(parentId);
+                    else cur.delete(parentId);
+                    form.setValue('auto_inherit_firma_ids', Array.from(cur));
+                  }}
                 />
               )}
             />
-
-            <Separator />
-
-            <Field label="Bağlı Olduğu Yönetici">
-              <Controller
-                control={form.control}
-                name="bagli_oldugu_yonetici_id"
-                render={({ field }) => (
-                  <Select
-                    value={field.value ?? '__none__'}
-                    onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
-                    disabled={yoneticiAdaylari.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          w.yetkili_firma_ids.length === 0
-                            ? 'Önce yetkili olduğunuz firmaları seçin'
-                            : yoneticiAdaylari.length === 0
-                              ? 'Seçili firmalarda yönetici yok'
-                              : 'Seçilmedi'
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— Seçilmedi —</SelectItem>
-                      {yoneticiAdaylari.map((y) => (
-                        <SelectItem key={y.id} value={y.id}>{y.adi}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </Field>
           </CardContent>
         </Card>
       )}
@@ -717,34 +746,27 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
         ) : (
           <span />
         )}
-        <Button type="submit" disabled={pending}>
-          {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Kaydet
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={form.handleSubmit((v) => onSubmit(v, { stay: true }))}
+          >
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Uygula
+          </Button>
+          <Button type="submit" disabled={pending}>
+            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Kaydet ve Bitir
+          </Button>
+        </div>
       </div>
     </form>
   );
 }
 
 // ── KÜÇÜK HELPER'LAR ────────────────────────────────────────────────────────
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
-      {children}
-      {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
-  );
-}
-
 // Label solda, input sağda — tek satır (Kimlik gibi temel alanlar için)
 function RowField({
   label,
@@ -785,32 +807,27 @@ function InlineField({ label, children }: { label: string; children: React.React
   );
 }
 
-function RoleBox({
-  name,
+// Yetki listesindeki tek satır: label sol, switch sağ. Pasifken silik görünür.
+function YetkiSwitch({
   label,
-  form,
-  children,
+  checked,
+  disabled,
+  onChange,
 }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  name: any;
   label: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  form: any;
-  children?: React.ReactNode;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (on: boolean) => void;
 }) {
   return (
-    <div className="rounded-md border p-3">
-      <label className="flex cursor-pointer items-center justify-between">
-        <span className="text-sm font-medium">{label}</span>
-        <Controller
-          control={form.control}
-          name={name}
-          render={({ field }: { field: { value: boolean; onChange: (v: boolean) => void } }) => (
-            <Switch checked={field.value} onCheckedChange={field.onChange} />
-          )}
-        />
-      </label>
-      {children}
+    <div
+      className={cn(
+        'flex items-center justify-between rounded-md border px-3 py-1.5 text-sm',
+        disabled && 'opacity-50',
+      )}
+    >
+      <span className={cn(disabled && 'text-muted-foreground')}>{label}</span>
+      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
     </div>
   );
 }
@@ -852,27 +869,3 @@ function UstaRow({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function CheckLabel({ control, name, label }: { control: any; name: any; label: string }) {
-  return (
-    <Controller
-      control={control}
-      name={name}
-      render={({ field }: { field: { value: boolean; onChange: (v: boolean) => void } }) => (
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-          <span>{label}</span>
-        </label>
-      )}
-    />
-  );
-}
-
-function RadioLabel({ value, children }: { value: string; children: React.ReactNode }) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2 text-sm">
-      <RadioGroupItem value={value} />
-      <span>{children}</span>
-    </label>
-  );
-}

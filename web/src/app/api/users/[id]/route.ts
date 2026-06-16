@@ -12,7 +12,7 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { yetkili_firma_ids = [], password, ...userData } = body;
+  const { yetkili_firma_ids = [], auto_inherit_firma_ids = [], password, ...userData } = body;
 
   const admin = supabaseAdmin();
 
@@ -38,6 +38,7 @@ export async function PATCH(
     !!userData.firma_kullanicisi,
     !!userData.gdf_kullanicisi,
     yetkili_firma_ids,
+    auto_inherit_firma_ids,
   );
 
   return NextResponse.json({ id });
