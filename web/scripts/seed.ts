@@ -300,6 +300,15 @@ async function seedPFs(gdfMap: Map<string, string>, userMap: Map<string, string>
   console.log('\n→ Proje Firmaları (PF)');
   const idMap = new Map<string, string>();
   for (const p of PF_LIST) {
+    // Tek-DF modeli: birden çok gdfSlug verildiyse ilk eşleşen DF kullanılır.
+    let df_id: string | null = null;
+    for (const gs of p.gdfSlugs) {
+      const id = gdfMap.get(gs);
+      if (id) {
+        df_id = id;
+        break;
+      }
+    }
     const { data, error } = await sb
       .from('proje_firmalari')
       .insert({
@@ -311,17 +320,13 @@ async function seedPFs(gdfMap: Map<string, string>, userMap: Map<string, string>
         adres: p.adres,
         yeterlilik_no: p.yeterlilik_no,
         yetkili_user_id: p.yetkiliSlug ? userMap.get(p.yetkiliSlug) ?? null : null,
+        df_id,
       })
       .select('id')
       .single();
     if (error) throw error;
     idMap.set(p.slug, data.id);
     console.log(`  ${p.firma_adi}`);
-    // pf_df junction
-    for (const gs of p.gdfSlugs) {
-      const df_id = gdfMap.get(gs);
-      if (df_id) await sb.from('pf_df').insert({ pf_id: data.id, df_id });
-    }
   }
   return idMap;
 }

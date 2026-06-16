@@ -9,13 +9,12 @@ export const dynamic = 'force-dynamic';
 
 export default async function UsersListPage() {
   const supabase = await supabaseServer();
-  const [usersRes, pfRes, dfRes, upfRes, udfRes, pfDfRes] = await Promise.all([
+  const [usersRes, pfRes, dfRes, upfRes, udfRes] = await Promise.all([
     supabase.from('users').select('*').order('created_at', { ascending: false }).limit(1000),
-    supabase.from('proje_firmalari').select('id, firma_adi, parent_id'),
+    supabase.from('proje_firmalari').select('id, firma_adi, parent_id, df_id'),
     supabase.from('dagitim_firmalari').select('id, firma_adi, parent_id'),
     supabase.from('user_pf').select('user_id, pf_id'),
     supabase.from('user_df').select('user_id, df_id'),
-    supabase.from('pf_df').select('pf_id, df_id'),
   ]);
 
   const error = usersRes.error;
@@ -32,17 +31,19 @@ export default async function UsersListPage() {
     );
   }
 
-  const pfRows = (pfRes.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
+  const pfRows = (pfRes.data ?? []) as { id: string; firma_adi: string; parent_id: string | null; df_id: string | null }[];
   const dfRows = (dfRes.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
   const pfById = new Map(pfRows.map((p) => [p.id, p]));
   const dfById = new Map(dfRows.map((d) => [d.id, d]));
 
   type FirmRef = { id: string; firma_adi: string; parent_id: string | null };
+  // Tek-DF modeli: her PF için en fazla bir DF.
   const pfToDfs: Record<string, FirmRef[]> = {};
-  (pfDfRes.data ?? []).forEach((r) => {
-    const df = dfById.get(r.df_id);
+  pfRows.forEach((p) => {
+    if (!p.df_id) return;
+    const df = dfById.get(p.df_id);
     if (!df) return;
-    (pfToDfs[r.pf_id] ??= []).push(df);
+    pfToDfs[p.id] = [df];
   });
 
   const userPfMap: Record<string, (FirmRef & { dfs: FirmRef[] })[]> = {};
@@ -64,9 +65,7 @@ export default async function UsersListPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Kullanıcılar</h1>
-          <p className="text-sm text-muted-foreground">
-            Admin, Proje Firması (PF), Dağıtım Firması (DF) ve genel kullanıcılar.
-          </p>
+
         </div>
         <Button asChild>
           <Link href="/users/new">

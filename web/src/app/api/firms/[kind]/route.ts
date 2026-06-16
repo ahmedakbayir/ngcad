@@ -20,7 +20,7 @@ export async function POST(
   if (!table) return NextResponse.json({ error: 'Geçersiz tip' }, { status: 400 });
 
   const body = await req.json();
-  const { df_ids = [], alt_firma_ids = [], ...firmData } = body;
+  const { alt_firma_ids = [], ...firmData } = body;
 
   const admin = supabaseAdmin();
   const { data, error } = await admin.from(table).insert(firmData).select('id').single();
@@ -34,11 +34,8 @@ export async function POST(
           .update({ parent_id: data.id })
           .in('id', alt_firma_ids);
       }
-    } else if (Array.isArray(df_ids) && df_ids.length > 0) {
-      await admin
-        .from('pf_df')
-        .insert(df_ids.map((df_id: string) => ({ pf_id: data.id, df_id })));
     }
+    // df_id zaten firmData içinde — junction tablo yok.
   } else if (kind === 'df') {
     if (firmData.ust_firma && Array.isArray(alt_firma_ids) && alt_firma_ids.length > 0) {
       // Seçilen alt DF'lerin parent_id'sini bu üst firmaya çevir.

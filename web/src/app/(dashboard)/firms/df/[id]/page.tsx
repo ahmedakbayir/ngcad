@@ -28,9 +28,10 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
       .select('user_id, users:users!inner(id, adi, email)')
       .eq('df_id', id),
     supabase
-      .from('pf_df')
-      .select('pf_id, proje_firmalari:proje_firmalari!inner(id, firma_adi, no)')
-      .eq('df_id', id),
+      .from('proje_firmalari')
+      .select('id, firma_adi, no, df_id')
+      .eq('df_id', id)
+      .order('firma_adi'),
     supabase
       .from('dagitim_firmalari')
       .select('id, no, firma_adi')
@@ -78,25 +79,7 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
     });
   }
 
-  // Bağlı PF'lerin (pf_df üzerinden) hangi DİĞER DF'lerle ilişkili olduğunu yükle.
-  const pfIds = (pfLinked.data ?? []).map((r) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const p: any = r.proje_firmalari;
-    return p.id as string;
-  });
-  const pfOtherDfs: Record<string, FirmRef[]> = {};
-  if (pfIds.length > 0) {
-    const { data: pfdfAll } = await supabase
-      .from('pf_df')
-      .select('pf_id, dagitim_firmalari:dagitim_firmalari!inner(id, firma_adi)')
-      .in('pf_id', pfIds)
-      .neq('df_id', id);
-    (pfdfAll ?? []).forEach((r) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const d: any = r.dagitim_firmalari;
-      (pfOtherDfs[r.pf_id as string] ??= []).push({ id: d.id, firma_adi: d.firma_adi });
-    });
-  }
+  // Tek-DF modeli: PF'in başka bir DF bağı yok; "diğer DF" listesi anlamsız.
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -115,6 +98,7 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
         initial={{
           ...firm,
           alt_firma_ids: (children.data ?? []).map((c) => c.id as string),
+          hasChildren: (children.data?.length ?? 0) > 0,
         }}
         parentList={df.data ?? []}
         yetkiliUsers={eligibleYetkililer}
@@ -225,36 +209,13 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
               <p className="text-sm text-muted-foreground">Henüz PF bağlı değil.</p>
             ) : (
               <ul className="divide-y">
-                {pfLinked.data.map((r) => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const p: any = r.proje_firmalari;
-                  const otherDfsRaw = pfOtherDfs[p.id] ?? [];
-                  const otherDfs = collapseFirmHierarchy(
-                    otherDfsRaw.map((d) => ({
-                      ...d,
-                      parent_id: dfRefById.get(d.id)?.parent_id ?? null,
-                    })),
-                    dfMasterAll.map((m) => ({ id: m.id, parent_id: m.parent_id })),
-                  );
-                  return (
-                    <li key={p.id} className="py-2 text-sm">
-                      <Link href={`/firms/pf/${p.id}`} className="hover:underline">
-                        #{p.no} {p.firma_adi}
-                      </Link>
-                      {otherDfs.length > 0 && (
-                        <div className="mt-0.5 text-[11px] text-muted-foreground">
-                          Diğer DF:{' '}
-                          {otherDfs.map((d, i) => (
-                            <React.Fragment key={d.id}>
-                              {i > 0 && ', '}
-                              <Link href={`/firms/df/${d.id}`} className="hover:underline">{d.firma_adi}</Link>
-                            </React.Fragment>
-                          ))}
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
+                {pfLinked.data.map((p) => (
+                  <li key={p.id} className="py-2 text-sm">
+                    <Link href={`/firms/pf/${p.id}`} className="hover:underline">
+                      #{p.no} {p.firma_adi}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             )}
           </CardContent>

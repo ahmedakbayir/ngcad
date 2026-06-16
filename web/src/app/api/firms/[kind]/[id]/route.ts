@@ -20,7 +20,7 @@ export async function PATCH(
   if (!table) return NextResponse.json({ error: 'Geçersiz tip' }, { status: 400 });
 
   const body = await req.json();
-  const { df_ids, alt_firma_ids, ...firmData } = body;
+  const { alt_firma_ids, ...firmData } = body;
 
   const admin = supabaseAdmin();
   const { error } = await admin.from(table).update(firmData).eq('id', id);
@@ -28,8 +28,6 @@ export async function PATCH(
 
   if (kind === 'pf') {
     if (firmData.ust_firma) {
-      // ÜST FİRMA: DF junction'ı temizle.
-      await admin.from('pf_df').delete().eq('pf_id', id);
       // Alt PF parent_id senkron: mevcut altları sıfırla, gelen listeyi ata.
       if (Array.isArray(alt_firma_ids)) {
         const { data: currentChildren } = await admin
@@ -52,11 +50,8 @@ export async function PATCH(
             .in('id', alt_firma_ids as string[]);
         }
       }
-    } else if (Array.isArray(df_ids)) {
-      await admin.from('pf_df').delete().eq('pf_id', id);
-      if (df_ids.length > 0) {
-        await admin.from('pf_df').insert(df_ids.map((df_id: string) => ({ pf_id: id, df_id })));
-      }
+    } else {
+      // Klasik PF: alt birimlik ilişkilerini temizle (üst firma değilse alt birim sahibi olamaz).
       await admin
         .from('proje_firmalari')
         .update({ parent_id: null })
@@ -64,8 +59,11 @@ export async function PATCH(
     }
   } else if (kind === 'df') {
     if (firmData.ust_firma) {
-      // ÜST FİRMA DF: PF-DF junction satırları (bu üst firmaya gidenler) koparılır.
-      await admin.from('pf_df').delete().eq('df_id', id);
+      // ÜST FİRMA DF: bu DF'ye doğrudan bağlı PF'lerin df_id'si null'a çekilir.
+      await admin
+        .from('proje_firmalari')
+        .update({ df_id: null })
+        .eq('df_id', id);
       // Alt DF parent_id senkron.
       if (Array.isArray(alt_firma_ids)) {
         const { data: currentChildren } = await admin

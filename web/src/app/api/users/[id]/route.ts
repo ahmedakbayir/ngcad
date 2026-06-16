@@ -12,9 +12,23 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { yetkili_firma_ids = [], ...userData } = body;
+  const { yetkili_firma_ids = [], password, ...userData } = body;
 
   const admin = supabaseAdmin();
+
+  // Parola gönderildiyse auth.users üzerinde güncelle.
+  if (typeof password === 'string' && password.length > 0) {
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: 'Şifre en az 6 karakter olmalı.' },
+        { status: 400 },
+      );
+    }
+    const { error: pwErr } = await admin.auth.admin.updateUserById(id, { password });
+    if (pwErr) {
+      return NextResponse.json({ error: `Şifre güncellenemedi: ${pwErr.message}` }, { status: 400 });
+    }
+  }
 
   const { error: updErr } = await admin.from('users').update(userData).eq('id', id);
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 400 });

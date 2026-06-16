@@ -254,13 +254,22 @@ async function seedDFs(): Promise<Map<string, string>> {
 async function seedPFs(dfMap: Map<string, string>): Promise<Map<string, string>> {
   console.log('\n→ Proje Firmaları (PF)');
   const idMap = new Map<string, string>();
+  // Tek-DF modeli: dfSlugs içinde ilk bulunan DF kullanılır.
+  const pickDfId = (slugs: string[]): string | null => {
+    for (const ds of slugs) {
+      const id = dfMap.get(ds);
+      if (id) return id;
+    }
+    return null;
+  };
   for (const p of PF_LIST.filter((x) => !x.parent)) {
     let id = await findFirmaIdByAdi('proje_firmalari', p.adi);
+    const df_id = pickDfId(p.dfSlugs);
     if (!id) {
       const { data, error } = await sb.from('proje_firmalari').insert({
         firma_adi: p.adi, firma_tel: p.tel, firma_email: p.email,
         vergi_dairesi: p.vergi_dairesi, vergi_no: p.vergi_no, adres: p.adres,
-        yeterlilik_no: p.yeterlilik_no,
+        yeterlilik_no: p.yeterlilik_no, df_id,
       }).select('id').single();
       if (error) throw error;
       id = data.id;
@@ -269,20 +278,16 @@ async function seedPFs(dfMap: Map<string, string>): Promise<Map<string, string>>
       console.log(`  · ${p.adi} (mevcut)`);
     }
     idMap.set(p.slug, id);
-    // pf_df junction
-    for (const ds of p.dfSlugs) {
-      const df_id = dfMap.get(ds);
-      if (df_id) await sb.from('pf_df').upsert({ pf_id: id, df_id }, { onConflict: 'pf_id,df_id' });
-    }
   }
   for (const p of PF_LIST.filter((x) => x.parent)) {
     let id = await findFirmaIdByAdi('proje_firmalari', p.adi);
+    const df_id = pickDfId(p.dfSlugs);
     if (!id) {
       const parent_id = idMap.get(p.parent!);
       const { data, error } = await sb.from('proje_firmalari').insert({
         firma_adi: p.adi, parent_id, firma_tel: p.tel, firma_email: p.email,
         vergi_dairesi: p.vergi_dairesi, vergi_no: p.vergi_no, adres: p.adres,
-        yeterlilik_no: p.yeterlilik_no,
+        yeterlilik_no: p.yeterlilik_no, df_id,
       }).select('id').single();
       if (error) throw error;
       id = data.id;
@@ -291,10 +296,6 @@ async function seedPFs(dfMap: Map<string, string>): Promise<Map<string, string>>
       console.log(`  · └─ ${p.adi} (mevcut)`);
     }
     idMap.set(p.slug, id);
-    for (const ds of p.dfSlugs) {
-      const df_id = dfMap.get(ds);
-      if (df_id) await sb.from('pf_df').upsert({ pf_id: id, df_id }, { onConflict: 'pf_id,df_id' });
-    }
   }
   return idMap;
 }

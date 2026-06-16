@@ -3,34 +3,44 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/auth-guards';
 import { syncFirmaJunctions } from '@/lib/user-junctions';
 
-// Yeni kullanıcı: önce auth.users davet, sonra public.users + junction kayıtları.
+// Yeni kullanıcı: admin parolayı doğrudan belirler; e-posta doğrulaması yok.
+// Kullanıcı verilen e-posta + şifre ile /login'den girer.
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin();
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await req.json();
-  const { yetkili_firma_ids = [], ...userData } = body;
+  const { yetkili_firma_ids = [], password, ...userData } = body;
+
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    return NextResponse.json(
+      { error: 'Şifre en az 6 karakter olmalı.' },
+      { status: 400 },
+    );
+  }
 
   const admin = supabaseAdmin();
 
-  const { data: invited, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(
-    userData.email,
-  );
-  if (inviteErr) {
-    return NextResponse.json({ error: `Davet hatası: ${inviteErr.message}` }, { status: 400 });
+  // 1) Auth kullanıcısı — parola atanmış, e-posta doğrulanmış.
+  const { data: created, error: createErr } = await admin.auth.admin.createUser({
+    email: userData.email,
+    password,
+    email_confirm: true,
+  });
+  if (createErr) {
+    return NextResponse.json({ error: `Auth oluşturma hatası: ${createErr.message}` }, { status: 400 });
   }
-
-  const userId = invited.user?.id;
+  const userId = created.user?.id;
   if (!userId) {
     return NextResponse.json({ error: 'Auth kullanıcısı oluşturulamadı.' }, { status: 500 });
   }
 
+  // 2) public.users satırı + junction'lar.
   const { error: insertErr } = await admin.from('users').insert({ id: userId, ...userData });
   if (insertErr) {
     await admin.auth.admin.deleteUser(userId);
     return NextResponse.json({ error: insertErr.message }, { status: 400 });
   }
-
   await syncFirmaJunctions(
     userId,
     !!userData.firma_kullanicisi,

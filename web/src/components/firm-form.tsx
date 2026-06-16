@@ -51,8 +51,8 @@ const schema = z.object({
   adres: z.string().optional().or(z.literal('')),
   yeterlilik_no: z.string().optional().or(z.literal('')),
   yetkili_user_id: z.string().nullable(),
-  // sadece PF için: bağlı DF'ler
-  df_ids: z.array(z.string()).optional(),
+  // sadece PF için: tek bağlı DF
+  df_id: z.string().nullable().optional(),
   // sadece PF için: ÜST FİRMA modu + bağlı ALT PF'ler
   ust_firma: z.boolean().optional(),
   alt_firma_ids: z.array(z.string()).optional(),
@@ -82,7 +82,11 @@ interface DFListEntry {
 
 interface FirmFormProps {
   kind: FirmKind;
-  initial?: FirmaRow & { df_ids?: string[]; alt_firma_ids?: string[] };
+  initial?: FirmaRow & {
+    alt_firma_ids?: string[];
+    // Bu firmanın alt birimi var mı? Varsa "üst firma" toggle'ı zorunlu açık.
+    hasChildren?: boolean;
+  };
   mode: 'create' | 'edit';
   yetkiliUsers: Pick<UserRow, 'id' | 'adi'>[];
   parentList: ParentEntry[];
@@ -106,9 +110,12 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
       adres: initial?.adres ?? '',
       yeterlilik_no: (initial && 'yeterlilik_no' in initial ? initial.yeterlilik_no : '') ?? '',
       yetkili_user_id: initial?.yetkili_user_id ?? null,
-      df_ids: initial?.df_ids ?? [],
+      df_id: (initial && 'df_id' in initial ? (initial as { df_id?: string | null }).df_id : null) ?? null,
+      // Bayrak yoksa ama alt birim varsa, firma fiilen "üst firma"dır
+      // (tablo da bu mantıkla ÜST FİRMA rozeti gösterir — tutarlı tutulur).
       ust_firma:
-        initial && 'ust_firma' in initial ? Boolean(initial.ust_firma) : false,
+        (initial && 'ust_firma' in initial ? Boolean(initial.ust_firma) : false) ||
+        Boolean(initial?.hasChildren),
       alt_firma_ids: initial?.alt_firma_ids ?? [],
       son_guncelleme:
         initial && 'son_guncelleme' in initial
@@ -144,22 +151,24 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
       const payload: Record<string, unknown> = { ...values };
       if (kind === 'df') {
         delete payload.yeterlilik_no;
+        // df_id yalnız PF tablosunda var — DF payload'una sızmasın.
+        delete payload.df_id;
         // Boş alanları null'a normalize et.
         if (payload.son_guncelleme === '') payload.son_guncelleme = null;
         if (payload.df_no === '') payload.df_no = null;
-        // ÜST FİRMA modu: PF bağı olmaz, parent_id null olur; Sürüm/Tarih taşımaz.
+        if (payload.guncel_surum === '') payload.guncel_surum = null;
         if (payload.ust_firma) {
+          // ÜST FİRMA: parent_id null; Sürüm/Tarih KORUNUR (kullanıcı girer).
           payload.parent_id = null;
-          payload.guncel_surum = null;
-          payload.son_guncelleme = null;
+          if (payload.guncel_surum == null) payload.guncel_surum = 100;
         } else {
           payload.alt_firma_ids = [];
           // Child DF (parent_id'si olan): Güncel Sürüm + Son Güncelleme taşımaz.
           if (payload.parent_id) {
             payload.guncel_surum = null;
             payload.son_guncelleme = null;
-          } else if (payload.guncel_surum === '' || payload.guncel_surum == null) {
-            payload.guncel_surum = 100; // parent/standalone varsayılan
+          } else if (payload.guncel_surum == null) {
+            payload.guncel_surum = 100; // standalone varsayılan
           }
         }
       } else {
@@ -168,10 +177,11 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
         delete payload.df_no;
         // ÜST FİRMA modu: DF bağı olmaz, parent_id null olur.
         if (payload.ust_firma) {
-          payload.df_ids = [];
+          payload.df_id = null;
           payload.parent_id = null;
         } else {
           payload.alt_firma_ids = [];
+          if (payload.df_id === '') payload.df_id = null;
         }
       }
       const res = await fetch(url, {
@@ -231,12 +241,15 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
                 <div className="flex items-center gap-3">
                   <Switch
                     checked={field.value ?? false}
+                    disabled={Boolean(initial?.hasChildren)}
                     onCheckedChange={(v) => field.onChange(v)}
                   />
                   <div className="text-xs text-muted-foreground">
-                    {kind === 'pf'
-                      ? "İşaretliyse bu firma alt birim PF'lerin üst firmasıdır. DF bağı taşımaz; alt firmalar Alt Firmalar bölümünden seçilir."
-                      : "İşaretliyse bu firma alt birim DF'lerin üst firmasıdır. PF'ler doğrudan buna bağlanamaz (alt birim DF'lere bağlanır)."}
+                    {initial?.hasChildren
+                      ? "Bu firmanın alt birimleri olduğu için üst firma işareti zorunlu. Önce alt birimleri kaldırın."
+                      : kind === 'pf'
+                        ? "İşaretliyse bu firma alt birim PF'lerin üst firmasıdır. DF bağı taşımaz; alt firmalar Alt Firmalar bölümünden seçilir."
+                        : "İşaretliyse bu firma alt birim DF'lerin üst firmasıdır. PF'ler doğrudan buna bağlanamaz (alt birim DF'lere bağlanır)."}
                   </div>
                   {field.value && (
                     <Badge variant="info" className="ml-auto text-[10px]">ÜST FİRMA</Badge>
@@ -384,33 +397,46 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
       {kind === 'pf' && !ustFirmaActive && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Bağlı Dağıtım Firmaları (DF)</CardTitle>
-            <p className="text-xs text-muted-foreground">Bu PF hangi GDF'lerde yetkili çalışıyor?</p>
+            <CardTitle className="text-base">Bağlı Dağıtım Firması (DF)</CardTitle>
+            <p className="text-xs text-muted-foreground">Bu PF hangi GDF bölgesinde çalışıyor? Bir PF yalnız tek DF'ye bağlanır.</p>
           </CardHeader>
           <CardContent>
             <Controller
               control={form.control}
-              name="df_ids"
+              name="df_id"
               render={({ field }) => {
-                // PF'ler doğrudan üst firma DF'lere bağlanamaz — yalnız alt birim ve
-                // tek başına DF'ler aday gösterilir.
-                const dfOptions: FirmOption[] = dfList
-                  .filter((d) => !d.ust_firma)
-                  .map((d) => ({
-                    id: d.id,
-                    firma_adi: d.firma_adi,
-                    parent_id: d.parent_id ?? null,
-                  }));
+                // Parent'lar üstte, alt birimleri girintili olacak şekilde sırala.
+                const byId = new Map(dfList.map((d) => [d.id, d]));
+                const tops = dfList.filter((d) => !d.parent_id || !byId.has(d.parent_id));
+                const ordered: { d: DFListEntry; depth: 0 | 1 }[] = [];
+                tops.forEach((p) => {
+                  ordered.push({ d: p, depth: 0 });
+                  dfList
+                    .filter((c) => c.parent_id === p.id)
+                    .forEach((c) => ordered.push({ d: c, depth: 1 }));
+                });
                 return (
-                  <FirmMultiSelect
-                    options={dfOptions}
-                    value={field.value ?? []}
-                    onChange={field.onChange}
-                    comboboxLabel="DF Firmaları"
-                    listboxLabel="Bağlı DF'ler"
-                    placeholder="DF adıyla ara…"
-                    emptyText="Henüz DF tanımlanmamış."
-                  />
+                  <Select
+                    value={field.value ?? '__none__'}
+                    onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
+                    disabled={dfList.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          dfList.length === 0 ? 'Henüz DF tanımlanmamış' : 'Seçilmedi'
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Seçilmedi —</SelectItem>
+                      {ordered.map(({ d, depth }) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {depth === 1 ? `↳ ${d.firma_adi}` : d.firma_adi}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 );
               }}
             />
@@ -436,13 +462,30 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
               name="alt_firma_ids"
               render={({ field }) => {
                 // Aday alt firmalar: kendisi olmayan + ust_firma=false olan firmalar.
+                // Başka bir üst firmaya zaten bağlı olanlar pasif gösterilir
+                // (bir GDF aynı anda yalnız bir üst firmanın alt birimi olabilir).
+                const nameById = new Map(parentList.map((p) => [p.id, p.firma_adi]));
                 const altOptions: FirmOption[] = parentList
                   .filter((p) => p.id !== initial?.id && !p.ust_firma)
-                  .map((p) => ({
-                    id: p.id,
-                    firma_adi: p.firma_adi,
-                    parent_id: p.parent_id ?? null,
-                  }));
+                  .map((p) => {
+                    const ownedByOther =
+                      Boolean(p.parent_id) && p.parent_id !== initial?.id;
+                    const ownerAdi = ownedByOther
+                      ? nameById.get(p.parent_id!) ?? 'başka bir üst firma'
+                      : undefined;
+                    return {
+                      id: p.id,
+                      firma_adi: p.firma_adi,
+                      parent_id: p.parent_id ?? null,
+                      disabled: ownedByOther,
+                      disabledReason: ownedByOther
+                        ? `Zaten ${ownerAdi} üst firmasının alt birimi`
+                        : undefined,
+                      hint: ownedByOther
+                        ? `↳ ${ownerAdi} altında`
+                        : undefined,
+                    };
+                  });
                 return (
                   <FirmMultiSelect
                     options={altOptions}

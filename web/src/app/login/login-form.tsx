@@ -55,7 +55,7 @@ export function LoginForm() {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             <LogIn className="h-6 w-6" />
           </div>
-          <CardTitle>AANGCAD Yönetim Paneli</CardTitle>
+          <CardTitle>NGCAD Yönetim Paneli</CardTitle>
           <CardDescription>Devam etmek için giriş yapın</CardDescription>
         </CardHeader>
         <CardContent>

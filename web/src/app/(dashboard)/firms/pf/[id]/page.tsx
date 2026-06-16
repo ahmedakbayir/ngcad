@@ -19,7 +19,7 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
   const { data: firm } = await supabase.from('proje_firmalari').select('*').eq('id', id).maybeSingle();
   if (!firm) notFound();
 
-  const [pf, df, pfdf, usersLinked, children] = await Promise.all([
+  const [pf, df, usersLinked, children] = await Promise.all([
     supabase
       .from('proje_firmalari')
       .select('id, firma_adi, parent_id, ust_firma')
@@ -28,7 +28,6 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
       .from('dagitim_firmalari')
       .select('id, firma_adi, parent_id, ust_firma')
       .order('firma_adi'),
-    supabase.from('pf_df').select('df_id').eq('pf_id', id),
     supabase
       .from('user_pf')
       .select('user_id, users:users!inner(id, adi, email)')
@@ -40,7 +39,6 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
       .order('firma_adi'),
   ]);
 
-  const df_ids = pfdf.data?.map((r) => r.df_id) ?? [];
   const alt_firma_ids = (children.data ?? []).map((c) => c.id as string);
   // Bu PF'e bağlı user'lar → "Yetkili Kullanıcı" select'inde sadece bunlar aday.
   const eligibleYetkililer = (usersLinked.data ?? []).map((r) => {
@@ -78,15 +76,11 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
     });
   }
 
-  // Bu PF'in bağlı DF'leri (sayfada ayrıca gösterilecek) — parent + tüm child seçili ise parent'a daralt.
+  // Bu PF'in bağlı tek DF'si (sayfada ayrıca gösterilecek).
   const dfMasterAll = (df.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
   const dfRefById = new Map(dfMasterAll.map((d) => [d.id, d]));
-  const linkedDfRefs = df_ids
-    .map((id) => dfRefById.get(id))
-    .filter((d): d is { id: string; firma_adi: string; parent_id: string | null } => Boolean(d));
-  const linkedDfAdlari = collapseFirmHierarchy(linkedDfRefs, dfMasterAll).map(
-    (d) => d.firma_adi,
-  );
+  const linkedDfRef = firm.df_id ? dfRefById.get(firm.df_id) : null;
+  const linkedDfAdlari = linkedDfRef ? [linkedDfRef.firma_adi] : [];
 
   // Bağlı kullanıcıların PF/DF listelerini de hiyerarşik daraltma için PF master ve DF master.
   const pfMasterAll = (pf.data ?? []) as { id: string; firma_adi: string; parent_id?: string | null }[];
@@ -107,7 +101,11 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
       <FirmForm
         kind="pf"
         mode="edit"
-        initial={{ ...firm, df_ids, alt_firma_ids }}
+        initial={{
+          ...firm,
+          alt_firma_ids,
+          hasChildren: (children.data?.length ?? 0) > 0,
+        }}
         parentList={pf.data ?? []}
         dfList={df.data ?? []}
         yetkiliUsers={eligibleYetkililer}

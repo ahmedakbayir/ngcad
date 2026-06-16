@@ -3,8 +3,8 @@ import type { DFListItem, PFListItem, YoneticiAday } from './user-form';
 
 // User formunun ihtiyaç duyduğu tüm seçenekler tek server fetch ile.
 export async function loadUserFormOptions(supabase: SupabaseClient) {
-  const [pfRes, dfRes, yonRes, upfRes, udfRes, pfdfRes] = await Promise.all([
-    supabase.from('proje_firmalari').select('id, firma_adi, parent_id').order('firma_adi'),
+  const [pfRes, dfRes, yonRes, upfRes, udfRes] = await Promise.all([
+    supabase.from('proje_firmalari').select('id, firma_adi, parent_id, df_id').order('firma_adi'),
     supabase.from('dagitim_firmalari').select('id, firma_adi, parent_id').order('firma_adi'),
     supabase
       .from('users')
@@ -13,20 +13,18 @@ export async function loadUserFormOptions(supabase: SupabaseClient) {
       .order('adi'),
     supabase.from('user_pf').select('user_id, pf_id'),
     supabase.from('user_df').select('user_id, df_id'),
-    supabase.from('pf_df').select('pf_id, df_id'),
   ]);
 
-  const pfRows = (pfRes.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
+  const pfRows = (pfRes.data ?? []) as { id: string; firma_adi: string; parent_id: string | null; df_id: string | null }[];
   const dfRows = (dfRes.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
   const dfAdById = new Map(dfRows.map((d) => [d.id, d.firma_adi]));
 
-  // PF → bağlı DF adları (yetkili firmalar listesinde "(GDF: X)" hint'i için)
+  // PF → bağlı DF adı (tek-DF modeli; "(GDF: X)" hint'i için)
   const pfToDfAdlari = new Map<string, string[]>();
-  (pfdfRes.data ?? []).forEach((r) => {
-    const arr = pfToDfAdlari.get(r.pf_id) ?? [];
-    const ad = dfAdById.get(r.df_id);
-    if (ad) arr.push(ad);
-    pfToDfAdlari.set(r.pf_id, arr);
+  pfRows.forEach((p) => {
+    if (!p.df_id) return;
+    const ad = dfAdById.get(p.df_id);
+    if (ad) pfToDfAdlari.set(p.id, [ad]);
   });
 
   const pfList: PFListItem[] = pfRows.map((p) => ({

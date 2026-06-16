@@ -1,4 +1,4 @@
-# AANGCAD Web Yönetim Paneli
+# NGCAD Web Yönetim Paneli
 
 Next.js 15 + Tailwind + shadcn/ui + Supabase (PostgreSQL + Auth) ile inşa edilmiş yönetim paneli.
 

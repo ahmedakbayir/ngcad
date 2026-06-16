@@ -9,21 +9,22 @@ export const dynamic = 'force-dynamic';
 
 export default async function PFListPage() {
   const supabase = await supabaseServer();
-  const [pfRes, dfRes, pfDfRes] = await Promise.all([
+  const [pfRes, dfRes] = await Promise.all([
     supabase.from('proje_firmalari').select('*').order('firma_adi'),
     supabase.from('dagitim_firmalari').select('id, firma_adi, parent_id').order('firma_adi'),
-    supabase.from('pf_df').select('pf_id, df_id'),
   ]);
 
   const error = pfRes.error;
   const dfRows = (dfRes.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
   const dfById = new Map(dfRows.map((d) => [d.id, d]));
 
+  // Tek-DF modeli: her PF için tek elemanlı (veya boş) DF listesi.
   const pfDfMap: Record<string, { id: string; firma_adi: string; parent_id: string | null }[]> = {};
-  (pfDfRes.data ?? []).forEach((r) => {
-    const df = dfById.get(r.df_id);
+  ((pfRes.data ?? []) as { id: string; df_id: string | null }[]).forEach((p) => {
+    if (!p.df_id) return;
+    const df = dfById.get(p.df_id);
     if (!df) return;
-    (pfDfMap[r.pf_id] ??= []).push(df);
+    pfDfMap[p.id] = [df];
   });
 
   return (
@@ -31,9 +32,6 @@ export default async function PFListPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Proje Firmaları (PF)</h1>
-          <p className="text-sm text-muted-foreground">
-            Doğalgaz iç tesisat projelerini çizen/hazırlayan firmalar.
-          </p>
         </div>
         <Button asChild>
           <Link href="/firms/pf/new"><Plus className="h-4 w-4" /> Yeni PF</Link>

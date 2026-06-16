@@ -31,7 +31,7 @@ export function AppSidebar() {
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
           AC
         </div>
-        <span className="text-sm font-semibold">AANGCAD</span>
+        <span className="text-sm font-semibold">NGCAD</span>
       </div>
 
       <nav className="flex-1 space-y-1 p-2">

@@ -61,6 +61,8 @@ export interface BaseFirmaRow {
 // PF için yeterlilik_no var, DF için yok.
 export interface ProjeFirmaRow extends BaseFirmaRow {
   yeterlilik_no: string | null;
+  // PF tek bir DF'ye bağlanır.
+  df_id: string | null;
   // İşaretliyse PF "üst firma"dır; DF bağı taşımaz, alt birim PF'lerin parent'ı olur.
   ust_firma: boolean;
 }

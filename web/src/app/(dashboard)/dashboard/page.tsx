@@ -23,10 +23,10 @@ export default async function DashboardHome() {
   const counts = await getCounts();
 
   const cards = [
-    { href: '/users',    label: 'Kullanıcılar',           value: counts.users,    icon: Users,         hint: 'Admin / PFUser / DFUser / General' },
-    { href: '/firms/pf', label: 'Proje Firmaları (PF)',   value: counts.pf,       icon: Building2,     hint: 'Proje çizimini hazırlayan firmalar' },
-    { href: '/firms/df', label: 'Dağıtım Firmaları (DF)', value: counts.df,       icon: Truck,         hint: 'Gaz dağıtım firmaları (GDF)' },
-    { href: '/projects', label: 'Projeler',               value: counts.projects, icon: FolderKanban,  hint: 'CAD çizim projeleri' },
+    { href: '/users',    label: 'Kullanıcılar',           value: counts.users,    icon: Users,         },
+    { href: '/firms/pf', label: 'Proje Firmaları (PF)',   value: counts.pf,       icon: Building2,     },
+    { href: '/firms/df', label: 'Dağıtım Firmaları (DF)', value: counts.df,       icon: Truck,         },
+    { href: '/projects', label: 'Projeler',               value: counts.projects, icon: FolderKanban,  },
   ];
 
   return (
@@ -34,7 +34,7 @@ export default async function DashboardHome() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Genel Bakış</h1>
         <p className="text-sm text-muted-foreground">
-          AANGCAD yönetim paneline hoş geldiniz. Soldaki menüden bölümlere geçebilirsiniz.
+          NGCAD yönetim paneline hoş geldiniz. Soldaki menüden bölümlere geçebilirsiniz.
         </p>
       </div>
 

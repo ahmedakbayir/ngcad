@@ -142,6 +142,8 @@ create table public.proje_firmalari (
     adres           text,
     yeterlilik_no   text,
     yetkili_user_id uuid references public.users(id) on delete set null,
+    -- Bir PF yalnızca tek bir DF'ye bağlanır.
+    df_id           uuid references public.dagitim_firmalari(id) on delete set null,
     -- İşaretliyse firma "üst firma"dır: DF bağı taşımaz, alt birimlerin parent'ı olur.
     ust_firma       boolean not null default false,
 
@@ -150,6 +152,7 @@ create table public.proje_firmalari (
 );
 
 create index ix_pf_parent on public.proje_firmalari(parent_id);
+create index ix_pf_df_col on public.proje_firmalari(df_id);
 
 -- ============================================================================
 -- M-N: PFUser ↔ PF
@@ -176,17 +179,7 @@ create table public.user_df (
 create index ix_user_df_df on public.user_df(df_id);
 
 -- ============================================================================
--- M-N: PF ↔ DF
--- ============================================================================
-create table public.pf_df (
-    pf_id uuid not null references public.proje_firmalari(id)    on delete cascade,
-    df_id uuid not null references public.dagitim_firmalari(id)  on delete cascade,
-    created_at timestamptz not null default now(),
-    primary key (pf_id, df_id)
-);
-
-create index ix_pf_df_df on public.pf_df(df_id);
-
+-- NOT: PF ↔ DF artık M-N değil; proje_firmalari.df_id ile 1-N. (Bkz. mig 008)
 -- ============================================================================
 -- PROJECTS — iskelet (Infos/Docs/Insurances/Units/UnitDevices/Appointments/Histories/States sonra)
 -- ============================================================================
@@ -238,7 +231,6 @@ alter table public.proje_firmalari   enable row level security;
 alter table public.dagitim_firmalari enable row level security;
 alter table public.user_pf           enable row level security;
 alter table public.user_df           enable row level security;
-alter table public.pf_df             enable row level security;
 alter table public.projects          enable row level security;
 
 -- Helper: oturum sahibi admin mi?
@@ -253,7 +245,6 @@ create policy read_all_pf    on public.proje_firmalari   for select using (auth.
 create policy read_all_df    on public.dagitim_firmalari for select using (auth.role() = 'authenticated');
 create policy read_all_upf   on public.user_pf           for select using (auth.role() = 'authenticated');
 create policy read_all_udf   on public.user_df           for select using (auth.role() = 'authenticated');
-create policy read_all_pfdf  on public.pf_df             for select using (auth.role() = 'authenticated');
 create policy read_all_proj  on public.projects          for select using (auth.role() = 'authenticated');
 
 -- WRITE — sadece admin
@@ -262,5 +253,4 @@ create policy write_admin_pf    on public.proje_firmalari   for all using (publi
 create policy write_admin_df    on public.dagitim_firmalari for all using (public.is_admin()) with check (public.is_admin());
 create policy write_admin_upf   on public.user_pf           for all using (public.is_admin()) with check (public.is_admin());
 create policy write_admin_udf   on public.user_df           for all using (public.is_admin()) with check (public.is_admin());
-create policy write_admin_pfdf  on public.pf_df             for all using (public.is_admin()) with check (public.is_admin());
 create policy write_admin_proj  on public.projects          for all using (public.is_admin()) with check (public.is_admin());

@@ -23,6 +23,8 @@ import { FirmMultiSelect, type FirmOption } from '@/components/firm-multiselect'
 const schema = z.object({
   adi: z.string().min(2, 'En az 2 karakter'),
   email: z.string().email('Geçerli e-posta gerekli'),
+  // Yalnız oluşturmada zorunlu — düzenlemede boş bırakılabilir, sunucu yoksayar.
+  password: z.string().optional().or(z.literal('')),
   gsm: z.string().optional().or(z.literal('')),
   profil_fotografi: z.string().url().optional().or(z.literal('')),
   is_admin: z.boolean(),
@@ -118,6 +120,7 @@ interface UserFormProps {
 const defaults = (init?: UserFormProps['initial']): UserFormData => ({
   adi: init?.adi ?? '',
   email: init?.email ?? '',
+  password: '',
   gsm: init?.gsm ?? '',
   profil_fotografi: init?.profil_fotografi ?? '',
   is_admin: init?.is_admin ?? false,
@@ -284,7 +287,7 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
         ? ['on_buro']
         : [];
 
-  // Aktif kanala göre firma listesi (PF veya DF)
+  // Aktif kanala göre firma listesi (PF veya DF).
   const firmaOptions: FirmOption[] = w.gdf_kullanicisi
     ? dfList.map((d) => ({
         id: d.id,
@@ -326,18 +329,32 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
         return;
       }
     }
+    // Oluşturmada parola zorunlu; düzenlemede boş bırakılırsa mevcut korunur.
+    if (mode === 'create' && (!values.password || values.password.length < 6)) {
+      setErr('Şifre en az 6 karakter olmalı.');
+      return;
+    }
+    if (mode === 'edit' && values.password && values.password.length > 0 && values.password.length < 6) {
+      setErr('Yeni şifre en az 6 karakter olmalı.');
+      return;
+    }
     setPending(true);
     try {
+      const payload: Record<string, unknown> = { ...values };
+      // Düzenlemede boş parola gönderme — mevcut şifre korunsun.
+      if (mode === 'edit' && (!values.password || values.password.length === 0)) {
+        delete payload.password;
+      }
       const res = await fetch(`/api/users${mode === 'edit' ? `/${initial!.id}` : ''}`, {
         method: mode === 'edit' ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || `HTTP ${res.status}`);
       }
-      await res.json();
+      await res.json().catch(() => ({}));
       router.push('/users');
       router.refresh();
     } catch (e: unknown) {
@@ -382,6 +399,18 @@ export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }
           </RowField>
           <RowField label="E-posta" error={form.formState.errors.email?.message}>
             <Input type="email" {...form.register('email')} placeholder="ahmet@firma.com" />
+          </RowField>
+          <RowField label="Şifre" error={form.formState.errors.password?.message}>
+            <Input
+              type="text"
+              autoComplete="new-password"
+              {...form.register('password')}
+              placeholder={
+                mode === 'create'
+                  ? 'En az 6 karakter — kullanıcıya iletin'
+                  : 'Değiştirmek için yeni şifre girin; boş bırakırsanız değişmez'
+              }
+            />
           </RowField>
           <RowField label="GSM">
             <Input {...form.register('gsm')} placeholder="0532 123 45 67" />

@@ -19,9 +19,6 @@ export default async function DFListPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Dağıtım Firmaları (DF)</h1>
-          <p className="text-sm text-muted-foreground">
-            Bölgesel gaz dağıtım firmaları (İGDAŞ, AKMERCAN GEPA, ÇORUH GAZ vb.).
-          </p>
         </div>
         <Button asChild>
           <Link href="/firms/df/new"><Plus className="h-4 w-4" /> Yeni DF</Link>

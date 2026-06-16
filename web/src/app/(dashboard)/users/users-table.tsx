@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { ColumnDef } from '@tanstack/react-table';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DataTable } from '@/components/data-table';
 import { getUserKategori, type UserKategori, type UserRow } from '@/lib/supabase/types';
 import { Mail, Phone, Pencil } from 'lucide-react';
@@ -40,30 +39,20 @@ type RolVariant = 'default' | 'secondary' | 'info' | 'success' | 'warning';
 interface RolEtiket { label: string; variant: RolVariant }
 
 function rolEtiketleri(u: UserRow): RolEtiket[] {
-  const tags: RolEtiket[] = [];
-  // ── PF rolleri ──
-  if (u.firma_yonetici) {
-    tags.push(
-      u.firma_yonetici_kademe === 'ust'
-        ? { label: 'Üst Yön.',  variant: 'default'   }
-        : { label: 'Orta Yön.', variant: 'secondary' },
-    );
-  }
-  if (u.firma_proje_muhendisi)  tags.push({ label: 'Proje Müh.',  variant: 'info'    });
-  if (u.firma_cizim_sorumlusu)  tags.push({ label: 'Çizim Sor.',  variant: 'success' });
-  if (u.firma_tesisat_ustasi)   tags.push({ label: 'Tesisat Ust.', variant: 'warning' });
-  // ── DF rolleri ──
-  if (u.gdf_yonetici) {
-    tags.push(
-      u.gdf_yonetici_kademe === 'ust'
-        ? { label: 'GDF Üst',  variant: 'default'   }
-        : { label: 'GDF Orta', variant: 'secondary' },
-    );
-  }
-  if (u.gdf_onay_muhendisi)     tags.push({ label: 'Onay Müh.', variant: 'info'    });
-  if (u.gdf_gaz_acma_muhendisi) tags.push({ label: 'Gaz Açma',  variant: 'success' });
-  if (u.gdf_on_buro_yetkilisi)  tags.push({ label: 'Ön Büro',   variant: 'warning' });
-  return tags;
+  // Yalnız BİRİNCİL rol gösterilir. Formdaki radio + alt-yetki hiyerarşisine
+  // göre öncelik: Yönetici > sonraki tekil roller. Alt-yetki checkbox'ları
+  // (örn. Yönetici altındaki Onay Müh.) listede ayrı rozet olarak çıkmaz.
+  // ── PF birincil rol ──
+  if (u.firma_yonetici)         return [{ label: 'Yönetici',     variant: 'default' }];
+  if (u.firma_proje_muhendisi)  return [{ label: 'Proje Müh.',   variant: 'info'    }];
+  if (u.firma_cizim_sorumlusu)  return [{ label: 'Çizim Sor.',   variant: 'success' }];
+  if (u.firma_tesisat_ustasi)   return [{ label: 'Tesisat Ust.', variant: 'warning' }];
+  // ── DF birincil rol ──
+  if (u.gdf_yonetici)           return [{ label: 'GDF Yön.',     variant: 'default' }];
+  if (u.gdf_onay_muhendisi)     return [{ label: 'Onay Müh.',    variant: 'info'    }];
+  if (u.gdf_gaz_acma_muhendisi) return [{ label: 'Gaz Açma',     variant: 'success' }];
+  if (u.gdf_on_buro_yetkilisi)  return [{ label: 'Ön Büro',      variant: 'warning' }];
+  return [];
 }
 
 const KATEGORI_OPTIONS = [
@@ -263,46 +252,13 @@ function buildColumns(
   ];
 }
 
-const TAB_OPTIONS: { value: 'all' | UserKategori; label: string }[] = [
-  { value: 'all',     label: 'Hepsi' },
-  { value: 'admin',   label: 'Admin' },
-  { value: 'pf',      label: 'PF User' },
-  { value: 'df',      label: 'DF User' },
-  { value: 'general', label: 'General' },
-];
-
 export function UsersTable({ users, userPfMap, userDfMap, pfMaster, dfMaster }: UsersTableProps) {
-  const [tab, setTab] = React.useState<'all' | UserKategori>('all');
-
   const columns = React.useMemo(
     () => buildColumns(userPfMap, userDfMap, pfMaster, dfMaster),
     [userPfMap, userDfMap, pfMaster, dfMaster],
   );
 
-  const filtered = React.useMemo(() => {
-    if (tab === 'all') return users;
-    return users.filter((u) => getUserKategori(u) === tab);
-  }, [users, tab]);
-
-  const tabsNode = (
-    <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-      <TabsList>
-        {TAB_OPTIONS.map((opt) => {
-          const count = opt.value === 'all'
-            ? users.length
-            : users.filter((u) => getUserKategori(u) === opt.value).length;
-          return (
-            <TabsTrigger key={opt.value} value={opt.value}>
-              {opt.label}
-              <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                {count}
-              </span>
-            </TabsTrigger>
-          );
-        })}
-      </TabsList>
-    </Tabs>
-  );
+  const filtered = users;
 
   return (
     <DataTable
@@ -314,7 +270,6 @@ export function UsersTable({ users, userPfMap, userDfMap, pfMaster, dfMaster }: 
           .some((v) => v.toLowerCase().includes(q))
       }
       emptyText="Bu filtreye uyan kullanıcı bulunamadı."
-      headerLeft={tabsNode}
     />
   );
 }

@@ -18,6 +18,9 @@ export interface FirmOption {
   parent_id?: string | null;
   // Ek bağlam: tek satır (string) veya alt alta satırlar (string[]).
   hint?: string | string[];
+  // Dış kuralla pasifleştirme (ör. başka bir üst firmaya zaten bağlı).
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 function HintLines({ hint }: { hint: string | string[] | undefined }) {
@@ -184,7 +187,19 @@ export function FirmMultiSelect({
     return { top, subsByParent };
   }, [value, byId, valueSet]);
 
-  const total = value.length;
+  // Sayım: çocuğu da seçili olan parent kendisi sayılmaz (yetki child'larda).
+  // Listeleme/sayma sadece efektif bölge sayısını yansıtır.
+  const total = React.useMemo(() => {
+    const valueArr = value;
+    const set = valueSet;
+    const hasSelectedChild = (id: string) =>
+      (childrenByParent.get(id) ?? []).some((c) => set.has(c.id));
+    return valueArr.filter((id) => {
+      const opt = byId.get(id);
+      if (!opt) return true;
+      return !hasSelectedChild(opt.id);
+    }).length;
+  }, [value, valueSet, byId, childrenByParent]);
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -218,6 +233,7 @@ export function FirmMultiSelect({
                     valueSet.has(item.id) || children.some((c) => valueSet.has(c.id))
                   );
                   const blocked = !fully && isAnchorBlocked(item);
+                  const externallyDisabled = !fully && Boolean(item.disabled);
                   const onClick = isParent
                     ? () => handleAddParent(item)
                     : item.parent_id
@@ -227,15 +243,21 @@ export function FirmMultiSelect({
                     <li key={item.id}>
                       <button
                         type="button"
-                        disabled={fully || blocked}
-                        title={blocked ? 'Aynı anda yalnız tek bir üst firma seçilebilir' : undefined}
+                        disabled={fully || blocked || externallyDisabled}
+                        title={
+                          externallyDisabled
+                            ? item.disabledReason
+                            : blocked
+                              ? 'Aynı anda yalnız tek bir üst firma seçilebilir'
+                              : undefined
+                        }
                         onClick={onClick}
                         className={cn(
                           'flex w-full items-start justify-between gap-2 py-2 pr-3 text-left text-sm transition-colors',
                           depth === 1 ? 'pl-8' : 'pl-3',
                           fully && 'cursor-default opacity-50',
-                          blocked && 'cursor-not-allowed opacity-40',
-                          !fully && !blocked && 'hover:bg-accent',
+                          (blocked || externallyDisabled) && 'cursor-not-allowed opacity-40',
+                          !fully && !blocked && !externallyDisabled && 'hover:bg-accent',
                         )}
                       >
                         <div className="min-w-0">
@@ -283,11 +305,19 @@ export function FirmMultiSelect({
               <ul className="divide-y">
                 {selected.top.map((opt) => {
                   const subs = selected.subsByParent.get(opt.id) ?? [];
+                  const isParentBadge = subs.length > 0;
                   return (
                     <li key={opt.id} className="px-3 py-2 text-sm">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="font-medium leading-tight">{opt.firma_adi}</div>
+                          <div className="flex items-center gap-1.5 font-medium leading-tight">
+                            <span>{opt.firma_adi}</span>
+                            {isParentBadge && (
+                              <span className="rounded bg-muted px-1 py-0.5 text-[9px] font-normal uppercase tracking-wide text-muted-foreground">
+                                Parent
+                              </span>
+                            )}
+                          </div>
                           <HintLines hint={opt.hint} />
                         </div>
                         <Button
