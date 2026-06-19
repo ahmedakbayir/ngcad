@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/auth-guards';
+import { autoAssignBagliYoneticiFromFirma, reconcileUstFirmaInherits } from '@/lib/user-junctions';
 
 function tableFor(kind: string) {
   if (kind === 'pf') return 'proje_firmalari';
@@ -58,12 +59,16 @@ export async function POST(
       .eq(firmCol, firmData.parent_id)
       .eq('auto_inherit', true);
     if (inherits && inherits.length > 0) {
-      await admin.from(junctionTable).insert(
+      // upsert + ignoreDuplicates: hem mevcut yetkili (POST yetkili upsert'iyle
+      // çakışırsa) overwrite olmasın hem de aynı user için tekrar denemesi
+      // güvenli olsun.
+      await admin.from(junctionTable).upsert(
         inherits.map((r: { user_id: string }) => ({
           user_id: r.user_id,
           [firmCol]: data.id,
           auto_inherit: false,
         })),
+        { onConflict: `user_id,${firmCol}`, ignoreDuplicates: true },
       );
     }
   }
@@ -80,9 +85,12 @@ export async function POST(
         .eq(firmCol, childId);
       const userIds = ((links ?? []) as { user_id: string }[]).map((r) => r.user_id);
       if (userIds.length > 0) {
+        // ignoreDuplicates: yeni parent'ın yetkili upsert'iyle çakışırsa
+        // (POST'ta yetkili daha sonra geliyor ama yine de güvenli olalım)
+        // auto_inherit overwrite olmasın.
         await admin.from(junctionTable).upsert(
           userIds.map((uid) => ({ user_id: uid, [firmCol]: data.id, auto_inherit: false })),
-          { onConflict: `user_id,${firmCol}` },
+          { onConflict: `user_id,${firmCol}`, ignoreDuplicates: true },
         );
       }
     }
@@ -93,13 +101,18 @@ export async function POST(
   if (firmData.yetkili_user_id) {
     const junctionTable = kind === 'pf' ? 'user_pf' : 'user_df';
     const firmCol = kind === 'pf' ? 'pf_id' : 'df_id';
-    const rows: Record<string, unknown>[] = [
-      { user_id: firmData.yetkili_user_id, [firmCol]: data.id, auto_inherit: !!firmData.ust_firma },
-    ];
+    // BU firma: auto_inherit'i firmData.ust_firma'ya göre AYARLA.
+    await admin.from(junctionTable).upsert(
+      [{ user_id: firmData.yetkili_user_id, [firmCol]: data.id, auto_inherit: !!firmData.ust_firma }],
+      { onConflict: `user_id,${firmCol}` },
+    );
+    // Parent (varsa): satır yoksa ekle; mevcut auto_inherit değerini KORU.
     if (firmData.parent_id) {
-      rows.push({ user_id: firmData.yetkili_user_id, [firmCol]: firmData.parent_id, auto_inherit: false });
+      await admin.from(junctionTable).upsert(
+        [{ user_id: firmData.yetkili_user_id, [firmCol]: firmData.parent_id, auto_inherit: false }],
+        { onConflict: `user_id,${firmCol}`, ignoreDuplicates: true },
+      );
     }
-    await admin.from(junctionTable).upsert(rows, { onConflict: `user_id,${firmCol}` });
 
     // Bağlı yönetici otomatik ata: child firmada yetkili belirleniyorsa parent'ın
     // yetkili user'ı bu kullanıcının üst yöneticisi olur (mevcut null ise).
@@ -124,6 +137,31 @@ export async function POST(
             .eq('id', firmData.yetkili_user_id);
         }
       }
+    }
+  }
+
+  // GÜVENLİK AĞI: cascade adımları unutulsa/sıralama sorunu yaşansa bile
+  // idempotent reconcile çalıştır. Yeni firma üst firmaysa kendi child'larına,
+  // bir alt birimse parent'ının auto_inherit user'larından kendisine cascade.
+  if (firmData.ust_firma) {
+    await reconcileUstFirmaInherits(admin, kind as 'pf' | 'df', data.id);
+  }
+  if (firmData.parent_id) {
+    await reconcileUstFirmaInherits(admin, kind as 'pf' | 'df', firmData.parent_id);
+  }
+
+  // BAĞLI YÖNETİCİ OTOMATİK ATAMA: yeni firma yetkili ile geldiyse veya parent
+  // üzerinden cascade'le user_pf/user_df satırı oluştuysa, bu firmaya bağlı tüm
+  // user'ları firma yetkilisine bağla (idempotent helper).
+  {
+    const junctionTable = kind === 'pf' ? 'user_pf' : 'user_df';
+    const firmCol = kind === 'pf' ? 'pf_id' : 'df_id';
+    const { data: members } = await admin
+      .from(junctionTable)
+      .select('user_id')
+      .eq(firmCol, data.id);
+    for (const m of (members ?? []) as { user_id: string }[]) {
+      await autoAssignBagliYoneticiFromFirma(admin, m.user_id, kind as 'pf' | 'df', data.id);
     }
   }
 

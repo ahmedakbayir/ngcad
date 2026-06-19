@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,8 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, Trash2, UserPlus } from 'lucide-react';
-import type { FirmaRow, UserRow } from '@/lib/supabase/types';
+import { Loader2, Plus, Save, Trash2, UserPlus } from 'lucide-react';
+import type { FirmaRow } from '@/lib/supabase/types';
 import { FirmMultiSelect, type FirmOption } from '@/components/firm-multiselect';
 import { QuickUserDialog } from '@/components/quick-user-dialog';
 import { cn } from '@/lib/utils';
@@ -82,6 +83,15 @@ interface DFListEntry {
   ust_firma?: boolean;
 }
 
+// Yetkili kullanıcı dropdown'ı için zenginleştirilmiş seçenek tipi.
+// rolEtiketi: "Üst Yönetici" veya "Yönetici" — combobox'ta isim yanında gösterilir.
+// Yetkili olabilmek için yönetici seviyesinde olmak şart (Üst/Orta kademe).
+export type YetkiliKullaniciOption = {
+  id: string;
+  adi: string;
+  rolEtiketi: 'Üst Yönetici' | 'Yönetici';
+};
+
 interface FirmFormProps {
   kind: FirmKind;
   initial?: FirmaRow & {
@@ -90,9 +100,13 @@ interface FirmFormProps {
     hasChildren?: boolean;
   };
   mode: 'create' | 'edit';
-  yetkiliUsers: Pick<UserRow, 'id' | 'adi'>[];
+  yetkiliUsers: YetkiliKullaniciOption[];
   parentList: ParentEntry[];
   dfList?: DFListEntry[];
+  // Create modunda üst firma altına yeni alt birim eklenirken doldurulur.
+  // Form parent_id'yi bu değerle açar; firma_adi otomatik "<ÜstAdı> / <DFAdı>"
+  // şeklinde türetilir (admin elle değiştirene kadar).
+  defaultParentId?: string | null;
 }
 
 // Türkçe karakterleri ASCII'ye düşürüp slug üretir.
@@ -120,7 +134,15 @@ function randomYeterlilikNo(): string {
   return `YT-${n}`;
 }
 
-export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList = [] }: FirmFormProps) {
+export function FirmForm({
+  kind,
+  initial,
+  mode,
+  yetkiliUsers,
+  parentList,
+  dfList = [],
+  defaultParentId = null,
+}: FirmFormProps) {
   const router = useRouter();
   const [pending, setPending] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
@@ -135,7 +157,7 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
     resolver: zodResolver(schema),
     defaultValues: {
       firma_adi: initial?.firma_adi ?? '',
-      parent_id: initial?.parent_id ?? null,
+      parent_id: initial?.parent_id ?? defaultParentId ?? null,
       firma_tel: initial?.firma_tel ?? (mode === 'create' ? '0212 255 55 55' : ''),
       firma_email: initial?.firma_email ?? '',
       vergi_dairesi: initial?.vergi_dairesi ?? (mode === 'create' ? 'İstanbul' : ''),
@@ -189,6 +211,29 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
     }
   }, [watchedAdi, mode, form]);
 
+  // Üst firmadan "Yeni Alt Firma ekle" akışı (kind=pf + create + defaultParentId):
+  // DF seçilince firma_adi otomatik "<ÜstAdı> / <DFAdı>" şeklinde türetilir.
+  // DF temizlenirse alan boş döner (parent adı tek başına anlamsız).
+  // Admin firma_adi'yi elle değiştirirse otomatik güncelleme durur.
+  const watchedDfId = kind === 'pf' ? form.watch('df_id') : null;
+  const lastAutoFirmaAdi = React.useRef<string>('');
+  React.useEffect(() => {
+    if (mode !== 'create' || kind !== 'pf' || !defaultParentId) return;
+    const parentAdi = parentList.find((p) => p.id === defaultParentId)?.firma_adi;
+    if (!parentAdi) return;
+    const dfAdi = watchedDfId
+      ? dfList.find((d) => d.id === watchedDfId)?.firma_adi
+      : undefined;
+    const current = form.getValues('firma_adi') ?? '';
+    // Admin elle yazdıysa (son auto ile eşleşmiyorsa) dokunma.
+    if (current && current !== lastAutoFirmaAdi.current) return;
+    const auto = dfAdi ? `${parentAdi} / ${dfAdi}` : '';
+    if (auto !== current) {
+      form.setValue('firma_adi', auto);
+      lastAutoFirmaAdi.current = auto;
+    }
+  }, [watchedDfId, mode, kind, defaultParentId, parentList, dfList, form]);
+
   // ÜST FİRMA toggle reaktif izlenir; PF ve DF için ortak.
   const ustFirmaActive = form.watch('ust_firma') ?? false;
 
@@ -211,6 +256,32 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
 
   async function onSubmit(values: FirmFormData, opts: { stay: boolean; then?: 'addUser' }) {
     setErr(null);
+
+    // Yetkili değişti veya kaldırıldıysa adminle eski yöneticinin astlarının
+    // akıbetini onaylat. window.confirm sade ve form akışını engellemeden çalışır
+    // (silme onayı ile aynı pattern). 3 olası action:
+    //  - 'transfer': eski yetkilinin firmadaki astlarını yeni yetkiliye taşı
+    //  - 'keep'   : astları olduğu gibi bırak (eski yetkili pointer'ı kalsın)
+    //  - 'clear'  : astların bagli_oldugu_yonetici_id'sini null yap
+    let yetkili_change_action: 'transfer' | 'keep' | 'clear' | null = null;
+    if (mode === 'edit' && initial) {
+      const oldYetkili = initial.yetkili_user_id ?? null;
+      const newYetkili = values.yetkili_user_id ?? null;
+      if (oldYetkili && oldYetkili !== newYetkili) {
+        if (newYetkili) {
+          const transferOk = window.confirm(
+            'Yöneticiye bağlı tüm kullanıcılar yeni yöneticiye aktarılsın mı?',
+          );
+          yetkili_change_action = transferOk ? 'transfer' : 'keep';
+        } else {
+          const keepOk = window.confirm(
+            'Bu yöneticiye bağlı tüm kullanıcıların yöneticileri kalsın mı?',
+          );
+          yetkili_change_action = keepOk ? 'keep' : 'clear';
+        }
+      }
+    }
+
     setPending(true);
     try {
       const url =
@@ -219,6 +290,7 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
           : `/api/firms/${kind}`;
       // DF tablosunda yeterlilik_no kolonu yok — DF kaydederken kaldır.
       const payload: Record<string, unknown> = { ...values };
+      if (yetkili_change_action) payload.yetkili_change_action = yetkili_change_action;
       if (kind === 'df') {
         delete payload.yeterlilik_no;
         // df_id yalnız PF tablosunda var — DF payload'una sızmasın.
@@ -326,7 +398,7 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
             label="Firma Adı"
             error={form.formState.errors.firma_adi?.message}
           >
-            <Input {...form.register('firma_adi')} placeholder="Örn: AKRE ISI MÜHENDİSLİK" />
+            <Input {...form.register('firma_adi')} placeholder="" />
           </RowField>
 
           <RowField label="ÜST FİRMA">
@@ -396,6 +468,60 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
             </RowField>
           )}
 
+          {kind === 'pf' && !ustFirmaActive && (
+            <RowField label="Bağlı DF">
+              <Controller
+                control={form.control}
+                name="df_id"
+                render={({ field }) => {
+                  // Parent'lar üstte, alt birimleri girintili olacak şekilde sırala.
+                  // PARENT (üst firma) DF'ler görünür ama seçilemez — alt bölgelerden
+                  // (child veya standalone) birinin seçilmesi beklenir.
+                  const byId = new Map(dfList.map((d) => [d.id, d]));
+                  const tops = dfList.filter((d) => !d.parent_id || !byId.has(d.parent_id));
+                  const ordered: { d: DFListEntry; depth: 0 | 1 }[] = [];
+                  tops.forEach((p) => {
+                    ordered.push({ d: p, depth: 0 });
+                    dfList
+                      .filter((c) => c.parent_id === p.id)
+                      .forEach((c) => ordered.push({ d: c, depth: 1 }));
+                  });
+                  return (
+                    <Select
+                      value={field.value ?? '__none__'}
+                      onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
+                      disabled={dfList.length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={
+                            dfList.length === 0 ? 'Henüz DF tanımlanmamış' : 'Seçilmedi'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— Seçilmedi —</SelectItem>
+                        {ordered.map(({ d, depth }) => (
+                          <SelectItem
+                            key={d.id}
+                            value={d.id}
+                            disabled={Boolean(d.ust_firma)}
+                            className={cn(
+                              d.ust_firma &&
+                                'bg-muted/60 font-semibold uppercase tracking-wide text-muted-foreground',
+                            )}
+                          >
+                            {depth === 1 ? `↳ ${d.firma_adi}` : d.firma_adi}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  );
+                }}
+              />
+            </RowField>
+          )}
+
           <RowField label="Yetkili Kullanıcı">
             <div className="flex items-center gap-2">
               <Controller
@@ -421,7 +547,14 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
                     <SelectContent>
                       <SelectItem value="__none__">— Seçilmedi —</SelectItem>
                       {yetkiliUsers.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>{u.adi}</SelectItem>
+                        <SelectItem key={u.id} value={u.id}>
+                          <span className="flex items-center gap-1.5">
+                            <span>{u.adi}</span>
+                            <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                              · {u.rolEtiketi}
+                            </span>
+                          </span>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -455,10 +588,10 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
           </RowField>
 
           <RowField label="Telefon">
-            <Input {...form.register('firma_tel')} placeholder="0212 555 11 22" />
+            <Input {...form.register('firma_tel')} placeholder="" />
           </RowField>
           <RowField label="E-posta">
-            <Input type="email" {...form.register('firma_email')} placeholder="info@firma.com" />
+            <Input type="email" {...form.register('firma_email')} placeholder="" />
           </RowField>
 
           <RowField label="Vergi Dairesi">
@@ -479,14 +612,14 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
               <RowField label="Sahip">
                 <Input
                   {...form.register('sahip')}
-                  placeholder="Örn: Aksa Doğal Gaz"
+                  placeholder=""
                 />
               </RowField>
               <RowField label="DfirmNo">
                 <Input
                   type="number"
                   {...form.register('df_no')}
-                  placeholder="Örn: 1, 2, 3…"
+                  placeholder=""
                 />
               </RowField>
               {!dfIsChild && (
@@ -498,7 +631,7 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
                     <Input
                       type="number"
                       {...form.register('guncel_surum')}
-                      placeholder="100"
+                      placeholder=""
                     />
                   </RowField>
                 </>
@@ -511,55 +644,6 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
           </RowField>
         </CardContent>
       </Card>
-
-      {kind === 'pf' && !ustFirmaActive && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Bağlı Dağıtım Firması (DF)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Controller
-              control={form.control}
-              name="df_id"
-              render={({ field }) => {
-                // Parent'lar üstte, alt birimleri girintili olacak şekilde sırala.
-                const byId = new Map(dfList.map((d) => [d.id, d]));
-                const tops = dfList.filter((d) => !d.parent_id || !byId.has(d.parent_id));
-                const ordered: { d: DFListEntry; depth: 0 | 1 }[] = [];
-                tops.forEach((p) => {
-                  ordered.push({ d: p, depth: 0 });
-                  dfList
-                    .filter((c) => c.parent_id === p.id)
-                    .forEach((c) => ordered.push({ d: c, depth: 1 }));
-                });
-                return (
-                  <Select
-                    value={field.value ?? '__none__'}
-                    onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
-                    disabled={dfList.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          dfList.length === 0 ? 'Henüz DF tanımlanmamış' : 'Seçilmedi'
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">— Seçilmedi —</SelectItem>
-                      {ordered.map(({ d, depth }) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {depth === 1 ? `↳ ${d.firma_adi}` : d.firma_adi}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                );
-              }}
-            />
-          </CardContent>
-        </Card>
-      )}
 
       {ustFirmaActive && (
         <Card>
@@ -610,12 +694,28 @@ export function FirmForm({ kind, initial, mode, yetkiliUsers, parentList, dfList
                     onChange={field.onChange}
                     comboboxLabel={kind === 'pf' ? 'PF Firmaları' : 'DF Firmaları'}
                     listboxLabel="Alt Firmalar"
-                    placeholder="Firma adıyla ara…"
+                    placeholder=""
                     emptyText="Henüz başka firma tanımlanmamış."
                   />
                 );
               }}
             />
+            {mode === 'edit' && kind === 'pf' && initial && (
+              <div className="mt-3 border-t pt-3">
+                <Link
+                  href={`/firms/pf/new?parent_id=${initial.id}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Yeni Alt Firma Ekle
+                </Link>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Açılan formda üst firma {initial.firma_adi} olarak seçili gelir;
+                  DF seçince firma adı &ldquo;{initial.firma_adi} / &lt;DF Adı&gt;&rdquo;
+                  şeklinde otomatik dolar.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

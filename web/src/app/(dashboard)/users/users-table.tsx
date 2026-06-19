@@ -49,6 +49,15 @@ interface RolEtiket {
   className?: string;
 }
 
+// Üst Yönetici: PF tarafında firma_yonetici + 'ust' VEYA DF tarafında
+// gdf_yonetici + 'ust'. Hiyerarşinin tepesinde — bağlı yöneticisi olmaz.
+function isUstYonetici(u: UserRow): boolean {
+  return (
+    (!!u.firma_yonetici && u.firma_yonetici_kademe === 'ust') ||
+    (!!u.gdf_yonetici && u.gdf_yonetici_kademe === 'ust')
+  );
+}
+
 function rolEtiketleri(u: UserRow): RolEtiket[] {
   // Yalnız BİRİNCİL rol gösterilir. Üst Yönetici baskın (default = bg-primary);
   // Orta kademe Yönetici aynı renkten daha açık (bg-primary/40).
@@ -323,9 +332,13 @@ function buildColumns(
     {
       id: 'yonetici',
       header: 'Yönetici',
-      accessorFn: (u) => managerByUserId?.[u.id]?.adi ?? '',
+      accessorFn: (u) => (isUstYonetici(u) ? 'ÜST YÖNETİCİ' : managerByUserId?.[u.id]?.adi ?? ''),
       cell: ({ row }) => {
-        const m = managerByUserId?.[row.original.id];
+        const u = row.original;
+        if (isUstYonetici(u)) {
+          return <Badge variant="default" className="text-[10px]">ÜST YÖNETİCİ</Badge>;
+        }
+        const m = managerByUserId?.[u.id];
         if (!m) return <span className="text-xs text-muted-foreground">—</span>;
         return (
           <Link href={`/users/${m.id}`} className="text-xs hover:underline">

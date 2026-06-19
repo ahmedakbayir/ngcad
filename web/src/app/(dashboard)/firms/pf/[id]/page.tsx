@@ -1,4 +1,3 @@
-import * as React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -8,7 +7,6 @@ import { FirmForm } from '@/components/firm-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, Network } from 'lucide-react';
-import { collapseFirmHierarchy } from '@/lib/firm-hierarchy';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,10 +20,10 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
   // Yetkili kullanıcı adaylarını da kapsayacak şekilde: bu PF + (varsa) parent PF.
   const userPfIds = firm.parent_id ? [id, firm.parent_id] : [id];
 
-  const [pf, df, usersLinked, children, allPfUsers, allUserPfLinks] = await Promise.all([
+  const [pf, df, usersLinked, children, pfYoneticileri] = await Promise.all([
     supabase
       .from('proje_firmalari')
-      .select('id, firma_adi, parent_id, ust_firma')
+      .select('id, firma_adi, parent_id, ust_firma, yetkili_user_id')
       .order('firma_adi'),
     supabase
       .from('dagitim_firmalari')
@@ -33,77 +31,65 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
       .order('firma_adi'),
     supabase
       .from('user_pf')
-      .select('pf_id, user_id, users:users!inner(id, adi, email)')
+      .select(`
+        pf_id, user_id,
+        users:users!inner(
+          id, adi, email, unvan,
+          firma_yonetici, firma_yonetici_kademe,
+          firma_proje_muhendisi, firma_cizim_sorumlusu, firma_tesisat_ustasi,
+          gdf_yonetici, gdf_yonetici_kademe,
+          gdf_onay_muhendisi, gdf_gaz_acma_muhendisi, gdf_on_buro_yetkilisi
+        )
+      `)
       .in('pf_id', userPfIds),
     supabase
       .from('proje_firmalari')
       .select('id, no, firma_adi')
       .eq('parent_id', id)
       .order('firma_adi'),
-    // Bağımsız (henüz hiçbir PF'ye bağlanmamış) PF kullanıcıları için aday havuzu.
-    supabase.from('users').select('id, adi').eq('firma_kullanicisi', true),
-    supabase.from('user_pf').select('user_id'),
+    // Yetkili kullanıcı dropdown'u: tüm PF Yöneticileri (Üst veya Orta kademe).
+    // Aile dışı filtre aşağıda uygulanır — başka aile parent'ının yetkilisi listeye
+    // girmez.
+    supabase
+      .from('users')
+      .select('id, adi, firma_yonetici_kademe')
+      .eq('firma_kullanicisi', true)
+      .eq('firma_yonetici', true)
+      .order('adi'),
   ]);
 
   const alt_firma_ids = (children.data ?? []).map((c) => c.id as string);
   // Sadece bu PF'e doğrudan bağlı user'lar — "Bağlı kullanıcılar" kartı için.
   const directLinks = (usersLinked.data ?? []).filter((r) => (r as { pf_id: string }).pf_id === id);
-  // "Yetkili Kullanıcı" dropdown adayları: bu PF + parent'a bağlı + hiç PF'ye
-  // bağlanmamış serbest PF kullanıcıları.
-  const seen = new Set<string>();
-  const eligibleYetkililer: { id: string; adi: string }[] = [];
-  (usersLinked.data ?? []).forEach((r) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const u: any = r.users;
-    if (!u || seen.has(u.id)) return;
-    seen.add(u.id);
-    eligibleYetkililer.push({ id: u.id as string, adi: u.adi as string });
+
+  // Aile = root (parent_id varsa parent, yoksa kendisi) + root'un tüm child'ları.
+  // Aile dışında bir PF'de yetkili olan user'lar dropdown'dan dışlanır.
+  const rootId = firm.parent_id ?? id;
+  const familyIds = new Set<string>([rootId]);
+  ((pf.data ?? []) as { id: string; parent_id: string | null }[]).forEach((p) => {
+    if (p.parent_id === rootId) familyIds.add(p.id);
   });
-  const linkedPfUserIds = new Set((allUserPfLinks.data ?? []).map((r) => r.user_id));
-  (allPfUsers.data ?? []).forEach((u) => {
-    if (seen.has(u.id) || linkedPfUserIds.has(u.id)) return;
-    seen.add(u.id);
-    eligibleYetkililer.push({ id: u.id, adi: u.adi });
+  const excludedYetkiliIds = new Set<string>();
+  ((pf.data ?? []) as { id: string; yetkili_user_id: string | null }[]).forEach((p) => {
+    if (p.yetkili_user_id && !familyIds.has(p.id)) {
+      excludedYetkiliIds.add(p.yetkili_user_id);
+    }
   });
-  eligibleYetkililer.sort((a, b) => a.adi.localeCompare(b.adi, 'tr'));
+  // Mevcut yetkili (legacy veri başka aileye atanmış olabilir) her zaman seçili
+  // kalabilsin diye filtreden muaf tutulur.
+  if (firm.yetkili_user_id) excludedYetkiliIds.delete(firm.yetkili_user_id);
 
-  // Bu PF'e bağlı her user'ın DİĞER firmalarını (PF/DF) yükle — listede bağlam göster.
-  const userIds = eligibleYetkililer.map((u) => u.id);
-  type FirmRef = { id: string; firma_adi: string };
-  const userOtherPfs: Record<string, FirmRef[]> = {};
-  const userDfs: Record<string, FirmRef[]> = {};
-  if (userIds.length > 0) {
-    const [otherPfRes, dfRes] = await Promise.all([
-      supabase
-        .from('user_pf')
-        .select('user_id, proje_firmalari:proje_firmalari!inner(id, firma_adi)')
-        .in('user_id', userIds)
-        .neq('pf_id', id),
-      supabase
-        .from('user_df')
-        .select('user_id, dagitim_firmalari:dagitim_firmalari!inner(id, firma_adi)')
-        .in('user_id', userIds),
-    ]);
-    (otherPfRes.data ?? []).forEach((r) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const p: any = r.proje_firmalari;
-      (userOtherPfs[r.user_id as string] ??= []).push({ id: p.id, firma_adi: p.firma_adi });
-    });
-    (dfRes.data ?? []).forEach((r) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const d: any = r.dagitim_firmalari;
-      (userDfs[r.user_id as string] ??= []).push({ id: d.id, firma_adi: d.firma_adi });
-    });
-  }
-
-  // Bu PF'in bağlı tek DF'si (sayfada ayrıca gösterilecek).
-  const dfMasterAll = (df.data ?? []) as { id: string; firma_adi: string; parent_id: string | null }[];
-  const dfRefById = new Map(dfMasterAll.map((d) => [d.id, d]));
-  const linkedDfRef = firm.df_id ? dfRefById.get(firm.df_id) : null;
-  const linkedDfAdlari = linkedDfRef ? [linkedDfRef.firma_adi] : [];
-
-  // Bağlı kullanıcıların PF/DF listelerini de hiyerarşik daraltma için PF master ve DF master.
-  const pfMasterAll = (pf.data ?? []) as { id: string; firma_adi: string; parent_id?: string | null }[];
+  const eligibleYetkililer = ((pfYoneticileri.data ?? []) as {
+    id: string;
+    adi: string;
+    firma_yonetici_kademe: 'ust' | 'orta' | null;
+  }[])
+    .filter((u) => !excludedYetkiliIds.has(u.id))
+    .map((u) => ({
+      id: u.id,
+      adi: u.adi,
+      rolEtiketi: (u.firma_yonetici_kademe === 'ust' ? 'Üst Yönetici' : 'Yönetici') as 'Üst Yönetici' | 'Yönetici',
+    }));
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -157,16 +143,8 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Users className="h-4 w-4" />
-            Bu firmaya bağlı kullanıcılar ({directLinks.length})
+            Bağlı kullanıcılar ({directLinks.length})
           </CardTitle>
-          {linkedDfAdlari.length > 0 && (
-            <div className="space-y-0.5 text-xs text-muted-foreground">
-              <div>Bağlı DF:</div>
-              {linkedDfAdlari.map((ad) => (
-                <div key={ad}>{ad}</div>
-              ))}
-            </div>
-          )}
         </CardHeader>
         <CardContent>
           {directLinks.length === 0 ? (
@@ -176,53 +154,31 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
               {directLinks.map((r) => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const u: any = r.users;
-                // Master listeler üzerinden parent+tüm child seçili ise parent'a daralt.
-                const otherPfsRaw = userOtherPfs[u.id] ?? [];
-                const dfsRaw = userDfs[u.id] ?? [];
-                const otherPfs = collapseFirmHierarchy(
-                  otherPfsRaw.map((p) => ({
-                    ...p,
-                    parent_id: pfMasterAll.find((m) => m.id === p.id)?.parent_id ?? null,
-                  })),
-                  pfMasterAll.map((m) => ({ id: m.id, parent_id: m.parent_id ?? null })),
-                );
-                const dfs = collapseFirmHierarchy(
-                  dfsRaw.map((d) => ({
-                    ...d,
-                    parent_id: dfRefById.get(d.id)?.parent_id ?? null,
-                  })),
-                  dfMasterAll.map((m) => ({ id: m.id, parent_id: m.parent_id })),
-                );
+                const rol = userRolEtiketi(u);
                 return (
-                  <li key={u.id} className="py-2">
-                    <Link href={`/users/${u.id}`} className="text-sm hover:underline">
-                      {u.adi} <span className="text-muted-foreground">— {u.email}</span>
-                    </Link>
-                    {(otherPfs.length > 0 || dfs.length > 0) && (
-                      <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                        {otherPfs.length > 0 && (
-                          <span>
-                            Diğer PF:{' '}
-                            {otherPfs.map((p, i) => (
-                              <React.Fragment key={p.id}>
-                                {i > 0 && ', '}
-                                <Link href={`/firms/pf/${p.id}`} className="hover:underline">{p.firma_adi}</Link>
-                              </React.Fragment>
-                            ))}
-                          </span>
-                        )}
-                        {dfs.length > 0 && (
-                          <span>
-                            DF:{' '}
-                            {dfs.map((d, i) => (
-                              <React.Fragment key={d.id}>
-                                {i > 0 && ', '}
-                                <Link href={`/firms/df/${d.id}`} className="hover:underline">{d.firma_adi}</Link>
-                              </React.Fragment>
-                            ))}
-                          </span>
-                        )}
-                      </div>
+                  <li key={u.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <div className="min-w-0 leading-tight">
+                      <Link href={`/users/${u.id}`} className="font-medium hover:underline">
+                        {u.adi}
+                      </Link>
+                      {u.unvan && (
+                        <span className="ml-1.5 text-[11px] italic text-muted-foreground">
+                          · {u.unvan}
+                        </span>
+                      )}
+                      <div className="text-[11px] text-muted-foreground">{u.email}</div>
+                    </div>
+                    {rol && (
+                      <Badge
+                        variant={rol.variant}
+                        className={
+                          rol.className
+                            ? `${rol.className} shrink-0 text-[10px] font-normal`
+                            : 'shrink-0 text-[10px] font-normal'
+                        }
+                      >
+                        {rol.label}
+                      </Badge>
                     )}
                   </li>
                 );
@@ -233,4 +189,31 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
       </Card>
     </div>
   );
+}
+
+// Tek birincil rol rozetini üretir (en yetkili rol kazanır).
+type RolBadge = {
+  label: string;
+  variant: 'default' | 'secondary' | 'info' | 'success' | 'warning';
+  className?: string;
+};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function userRolEtiketi(u: any): RolBadge | null {
+  if (u.firma_yonetici) {
+    return u.firma_yonetici_kademe === 'ust'
+      ? { label: 'Üst Yönetici', variant: 'default' }
+      : { label: 'Yönetici',     variant: 'default', className: 'bg-primary/40 hover:bg-primary/40' };
+  }
+  if (u.firma_proje_muhendisi)  return { label: 'Proje Müh.',   variant: 'info'    };
+  if (u.firma_cizim_sorumlusu)  return { label: 'Çizim Sor.',   variant: 'success' };
+  if (u.firma_tesisat_ustasi)   return { label: 'Tesisat Ust.', variant: 'warning' };
+  if (u.gdf_yonetici) {
+    return u.gdf_yonetici_kademe === 'ust'
+      ? { label: 'Üst Yönetici', variant: 'default' }
+      : { label: 'Yönetici',     variant: 'default', className: 'bg-primary/40 hover:bg-primary/40' };
+  }
+  if (u.gdf_onay_muhendisi)     return { label: 'Onay Müh.',    variant: 'info'    };
+  if (u.gdf_gaz_acma_muhendisi) return { label: 'Gaz Açma',     variant: 'success' };
+  if (u.gdf_on_buro_yetkilisi)  return { label: 'Ön Büro',      variant: 'warning' };
+  return null;
 }

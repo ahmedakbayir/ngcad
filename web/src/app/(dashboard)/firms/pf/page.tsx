@@ -9,9 +9,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function PFListPage() {
   const supabase = await supabaseServer();
-  const [pfRes, dfRes] = await Promise.all([
+  const [pfRes, dfRes, usersRes] = await Promise.all([
     supabase.from('proje_firmalari').select('*').order('firma_adi'),
     supabase.from('dagitim_firmalari').select('id, firma_adi, parent_id').order('firma_adi'),
+    supabase.from('users').select('id, adi'),
   ]);
 
   const error = pfRes.error;
@@ -25,6 +26,11 @@ export default async function PFListPage() {
     const df = dfById.get(p.df_id);
     if (!df) return;
     pfDfMap[p.id] = [df];
+  });
+
+  const yetkiliUserById: Record<string, { id: string; adi: string }> = {};
+  (usersRes.data ?? []).forEach((u) => {
+    yetkiliUserById[u.id] = { id: u.id, adi: u.adi };
   });
 
   return (
@@ -46,6 +52,7 @@ export default async function PFListPage() {
           basePath="/firms/pf"
           pfDfMap={pfDfMap}
           dfMaster={dfRows.map((d) => ({ id: d.id, parent_id: d.parent_id }))}
+          yetkiliUserById={yetkiliUserById}
         />
       )}
     </div>

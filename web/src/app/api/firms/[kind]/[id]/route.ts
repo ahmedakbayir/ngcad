@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/auth-guards';
+import { autoAssignBagliYoneticiFromFirma, reconcileUstFirmaInherits } from '@/lib/user-junctions';
 
 function tableFor(kind: string) {
   if (kind === 'pf') return 'proje_firmalari';
@@ -26,11 +27,13 @@ async function backfillParentJunction(
     .eq(firmCol, childId);
   const userIds = (links ?? []).map((r: { user_id: string }) => r.user_id);
   if (userIds.length === 0) return;
+  // ignoreDuplicates: parent satırının auto_inherit=true değerini SAKIN ezme;
+  // yalnız EKSİK olan satırlar eklenir.
   await admin
     .from(junction)
     .upsert(
       userIds.map((uid) => ({ user_id: uid, [firmCol]: parentId, auto_inherit: false })),
-      { onConflict: `user_id,${firmCol}` },
+      { onConflict: `user_id,${firmCol}`, ignoreDuplicates: true },
     );
 }
 
@@ -46,11 +49,57 @@ export async function PATCH(
   if (!table) return NextResponse.json({ error: 'Geçersiz tip' }, { status: 400 });
 
   const body = await req.json();
-  const { alt_firma_ids, ...firmData } = body;
+  const { alt_firma_ids, yetkili_change_action, ...firmData } = body as {
+    alt_firma_ids?: string[];
+    yetkili_change_action?: 'transfer' | 'keep' | 'clear';
+    [k: string]: unknown;
+  };
 
   const admin = supabaseAdmin();
+
+  // Yetkili değişikliği için eski yetkili'yi update'ten ÖNCE oku ki sonradan
+  // bagli_oldugu_yonetici_id eşleştirmesi doğru çalışsın.
+  let oldYetkiliId: string | null = null;
+  if (yetkili_change_action) {
+    const { data: cur } = await admin
+      .from(table)
+      .select('yetkili_user_id')
+      .eq('id', id)
+      .single();
+    oldYetkiliId = (cur as { yetkili_user_id?: string | null } | null)?.yetkili_user_id ?? null;
+  }
+
   const { error } = await admin.from(table).update(firmData).eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Yetkili değişikliği sonrası eski yetkilinin BU firmadaki astlarına aksiyon
+  // uygula. Scope: yalnız bu firmaya üye (user_pf/user_df) kullanıcılar; admin
+  // başka firmalarda bu kişiyi yönetici olarak tutmuş olabilir.
+  if (yetkili_change_action && oldYetkiliId) {
+    const junctionTable = kind === 'pf' ? 'user_pf' : 'user_df';
+    const firmCol = kind === 'pf' ? 'pf_id' : 'df_id';
+    const { data: members } = await admin
+      .from(junctionTable)
+      .select('user_id')
+      .eq(firmCol, id);
+    const memberIds = ((members ?? []) as { user_id: string }[]).map((m) => m.user_id);
+    if (memberIds.length > 0) {
+      if (yetkili_change_action === 'transfer' && firmData.yetkili_user_id) {
+        await admin
+          .from('users')
+          .update({ bagli_oldugu_yonetici_id: firmData.yetkili_user_id })
+          .in('id', memberIds)
+          .eq('bagli_oldugu_yonetici_id', oldYetkiliId);
+      } else if (yetkili_change_action === 'clear') {
+        await admin
+          .from('users')
+          .update({ bagli_oldugu_yonetici_id: null })
+          .in('id', memberIds)
+          .eq('bagli_oldugu_yonetici_id', oldYetkiliId);
+      }
+      // 'keep' = no-op (bagli_oldugu_yonetici_id eski yetkiliyi gösterirse kalsın)
+    }
+  }
 
   if (kind === 'pf') {
     if (firmData.ust_firma) {
@@ -141,13 +190,19 @@ export async function PATCH(
   if (firmData.yetkili_user_id) {
     const junctionTable = kind === 'pf' ? 'user_pf' : 'user_df';
     const firmCol = kind === 'pf' ? 'pf_id' : 'df_id';
-    const rows: Record<string, unknown>[] = [
-      { user_id: firmData.yetkili_user_id, [firmCol]: id, auto_inherit: curUstFirma },
-    ];
+    // BU firma: auto_inherit'i curUstFirma ile (üst firma yetkilisi → true) AYARLA.
+    await admin.from(junctionTable).upsert(
+      [{ user_id: firmData.yetkili_user_id, [firmCol]: id, auto_inherit: curUstFirma }],
+      { onConflict: `user_id,${firmCol}` },
+    );
+    // Parent (varsa): satır yoksa ekle ama mevcut auto_inherit değerini KORU.
+    // Why: child PATCH'inde parent'ın true bayrağı yanlışlıkla false'a düşmesin.
     if (curParentId) {
-      rows.push({ user_id: firmData.yetkili_user_id, [firmCol]: curParentId, auto_inherit: false });
+      await admin.from(junctionTable).upsert(
+        [{ user_id: firmData.yetkili_user_id, [firmCol]: curParentId, auto_inherit: false }],
+        { onConflict: `user_id,${firmCol}`, ignoreDuplicates: true },
+      );
     }
-    await admin.from(junctionTable).upsert(rows, { onConflict: `user_id,${firmCol}` });
 
     // ÜST FİRMA yetkili user'ı seçildiyse mevcut tüm alt birimlere de bağla
     // (eskiden eklenmiş child firmaları da yetkilinin junction'ına yaz).
@@ -215,13 +270,15 @@ export async function PATCH(
       .eq(firmCol, curParentId)
       .eq('auto_inherit', true);
     if (inherits && inherits.length > 0) {
+      // ignoreDuplicates: bu firma kendi yetkilisinin auto_inherit'ine sahipse
+      // (örn. üst firma + parent altında — nadir ama mümkün) overwrite olmasın.
       await admin.from(junctionTable).upsert(
         (inherits as { user_id: string }[]).map((r) => ({
           user_id: r.user_id,
           [firmCol]: id,
           auto_inherit: false,
         })),
-        { onConflict: `user_id,${firmCol}` },
+        { onConflict: `user_id,${firmCol}`, ignoreDuplicates: true },
       );
     }
   }
@@ -244,8 +301,40 @@ export async function PATCH(
         }
       }
       if (rows.length > 0) {
-        await admin.from(junctionTable).upsert(rows, { onConflict: `user_id,${firmCol}` });
+        // ignoreDuplicates: child'ın kendi yetkilisinin auto_inherit'i varsa ezme.
+        await admin.from(junctionTable).upsert(rows, {
+          onConflict: `user_id,${firmCol}`,
+          ignoreDuplicates: true,
+        });
       }
+    }
+  }
+
+  // 4) GÜVENLİK AĞI: Yukarıdaki adımların herhangi biri unutulsa/sıralama
+  //    sorunu yaşansa bile, BU firma üst firmaysa tüm child'lar için cascade'i
+  //    son bir kez idempotent çalıştır. Bu olmadan "üst firmaya yetkili eklendi
+  //    ama alt firmalar görünmüyor" şikayetinin önüne geçemiyoruz.
+  if (curUstFirma) {
+    await reconcileUstFirmaInherits(admin, kind as 'pf' | 'df', id);
+  }
+  // 5) Bu firma bir parent altındaysa, parent'taki auto_inherit users için BU
+  //    firmanın junction'ını garanti et (üst firmaya child eklenince).
+  if (curParentId) {
+    await reconcileUstFirmaInherits(admin, kind as 'pf' | 'df', curParentId);
+  }
+
+  // 6) BAĞLI YÖNETİCİ OTOMATİK ATAMA: BU firmanın yetkili'si varsa, firmaya
+  //    bağlı tüm kullanıcılar (yetkili hariç + Üst Yönetici hariç + bagli boş
+  //    olanlar) yetkiliye bağlanır. Helper idempotent.
+  {
+    const junctionTable = kind === 'pf' ? 'user_pf' : 'user_df';
+    const firmCol = kind === 'pf' ? 'pf_id' : 'df_id';
+    const { data: members } = await admin
+      .from(junctionTable)
+      .select('user_id')
+      .eq(firmCol, id);
+    for (const m of (members ?? []) as { user_id: string }[]) {
+      await autoAssignBagliYoneticiFromFirma(admin, m.user_id, kind as 'pf' | 'df', id);
     }
   }
 

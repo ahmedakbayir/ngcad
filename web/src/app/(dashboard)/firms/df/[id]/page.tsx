@@ -19,10 +19,10 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
   // Yetkili kullanıcı adaylarını da kapsayacak şekilde: bu DF + (varsa) parent DF.
   const userDfIds = firm.parent_id ? [id, firm.parent_id] : [id];
 
-  const [df, usersLinked, pfLinked, children, allDfUsers, allUserDfLinks] = await Promise.all([
+  const [df, usersLinked, pfLinked, children, dfYoneticileri] = await Promise.all([
     supabase
       .from('dagitim_firmalari')
-      .select('id, firma_adi, parent_id, ust_firma')
+      .select('id, firma_adi, parent_id, ust_firma, yetkili_user_id')
       .order('firma_adi'),
     supabase
       .from('user_df')
@@ -47,32 +47,48 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
       .select('id, no, firma_adi')
       .eq('parent_id', id)
       .order('firma_adi'),
-    // Bağımsız (henüz hiçbir DF'ye bağlanmamış) DF kullanıcıları için aday havuzu.
-    supabase.from('users').select('id, adi').eq('gdf_kullanicisi', true),
-    supabase.from('user_df').select('user_id'),
+    // Yetkili kullanıcı dropdown'u: tüm DF Yöneticileri (Üst veya Orta kademe).
+    // Aile dışı filtre aşağıda uygulanır — başka aile parent'ının yetkilisi listeye
+    // girmez.
+    supabase
+      .from('users')
+      .select('id, adi, gdf_yonetici_kademe')
+      .eq('gdf_kullanicisi', true)
+      .eq('gdf_yonetici', true)
+      .order('adi'),
   ]);
 
   // Sadece bu DF'ye doğrudan bağlı kullanıcılar — "Bağlı kullanıcılar" kartı için.
   const directLinks = (usersLinked.data ?? []).filter((r) => (r as { df_id: string }).df_id === id);
 
-  // Yetkili kullanıcı dropdown'ı için adaylar: bu DF + parent'a bağlı kullanıcılar
-  // + hiçbir DF'ye bağlanmamış (free agent) DF kullanıcıları.
-  const seen = new Set<string>();
-  const eligibleYetkililer: { id: string; adi: string }[] = [];
-  (usersLinked.data ?? []).forEach((r) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const u: any = r.users;
-    if (!u || seen.has(u.id)) return;
-    seen.add(u.id);
-    eligibleYetkililer.push({ id: u.id as string, adi: u.adi as string });
+  // Aile = root (parent_id varsa parent, yoksa kendisi) + root'un tüm child'ları.
+  // Aile dışında bir DF'de yetkili olan user'lar dropdown'dan dışlanır.
+  const rootId = firm.parent_id ?? id;
+  const familyIds = new Set<string>([rootId]);
+  ((df.data ?? []) as { id: string; parent_id: string | null }[]).forEach((d) => {
+    if (d.parent_id === rootId) familyIds.add(d.id);
   });
-  const linkedDfUserIds = new Set((allUserDfLinks.data ?? []).map((r) => r.user_id));
-  (allDfUsers.data ?? []).forEach((u) => {
-    if (seen.has(u.id) || linkedDfUserIds.has(u.id)) return;
-    seen.add(u.id);
-    eligibleYetkililer.push({ id: u.id, adi: u.adi });
+  const excludedYetkiliIds = new Set<string>();
+  ((df.data ?? []) as { id: string; yetkili_user_id: string | null }[]).forEach((d) => {
+    if (d.yetkili_user_id && !familyIds.has(d.id)) {
+      excludedYetkiliIds.add(d.yetkili_user_id);
+    }
   });
-  eligibleYetkililer.sort((a, b) => a.adi.localeCompare(b.adi, 'tr'));
+  // Mevcut yetkili (legacy veri başka aileye atanmış olabilir) her zaman seçili
+  // kalabilsin diye filtreden muaf tutulur.
+  if (firm.yetkili_user_id) excludedYetkiliIds.delete(firm.yetkili_user_id);
+
+  const eligibleYetkililer = ((dfYoneticileri.data ?? []) as {
+    id: string;
+    adi: string;
+    gdf_yonetici_kademe: 'ust' | 'orta' | null;
+  }[])
+    .filter((u) => !excludedYetkiliIds.has(u.id))
+    .map((u) => ({
+      id: u.id,
+      adi: u.adi,
+      rolEtiketi: (u.gdf_yonetici_kademe === 'ust' ? 'Üst Yönetici' : 'Yönetici') as 'Üst Yönetici' | 'Yönetici',
+    }));
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
