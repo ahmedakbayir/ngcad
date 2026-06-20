@@ -31,6 +31,9 @@ import './menu/floor-operations-menu.js';
 import './draw/drawing-mode-panel.js';
 import './onboarding/onboarding-panel.js';
 
+// Web panel köprüsü — URL'de ?project=ID varsa proje state'i web'ten yüklenir.
+import './onboarding/web-bootstrap.js';
+
 // Voice Commands
 import { createVoiceCommandUI } from './voice-commands/voice-command-ui.js';
 

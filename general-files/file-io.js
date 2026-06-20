@@ -10,6 +10,7 @@ import { renderMiniPanel } from '../floor/floor-panel.js'; // <-- KAT PANELİ İ
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { loadDxfFile } from './dxf-io.js';
 import { recordRecent } from './recent-projects.js';
+import { getProjectIdFromUrl, saveProjectToWeb } from '../onboarding/web-bridge.js';
 
 export function setupFileIOListeners() {
     dom.bSave.addEventListener('click', saveProject);
@@ -108,7 +109,7 @@ function setupDragAndDrop() {
     }
 }
 
-function saveProject() {
+export function saveProject() {
     const projectData = {
         version: "1.0",
         timestamp: new Date().toISOString(),
@@ -221,6 +222,24 @@ function saveProject() {
 
     const dataStr = JSON.stringify(projectData, null, 2);
 
+    // Web modu: URL'de ?project=ID varsa lokale değil web panele kaydet.
+    const webProjectId = getProjectIdFromUrl();
+    if (webProjectId) {
+        (async () => {
+            try {
+                const name = window.currentProjectName || projectData.projectMeta?.proje_adi || 'İsimsiz Proje';
+                await saveProjectToWeb(webProjectId, projectData, name);
+                document.title = `${name} - AangCAD (web)`;
+                console.log(`Proje web panele kaydedildi: ${name}`);
+                window.dispatchEvent(new CustomEvent('aangcad:web-save-ok', { detail: { projectId: webProjectId, name } }));
+            } catch (err) {
+                console.error('Web kaydetme hatası:', err);
+                alert('Web panele kaydetme başarısız: ' + err.message);
+            }
+        })();
+        return;
+    }
+
     // =================================================================
     // TARİH FORMATLAMA VE İSİM GÜNCELLEME MANTIĞI
     // =================================================================
@@ -325,8 +344,8 @@ function saveProject() {
 /**
  * JSON proje dosyasını yükle (openProject ve drag-and-drop için ortak fonksiyon)
  */
-function loadJSONProject(fileContent) {
-    const projectData = JSON.parse(fileContent);
+export function loadJSONProject(fileContent) {
+    const projectData = typeof fileContent === 'string' ? JSON.parse(fileContent) : fileContent;
 
     if (!projectData.version || !projectData.nodes || !projectData.walls) {
         alert('Geçersiz proje dosyası formatı!');

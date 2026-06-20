@@ -88,8 +88,8 @@ export function smartMatch(rowValueRaw: unknown, filterRaw: string): boolean {
   // Boş/dolu token'ları — operatör veya operatörsüz çalışır.
   const restLc = rest.trim().toLocaleLowerCase('tr');
   const isCellEmpty = cellStr.trim() === '';
-  const isNullToken = restLc === 'null';
-  const isNotNullToken = restLc === 'not'|| restLc === 'not null' || restLc === 'notnull';
+  const isNullToken = restLc === 'null' ||  restLc === '-';
+  const isNotNullToken = restLc === 'not'|| restLc === '+'|| restLc === 'not null' || restLc === 'notnull';
   if (op == null && isNullToken) return isCellEmpty;
   if (op == null && isNotNullToken) return !isCellEmpty;
   if ((op === '!=' || op === '<>') && isNullToken) return !isCellEmpty;

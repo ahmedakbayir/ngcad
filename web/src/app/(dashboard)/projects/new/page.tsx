@@ -22,9 +22,11 @@ export default function NewProjectPage() {
     setPending(true);
     try {
       const supabase = supabaseBrowser();
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !user) throw userErr ?? new Error('Oturum bulunamadı.');
       const { data, error } = await supabase
         .from('projects')
-        .insert({ proje_adi: name })
+        .insert({ proje_adi: name, owner_user_id: user.id })
         .select('id')
         .single();
       if (error) throw error;
