@@ -2,8 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DFListItem, PFListItem, YoneticiAday } from './user-form';
 
 // User formunun ihtiyaç duyduğu tüm seçenekler tek server fetch ile.
+// PERF: user_pf / user_df full-table scan yerine yalnız yönetici adaylarının
+// junction satırları çekilir; yönetici listesi de tek sorguda gelir.
 export async function loadUserFormOptions(supabase: SupabaseClient) {
-  const [pfRes, dfRes, yonRes, upfRes, udfRes] = await Promise.all([
+  // Önce PF/DF/yönetici listelerini paralel al — yönetici id'leri user_pf/df
+  // sorgularını daraltmak için gerekli.
+  const [pfRes, dfRes, yonRes] = await Promise.all([
     supabase.from('proje_firmalari').select('id, firma_adi, parent_id, df_id').order('firma_adi'),
     supabase.from('dagitim_firmalari').select('id, firma_adi, parent_id').order('firma_adi'),
     supabase
@@ -11,8 +15,21 @@ export async function loadUserFormOptions(supabase: SupabaseClient) {
       .select('id, adi, firma_yonetici, gdf_yonetici')
       .or('firma_yonetici.eq.true,gdf_yonetici.eq.true')
       .order('adi'),
-    supabase.from('user_pf').select('user_id, pf_id'),
-    supabase.from('user_df').select('user_id, df_id'),
+  ]);
+
+  const yonRows = (yonRes.data ?? []) as {
+    id: string; adi: string; firma_yonetici: boolean; gdf_yonetici: boolean;
+  }[];
+  const pfYonIds = yonRows.filter((y) => y.firma_yonetici).map((y) => y.id);
+  const dfYonIds = yonRows.filter((y) => y.gdf_yonetici).map((y) => y.id);
+
+  const [upfRes, udfRes] = await Promise.all([
+    pfYonIds.length
+      ? supabase.from('user_pf').select('user_id, pf_id').in('user_id', pfYonIds)
+      : Promise.resolve({ data: [] as { user_id: string; pf_id: string }[] }),
+    dfYonIds.length
+      ? supabase.from('user_df').select('user_id, df_id').in('user_id', dfYonIds)
+      : Promise.resolve({ data: [] as { user_id: string; df_id: string }[] }),
   ]);
 
   const pfRows = (pfRes.data ?? []) as { id: string; firma_adi: string; parent_id: string | null; df_id: string | null }[];
@@ -56,7 +73,7 @@ export async function loadUserFormOptions(supabase: SupabaseClient) {
   });
 
   const yoneticiler: YoneticiAday[] = [];
-  (yonRes.data ?? []).forEach((y) => {
+  yonRows.forEach((y) => {
     if (y.firma_yonetici) {
       yoneticiler.push({ id: y.id, adi: y.adi, kanal: 'pf', firma_ids: upfByUser.get(y.id) ?? [] });
     }

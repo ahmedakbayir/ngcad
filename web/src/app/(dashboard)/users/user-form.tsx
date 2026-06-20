@@ -162,9 +162,9 @@ const defaults = (
   adi: init?.adi ?? '',
   unvan: init?.unvan ?? '',
   email: init?.email ?? '',
-  // Yeni: varsayılan 123456. Edit: alanı boş bırakmak yerine 123456 gösterilir;
-  // admin aynı bıraksa bile sunucu mevcutla aynı parolayı set eder.
-  password: '123456',
+  // Yeni: varsayılan 123456. Edit: boş — admin değiştirmek isterse doldurur,
+  // boş gönderim sunucuda hiç auth çağrısı tetiklemez (save hızlı kalır).
+  password: mode === 'create' ? '123456' : '',
   gsm: init?.gsm ?? (mode === 'create' ? '0212 255 55 55' : ''),
   profil_fotografi: init?.profil_fotografi ?? '',
   is_admin: init?.is_admin ?? false,

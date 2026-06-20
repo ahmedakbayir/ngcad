@@ -21,8 +21,18 @@ export async function PATCH(
 
   const admin = supabaseAdmin();
 
-  // Email tekillik: PATCH'te email değiştiriliyorsa başka user kullanıyor mu?
-  if (userData.email) {
+  // Mevcut email'i tek seferde oku — değişmemişse auth admin'i hiç çağırma.
+  const { data: existing } = await admin
+    .from('users')
+    .select('email')
+    .eq('id', id)
+    .maybeSingle();
+  const currentEmail = (existing as { email?: string | null } | null)?.email ?? null;
+
+  // Email tekillik: PATCH'te email DEĞİŞİYORSA başka user kullanıyor mu?
+  const emailChanged =
+    typeof userData.email === 'string' && userData.email !== currentEmail;
+  if (emailChanged) {
     const { data: clash } = await admin
       .from('users')
       .select('id')
@@ -48,7 +58,8 @@ export async function PATCH(
     }
   }
 
-  // Parola gönderildiyse auth.users üzerinde güncelle.
+  // Parola: yalnız gerçek bir değer geldiyse (form edit'te artık default
+  // göndermiyor) auth.users üzerinde güncelle.
   if (typeof password === 'string' && password.length > 0) {
     if (password.length < 6) {
       return NextResponse.json(

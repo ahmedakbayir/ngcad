@@ -20,13 +20,11 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   const { data: user } = await supabase.from('users').select('*').eq('id', id).maybeSingle();
   if (!user) notFound();
 
-  const [opts, upf, udf, subordinates, allPfRows, allDfRows] = await Promise.all([
+  const [opts, upf, udf, subordinates] = await Promise.all([
     loadUserFormOptions(supabase),
     supabase.from('user_pf').select('pf_id, auto_inherit').eq('user_id', id),
     supabase.from('user_df').select('df_id, auto_inherit').eq('user_id', id),
     supabase.from('users').select('*').eq('bagli_oldugu_yonetici_id', id).order('adi'),
-    supabase.from('proje_firmalari').select('id, firma_adi'),
-    supabase.from('dagitim_firmalari').select('id, firma_adi'),
   ]);
 
   const yetkili_firma_ids = [
@@ -41,10 +39,11 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
 
   // Bu kullanıcıya bağlı kullanıcıların firmalarını yükle (isim listesi için).
   // Hiyerarşi: Üst Yönetici → Yönetici → diğer roller; her grup içinde ada göre.
+  // opts zaten tüm PF/DF id→adı tutuyor; ayrı sorgu açmıyoruz.
   const subUsers = sortByRolRank((subordinates.data ?? []) as UserRow[]);
   const subUserIds = subUsers.map((u) => u.id);
-  const pfNameById = new Map((allPfRows.data ?? []).map((p) => [p.id, p.firma_adi]));
-  const dfNameById = new Map((allDfRows.data ?? []).map((d) => [d.id, d.firma_adi]));
+  const pfNameById = new Map(opts.pfList.map((p) => [p.id, p.firma_adi]));
+  const dfNameById = new Map(opts.dfList.map((d) => [d.id, d.firma_adi]));
   const subPfMap: Record<string, string[]> = {};
   const subDfMap: Record<string, string[]> = {};
   if (subUserIds.length > 0) {

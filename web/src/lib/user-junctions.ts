@@ -52,6 +52,81 @@ export async function autoAssignBagliYoneticiFromFirma(
     .eq('id', userId);
 }
 
+// Toplu versiyon: çok sayıda (userId, firmaId) çifti için autoAssign'ı tek
+// seferde uygular. Bireysel çağrıdaki 2-3 round-trip'i firma adedinden bağımsız
+// 3 sorguya indirir. autoAssignBagliYoneticiFromFirma ile aynı koşullar.
+async function autoAssignBagliYoneticiBatch(
+  admin: SupabaseClient,
+  kind: 'pf' | 'df',
+  pairs: Array<{ userId: string; firmaId: string }>,
+): Promise<void> {
+  if (pairs.length === 0) return;
+  const firmTable = kind === 'pf' ? 'proje_firmalari' : 'dagitim_firmalari';
+
+  const firmaIds = Array.from(new Set(pairs.map((p) => p.firmaId)));
+  const userIds = Array.from(new Set(pairs.map((p) => p.userId)));
+
+  const [firmRes, userRes] = await Promise.all([
+    admin.from(firmTable).select('id, yetkili_user_id').in('id', firmaIds),
+    admin
+      .from('users')
+      .select(
+        'id, bagli_oldugu_yonetici_id, firma_yonetici, firma_yonetici_kademe, gdf_yonetici, gdf_yonetici_kademe',
+      )
+      .in('id', userIds),
+  ]);
+
+  const yetkiliByFirma = new Map<string, string | null>();
+  (firmRes.data ?? []).forEach((r: { id: string; yetkili_user_id: string | null }) => {
+    yetkiliByFirma.set(r.id, r.yetkili_user_id ?? null);
+  });
+
+  type UserLite = {
+    id: string;
+    bagli_oldugu_yonetici_id: string | null;
+    firma_yonetici: boolean | null;
+    firma_yonetici_kademe: string | null;
+    gdf_yonetici: boolean | null;
+    gdf_yonetici_kademe: string | null;
+  };
+  const userById = new Map<string, UserLite>();
+  (userRes.data ?? []).forEach((u: UserLite) => userById.set(u.id, u));
+
+  // user_id → atanacak yetkili. Her user için tek karar — birden fazla çiftten
+  // ilk uygun olanı kullanılır (kayda değer fark yok; her ikisi de firma yetkilisi).
+  const updates = new Map<string, string>();
+  for (const { userId, firmaId } of pairs) {
+    if (updates.has(userId)) continue;
+    const yetkili = yetkiliByFirma.get(firmaId);
+    if (!yetkili || yetkili === userId) continue;
+    const u = userById.get(userId);
+    if (!u || u.bagli_oldugu_yonetici_id) continue;
+    const isUst =
+      (!!u.firma_yonetici && u.firma_yonetici_kademe === 'ust') ||
+      (!!u.gdf_yonetici && u.gdf_yonetici_kademe === 'ust');
+    if (isUst) continue;
+    updates.set(userId, yetkili);
+  }
+
+  if (updates.size === 0) return;
+  // Hedef yöneticiye göre grupla — Supabase tek update'te tek değer set
+  // edebildiği için her yetkili için bir update.
+  const byYetkili = new Map<string, string[]>();
+  updates.forEach((yetkili, uid) => {
+    const arr = byYetkili.get(yetkili) ?? [];
+    arr.push(uid);
+    byYetkili.set(yetkili, arr);
+  });
+  await Promise.all(
+    Array.from(byYetkili.entries()).map(([yetkili, uids]) =>
+      admin
+        .from('users')
+        .update({ bagli_oldugu_yonetici_id: yetkili })
+        .in('id', uids),
+    ),
+  );
+}
+
 // Verilen firma (parent olabilir veya child olabilir) için auto-inherit cascade
 // durumunu tutarlı hale getirir. Çağrı senaryoları:
 // - firma POST/PATCH sonrası: alt firma sayısı veya yetkili kullanıcı değiştiyse
@@ -70,27 +145,26 @@ export async function reconcileUstFirmaInherits(
   const firmCol = kind === 'pf' ? 'pf_id' : 'df_id';
   const table = kind === 'pf' ? 'proje_firmalari' : 'dagitim_firmalari';
 
-  // Parent'ın current alt birimleri.
-  const { data: children } = await admin
-    .from(table)
-    .select('id')
-    .eq('parent_id', parentFirmId);
-  const childIds = ((children ?? []) as { id: string }[]).map((c) => c.id);
+  // Parent'ın current alt birimleri + auto_inherit=true kullanıcıları paralel.
+  const [childrenRes, inheritsRes] = await Promise.all([
+    admin.from(table).select('id').eq('parent_id', parentFirmId),
+    admin
+      .from(junction)
+      .select('user_id')
+      .eq(firmCol, parentFirmId)
+      .eq('auto_inherit', true),
+  ]);
+  const childIds = ((childrenRes.data ?? []) as { id: string }[]).map((c) => c.id);
   if (childIds.length === 0) return;
-
-  // Parent'ın auto_inherit=true olan kullanıcıları.
-  const { data: inherits } = await admin
-    .from(junction)
-    .select('user_id')
-    .eq(firmCol, parentFirmId)
-    .eq('auto_inherit', true);
-  const userIds = ((inherits ?? []) as { user_id: string }[]).map((r) => r.user_id);
+  const userIds = ((inheritsRes.data ?? []) as { user_id: string }[]).map((r) => r.user_id);
   if (userIds.length === 0) return;
 
   const rows: Record<string, unknown>[] = [];
+  const assignPairs: Array<{ userId: string; firmaId: string }> = [];
   for (const cid of childIds) {
     for (const uid of userIds) {
       rows.push({ user_id: uid, [firmCol]: cid, auto_inherit: false });
+      assignPairs.push({ userId: uid, firmaId: cid });
     }
   }
   // ignoreDuplicates: var olan satırların auto_inherit'ini SAKIN değiştirme.
@@ -98,13 +172,8 @@ export async function reconcileUstFirmaInherits(
     .from(junction)
     .upsert(rows, { onConflict: `user_id,${firmCol}`, ignoreDuplicates: true });
 
-  // Yeni eklenen child junction'ları için bağlı yönetici otomatik ata.
-  // Helper idempotent — mevcut bagli/Üst Yönetici durumu atamayı no-op yapar.
-  for (const cid of childIds) {
-    for (const uid of userIds) {
-      await autoAssignBagliYoneticiFromFirma(admin, uid, kind, cid);
-    }
-  }
+  // Yeni eklenen child junction'ları için bağlı yönetici otomatik ata — batch.
+  await autoAssignBagliYoneticiBatch(admin, kind, assignPairs);
 }
 
 // user ↔ PF/DF junction tablolarını idempotent senkronize eder.
@@ -118,33 +187,32 @@ export async function syncFirmaJunctions(
   autoInheritFirmaIds: string[] = [],
 ) {
   const admin = supabaseAdmin();
-  await admin.from('user_pf').delete().eq('user_id', userId);
-  await admin.from('user_df').delete().eq('user_id', userId);
+  // İki kanal delete + (varsa) forced üst-firma sorgusu paralel.
+  const hasFirmas = firmaIds && firmaIds.length > 0;
+  const forcedTable = isPF ? 'proje_firmalari' : isGDF ? 'dagitim_firmalari' : null;
+  const forcedQuery =
+    forcedTable && hasFirmas
+      ? admin
+          .from(forcedTable)
+          .select('id')
+          .in('id', firmaIds)
+          .eq('ust_firma', true)
+          .eq('yetkili_user_id', userId)
+      : Promise.resolve({ data: [] as { id: string }[] });
 
-  if (!firmaIds || firmaIds.length === 0) return;
+  const [, , forcedRes] = await Promise.all([
+    admin.from('user_pf').delete().eq('user_id', userId),
+    admin.from('user_df').delete().eq('user_id', userId),
+    forcedQuery,
+  ]);
+
+  if (!hasFirmas) return;
   const inheritSet = new Set(autoInheritFirmaIds);
-
   // ÜST FİRMA yetkili kullanıcısı için auto_inherit zorla true.
   // Why: Admin user formunda switch'i kapatsa bile kullanıcı bu üst firmanın
   // yetkili_user_id'si ise altına eklenecek yeni firmalardan otomatik
   // yetkilendirilmeli; aksi takdirde "yetkili olunan bölgeler" güncel kalmaz.
-  if (isPF) {
-    const { data: forced } = await admin
-      .from('proje_firmalari')
-      .select('id')
-      .in('id', firmaIds)
-      .eq('ust_firma', true)
-      .eq('yetkili_user_id', userId);
-    (forced ?? []).forEach((r: { id: string }) => inheritSet.add(r.id));
-  } else if (isGDF) {
-    const { data: forced } = await admin
-      .from('dagitim_firmalari')
-      .select('id')
-      .in('id', firmaIds)
-      .eq('ust_firma', true)
-      .eq('yetkili_user_id', userId);
-    (forced ?? []).forEach((r: { id: string }) => inheritSet.add(r.id));
-  }
+  ((forcedRes.data ?? []) as { id: string }[]).forEach((r) => inheritSet.add(r.id));
 
   if (isPF) {
     const { error } = await admin.from('user_pf').insert(
@@ -172,14 +240,17 @@ export async function syncFirmaJunctions(
   // kayboluyorlardı.
   const kind: 'pf' | 'df' | null = isPF ? 'pf' : isGDF ? 'df' : null;
   if (kind) {
-    for (const ustId of inheritSet) {
-      await reconcileUstFirmaInherits(admin, kind, ustId);
-    }
-    // BAĞLI YÖNETİCİ OTOMATİK ATAMA: kullanıcı her hangi bir firmaya eklendiyse
-    // ve o firmanın yetkili'si varsa, bu kullanıcı (Üst Yönetici değilse +
-    // bagli boşsa) firma yetkilisine bağlanır.
-    for (const fid of firmaIds) {
-      await autoAssignBagliYoneticiFromFirma(admin, userId, kind, fid);
-    }
+    // Üst firma reconcile + bu kullanıcının yetkili olduğu firmalardan bağlı
+    // yönetici batch ataması paralel koşar.
+    await Promise.all([
+      ...Array.from(inheritSet).map((ustId) =>
+        reconcileUstFirmaInherits(admin, kind, ustId),
+      ),
+      autoAssignBagliYoneticiBatch(
+        admin,
+        kind,
+        firmaIds.map((firmaId) => ({ userId, firmaId })),
+      ),
+    ]);
   }
 }
