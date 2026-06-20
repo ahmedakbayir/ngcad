@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/auth-guards';
 import { syncFirmaJunctions } from '@/lib/user-junctions';
+import { fillUnvanIfBlank } from '@/lib/user-roles';
 
 // Yeni kullanıcı: admin parolayı doğrudan belirler; e-posta doğrulaması yok.
 // Kullanıcı verilen e-posta + şifre ile /login'den girer.
@@ -11,6 +12,9 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const { yetkili_firma_ids = [], auto_inherit_firma_ids = [], password, ...userData } = body;
+  // Ünvan boş gelirse rol flag'lerinden otomatik doldur (admin elle değer
+  // girdiyse dokunma).
+  fillUnvanIfBlank(userData);
 
   if (!password || typeof password !== 'string' || password.length < 6) {
     return NextResponse.json(

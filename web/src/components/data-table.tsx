@@ -5,6 +5,7 @@ import {
   ColumnDef,
   ColumnFiltersState,
   SortingState,
+  VisibilityState,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
@@ -12,9 +13,10 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ChevronDown, ChevronsUpDown, ChevronUp, FilterX } from 'lucide-react';
+import { ChevronDown, ChevronsUpDown, ChevronUp, FilterX, GripVertical, Settings2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -38,6 +40,9 @@ declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ColumnMeta<TData extends unknown, TValue> {
     filter?: ColumnFilterConfig;
+    // Göster/gizle dropdown'unda görünecek kullanıcı-okur etiket. Verilmezse
+    // header string'i, o da yoksa column.id kullanılır.
+    columnLabel?: string;
   }
 }
 
@@ -92,6 +97,9 @@ interface DataTableProps<T> {
   // Filtre satırının en sağdaki konfigürasyonsuz hücresinde (Filtreleri Temizle
   // butonunun yanında) render edilecek ek aksiyonlar.
   filterActions?: React.ReactNode;
+  // Kolon görünürlüğü + sıralama tercihini localStorage'da saklamak için anahtar.
+  // Her tabloya farklı bir anahtar verilmeli; verilmezse persist edilmez.
+  storageKey?: string;
 }
 
 export function DataTable<T>({
@@ -102,7 +110,7 @@ export function DataTable<T>({
   emptyText = 'Kayıt yok.',
   toolbar,
   headerLeft,
-  pageSize = 25,
+  pageSize = 50,
   rowClassName,
   rowStyle,
   sorting: sortingControlled,
@@ -110,9 +118,41 @@ export function DataTable<T>({
   manualSorting,
   compact = false,
   filterActions,
+  storageKey,
 }: DataTableProps<T>) {
   const [sortingInner, setSortingInner] = React.useState<SortingState>([]);
   const sorting = sortingControlled ?? sortingInner;
+
+  // localStorage'tan kolon tercihlerini yükle (varsa). storageKey verilmezse
+  // boş varsayılan kullanılır. SSR uyumu için lazy init içinde window kontrolü.
+  const storageReadKey = storageKey ? `data-table:${storageKey}` : null;
+  const initial = React.useMemo<{ v: VisibilityState; o: string[] }>(() => {
+    if (typeof window === 'undefined' || !storageReadKey) return { v: {}, o: [] };
+    try {
+      const raw = window.localStorage.getItem(storageReadKey);
+      if (!raw) return { v: {}, o: [] };
+      const parsed = JSON.parse(raw) as { v?: VisibilityState; o?: string[] };
+      return { v: parsed.v ?? {}, o: parsed.o ?? [] };
+    } catch {
+      return { v: {}, o: [] };
+    }
+  }, [storageReadKey]);
+
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(initial.v);
+  const [columnOrder, setColumnOrder] = React.useState<string[]>(initial.o);
+
+  // Değişiklikleri localStorage'a yaz. storageKey yoksa no-op.
+  React.useEffect(() => {
+    if (!storageReadKey || typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(
+        storageReadKey,
+        JSON.stringify({ v: columnVisibility, o: columnOrder }),
+      );
+    } catch {
+      /* quota / private mode — sessizce yut */
+    }
+  }, [storageReadKey, columnVisibility, columnOrder]);
   // Excel benzeri çoklu kolon sıralaması: yalnız son iki tıklama tutulur.
   // İlk tıklama → tek kolon. İkinci farklı kolon → yeni birincil, eskisi ikincil
   // (tie-breaker). Aynı kolona tekrar tıklama → yönü çevirir (asc/desc).
@@ -146,9 +186,11 @@ export function DataTable<T>({
   const table = useReactTable({
     data: filtered,
     columns,
-    state: { sorting, columnFilters },
+    state: { sorting, columnFilters, columnVisibility, columnOrder },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    onColumnOrderChange: setColumnOrder,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: manualSorting ? undefined : getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -233,7 +275,7 @@ export function DataTable<T>({
                       {hg.headers.map((h, idx) => {
                         const cfg = (h.column.columnDef.meta as { filter?: ColumnFilterConfig } | undefined)?.filter;
                         if (!cfg) {
-                          if (idx === lastEmptyIdx && (hasActiveFilters || filterActions)) {
+                          if (idx === lastEmptyIdx) {
                             return (
                               <TableHead key={h.id} className="py-1.5">
                                 <div className="flex items-center justify-end gap-1">
@@ -251,6 +293,7 @@ export function DataTable<T>({
                                       <FilterX className="h-3.5 w-3.5" />
                                     </Button>
                                   )}
+                                  <ColumnVisibilityMenu table={table} />
                                 </div>
                               </TableHead>
                             );
@@ -359,6 +402,142 @@ export function DataTable<T>({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Kolon göster/gizle + sıralama dropdown'u — filtre satırının sağ ucunda
+// Settings2 ikonu. Click-outside ile kapanır. Native HTML5 drag-and-drop ile
+// satır sürükleyince tablo kolon sırası anında güncellenir. Etiketsiz kolonlar
+// (örn. boş header'lı actions) menüde gözükmez ve sıralanamaz.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ColumnVisibilityMenu({ table }: { table: any }) {
+  const [open, setOpen] = React.useState(false);
+  const [dragId, setDragId] = React.useState<string | null>(null);
+  const [overId, setOverId] = React.useState<string | null>(null);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  // Mevcut sıraya göre (TanStack getAllLeafColumns columnOrder uygular).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hideable: any[] = table.getAllLeafColumns().filter((c: any) => {
+    if (!c.getCanHide()) return false;
+    const meta = c.columnDef.meta as { columnLabel?: string } | undefined;
+    const header = c.columnDef.header;
+    return Boolean(
+      meta?.columnLabel || (typeof header === 'string' && header.length > 0),
+    );
+  });
+
+  if (hideable.length === 0) return null;
+
+  // Sürükle-bırak: dragId'yi overId'nin pozisyonuna taşı. TanStack columnOrder
+  // tüm leaf kolonları içermeli; hideable dışındaki structural kolonların
+  // (actions vb.) yerini korumak için tam sırayı tekrar inşa ediyoruz.
+  function handleDrop(targetId: string) {
+    if (!dragId || dragId === targetId) {
+      setDragId(null);
+      setOverId(null);
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fullIds: string[] = table.getAllLeafColumns().map((c: any) => c.id);
+    const fromIdx = fullIds.indexOf(dragId);
+    const toIdx = fullIds.indexOf(targetId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const next = fullIds.slice();
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, dragId);
+    table.setColumnOrder(next);
+    setDragId(null);
+    setOverId(null);
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+        onClick={() => setOpen((o) => !o)}
+        title="Kolonları Göster/Gizle"
+        aria-label="Kolonları Göster/Gizle"
+      >
+        <Settings2 className="h-3.5 w-3.5" />
+      </Button>
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-md border bg-popover p-2 shadow-md">
+          <p className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Kolonlar
+          </p>
+          <p className="mb-1 px-2 text-[10px] text-muted-foreground">
+            Sürükle-bırak ile sırala
+          </p>
+          <div className="space-y-0.5">
+            {hideable.map((c) => {
+              const meta = c.columnDef.meta as { columnLabel?: string } | undefined;
+              const header = c.columnDef.header;
+              const label =
+                meta?.columnLabel ??
+                (typeof header === 'string' ? header : c.id);
+              const isDragging = dragId === c.id;
+              const isOver = overId === c.id && dragId !== null && dragId !== c.id;
+              return (
+                <div
+                  key={c.id}
+                  draggable
+                  onDragStart={(e) => {
+                    setDragId(c.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                    // Firefox bazı sürümlerinde dataTransfer'a veri yazılmadıkça
+                    // drag başlamıyor — string id'yi koy.
+                    e.dataTransfer.setData('text/plain', c.id);
+                  }}
+                  onDragEnter={() => setOverId(c.id)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDragLeave={() => {
+                    setOverId((cur) => (cur === c.id ? null : cur));
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleDrop(c.id);
+                  }}
+                  onDragEnd={() => {
+                    setDragId(null);
+                    setOverId(null);
+                  }}
+                  className={cn(
+                    'flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted',
+                    isDragging && 'opacity-40',
+                    isOver && 'ring-2 ring-primary/40',
+                  )}
+                >
+                  <GripVertical className="h-3 w-3 cursor-grab text-muted-foreground" />
+                  <Checkbox
+                    checked={c.getIsVisible()}
+                    onCheckedChange={(v) => c.toggleVisibility(!!v)}
+                  />
+                  <span className="cursor-grab text-foreground">{label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

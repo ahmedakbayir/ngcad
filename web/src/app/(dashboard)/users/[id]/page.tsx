@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { UserForm } from '../user-form';
 import { loadUserFormOptions } from '../user-form-data';
 import { getUserKategori, type UserRow } from '@/lib/supabase/types';
+import { sortByRolRank } from '@/lib/user-roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +40,8 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   ];
 
   // Bu kullanıcıya bağlı kullanıcıların firmalarını yükle (isim listesi için).
-  const subUsers = (subordinates.data ?? []) as UserRow[];
+  // Hiyerarşi: Üst Yönetici → Yönetici → diğer roller; her grup içinde ada göre.
+  const subUsers = sortByRolRank((subordinates.data ?? []) as UserRow[]);
   const subUserIds = subUsers.map((u) => u.id);
   const pfNameById = new Map((allPfRows.data ?? []).map((p) => [p.id, p.firma_adi]));
   const dfNameById = new Map((allDfRows.data ?? []).map((d) => [d.id, d.firma_adi]));
@@ -127,16 +129,16 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
 function subordinateRolEtiketi(u: UserRow): { label: string; variant: 'default' | 'secondary' | 'info' | 'success' | 'warning'; className?: string } | null {
   if (u.firma_yonetici) {
     return u.firma_yonetici_kademe === 'ust'
-      ? { label: 'Üst Yönetici', variant: 'default' }
-      : { label: 'Yönetici',     variant: 'default', className: 'bg-primary/40 hover:bg-primary/40' };
+      ? { label: 'Üst Yönetici', variant: 'default', className: 'bg-emerald-700 text-white hover:bg-emerald-700' }
+      : { label: 'Yönetici',     variant: 'default', className: 'bg-emerald-300 text-emerald-900 hover:bg-emerald-300' };
   }
   if (u.firma_proje_muhendisi)  return { label: 'Proje Müh.',   variant: 'info'    };
   if (u.firma_cizim_sorumlusu)  return { label: 'Çizim Sor.',   variant: 'success' };
   if (u.firma_tesisat_ustasi)   return { label: 'Tesisat Ust.', variant: 'warning' };
   if (u.gdf_yonetici) {
     return u.gdf_yonetici_kademe === 'ust'
-      ? { label: 'Üst Yönetici', variant: 'default' }
-      : { label: 'Yönetici',     variant: 'default', className: 'bg-primary/40 hover:bg-primary/40' };
+      ? { label: 'Üst Yönetici', variant: 'default', className: 'bg-emerald-700 text-white hover:bg-emerald-700' }
+      : { label: 'Yönetici',     variant: 'default', className: 'bg-emerald-300 text-emerald-900 hover:bg-emerald-300' };
   }
   if (u.gdf_onay_muhendisi)     return { label: 'Onay Müh.',    variant: 'info'    };
   if (u.gdf_gaz_acma_muhendisi) return { label: 'Gaz Açma',     variant: 'success' };

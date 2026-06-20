@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/data-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getUserKategori, type UserKategori, type UserRow } from '@/lib/supabase/types';
-import { Pencil, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { collapseFirmHierarchy } from '@/lib/firm-hierarchy';
 import { smartColumnFilterFn } from '@/lib/smart-filter';
@@ -64,8 +64,8 @@ function rolEtiketleri(u: UserRow): RolEtiket[] {
   // ── PF birincil rol ──
   if (u.firma_yonetici) {
     return u.firma_yonetici_kademe === 'ust'
-      ? [{ label: 'Üst Yönetici', variant: 'default' }]
-      : [{ label: 'Yönetici',     variant: 'default', className: 'bg-primary/40 hover:bg-primary/40' }];
+      ? [{ label: 'Üst Yönetici', variant: 'default', className: 'bg-emerald-700 text-white hover:bg-emerald-700' }]
+      : [{ label: 'Yönetici',     variant: 'default', className: 'bg-emerald-300 text-emerald-900 hover:bg-emerald-300' }];
   }
   if (u.firma_proje_muhendisi)  return [{ label: 'Proje Müh.',   variant: 'info'    }];
   if (u.firma_cizim_sorumlusu)  return [{ label: 'Çizim Sor.',   variant: 'success' }];
@@ -73,8 +73,8 @@ function rolEtiketleri(u: UserRow): RolEtiket[] {
   // ── DF birincil rol ──
   if (u.gdf_yonetici) {
     return u.gdf_yonetici_kademe === 'ust'
-      ? [{ label: 'Üst Yönetici', variant: 'default' }]
-      : [{ label: 'Yönetici',     variant: 'default', className: 'bg-primary/40 hover:bg-primary/40' }];
+      ? [{ label: 'Üst Yönetici', variant: 'default', className: 'bg-emerald-700 text-white hover:bg-emerald-700' }]
+      : [{ label: 'Yönetici',     variant: 'default', className: 'bg-emerald-300 text-emerald-900 hover:bg-emerald-300' }];
   }
   if (u.gdf_onay_muhendisi)     return [{ label: 'Onay Müh.',    variant: 'info'    }];
   if (u.gdf_gaz_acma_muhendisi) return [{ label: 'Gaz Açma',     variant: 'success' }];
@@ -332,11 +332,11 @@ function buildColumns(
     {
       id: 'yonetici',
       header: 'Yönetici',
-      accessorFn: (u) => (isUstYonetici(u) ? 'ÜST YÖNETİCİ' : managerByUserId?.[u.id]?.adi ?? ''),
+      accessorFn: (u) => (isUstYonetici(u) ? 'Üst Yönetici' : managerByUserId?.[u.id]?.adi ?? ''),
       cell: ({ row }) => {
         const u = row.original;
         if (isUstYonetici(u)) {
-          return <Badge variant="default" className="text-[10px]">ÜST YÖNETİCİ</Badge>;
+          return <Badge variant="default" className="bg-emerald-700 text-white hover:bg-emerald-700 text-[10px]">Üst Yönetici</Badge>;
         }
         const m = managerByUserId?.[u.id];
         if (!m) return <span className="text-xs text-muted-foreground">—</span>;
@@ -350,18 +350,60 @@ function buildColumns(
       filterFn: smartColumnFilterFn,
     },
     {
+      id: 'numaralar',
+      header: 'Numaralar',
+      size: 320,
+      minSize: 240,
+      enableSorting: false,
+      accessorFn: (u) => userNumaralariText(u),
+      cell: ({ row }) => {
+        const rows = userNumaralari(row.original);
+        if (rows.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+        return (
+          <div className="space-y-0.5 text-[11px] leading-tight">
+            {rows.map((r) => (
+              <div key={r.label}>
+                <span className="text-muted-foreground">{r.label}</span>{' '}
+                <span className="font-medium">{r.value}</span>
+              </div>
+            ))}
+          </div>
+        );
+      },
+      meta: { filter: { type: 'text', placeholder: 'Numara…' } },
+      filterFn: smartColumnFilterFn,
+    },
+    // Boş "actions" kolonu — DataTable filtre temizleme + kolon göster/gizle
+    // butonlarını en sağdaki filtre-konfigürasyonsuz hücreye yerleştirir.
+    {
       id: 'actions',
       header: '',
       enableSorting: false,
-      cell: ({ row }) => (
-        <Button asChild variant="ghost" size="icon">
-          <Link href={`/users/${row.original.id}`}>
-            <Pencil className="h-4 w-4" />
-          </Link>
-        </Button>
-      ),
+      enableHiding: false,
+      size: 36,
+      cell: () => null,
     },
   ];
+}
+
+// Kullanıcının dolu olan tüm yetki/sicil numaralarını kısa etiketleriyle topla.
+// Boş alanlar atlanır; etikette user'ın asıl alan adı değil, görsel etiket kullanılır.
+function userNumaralari(u: UserRow): { label: string; value: string }[] {
+  const items: { label: string; value: string | number | null }[] = [
+    { label: 'GDF Sicil No:',           value: u.onay_muh_gdf_sicil_no },
+    { label: 'GDF Ekip No:',             value: u.gaz_acma_muh_ekip_no },
+    { label: 'MMO Sicil No:',  value: u.proje_muh_oda_sicil_no },
+    { label: 'GDF Kayit No:',  value: u.proje_muh_kayit_no },
+    { label: 'Montaj Yetki No:',          value: u.usta_montaj_belge_no },
+    { label: 'Kaynak Yetki No:',  value: u.usta_celik_kaynak_belge_no },
+    { label: 'PE Yetki No:',        value: u.usta_pe_kaynak_belge_no },
+  ];
+  return items
+    .filter((i) => i.value != null && String(i.value).trim() !== '')
+    .map((i) => ({ label: i.label, value: String(i.value) }));
+}
+function userNumaralariText(u: UserRow): string {
+  return userNumaralari(u).map((r) => `${r.label}${r.value}`).join(' ');
 }
 
 type KategoriTab = 'all' | 'admin' | 'pf' | 'df';
@@ -504,6 +546,8 @@ export function UsersTable({
             .some((v) => v.toLowerCase().includes(q))
         }
         emptyText="Bu filtreye uyan kullanıcı bulunamadı."
+        compact
+        storageKey="users"
       />
     </div>
   );

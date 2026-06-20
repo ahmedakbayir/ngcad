@@ -5,6 +5,10 @@
 //   - diğer operatörler metin için kullanılmaz → fallback substring contains
 // Operatörsüz değer: case-insensitive substring contains (Türkçe locale).
 //
+// BOŞ/DOLU TOKEN'LARI: filtre kutusuna "null" yazılırsa boş hücreler, "not null"
+// yazılırsa dolu hücreler getirilir. "!= null" / "<> null" de "dolu" anlamına
+// gelir. Token'lar case-insensitive ve trim'lenir.
+//
 // Tarih desteği: hem hücre hem de filtre değeri ISO formatında (YYYY-MM-DD,
 // YYYY-MM veya YYYY) ise tarih karşılaştırması uygulanır. Operatöre göre
 // kısmi tarihler aralığın uç noktasına genişler: >2026 → 2026-12-31'den sonra,
@@ -80,6 +84,15 @@ export function smartMatch(rowValueRaw: unknown, filterRaw: string): boolean {
   if (!rest) return true;
 
   const cellStr = String(rowValueRaw ?? '');
+
+  // Boş/dolu token'ları — operatör veya operatörsüz çalışır.
+  const restLc = rest.trim().toLocaleLowerCase('tr');
+  const isCellEmpty = cellStr.trim() === '';
+  const isNullToken = restLc === 'null';
+  const isNotNullToken = restLc === 'not null' || restLc === 'notnull';
+  if (op == null && isNullToken) return isCellEmpty;
+  if (op == null && isNotNullToken) return !isCellEmpty;
+  if ((op === '!=' || op === '<>') && isNullToken) return !isCellEmpty;
   // Sayısal değer denemesi (hem hücre hem filtre tarafında).
   const cellNum = toNum(cellStr);
   const filterNum = toNum(rest);

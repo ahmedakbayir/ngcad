@@ -53,6 +53,7 @@ export default async function PFListPage() {
           pfDfMap={pfDfMap}
           dfMaster={dfRows.map((d) => ({ id: d.id, parent_id: d.parent_id }))}
           yetkiliUserById={yetkiliUserById}
+          compact
         />
       )}
     </div>

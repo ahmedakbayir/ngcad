@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Save, Trash2, UserPlus } from 'lucide-react';
+import { Loader2, Plus, Save, Trash2, UserPlus, ExternalLink } from 'lucide-react';
 import type { FirmaRow } from '@/lib/supabase/types';
 import { FirmMultiSelect, type FirmOption } from '@/components/firm-multiselect';
 import { QuickUserDialog } from '@/components/quick-user-dialog';
@@ -196,6 +196,11 @@ export function FirmForm({
   const dfParentId = kind === 'df' ? form.watch('parent_id') : null;
   const dfIsChild = kind === 'df' && !!dfParentId;
 
+  // PF alt firma (şube) ise vergi dairesi + vergi no gizlenir — şubeler kendi
+  // vergi kimliğini taşımaz, üst firmadan miras alır.
+  const pfParentId = kind === 'pf' ? form.watch('parent_id') : null;
+  const pfIsChild = kind === 'pf' && !!pfParentId;
+
   // YENİ firma: firma adı girildikçe e-posta otomatik türetilir; admin elle
   // değiştirirse (son türetilen ile uyuşmuyorsa) auto-update durur.
   const watchedAdi = form.watch('firma_adi') ?? '';
@@ -212,7 +217,7 @@ export function FirmForm({
   }, [watchedAdi, mode, form]);
 
   // Üst firmadan "Yeni Alt Firma ekle" akışı (kind=pf + create + defaultParentId):
-  // DF seçilince firma_adi otomatik "<ÜstAdı> / <DFAdı>" şeklinde türetilir.
+  // DF seçilince firma_adi otomatik "<ÜstAdı> (<DFAdı>)" şeklinde türetilir.
   // DF temizlenirse alan boş döner (parent adı tek başına anlamsız).
   // Admin firma_adi'yi elle değiştirirse otomatik güncelleme durur.
   const watchedDfId = kind === 'pf' ? form.watch('df_id') : null;
@@ -227,7 +232,7 @@ export function FirmForm({
     const current = form.getValues('firma_adi') ?? '';
     // Admin elle yazdıysa (son auto ile eşleşmiyorsa) dokunma.
     if (current && current !== lastAutoFirmaAdi.current) return;
-    const auto = dfAdi ? `${parentAdi} / ${dfAdi}` : '';
+    const auto = dfAdi ? `${parentAdi} (${dfAdi})` : '';
     if (auto !== current) {
       form.setValue('firma_adi', auto);
       lastAutoFirmaAdi.current = auto;
@@ -326,6 +331,12 @@ export function FirmForm({
         } else {
           payload.alt_firma_ids = [];
           if (payload.df_id === '') payload.df_id = null;
+        }
+        // PF alt firma (şube): vergi alanları üst firmadan miras alınır, kendi
+        // değerlerini saklamasın — formda gizli olduğu için stale değer kalmasın.
+        if (payload.parent_id) {
+          payload.vergi_dairesi = null;
+          payload.vergi_no = null;
         }
       }
       const res = await fetch(url, {
@@ -442,26 +453,41 @@ export function FirmForm({
                     (p) => p.ust_firma === true && p.id !== initial?.id,
                   );
                   return (
-                    <Select
-                      value={field.value ?? '__none__'}
-                      onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={
-                            candidates.length === 0
-                              ? 'Önce bir ÜST FİRMA tanımlayın'
-                              : 'Üst yok'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— Üst yok —</SelectItem>
-                        {candidates.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.firma_adi}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-1.5">
+                      <Select
+                        value={field.value ?? '__none__'}
+                        onValueChange={(v) => field.onChange(v === '__none__' ? null : v)}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue
+                            placeholder={
+                              candidates.length === 0
+                                ? 'Önce bir ÜST FİRMA tanımlayın'
+                                : 'Üst yok'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">— Üst yok —</SelectItem>
+                          {candidates.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>{p.firma_adi}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {field.value && (
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 shrink-0"
+                          title="Üst firma detayını aç"
+                        >
+                          <Link href={`/firms/${kind}/${field.value}`}>
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
                   );
                 }}
               />
@@ -594,12 +620,16 @@ export function FirmForm({
             <Input type="email" {...form.register('firma_email')} placeholder="" />
           </RowField>
 
-          <RowField label="Vergi Dairesi">
-            <Input {...form.register('vergi_dairesi')} />
-          </RowField>
-          <RowField label="Vergi No">
-            <Input {...form.register('vergi_no')} />
-          </RowField>
+          {!pfIsChild && (
+            <>
+              <RowField label="Vergi Dairesi">
+                <Input {...form.register('vergi_dairesi')} />
+              </RowField>
+              <RowField label="Vergi No">
+                <Input {...form.register('vergi_no')} />
+              </RowField>
+            </>
+          )}
 
           {kind === 'pf' && (
             <RowField label="Yeterlilik No">
@@ -709,11 +739,7 @@ export function FirmForm({
                   <Plus className="h-3.5 w-3.5" />
                   Yeni Alt Firma Ekle
                 </Link>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Açılan formda üst firma {initial.firma_adi} olarak seçili gelir;
-                  DF seçince firma adı &ldquo;{initial.firma_adi} / &lt;DF Adı&gt;&rdquo;
-                  şeklinde otomatik dolar.
-                </p>
+
               </div>
             )}
           </CardContent>

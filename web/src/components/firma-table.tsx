@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/data-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Building2, ChevronDown, ChevronRight, Pencil } from 'lucide-react';
+import { Building2, ChevronDown, ChevronRight } from 'lucide-react';
 import type { FirmaRow } from '@/lib/supabase/types';
 import { collapseFirmHierarchy } from '@/lib/firm-hierarchy';
 import { smartColumnFilterFn } from '@/lib/smart-filter';
@@ -385,9 +385,6 @@ export function FirmaTable({
                       </span>
                     )}
                   </div>
-                  {'yeterlilik_no' in r && r.yeterlilik_no && (
-                    <div className="whitespace-nowrap text-xs text-muted-foreground">{r.yeterlilik_no}</div>
-                  )}
                 </div>
               </Link>
             </div>
@@ -551,17 +548,15 @@ export function FirmaTable({
             filterFn: smartColumnFilterFn,
           } as ColumnDef<FirmaRow>]
         : []),
+      // Boş "actions" kolonu — DataTable filterActions'ı (Hepsini Aç/Kapat) ve
+      // "Filtreleri Temizle" butonunu en sağdaki filtre-konfigürasyonsuz hücreye
+      // yerleştirir. Kolon görünür ama içeriği yok.
       {
         id: 'actions',
         header: '',
         enableSorting: false,
-        cell: ({ row }) => (
-          <Button asChild variant="ghost" size="icon">
-            <Link href={`${basePath}/${row.original.id}`}>
-              <Pencil className="h-4 w-4" />
-            </Link>
-          </Button>
-        ),
+        size: 36,
+        cell: () => null,
       },
     ],
     [
@@ -644,6 +639,7 @@ export function FirmaTable({
       manualSorting
       compact={compact}
       filterActions={filterActions}
+      storageKey={basePath === '/firms/pf' ? 'firms-pf' : basePath === '/firms/df' ? 'firms-df' : undefined}
       searchPlaceholder="Firma adı, e-posta ara…"
       globalFilterFn={(r, q) =>
         [r.firma_adi, r.firma_email ?? '', r.firma_tel ?? '', r.vergi_no ?? '', r.vergi_dairesi ?? '']

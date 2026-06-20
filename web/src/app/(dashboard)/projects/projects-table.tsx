@@ -6,7 +6,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, FolderKanban, Pencil } from 'lucide-react';
+import { ExternalLink, FolderKanban } from 'lucide-react';
 
 interface ProjectRowJoined {
   id: string;
@@ -126,18 +126,11 @@ const columns: ColumnDef<ProjectRowJoined>[] = [
     header: '',
     enableSorting: false,
     cell: ({ row }) => (
-      <div className="flex items-center gap-1">
-        <Button asChild variant="ghost" size="icon" title="Düzenle">
-          <Link href={`/projects/${row.original.id}`}>
-            <Pencil className="h-4 w-4" />
-          </Link>
-        </Button>
-        <Button asChild variant="ghost" size="icon" title="CAD'de Aç">
-          <a href={`${CAD_BASE}?project=${row.original.id}`} target="_blank" rel="noreferrer">
-            <ExternalLink className="h-4 w-4" />
-          </a>
-        </Button>
-      </div>
+      <Button asChild variant="ghost" size="icon" title="CAD'de Aç">
+        <a href={`${CAD_BASE}?project=${row.original.id}`} target="_blank" rel="noreferrer">
+          <ExternalLink className="h-4 w-4" />
+        </a>
+      </Button>
     ),
   },
 ];
@@ -153,6 +146,7 @@ export function ProjectsTable({ rows }: { rows: ProjectRowJoined[] }) {
           .some((v) => v.toLowerCase().includes(q))
       }
       emptyText="Henüz proje yok."
+      storageKey="projects"
     />
   );
 }

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/auth-guards';
 import { syncFirmaJunctions } from '@/lib/user-junctions';
+import { fillUnvanIfBlank } from '@/lib/user-roles';
 
 export async function PATCH(
   req: NextRequest,
@@ -13,6 +14,10 @@ export async function PATCH(
   const { id } = await params;
   const body = await req.json();
   const { yetkili_firma_ids = [], auto_inherit_firma_ids = [], password, ...userData } = body;
+  // Ünvan boş gelirse rol flag'lerinden otomatik doldur (admin elle değer
+  // girdiyse dokunma). Form tam payload gönderdiği için rol flag'leri burada
+  // mevcut olur; partial PATCH'te flag yoksa türetme '' kalır ve unvan değişmez.
+  fillUnvanIfBlank(userData);
 
   const admin = supabaseAdmin();
 

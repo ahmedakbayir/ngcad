@@ -121,6 +121,11 @@ interface UserFormProps {
   pfList: PFListItem[];
   dfList: DFListItem[];
   mode: 'create' | 'edit';
+  // PF/DF detayından "Kullanıcı Ekle" akışı: yalnız create modunda kullanılır.
+  // Form ilgili kanalı (firma_kullanicisi/gdf_kullanicisi) açar ve firma id'sini
+  // yetkili_firma_ids'e prefill eder.
+  prefillPfId?: string | null;
+  prefillDfId?: string | null;
 }
 
 // Türkçe karakterleri ASCII'ye düşürüp e-posta yerel kısmı için temiz slug üretir.
@@ -144,7 +149,11 @@ function deriveEmailFromAdi(adi: string): string {
   return `${first}@${last}.com`;
 }
 
-const defaults = (init: UserFormProps['initial'] | undefined, mode: 'create' | 'edit'): UserFormData => ({
+const defaults = (
+  init: UserFormProps['initial'] | undefined,
+  mode: 'create' | 'edit',
+  prefill?: { pfId?: string | null; dfId?: string | null },
+): UserFormData => ({
   adi: init?.adi ?? '',
   unvan: init?.unvan ?? '',
   email: init?.email ?? '',
@@ -154,7 +163,7 @@ const defaults = (init: UserFormProps['initial'] | undefined, mode: 'create' | '
   gsm: init?.gsm ?? (mode === 'create' ? '0212 255 55 55' : ''),
   profil_fotografi: init?.profil_fotografi ?? '',
   is_admin: init?.is_admin ?? false,
-  firma_kullanicisi: init?.firma_kullanicisi ?? false,
+  firma_kullanicisi: init?.firma_kullanicisi ?? (mode === 'create' && !!prefill?.pfId),
   firma_yonetici: init?.firma_yonetici ?? false,
   firma_yonetici_kademe: init?.firma_yonetici_kademe ?? null,
   firma_proje_muhendisi: init?.firma_proje_muhendisi ?? false,
@@ -166,7 +175,7 @@ const defaults = (init: UserFormProps['initial'] | undefined, mode: 'create' | '
   usta_celik_kaynak_belge_no: init?.usta_celik_kaynak_belge_no ?? '',
   usta_pe_kaynak: init?.usta_pe_kaynak ?? false,
   usta_pe_kaynak_belge_no: init?.usta_pe_kaynak_belge_no ?? '',
-  gdf_kullanicisi: init?.gdf_kullanicisi ?? false,
+  gdf_kullanicisi: init?.gdf_kullanicisi ?? (mode === 'create' && !!prefill?.dfId),
   gdf_yonetici: init?.gdf_yonetici ?? false,
   gdf_yonetici_kademe: init?.gdf_yonetici_kademe ?? null,
   gdf_onay_muhendisi: init?.gdf_onay_muhendisi ?? false,
@@ -178,18 +187,34 @@ const defaults = (init: UserFormProps['initial'] | undefined, mode: 'create' | '
   proje_muh_yetki_durumu: init?.proje_muh_yetki_durumu ?? null,
   onay_muh_gdf_sicil_no: init?.onay_muh_gdf_sicil_no ?? '',
   gaz_acma_muh_ekip_no: init?.gaz_acma_muh_ekip_no ?? '',
-  yetkili_firma_ids: init?.yetkili_firma_ids ?? [],
+  yetkili_firma_ids:
+    init?.yetkili_firma_ids ??
+    (mode === 'create'
+      ? prefill?.pfId
+        ? [prefill.pfId]
+        : prefill?.dfId
+          ? [prefill.dfId]
+          : []
+      : []),
   auto_inherit_firma_ids: init?.auto_inherit_firma_ids ?? [],
 });
 
-export function UserForm({ initial, candidateYoneticiler, pfList, dfList, mode }: UserFormProps) {
+export function UserForm({
+  initial,
+  candidateYoneticiler,
+  pfList,
+  dfList,
+  mode,
+  prefillPfId = null,
+  prefillDfId = null,
+}: UserFormProps) {
   const router = useRouter();
   const [pending, setPending] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(schema),
-    defaultValues: defaults(initial, mode),
+    defaultValues: defaults(initial, mode, { pfId: prefillPfId, dfId: prefillDfId }),
   });
 
   // YENİ kullanıcı: isim girildikçe e-posta otomatik türetilir
