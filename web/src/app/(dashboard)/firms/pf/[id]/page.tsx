@@ -2,12 +2,13 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { FirmForm } from '@/components/firm-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, Network } from 'lucide-react';
-import { AttachUserButton, type AttachUserOption } from '@/components/attach-user-dialog';
+import { AttachUserSplitButton } from '@/components/attach-user-split-button';
+import type { AttachUserOption } from '@/components/attach-user-dialog';
 import { sortByRolRank, userRolRank } from '@/lib/user-roles';
 
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
   // Yetkili kullanıcı adaylarını da kapsayacak şekilde: bu PF + (varsa) parent PF.
   const userPfIds = firm.parent_id ? [id, firm.parent_id] : [id];
 
-  const [pf, df, usersLinked, children, pfYoneticileri, allPfUsers, allUserPf] = await Promise.all([
+  const [pf, df, usersLinked, children, allPfUsers, allUserPf, allUsersById] = await Promise.all([
     supabase
       .from('proje_firmalari')
       .select('id, firma_adi, parent_id, ust_firma, yetkili_user_id')
@@ -49,15 +50,6 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
       .select('id, no, firma_adi')
       .eq('parent_id', id)
       .order('firma_adi'),
-    // Yetkili kullanıcı dropdown'u: tüm PF Yöneticileri (Üst veya Orta kademe).
-    // Aile dışı filtre aşağıda uygulanır — başka aile parent'ının yetkilisi listeye
-    // girmez.
-    supabase
-      .from('users')
-      .select('id, adi, firma_yonetici_kademe')
-      .eq('firma_kullanicisi', true)
-      .eq('firma_yonetici', true)
-      .order('adi'),
     // "Mevcut Kullanıcı Ekle" havuzu: tüm PF kullanıcıları + rol/yetkili firma
     // hesaplaması için ihtiyaç duyulan flag'ler.
     supabase
@@ -70,7 +62,22 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
     // Aile filtresi için: her user'ın hangi PF'lere bağlı olduğu. Boşta + aile içi
     // user'lar listeye girer; başka aileye bağlı olanlar dışlanır.
     supabase.from('user_pf').select('user_id, pf_id'),
+    // Üst Firma dropdown'unda yetkili adı yan yana göstermek için id→adi map.
+    supabase.from('users').select('id, adi'),
   ]);
+  const userAdiById = new Map<string, string>(
+    ((allUsersById.data ?? []) as { id: string; adi: string }[]).map((u) => [u.id, u.adi]),
+  );
+  const parentListWithYetkili = ((pf.data ?? []) as {
+    id: string;
+    firma_adi: string;
+    parent_id: string | null;
+    ust_firma: boolean;
+    yetkili_user_id: string | null;
+  }[]).map((p) => ({
+    ...p,
+    yetkili_adi: p.yetkili_user_id ? userAdiById.get(p.yetkili_user_id) ?? null : null,
+  }));
 
   const alt_firma_ids = (children.data ?? []).map((c) => c.id as string);
   // Sadece bu PF'e doğrudan bağlı user'lar — "Bağlı kullanıcılar" kartı için.
@@ -89,33 +96,55 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
     });
 
   // Aile = root (parent_id varsa parent, yoksa kendisi) + root'un tüm child'ları.
-  // Aile dışında bir PF'de yetkili olan user'lar dropdown'dan dışlanır.
+  // "Diğer havuzu" filtresi için familyIds (aşağıda kullanılır) lazım.
   const rootId = firm.parent_id ?? id;
   const familyIds = new Set<string>([rootId]);
   ((pf.data ?? []) as { id: string; parent_id: string | null }[]).forEach((p) => {
     if (p.parent_id === rootId) familyIds.add(p.id);
   });
-  const excludedYetkiliIds = new Set<string>();
-  ((pf.data ?? []) as { id: string; yetkili_user_id: string | null }[]).forEach((p) => {
-    if (p.yetkili_user_id && !familyIds.has(p.id)) {
-      excludedYetkiliIds.add(p.yetkili_user_id);
-    }
-  });
-  // Mevcut yetkili (legacy veri başka aileye atanmış olabilir) her zaman seçili
-  // kalabilsin diye filtreden muaf tutulur.
-  if (firm.yetkili_user_id) excludedYetkiliIds.delete(firm.yetkili_user_id);
 
-  const eligibleYetkililer = ((pfYoneticileri.data ?? []) as {
-    id: string;
-    adi: string;
-    firma_yonetici_kademe: 'ust' | 'orta' | null;
-  }[])
-    .filter((u) => !excludedYetkiliIds.has(u.id))
-    .map((u) => ({
+  // Yetkili Kullanıcı combobox listesi: SADECE bu firma + (varsa) parent firma'da
+  // junction'a kayıtlı yöneticiler (kullanıcı kuralı). usersLinked.data zaten
+  // user_pf JOIN sonucu — pf_id IN [this, parent]. Yöneticileri filtreleyip
+  // dedupe ederiz; "Yeni / Diğer" zaten caret-dropdown'dan açılır.
+  const yetkiliSeen = new Set<string>();
+  const eligibleYetkililer: { id: string; adi: string; rolEtiketi: 'Üst Yönetici' | 'Yönetici' }[] =
+    [];
+  ((usersLinked.data ?? []) as unknown as {
+    users: {
+      id: string;
+      adi: string;
+      firma_yonetici: boolean;
+      firma_yonetici_kademe: 'ust' | 'orta' | null;
+    };
+  }[]).forEach((r) => {
+    const u = r.users;
+    if (!u || !u.firma_yonetici) return;
+    if (yetkiliSeen.has(u.id)) return;
+    yetkiliSeen.add(u.id);
+    eligibleYetkililer.push({
       id: u.id,
       adi: u.adi,
-      rolEtiketi: (u.firma_yonetici_kademe === 'ust' ? 'Üst Yönetici' : 'Yönetici') as 'Üst Yönetici' | 'Yönetici',
-    }));
+      rolEtiketi: u.firma_yonetici_kademe === 'ust' ? 'Üst Yönetici' : 'Yönetici',
+    });
+  });
+  // Mevcut yetkili (legacy: junction kaybolmuş olabilir) listede yoksa
+  // ekstra fetch'siz allPfUsers içinde aranır — Select'te değer kaybolmasın.
+  if (firm.yetkili_user_id && !yetkiliSeen.has(firm.yetkili_user_id)) {
+    const u = ((allPfUsers.data ?? []) as {
+      id: string;
+      adi: string;
+      firma_yonetici: boolean;
+      firma_yonetici_kademe: 'ust' | 'orta' | null;
+    }[]).find((x) => x.id === firm.yetkili_user_id);
+    if (u) {
+      eligibleYetkililer.push({
+        id: u.id,
+        adi: u.adi,
+        rolEtiketi: u.firma_yonetici_kademe === 'ust' ? 'Üst Yönetici' : 'Yönetici',
+      });
+    }
+  }
 
   // "Mevcut Kullanıcı Ekle" combobox havuzu — bu PF'e doğrudan bağlı olmayan
   // PF kullanıcıları. user_id → yetkili olduğu PF firma adları haritası
@@ -237,7 +266,7 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
           alt_firma_ids,
           hasChildren: (children.data?.length ?? 0) > 0,
         }}
-        parentList={pf.data ?? []}
+        parentList={parentListWithYetkili}
         dfList={df.data ?? []}
         yetkiliUsers={eligibleYetkililer}
       />
@@ -254,18 +283,13 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
                 Bağlı Kullanıcılar ({totalUserCount})
               </CardTitle>
               <div className="flex flex-wrap items-center gap-2">
-                <AttachUserButton
+                <AttachUserSplitButton
                   kind="pf"
                   firmaId={firm.id}
                   firmaAdi={firm.firma_adi}
-                  availableUsers={availableAttachUsers}
+                  selfFirmaUsers={availableAttachUsers}
+                  excludeUserIds={Array.from(linkedUserIds)}
                 />
-                <Button asChild size="sm">
-                  <Link href={`/users/new?pf_id=${firm.id}`}>
-                    <Plus className="h-3.5 w-3.5" />
-                    Yeni Kullanıcı Ekle
-                  </Link>
-                </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">

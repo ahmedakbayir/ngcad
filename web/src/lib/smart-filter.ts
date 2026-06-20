@@ -89,7 +89,7 @@ export function smartMatch(rowValueRaw: unknown, filterRaw: string): boolean {
   const restLc = rest.trim().toLocaleLowerCase('tr');
   const isCellEmpty = cellStr.trim() === '';
   const isNullToken = restLc === 'null';
-  const isNotNullToken = restLc === 'not null' || restLc === 'notnull';
+  const isNotNullToken = restLc === 'not'|| restLc === 'not null' || restLc === 'notnull';
   if (op == null && isNullToken) return isCellEmpty;
   if (op == null && isNotNullToken) return !isCellEmpty;
   if ((op === '!=' || op === '<>') && isNullToken) return !isCellEmpty;

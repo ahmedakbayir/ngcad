@@ -180,6 +180,35 @@ export async function PATCH(
   const curParentId = (cur as { parent_id?: string | null } | null)?.parent_id;
   const curUstFirma = (cur as { ust_firma?: boolean } | null)?.ust_firma ?? false;
 
+  // SAHİP TEMİZLEME (DF Üst → alt DF): Alt DF'lerde sahip bilgisi olmamalı
+  // (kullanıcı kuralı). PATCH her çağrıldığında child'ların sahip'i null'a
+  // çekilir — mevcut stale veriyi de tek geçişte temizler.
+  if (kind === 'df' && curUstFirma) {
+    await admin
+      .from('dagitim_firmalari')
+      .update({ sahip: null })
+      .eq('parent_id', id);
+  }
+
+  // VERGİ CASCADE (PF Üst → alt PF): üst firmanın vergi_dairesi / vergi_no'su
+  // alt PF'lere SET edilir. Spec: "üst firmada bu veriler değişirse alt firmada
+  // da otomatik değişmiş olmalı". Hem PATCH'te vergi alanı geldiyse hem alt_firma_ids
+  // ile yeni child eklendiyse senkron olsun diye, mevcut DB değerini okuyup
+  // tüm alt'lara idempotent SET ederiz.
+  if (kind === 'pf' && curUstFirma) {
+    const { data: parentRow } = await admin
+      .from('proje_firmalari')
+      .select('vergi_dairesi, vergi_no')
+      .eq('id', id)
+      .single();
+    const vd = (parentRow as { vergi_dairesi?: string | null } | null)?.vergi_dairesi ?? null;
+    const vn = (parentRow as { vergi_no?: string | null } | null)?.vergi_no ?? null;
+    await admin
+      .from('proje_firmalari')
+      .update({ vergi_dairesi: vd, vergi_no: vn })
+      .eq('parent_id', id);
+  }
+
   // BACKFILL: Bu firmanın güncel parent_id'si varsa, kendisine bağlı kullanıcıları
   // o parent'a da bağla.
   if (curParentId) {

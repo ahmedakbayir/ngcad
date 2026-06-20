@@ -2,11 +2,12 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { supabaseServer } from '@/lib/supabase/server';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Users, Building2, Network, Plus } from 'lucide-react';
+import { ArrowLeft, Users, Building2, Network } from 'lucide-react';
 import { FirmForm } from '@/components/firm-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AttachUserButton, type AttachUserOption } from '@/components/attach-user-dialog';
+import { AttachUserSplitButton } from '@/components/attach-user-split-button';
+import type { AttachUserOption } from '@/components/attach-user-dialog';
 import { sortByRolRank, userRolRank } from '@/lib/user-roles';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +22,7 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
   // Yetkili kullanıcı adaylarını da kapsayacak şekilde: bu DF + (varsa) parent DF.
   const userDfIds = firm.parent_id ? [id, firm.parent_id] : [id];
 
-  const [df, usersLinked, pfLinked, children, dfYoneticileri, allDfUsers, allUserDf] = await Promise.all([
+  const [df, usersLinked, pfLinked, children, allDfUsers, allUserDf, allUsersById, allPfRows] = await Promise.all([
     supabase
       .from('dagitim_firmalari')
       .select('id, firma_adi, parent_id, ust_firma, yetkili_user_id')
@@ -49,15 +50,6 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
       .select('id, no, firma_adi')
       .eq('parent_id', id)
       .order('firma_adi'),
-    // Yetkili kullanıcı dropdown'u: tüm DF Yöneticileri (Üst veya Orta kademe).
-    // Aile dışı filtre aşağıda uygulanır — başka aile parent'ının yetkilisi listeye
-    // girmez.
-    supabase
-      .from('users')
-      .select('id, adi, gdf_yonetici_kademe')
-      .eq('gdf_kullanicisi', true)
-      .eq('gdf_yonetici', true)
-      .order('adi'),
     // "Mevcut Kullanıcı Ekle" havuzu: tüm DF kullanıcıları + rol/yetkili firma
     // hesaplaması için ihtiyaç duyulan flag'ler.
     supabase
@@ -70,7 +62,29 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
     // Aile filtresi: user_df junction üzerinden her user'ın bağlı olduğu DF setine
     // bakarak boşta + aile içi user'ları geçir.
     supabase.from('user_df').select('user_id, df_id'),
+    // Üst Firma dropdown'unda yetkili adını yan yana göstermek için id→adi map.
+    supabase.from('users').select('id, adi'),
+    // ÜST DF için: alt bölgelere bağlı tüm PF'leri tek seferde al — alt bölge
+    // satırının altında collaps olarak gösterilir. df_id, parent_id ile hangi
+    // alt bölgenin altına gireceği belli olur.
+    supabase
+      .from('proje_firmalari')
+      .select('id, firma_adi, no, df_id, parent_id, ust_firma')
+      .not('df_id', 'is', null),
   ]);
+  const userAdiById = new Map<string, string>(
+    ((allUsersById.data ?? []) as { id: string; adi: string }[]).map((u) => [u.id, u.adi]),
+  );
+  const parentListWithYetkili = ((df.data ?? []) as {
+    id: string;
+    firma_adi: string;
+    parent_id: string | null;
+    ust_firma: boolean;
+    yetkili_user_id: string | null;
+  }[]).map((d) => ({
+    ...d,
+    yetkili_adi: d.yetkili_user_id ? userAdiById.get(d.yetkili_user_id) ?? null : null,
+  }));
 
   // Sadece bu DF'ye doğrudan bağlı kullanıcılar — "Bağlı kullanıcılar" kartı için.
   // Hiyerarşi: Üst Yönetici → Yönetici → diğer roller; her grup içinde ada göre.
@@ -88,33 +102,53 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
     });
 
   // Aile = root (parent_id varsa parent, yoksa kendisi) + root'un tüm child'ları.
-  // Aile dışında bir DF'de yetkili olan user'lar dropdown'dan dışlanır.
+  // "Diğer havuzu" filtresi için familyIds aşağıda kullanılır.
   const rootId = firm.parent_id ?? id;
   const familyIds = new Set<string>([rootId]);
   ((df.data ?? []) as { id: string; parent_id: string | null }[]).forEach((d) => {
     if (d.parent_id === rootId) familyIds.add(d.id);
   });
-  const excludedYetkiliIds = new Set<string>();
-  ((df.data ?? []) as { id: string; yetkili_user_id: string | null }[]).forEach((d) => {
-    if (d.yetkili_user_id && !familyIds.has(d.id)) {
-      excludedYetkiliIds.add(d.yetkili_user_id);
-    }
-  });
-  // Mevcut yetkili (legacy veri başka aileye atanmış olabilir) her zaman seçili
-  // kalabilsin diye filtreden muaf tutulur.
-  if (firm.yetkili_user_id) excludedYetkiliIds.delete(firm.yetkili_user_id);
 
-  const eligibleYetkililer = ((dfYoneticileri.data ?? []) as {
-    id: string;
-    adi: string;
-    gdf_yonetici_kademe: 'ust' | 'orta' | null;
-  }[])
-    .filter((u) => !excludedYetkiliIds.has(u.id))
-    .map((u) => ({
+  // Yetkili Kullanıcı combobox listesi: SADECE bu firma + (varsa) parent firma'da
+  // junction'a kayıtlı GDF yöneticileri (kullanıcı kuralı). usersLinked.data
+  // zaten user_df JOIN — df_id IN [this, parent]. "Yeni / Diğer" caret-dropdown'dan.
+  const yetkiliSeen = new Set<string>();
+  const eligibleYetkililer: { id: string; adi: string; rolEtiketi: 'Üst Yönetici' | 'Yönetici' }[] =
+    [];
+  ((usersLinked.data ?? []) as unknown as {
+    users: {
+      id: string;
+      adi: string;
+      gdf_yonetici: boolean;
+      gdf_yonetici_kademe: 'ust' | 'orta' | null;
+    };
+  }[]).forEach((r) => {
+    const u = r.users;
+    if (!u || !u.gdf_yonetici) return;
+    if (yetkiliSeen.has(u.id)) return;
+    yetkiliSeen.add(u.id);
+    eligibleYetkililer.push({
       id: u.id,
       adi: u.adi,
-      rolEtiketi: (u.gdf_yonetici_kademe === 'ust' ? 'Üst Yönetici' : 'Yönetici') as 'Üst Yönetici' | 'Yönetici',
-    }));
+      rolEtiketi: u.gdf_yonetici_kademe === 'ust' ? 'Üst Yönetici' : 'Yönetici',
+    });
+  });
+  // Legacy: yetkili junction'da yoksa allDfUsers'tan ekle — Select'te değer kaybolmasın.
+  if (firm.yetkili_user_id && !yetkiliSeen.has(firm.yetkili_user_id)) {
+    const u = ((allDfUsers.data ?? []) as {
+      id: string;
+      adi: string;
+      gdf_yonetici: boolean;
+      gdf_yonetici_kademe: 'ust' | 'orta' | null;
+    }[]).find((x) => x.id === firm.yetkili_user_id);
+    if (u) {
+      eligibleYetkililer.push({
+        id: u.id,
+        adi: u.adi,
+        rolEtiketi: u.gdf_yonetici_kademe === 'ust' ? 'Üst Yönetici' : 'Yönetici',
+      });
+    }
+  }
 
   // "Mevcut Kullanıcı Ekle" havuzu — bu DF'ye doğrudan bağlı olmayan DF user'ları.
   // user_id → yetkili olduğu DF firma adları haritası df.data üzerinden çıkar.
@@ -158,6 +192,22 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
     arr.push(r.user_id);
     childUserIdsByDf.set(r.df_id, arr);
   });
+  // df_id → bağlı PF listesi (ÜST PF olanlar görünmez, child + standalone PF'ler).
+  type LinkedPF = {
+    id: string;
+    no: number | null;
+    firma_adi: string;
+    parent_id: string | null;
+    ust_firma: boolean;
+    df_id: string | null;
+  };
+  const pfsByDf = new Map<string, LinkedPF[]>();
+  ((allPfRows.data ?? []) as LinkedPF[]).forEach((p) => {
+    if (!p.df_id || p.ust_firma) return;
+    const arr = pfsByDf.get(p.df_id) ?? [];
+    arr.push(p);
+    pfsByDf.set(p.df_id, arr);
+  });
   const childrenWithUsers = (children.data ?? []).map((c) => ({
     id: c.id as string,
     no: c.no as number,
@@ -166,6 +216,9 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
       (childUserIdsByDf.get(c.id as string) ?? [])
         .map((uid) => dfUserById.get(uid))
         .filter((u): u is ChildUser => !!u),
+    ),
+    pfs: (pfsByDf.get(c.id as string) ?? []).sort((a, b) =>
+      a.firma_adi.localeCompare(b.firma_adi, 'tr'),
     ),
   }));
 
@@ -233,7 +286,7 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
           alt_firma_ids: (children.data ?? []).map((c) => c.id as string),
           hasChildren: (children.data?.length ?? 0) > 0,
         }}
-        parentList={df.data ?? []}
+        parentList={parentListWithYetkili}
         yetkiliUsers={eligibleYetkililer}
       />
 
@@ -249,18 +302,13 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
                 Bağlı Kullanıcılar ({totalUserCount})
               </CardTitle>
               <div className="flex flex-wrap items-center gap-2">
-                <AttachUserButton
+                <AttachUserSplitButton
                   kind="df"
                   firmaId={firm.id}
                   firmaAdi={firm.firma_adi}
-                  availableUsers={availableAttachUsers}
+                  selfFirmaUsers={availableAttachUsers}
+                  excludeUserIds={Array.from(linkedUserIds)}
                 />
-                <Button asChild size="sm">
-                  <Link href={`/users/new?df_id=${firm.id}`}>
-                    <Plus className="h-3.5 w-3.5" />
-                    Yeni Kullanıcı Ekle
-                  </Link>
-                </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -319,7 +367,9 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
                 )}
               </div>
 
-              {/* Alt bölgeler ve onların user'ları — ÜST FİRMA için. */}
+              {/* Alt bölgeler ve onların user'ları + bağlı PF'leri — ÜST FİRMA
+                  için. Her alt bölge native <details> ile collapsible: başlığa
+                  tıklayınca kullanıcılar + PF listesi açılır. */}
               {childrenWithUsers.length > 0 && (
                 <div className="space-y-2 border-t pt-3">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -327,59 +377,84 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
                   </p>
                   <ul className="space-y-2">
                     {childrenWithUsers.map((c) => (
-                      <li
-                        key={c.id}
-                        className="rounded-md border bg-muted/20 px-3 py-2"
-                      >
-                        <div className="flex items-center gap-2 text-sm">
-                          <Network className="h-3.5 w-3.5 text-muted-foreground" />
-                          <Link
-                            href={`/firms/df/${c.id}`}
-                            className="font-medium hover:underline"
-                          >
-                            #{c.no} {c.firma_adi}
-                          </Link>
-                          <span className="text-[11px] text-muted-foreground">
-                            ({c.users.length} kullanıcı)
-                          </span>
-                        </div>
-                        {c.users.length > 0 && (
-                          <ul className="mt-1.5 space-y-0.5 pl-5">
-                            {c.users.map((u) => {
-                              const rol = userRolEtiketi(u);
-                              return (
-                                <li
-                                  key={u.id}
-                                  className="flex flex-wrap items-center gap-x-2 text-[12px]"
-                                >
-                                  <Link
-                                    href={`/users/${u.id}`}
-                                    className="font-medium hover:underline"
-                                  >
-                                    {u.adi}
-                                  </Link>
-                                  {u.unvan && (
-                                    <span className="text-[10px] italic text-muted-foreground">
-                                      {u.unvan}
-                                    </span>
-                                  )}
-                                  {rol && (
-                                    <Badge
-                                      variant={rol.variant}
-                                      className={
-                                        rol.className
-                                          ? `${rol.className} text-[9px]`
-                                          : 'text-[9px]'
-                                      }
-                                    >
-                                      {rol.label}
-                                    </Badge>
-                                  )}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
+                      <li key={c.id} className="rounded-md border bg-muted/20">
+                        <details open className="group">
+                          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm">
+                            <Network className="h-3.5 w-3.5 text-muted-foreground transition-transform group-open:rotate-90" />
+                            <Link
+                              href={`/firms/df/${c.id}`}
+                              className="font-medium hover:underline"
+                            >
+                              #{c.no} {c.firma_adi}
+                            </Link>
+                            <span className="text-[11px] text-muted-foreground">
+                              ({c.users.length} kullanıcı · {c.pfs.length} PF)
+                            </span>
+                          </summary>
+                          <div className="grid gap-x-4 gap-y-2 px-3 pb-2 pl-8 sm:grid-cols-2">
+                            {c.users.length > 0 && (
+                              <div>
+                                <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                  Kullanıcılar
+                                </p>
+                                <ul className="space-y-0.5">
+                                  {c.users.map((u) => {
+                                    const rol = userRolEtiketi(u);
+                                    return (
+                                      <li
+                                        key={u.id}
+                                        className="flex flex-wrap items-center gap-x-2 text-[12px]"
+                                      >
+                                        <Link
+                                          href={`/users/${u.id}`}
+                                          className="font-medium hover:underline"
+                                        >
+                                          {u.adi}
+                                        </Link>
+                                        {u.unvan && (
+                                          <span className="text-[10px] italic text-muted-foreground">
+                                            {u.unvan}
+                                          </span>
+                                        )}
+                                        {rol && (
+                                          <Badge
+                                            variant={rol.variant}
+                                            className={
+                                              rol.className
+                                                ? `${rol.className} text-[9px]`
+                                                : 'text-[9px]'
+                                            }
+                                          >
+                                            {rol.label}
+                                          </Badge>
+                                        )}
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
+                            )}
+                            {c.pfs.length > 0 && (
+                              <div>
+                                <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                  Bağlı Proje Firmaları
+                                </p>
+                                <ul className="space-y-0.5">
+                                  {c.pfs.map((p) => (
+                                    <li key={p.id} className="text-[12px]">
+                                      <Link
+                                        href={`/firms/pf/${p.id}`}
+                                        className="font-medium hover:underline"
+                                      >
+                                        #{p.no ?? '–'} {p.firma_adi}
+                                      </Link>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </details>
                       </li>
                     ))}
                   </ul>
@@ -390,29 +465,34 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
         );
       })()}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Building2 className="h-4 w-4" />
-            Bağlı Proje Firmaları ({pfLinked.data?.length ?? 0})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {!pfLinked.data || pfLinked.data.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Henüz PF bağlı değil.</p>
-          ) : (
-            <ul className="divide-y">
-              {pfLinked.data.map((p) => (
-                <li key={p.id} className="py-2 text-sm">
-                  <Link href={`/firms/pf/${p.id}`} className="hover:underline">
-                    #{p.no} {p.firma_adi}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      {/* Bağlı PF kartı: Alt/Tekil DF için doğrudan bağlanan PF'leri listeler.
+          ÜST DF için PF'ler alt bölgelerin altında collaps olarak gösterildiği
+          için bu kart gizlenir. */}
+      {!firm.ust_firma && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Building2 className="h-4 w-4" />
+              Bağlı Proje Firmaları ({pfLinked.data?.length ?? 0})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!pfLinked.data || pfLinked.data.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Henüz PF bağlı değil.</p>
+            ) : (
+              <ul className="divide-y">
+                {pfLinked.data.map((p) => (
+                  <li key={p.id} className="py-2 text-sm">
+                    <Link href={`/firms/pf/${p.id}`} className="hover:underline">
+                      #{p.no} {p.firma_adi}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

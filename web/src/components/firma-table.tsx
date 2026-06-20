@@ -367,7 +367,9 @@ export function FirmaTable({
                   )}
                 </button>
               ) : (
-                <span className="inline-block h-3.5 w-3.5 shrink-0" />
+                // Caret button (p-0.5 + 3.5 icon = ~18px) ile aynı dış boyut
+                // olmalı; aksi halde alt birimi olmayan firma ikonu sola kayıyor.
+                <span className="inline-block h-[18px] w-[18px] shrink-0" />
               )}
               <Link
                 href={`${basePath}/${r.id}`}
@@ -431,6 +433,37 @@ export function FirmaTable({
         meta: { filter: { type: 'text' } },
         filterFn: smartColumnFilterFn,
       },
+      {
+        id: 'email',
+        header: 'E-posta',
+        accessorFn: (r: FirmaRow) => r.firma_email ?? '',
+        cell: ({ row }: { row: { original: FirmaRow } }) => {
+          const v = row.original.firma_email;
+          if (!v) return <span className="text-xs text-muted-foreground">—</span>;
+          return (
+            <a
+              href={`mailto:${v}`}
+              className="font-mono text-[11px] hover:underline"
+            >
+              {v}
+            </a>
+          );
+        },
+        meta: { filter: { type: 'text', placeholder: 'mail…' } },
+        filterFn: smartColumnFilterFn,
+      } as ColumnDef<FirmaRow>,
+      {
+        id: 'tel',
+        header: 'Telefon',
+        accessorFn: (r: FirmaRow) => r.firma_tel ?? '',
+        cell: ({ row }: { row: { original: FirmaRow } }) => {
+          const v = row.original.firma_tel;
+          if (!v) return <span className="text-xs text-muted-foreground">—</span>;
+          return <span className="font-mono text-[11px]">{v}</span>;
+        },
+        meta: { filter: { type: 'text', placeholder: 'tel…' } },
+        filterFn: smartColumnFilterFn,
+      } as ColumnDef<FirmaRow>,
       ...(basePath === '/firms/df'
         ? [
             {
@@ -514,6 +547,15 @@ export function FirmaTable({
               const raw = pfDfMap?.[row.original.id] ?? [];
               const dfs = collapseFirmHierarchy(raw, dfMaster ?? []);
               if (dfs.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+              // ÜST PF + child'ları farklı DF root'larına bağlıysa "KARMA" rozeti
+              // göster (spec: tek root → o DF, çoklu root → KARMA).
+              if (dfs.length > 1) {
+                return (
+                  <Badge variant="warning" className="text-[10px]">
+                    KARMA
+                  </Badge>
+                );
+              }
               return (
                 <div className="flex flex-col gap-0.5 text-xs">
                   {dfs.map((d) => (

@@ -107,6 +107,9 @@ export interface PFListItem {
   firma_adi: string;
   parent_id: string | null;
   df_adlari?: string[];   // bu PF'in bağlı olduğu DF adları (gösterimde "(GDF: X, Y)")
+  // Bağlı tek DF id'si (tek-DF modeli). Yetkili Firmalar listesinde DF filtresi
+  // için kullanılır; üst PF için child'lardan türetilir (server tarafı).
+  df_id?: string | null;
 }
 
 export interface DFListItem {
@@ -153,6 +156,8 @@ const defaults = (
   init: UserFormProps['initial'] | undefined,
   mode: 'create' | 'edit',
   prefill?: { pfId?: string | null; dfId?: string | null },
+  pfList?: PFListItem[],
+  dfList?: DFListItem[],
 ): UserFormData => ({
   adi: init?.adi ?? '',
   unvan: init?.unvan ?? '',
@@ -191,9 +196,19 @@ const defaults = (
     init?.yetkili_firma_ids ??
     (mode === 'create'
       ? prefill?.pfId
-        ? [prefill.pfId]
+        ? (() => {
+            // Prefill alt firma ise parent'ı da junction'a dahil et — UserForm'da
+            // child seçilince parent otomatik eklendiği için server cascade ile
+            // tutarlı olsun (kullanıcı: "halbuki ben firmayı userin sayfası
+            // içinden ekleseydim parentini eklediği gibi altta switch gelirdi").
+            const pf = pfList?.find((p) => p.id === prefill.pfId);
+            return pf?.parent_id ? [pf.parent_id, prefill.pfId] : [prefill.pfId];
+          })()
         : prefill?.dfId
-          ? [prefill.dfId]
+          ? (() => {
+              const df = dfList?.find((d) => d.id === prefill.dfId);
+              return df?.parent_id ? [df.parent_id, prefill.dfId] : [prefill.dfId];
+            })()
           : []
       : []),
   auto_inherit_firma_ids: init?.auto_inherit_firma_ids ?? [],
@@ -214,7 +229,13 @@ export function UserForm({
 
   const form = useForm<UserFormData>({
     resolver: zodResolver(schema),
-    defaultValues: defaults(initial, mode, { pfId: prefillPfId, dfId: prefillDfId }),
+    defaultValues: defaults(
+      initial,
+      mode,
+      { pfId: prefillPfId, dfId: prefillDfId },
+      pfList,
+      dfList,
+    ),
   });
 
   // YENİ kullanıcı: isim girildikçe e-posta otomatik türetilir
@@ -313,8 +334,17 @@ export function UserForm({
           firma_adi: p.firma_adi,
           parent_id: p.parent_id,
           hint: p.df_adlari && p.df_adlari.length > 0 ? p.df_adlari : undefined,
+          dfId: p.df_id ?? null,
         }))
       : [];
+
+  // PF için "Yetkili Firmalar" listbox'ında DF filtresi — yalnız PF user'da
+  // kullanılır; DF kullanıcısında zaten her satır bir DF olduğu için anlamsız.
+  const dfFilterOptions = w.firma_kullanicisi
+    ? dfList
+        .filter((d) => !d.parent_id) // Sadece üst DF / standalone'ları göster
+        .map((d) => ({ id: d.id, firma_adi: d.firma_adi }))
+    : undefined;
 
   // Bağlı olduğu yönetici adayları: kullanıcının ETKİN (operasyonel) firmalarından
   // birinde yetkili olan yöneticiler. FirmMultiSelect bir alt birim eklenince
@@ -746,7 +776,10 @@ export function UserForm({
                   listboxLabel="Yetkili Olduğu Firmalar"
                   placeholder="Firma adıyla ara…"
                   emptyText={w.gdf_kullanicisi ? 'Tanımlı DF yok.' : 'Tanımlı PF yok.'}
-                  singleAnchor={w.gdf_kullanicisi}
+                  // singleAnchor=false: DF kullanıcısı birden fazla üst DF'ye
+                  // yetkilendirilebilmeli; PF için de aynısı geçerli.
+                  singleAnchor={false}
+                  dfFilterOptions={dfFilterOptions}
                   autoInheritIds={w.auto_inherit_firma_ids}
                   onAutoInheritChange={(parentId, on) => {
                     const cur = new Set(form.getValues('auto_inherit_firma_ids'));
@@ -783,7 +816,7 @@ export function UserForm({
           </Button>
           <Button type="submit" disabled={pending}>
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Kaydet ve Bitir
+            Kaydet ve Çık
           </Button>
         </div>
       </div>

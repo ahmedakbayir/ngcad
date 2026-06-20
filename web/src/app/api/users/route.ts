@@ -25,6 +25,23 @@ export async function POST(req: NextRequest) {
 
   const admin = supabaseAdmin();
 
+  // Email tekillik: DB unique constraint zaten var ama önce kontrol edip
+  // anlamlı bir mesaj döneriz (Supabase auth tarafı opak hata verir).
+  if (userData.email) {
+    const { data: clash } = await admin
+      .from('users')
+      .select('id')
+      .eq('email', userData.email)
+      .limit(1)
+      .maybeSingle();
+    if (clash) {
+      return NextResponse.json(
+        { error: `Bu e-posta zaten kayıtlı: ${userData.email}` },
+        { status: 409 },
+      );
+    }
+  }
+
   // 1) Auth kullanıcısı — parola atanmış, e-posta doğrulanmış.
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email: userData.email,

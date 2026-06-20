@@ -141,11 +141,21 @@ function buildColumns(
     }
     return cur ? { id: cur.id, firma_adi: cur.firma_adi } : null;
   }
-  // Kullanıcının bağlı olduğu (DF doğrudan veya PF → DF) ilk üst GDF.
-  function userUstGdf(u: UserRow): { id: string; firma_adi: string } | null {
-    const directDfId = userDfMap?.[u.id]?.[0]?.id;
-    const pfDfId = userPfMap?.[u.id]?.[0]?.dfs?.[0]?.id;
-    return topDfOf(directDfId) ?? topDfOf(pfDfId);
+  // Kullanıcının bağlı olduğu TÜM DF'leri (direct + PF üzerinden) distinct üst
+  // GDF (root) listesine indirger. Tek root → o DF, çoklu root → "KARMA".
+  function userUstGdfs(u: UserRow): { id: string; firma_adi: string }[] {
+    const seen = new Set<string>();
+    const tops: { id: string; firma_adi: string }[] = [];
+    const push = (id: string | undefined) => {
+      const t = topDfOf(id);
+      if (!t) return;
+      if (seen.has(t.id)) return;
+      seen.add(t.id);
+      tops.push(t);
+    };
+    (userDfMap?.[u.id] ?? []).forEach((d) => push(d.id));
+    (userPfMap?.[u.id] ?? []).forEach((pf) => pf.dfs?.forEach((d) => push(d.id)));
+    return tops;
   }
   // Üst GDF filter combobox seçenekleri: parent'ı olmayan tüm DF'ler (parent
   // firma veya standalone), alfabetik.
@@ -162,12 +172,9 @@ function buildColumns(
       cell: ({ row }) => {
         const u = row.original;
         return (
-          <Link href={`/users/${u.id}`} className="flex items-center gap-3 hover:underline">
-            <Avatar src={u.profil_fotografi} name={u.adi} size={32} />
-            <div className="leading-tight">
-              <div className="font-medium">{u.adi}</div>
-              <div className="text-xs text-muted-foreground">{u.email}</div>
-            </div>
+          <Link href={`/users/${u.id}`} className="flex items-center gap-2 hover:underline">
+            <Avatar src={u.profil_fotografi} name={u.adi} size={24} />
+            <div className="text-sm font-medium leading-tight">{u.adi}</div>
           </Link>
         );
       },
@@ -186,6 +193,34 @@ function buildColumns(
         return <span className="text-xs">{v}</span>;
       },
       meta: { filter: { type: 'text', placeholder: 'Ünvan…' } },
+      filterFn: smartColumnFilterFn,
+    },
+    {
+      id: 'email',
+      header: 'E-posta',
+      accessorFn: (u) => u.email ?? '',
+      cell: ({ row }) => {
+        const v = row.original.email;
+        if (!v) return <span className="text-xs text-muted-foreground">—</span>;
+        return (
+          <a href={`mailto:${v}`} className="font-mono text-[11px] hover:underline">
+            {v}
+          </a>
+        );
+      },
+      meta: { filter: { type: 'text', placeholder: 'mail…' } },
+      filterFn: smartColumnFilterFn,
+    },
+    {
+      id: 'gsm',
+      header: 'GSM / Tel',
+      accessorFn: (u) => u.gsm ?? '',
+      cell: ({ row }) => {
+        const v = row.original.gsm;
+        if (!v) return <span className="text-xs text-muted-foreground">—</span>;
+        return <span className="font-mono text-[11px]">{v}</span>;
+      },
+      meta: { filter: { type: 'text', placeholder: 'gsm…' } },
       filterFn: smartColumnFilterFn,
     },
     {
@@ -235,10 +270,24 @@ function buildColumns(
     {
       id: 'ust_gdf',
       header: 'Üst GDF',
-      accessorFn: (u) => userUstGdf(u)?.firma_adi ?? '',
+      // Sıralama için: 1 root → o ad, 2+ root → "KARMA", 0 → boş.
+      accessorFn: (u) => {
+        const tops = userUstGdfs(u);
+        if (tops.length === 0) return '';
+        if (tops.length > 1) return 'KARMA';
+        return tops[0].firma_adi;
+      },
       cell: ({ row }) => {
-        const t = userUstGdf(row.original);
-        if (!t) return <span className="text-xs text-muted-foreground">—</span>;
+        const tops = userUstGdfs(row.original);
+        if (tops.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+        if (tops.length > 1) {
+          return (
+            <Badge variant="warning" className="text-[10px]">
+              KARMA
+            </Badge>
+          );
+        }
+        const t = tops[0];
         return (
           <Link href={`/firms/df/${t.id}`} className="text-xs font-medium hover:underline">
             {t.firma_adi}
@@ -247,8 +296,10 @@ function buildColumns(
       },
       meta: { filter: { type: 'select', options: ustGdfOptions } },
       filterFn: (row, _id, value) => {
-        const t = userUstGdf(row.original);
-        return t?.id === String(value);
+        // Filtre seçilen GDF, kullanıcının distinct root listesinde varsa eşleşir
+        // (karma kullanıcılar her root için filtre sonucunda görünür).
+        const tops = userUstGdfs(row.original);
+        return tops.some((t) => t.id === String(value));
       },
     },
     {
@@ -452,11 +503,17 @@ export function UsersTable({
       result = result.filter((u) => getUserKategori(u) === kategoriTab);
     }
     if (dfFilter !== 'all') {
+      // Parent DF seçildiyse child'larını da kapsama dahil et — kullanıcı kuralı:
+      // "GDF filtrede parent seçilirse sonuçlarda child olanlar da listelensin".
+      const targetDfIds = new Set<string>([dfFilter]);
+      (dfList ?? []).forEach((d) => {
+        if (d.parent_id === dfFilter) targetDfIds.add(d.id);
+      });
       result = result.filter((u) => {
         const directDfs = userDfMap?.[u.id] ?? [];
-        if (directDfs.some((d) => d.id === dfFilter)) return true;
+        if (directDfs.some((d) => targetDfIds.has(d.id))) return true;
         const pfs = userPfMap?.[u.id] ?? [];
-        return pfs.some((pf) => pf.dfs.some((d) => d.id === dfFilter));
+        return pfs.some((pf) => pf.dfs.some((d) => targetDfIds.has(d.id)));
       });
     }
     // Admin'ler en üstte; sonra created_at DESC (en son eklenen üstte).

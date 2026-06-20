@@ -32,6 +32,7 @@ export async function loadUserFormOptions(supabase: SupabaseClient) {
     firma_adi: p.firma_adi,
     parent_id: p.parent_id,
     df_adlari: pfToDfAdlari.get(p.id) ?? [],
+    df_id: p.df_id,
   }));
 
   const dfList: DFListItem[] = dfRows.map((d) => ({

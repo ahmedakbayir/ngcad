@@ -34,6 +34,17 @@ export async function POST(
           .from('proje_firmalari')
           .update({ parent_id: data.id })
           .in('id', alt_firma_ids);
+        // VERGİ CASCADE: yeni üst PF'nin vergi alanları varsa alt'lara SET.
+        // Spec: "üst firmanın vergi dairesi ve vergi nosu alt firmaya atanmalı".
+        const vergiCascade: Record<string, unknown> = {};
+        if (firmData.vergi_dairesi != null) vergiCascade.vergi_dairesi = firmData.vergi_dairesi;
+        if (firmData.vergi_no != null) vergiCascade.vergi_no = firmData.vergi_no;
+        if (Object.keys(vergiCascade).length > 0) {
+          await admin
+            .from('proje_firmalari')
+            .update(vergiCascade)
+            .in('id', alt_firma_ids);
+        }
       }
     }
     // df_id zaten firmData içinde — junction tablo yok.

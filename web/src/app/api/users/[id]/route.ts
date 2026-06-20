@@ -21,6 +21,33 @@ export async function PATCH(
 
   const admin = supabaseAdmin();
 
+  // Email tekillik: PATCH'te email değiştiriliyorsa başka user kullanıyor mu?
+  if (userData.email) {
+    const { data: clash } = await admin
+      .from('users')
+      .select('id')
+      .eq('email', userData.email)
+      .neq('id', id)
+      .limit(1)
+      .maybeSingle();
+    if (clash) {
+      return NextResponse.json(
+        { error: `Bu e-posta başka bir kullanıcıda zaten kayıtlı: ${userData.email}` },
+        { status: 409 },
+      );
+    }
+    // auth.users tarafında da senkron olsun (aksi halde login email eski kalır).
+    const { error: emailErr } = await admin.auth.admin.updateUserById(id, {
+      email: userData.email,
+    });
+    if (emailErr) {
+      return NextResponse.json(
+        { error: `Auth e-posta güncellenemedi: ${emailErr.message}` },
+        { status: 400 },
+      );
+    }
+  }
+
   // Parola gönderildiyse auth.users üzerinde güncelle.
   if (typeof password === 'string' && password.length > 0) {
     if (password.length < 6) {
