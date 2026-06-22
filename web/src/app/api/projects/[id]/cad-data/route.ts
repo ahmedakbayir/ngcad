@@ -22,7 +22,12 @@ export async function GET(
   const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from('projects')
-    .select('id, no, proje_adi, cad_data, durum, updated_at')
+    .select(`
+      id, no, proje_adi, cad_data, durum, updated_at,
+      pf:proje_firmalari(id, firma_adi),
+      df:dagitim_firmalari(id, firma_adi),
+      owner:users(id, adi, email)
+    `)
     .eq('id', id)
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400, headers: CORS });

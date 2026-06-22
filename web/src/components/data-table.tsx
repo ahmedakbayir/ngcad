@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -43,6 +44,9 @@ declare module '@tanstack/react-table' {
     // Göster/gizle dropdown'unda görünecek kullanıcı-okur etiket. Verilmezse
     // header string'i, o da yoksa column.id kullanılır.
     columnLabel?: string;
+    // İlk açılışta kolon kapalı başlasın (localStorage'da kayıt yoksa).
+    // Kullanıcı KOLONLAR menüsünden açabilir; açıkça açılırsa tercih persist.
+    defaultHidden?: boolean;
   }
 }
 
@@ -123,27 +127,63 @@ export function DataTable<T>({
   const [sortingInner, setSortingInner] = React.useState<SortingState>([]);
   const sorting = sortingControlled ?? sortingInner;
 
-  // localStorage'tan kolon tercihlerini yükle (varsa). storageKey verilmezse
-  // boş varsayılan kullanılır. SSR uyumu için lazy init içinde window kontrolü.
+  // SSR ile birebir aynı başlangıç state. localStorage hidrasyondan SONRA
+  // effect'te okunur; aksi takdirde server (boş tercih) ve client (persisted
+  // tercih) ilk render'da farklı kolon sırası/görünürlüğü üretip mismatch verir.
   const storageReadKey = storageKey ? `data-table:${storageKey}` : null;
-  const initial = React.useMemo<{ v: VisibilityState; o: string[] }>(() => {
-    if (typeof window === 'undefined' || !storageReadKey) return { v: {}, o: [] };
-    try {
-      const raw = window.localStorage.getItem(storageReadKey);
-      if (!raw) return { v: {}, o: [] };
-      const parsed = JSON.parse(raw) as { v?: VisibilityState; o?: string[] };
-      return { v: parsed.v ?? {}, o: parsed.o ?? [] };
-    } catch {
-      return { v: {}, o: [] };
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [columnOrder, setColumnOrder] = React.useState<string[]>([]);
+  const hydratedRef = React.useRef(false);
+
+  // meta.defaultHidden = true olan kolonların id'leri — localStorage'da kayıt
+  // yokken bu kolonlar otomatik gizli başlasın.
+  const defaultHiddenIds = React.useMemo(() => {
+    const ids: string[] = [];
+    for (const c of columns) {
+      const meta = c.meta as { defaultHidden?: boolean } | undefined;
+      if (meta?.defaultHidden) {
+        const id = (c as { id?: string }).id ?? (c as { accessorKey?: string }).accessorKey;
+        if (id) ids.push(id);
+      }
     }
-  }, [storageReadKey]);
+    return ids;
+  }, [columns]);
 
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(initial.v);
-  const [columnOrder, setColumnOrder] = React.useState<string[]>(initial.o);
-
-  // Değişiklikleri localStorage'a yaz. storageKey yoksa no-op.
+  // İlk mount'ta localStorage'tan oku ve state'i güncelle (hidrasyondan sonra).
+  // Kayıt yoksa defaultHidden kolonları kapalı başlat. SADECE ilk mount'ta
+  // çalışır — dependency'lere bağlasak parent'ın yeni columns referansı her
+  // render'da effect'i tetikler ve user'ın toggle ettiği değeri geri yükler.
   React.useEffect(() => {
-    if (!storageReadKey || typeof window === 'undefined') return;
+    if (hydratedRef.current) return;
+    if (typeof window === 'undefined') {
+      hydratedRef.current = true;
+      return;
+    }
+    let applied = false;
+    if (storageReadKey) {
+      try {
+        const raw = window.localStorage.getItem(storageReadKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) as { v?: VisibilityState; o?: string[] };
+          if (parsed.v) { setColumnVisibility(parsed.v); applied = true; }
+          if (parsed.o) setColumnOrder(parsed.o);
+        }
+      } catch {
+        /* parse / quota — sessizce yut */
+      }
+    }
+    if (!applied && defaultHiddenIds.length > 0) {
+      const v: VisibilityState = {};
+      for (const id of defaultHiddenIds) v[id] = false;
+      setColumnVisibility(v);
+    }
+    hydratedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sonraki değişiklikleri localStorage'a yaz; hidrasyon öncesi ilk default'u yazma.
+  React.useEffect(() => {
+    if (!storageReadKey || typeof window === 'undefined' || !hydratedRef.current) return;
     try {
       window.localStorage.setItem(
         storageReadKey,
@@ -415,17 +455,39 @@ function ColumnVisibilityMenu({ table }: { table: any }) {
   const [open, setOpen] = React.useState(false);
   const [dragId, setDragId] = React.useState<string | null>(null);
   const [overId, setOverId] = React.useState<string | null>(null);
-  const ref = React.useRef<HTMLDivElement>(null);
+  const btnRef = React.useRef<HTMLButtonElement>(null);
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  // Panel pozisyonu fixed; Table wrapper'ı overflow-auto olduğu için absolute
+  // pozisyonlama dropdown'u kesiyordu. Portal ile body'e taşıyıp viewport-relative
+  // konum hesaplıyoruz.
+  const [pos, setPos] = React.useState<{ top: number; right: number } | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
     function onDocClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t)) return;
+      if (panelRef.current?.contains(t)) return;
+      setOpen(false);
     }
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  React.useLayoutEffect(() => {
+    if (!open) return;
+    const updatePos = () => {
+      if (!btnRef.current) return;
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    };
+    updatePos();
+    window.addEventListener('resize', updatePos);
+    window.addEventListener('scroll', updatePos, true);
+    return () => {
+      window.removeEventListener('resize', updatePos);
+      window.removeEventListener('scroll', updatePos, true);
+    };
   }, [open]);
 
   // Mevcut sıraya göre (TanStack getAllLeafColumns columnOrder uygular).
@@ -463,9 +525,76 @@ function ColumnVisibilityMenu({ table }: { table: any }) {
     setOverId(null);
   }
 
+  const panel = open && pos && typeof document !== 'undefined' ? createPortal(
+    <div
+      ref={panelRef}
+      style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 100 }}
+      className="min-w-[220px] max-h-[70vh] overflow-auto rounded-md border bg-popover p-2 shadow-md"
+    >
+      <p className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        Kolonlar
+      </p>
+      <p className="mb-1 px-2 text-[10px] text-muted-foreground">
+        Sürükle-bırak ile sırala
+      </p>
+      <div className="space-y-0.5">
+        {hideable.map((c) => {
+          const meta = c.columnDef.meta as { columnLabel?: string } | undefined;
+          const header = c.columnDef.header;
+          const label =
+            meta?.columnLabel ??
+            (typeof header === 'string' ? header : c.id);
+          const isDragging = dragId === c.id;
+          const isOver = overId === c.id && dragId !== null && dragId !== c.id;
+          return (
+            <div
+              key={c.id}
+              draggable
+              onDragStart={(e) => {
+                setDragId(c.id);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', c.id);
+              }}
+              onDragEnter={() => setOverId(c.id)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+              }}
+              onDragLeave={() => {
+                setOverId((cur) => (cur === c.id ? null : cur));
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                handleDrop(c.id);
+              }}
+              onDragEnd={() => {
+                setDragId(null);
+                setOverId(null);
+              }}
+              className={cn(
+                'flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted',
+                isDragging && 'opacity-40',
+                isOver && 'ring-2 ring-primary/40',
+              )}
+            >
+              <GripVertical className="h-3 w-3 cursor-grab text-muted-foreground" />
+              <Checkbox
+                checked={c.getIsVisible()}
+                onCheckedChange={(v) => c.toggleVisibility(!!v)}
+              />
+              <span className="cursor-grab text-foreground">{label}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>,
+    document.body,
+  ) : null;
+
   return (
-    <div ref={ref} className="relative">
+    <>
       <Button
+        ref={btnRef}
         type="button"
         variant="ghost"
         size="icon"
@@ -476,68 +605,7 @@ function ColumnVisibilityMenu({ table }: { table: any }) {
       >
         <Settings2 className="h-3.5 w-3.5" />
       </Button>
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 min-w-[220px] rounded-md border bg-popover p-2 shadow-md">
-          <p className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-            Kolonlar
-          </p>
-          <p className="mb-1 px-2 text-[10px] text-muted-foreground">
-            Sürükle-bırak ile sırala
-          </p>
-          <div className="space-y-0.5">
-            {hideable.map((c) => {
-              const meta = c.columnDef.meta as { columnLabel?: string } | undefined;
-              const header = c.columnDef.header;
-              const label =
-                meta?.columnLabel ??
-                (typeof header === 'string' ? header : c.id);
-              const isDragging = dragId === c.id;
-              const isOver = overId === c.id && dragId !== null && dragId !== c.id;
-              return (
-                <div
-                  key={c.id}
-                  draggable
-                  onDragStart={(e) => {
-                    setDragId(c.id);
-                    e.dataTransfer.effectAllowed = 'move';
-                    // Firefox bazı sürümlerinde dataTransfer'a veri yazılmadıkça
-                    // drag başlamıyor — string id'yi koy.
-                    e.dataTransfer.setData('text/plain', c.id);
-                  }}
-                  onDragEnter={() => setOverId(c.id)}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                  }}
-                  onDragLeave={() => {
-                    setOverId((cur) => (cur === c.id ? null : cur));
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    handleDrop(c.id);
-                  }}
-                  onDragEnd={() => {
-                    setDragId(null);
-                    setOverId(null);
-                  }}
-                  className={cn(
-                    'flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted',
-                    isDragging && 'opacity-40',
-                    isOver && 'ring-2 ring-primary/40',
-                  )}
-                >
-                  <GripVertical className="h-3 w-3 cursor-grab text-muted-foreground" />
-                  <Checkbox
-                    checked={c.getIsVisible()}
-                    onCheckedChange={(v) => c.toggleVisibility(!!v)}
-                  />
-                  <span className="cursor-grab text-foreground">{label}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
+      {panel}
+    </>
   );
 }

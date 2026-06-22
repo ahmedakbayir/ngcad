@@ -1,3 +1,10 @@
+// Proje açma / yeni proje yetkisi: yalnızca PF kullanıcısı, admin ve DF değil.
+// Web UI'da "Yeni Proje" ve "CAD'de Aç" butonları bu kontrole bağlanır.
+export function canOpenCad(u: { is_admin?: boolean | null; firma_kullanicisi?: boolean | null; gdf_kullanicisi?: boolean | null } | null | undefined): boolean {
+  if (!u) return false;
+  return !!u.firma_kullanicisi && !u.is_admin && !u.gdf_kullanicisi;
+}
+
 // Kullanıcı rol flag'lerinden insan-okur ünvan üretir.
 // Hiyerarşi: PF Üst/Orta Yönetici → PF uzmanlık → DF Üst/Orta Yönetici → DF uzmanlık.
 // Hiç rol yoksa boş string döner; bu durumda çağıran unvan'a dokunmaz.

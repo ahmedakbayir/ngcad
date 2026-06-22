@@ -449,7 +449,7 @@ export function FirmaTable({
             </a>
           );
         },
-        meta: { filter: { type: 'text', placeholder: 'mail…' } },
+        meta: { filter: { type: 'text', placeholder: 'mail…' }, defaultHidden: true },
         filterFn: smartColumnFilterFn,
       } as ColumnDef<FirmaRow>,
       {
@@ -461,7 +461,7 @@ export function FirmaTable({
           if (!v) return <span className="text-xs text-muted-foreground">—</span>;
           return <span className="font-mono text-[11px]">{v}</span>;
         },
-        meta: { filter: { type: 'text', placeholder: 'tel…' } },
+        meta: { filter: { type: 'text', placeholder: 'tel…' }, defaultHidden: true },
         filterFn: smartColumnFilterFn,
       } as ColumnDef<FirmaRow>,
       ...(basePath === '/firms/df'
@@ -475,7 +475,7 @@ export function FirmaTable({
                 if (!v) return <span className="text-xs text-muted-foreground">—</span>;
                 return <span className="text-xs">{v}</span>;
               },
-              meta: { filter: { type: 'select', options: sahipOptions } },
+              meta: { filter: { type: 'select', options: sahipOptions }, defaultHidden: true },
               filterFn: 'equalsString',
             } as ColumnDef<FirmaRow>,
             {
@@ -488,7 +488,7 @@ export function FirmaTable({
                 if (v == null) return <span className="text-xs text-muted-foreground">—</span>;
                 return <span className="font-mono text-xs">{v}</span>;
               },
-              meta: { filter: { type: 'text', placeholder: '#' } },
+              meta: { filter: { type: 'text', placeholder: '#' }, defaultHidden: true },
               filterFn: smartColumnFilterFn,
             } as ColumnDef<FirmaRow>,
             {
@@ -506,7 +506,7 @@ export function FirmaTable({
                 if (!v) return <span className="text-xs text-muted-foreground">—</span>;
                 return <span className="font-mono text-xs">{v}</span>;
               },
-              meta: { filter: { type: 'text', placeholder: '>2026-01-01' } },
+              meta: { filter: { type: 'text', placeholder: '>2026-01-01' }, defaultHidden: true },
               filterFn: smartColumnFilterFn,
             } as ColumnDef<FirmaRow>,
             {
@@ -528,7 +528,7 @@ export function FirmaTable({
                   <Badge variant="outline" className="font-mono text-[10px]">v{v}</Badge>
                 );
               },
-              meta: { filter: { type: 'text', placeholder: '#' } },
+              meta: { filter: { type: 'text', placeholder: '#' }, defaultHidden: true },
               filterFn: smartColumnFilterFn,
             } as ColumnDef<FirmaRow>,
           ]
@@ -586,7 +586,7 @@ export function FirmaTable({
                 </Link>
               );
             },
-            meta: { filter: { type: 'text', placeholder: 'Yetkili…' } },
+            meta: { filter: { type: 'text', placeholder: 'Yetkili…' }, defaultHidden: true },
             filterFn: smartColumnFilterFn,
           } as ColumnDef<FirmaRow>]
         : []),

@@ -10,7 +10,7 @@ import { renderMiniPanel } from '../floor/floor-panel.js'; // <-- KAT PANELİ İ
 import { plumbingManager } from '../plumbing_v2/plumbing-manager.js';
 import { loadDxfFile } from './dxf-io.js';
 import { recordRecent } from './recent-projects.js';
-import { getProjectIdFromUrl, saveProjectToWeb } from '../onboarding/web-bridge.js';
+import { getProjectIdFromUrl, saveProjectToWeb, createProjectInWeb } from '../onboarding/web-bridge.js';
 
 export function setupFileIOListeners() {
     dom.bSave.addEventListener('click', saveProject);
@@ -222,7 +222,7 @@ export function saveProject() {
 
     const dataStr = JSON.stringify(projectData, null, 2);
 
-    // Web modu: URL'de ?project=ID varsa lokale değil web panele kaydet.
+    // Web modu: URL'de ?project=ID varsa mevcut projeyi güncelle.
     const webProjectId = getProjectIdFromUrl();
     if (webProjectId) {
         (async () => {
@@ -231,10 +231,41 @@ export function saveProject() {
                 await saveProjectToWeb(webProjectId, projectData, name);
                 document.title = `${name} - AangCAD (web)`;
                 console.log(`Proje web panele kaydedildi: ${name}`);
-                window.dispatchEvent(new CustomEvent('aangcad:web-save-ok', { detail: { projectId: webProjectId, name } }));
+                window.dispatchEvent(new CustomEvent('aangcad:web-save-ok', { detail: { projectId: webProjectId, projectName: name, name } }));
             } catch (err) {
                 console.error('Web kaydetme hatası:', err);
                 alert('Web panele kaydetme başarısız: ' + err.message);
+            }
+        })();
+        return;
+    }
+
+    // Web modu: oturum + aktif firma varsa yeni proje olarak insert et.
+    const activeFirm   = window.AANGCAD_ACTIVE_FIRM;
+    const userProfile  = window.AANGCAD_USER_PROFILE;
+    if (activeFirm && userProfile?.id) {
+        (async () => {
+            try {
+                const name = window.currentProjectName || projectData.projectMeta?.proje_adi || 'İsimsiz Proje';
+                const created = await createProjectInWeb({
+                    proje_adi:     name,
+                    cad_data:      projectData,
+                    pf_id:         activeFirm.pf_id,
+                    df_id:         activeFirm.df_id,
+                    owner_user_id: userProfile.id,
+                });
+                const url = new URL(location.href);
+                url.searchParams.set('project', created.id);
+                history.replaceState({}, '', url);
+                window.AANGCAD_WEB_PROJECT_ID = created.id;
+                document.title = `${name} - AangCAD (web)`;
+                console.log(`Yeni proje web panele oluşturuldu: ${name} (${created.id})`);
+                window.dispatchEvent(new CustomEvent('aangcad:web-save-ok', {
+                    detail: { projectId: created.id, projectName: name, name },
+                }));
+            } catch (err) {
+                console.error('Yeni proje oluşturma hatası:', err);
+                alert('Yeni proje oluşturulamadı: ' + err.message);
             }
         })();
         return;

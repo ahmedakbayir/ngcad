@@ -31,7 +31,8 @@ const DURUM_OPTIONS = [
   { value: 'iptal',      label: 'İptal' },
 ];
 
-const columns: ColumnDef<ProjectRowJoined>[] = [
+function buildColumns(allowCad: boolean): ColumnDef<ProjectRowJoined>[] {
+  const base: ColumnDef<ProjectRowJoined>[] = [
   {
     id: 'no',
     accessorKey: 'no',
@@ -121,21 +122,26 @@ const columns: ColumnDef<ProjectRowJoined>[] = [
     meta: { filter: { type: 'select', options: DURUM_OPTIONS } },
     filterFn: 'equalsString',
   },
-  {
-    id: 'actions',
-    header: '',
-    enableSorting: false,
-    cell: ({ row }) => (
-      <Button asChild variant="ghost" size="icon" title="CAD'de Aç">
-        <a href={`${CAD_BASE}?project=${row.original.id}`} target="_blank" rel="noreferrer">
-          <ExternalLink className="h-4 w-4" />
-        </a>
-      </Button>
-    ),
-  },
-];
+  ];
+  if (allowCad) {
+    base.push({
+      id: 'actions',
+      header: '',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <Button asChild variant="ghost" size="icon" title="CAD'de Aç">
+          <a href={`${CAD_BASE}?project=${row.original.id}`} target="_blank" rel="noreferrer">
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        </Button>
+      ),
+    });
+  }
+  return base;
+}
 
-export function ProjectsTable({ rows }: { rows: ProjectRowJoined[] }) {
+export function ProjectsTable({ rows, allowCad = false }: { rows: ProjectRowJoined[]; allowCad?: boolean }) {
+  const columns = React.useMemo(() => buildColumns(allowCad), [allowCad]);
   return (
     <DataTable
       columns={columns}

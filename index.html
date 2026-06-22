@@ -4,6 +4,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    // CAD ile web aynı origin'de olmazsa cookie/auth paylaşılmaz (CAD'de user A,
+    // web'de admin gibi karışıklıklar olur). Live Server (5500/5501) ile doğrudan
+    // açılmışsa Next dev server'a (localhost:3001/cad/...) yönlendir.
+    (function () {
+      var WEB_ORIGIN = 'http://localhost:3001';
+      var host = location.host;
+      if (/^(?:127\.0\.0\.1|localhost):(?:5500|5501)$/.test(host)) {
+        var rest = location.pathname.replace(/^\//, '');
+        if (!rest) rest = 'index.html';
+        location.replace(WEB_ORIGIN + '/cad/' + rest + location.search + location.hash);
+      }
+    })();
+  </script>
   <title>Profesyonel 2D/3D Mimari Editör</title>
   <link rel="stylesheet" href="./general-files/style.css" />
   <link rel="stylesheet" href="./onboarding/onboarding-panel.css" />
@@ -177,6 +191,19 @@
             <line x1="14" y1="11" x2="14" y2="17"></line>
           </svg>
           Sil
+        </a>
+
+        <div class="menu-separator"></div>
+
+        <a href="#" id="menuWebConnect"
+          onclick="event.preventDefault(); window.__aangcadConnectToWeb && window.__aangcadConnectToWeb();">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          Web'e Bağlan
         </a>
 
         <div class="menu-separator" id="menuRecentSeparator" style="display:none;"></div>
@@ -1701,7 +1728,9 @@
     "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/",
-      "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.14.2/+esm"
+      "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.14.2/+esm",
+      "@supabase/ssr": "https://esm.sh/@supabase/ssr@0.5.2",
+      "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.48.1"
     }
   }
   </script>

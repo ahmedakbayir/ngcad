@@ -6,6 +6,7 @@ import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { canOpenCad } from '@/lib/user-roles';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,12 +25,25 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const supabase = await supabaseServer();
 
-  const { data: project } = await supabase
-    .from('projects')
-    .select('*, pf:proje_firmalari(id, firma_adi), df:dagitim_firmalari(id, firma_adi), owner:users(id, adi)')
-    .eq('id', id)
-    .maybeSingle();
+  const [{ data: project }, { data: { user } }] = await Promise.all([
+    supabase
+      .from('projects')
+      .select('*, pf:proje_firmalari(id, firma_adi), df:dagitim_firmalari(id, firma_adi), owner:users(id, adi)')
+      .eq('id', id)
+      .maybeSingle(),
+    supabase.auth.getUser(),
+  ]);
   if (!project) notFound();
+
+  let allowCad = false;
+  if (user) {
+    const { data: u } = await supabase
+      .from('users')
+      .select('is_admin, firma_kullanicisi, gdf_kullanicisi')
+      .eq('id', user.id)
+      .maybeSingle();
+    allowCad = canOpenCad(u);
+  }
 
   const cadHref = `/api/cad-redirect?project=${project.id}`;
 
@@ -62,11 +76,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             )}
           </div>
         </div>
-        <Button asChild>
-          <a href={cadHref} target="_blank" rel="noreferrer">
-            <ExternalLink className="h-4 w-4" /> CAD'de Aç
-          </a>
-        </Button>
+        {allowCad && (
+          <Button asChild>
+            <a href={cadHref} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" /> CAD'de Aç
+            </a>
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue="infos">

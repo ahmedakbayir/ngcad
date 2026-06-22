@@ -30,6 +30,7 @@ export function LoginForm() {
       if (mode === 'password') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        try { new BroadcastChannel('aangcad:auth').postMessage({ type: 'sign-in' }); } catch {}
         router.replace(next);
         router.refresh();
       } else {

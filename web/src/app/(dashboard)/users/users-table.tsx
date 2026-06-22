@@ -208,7 +208,7 @@ function buildColumns(
           </a>
         );
       },
-      meta: { filter: { type: 'text', placeholder: 'mail…' } },
+      meta: { filter: { type: 'text', placeholder: 'mail…' }, defaultHidden: true },
       filterFn: smartColumnFilterFn,
     },
     {
@@ -220,7 +220,7 @@ function buildColumns(
         if (!v) return <span className="text-xs text-muted-foreground">—</span>;
         return <span className="font-mono text-[11px]">{v}</span>;
       },
-      meta: { filter: { type: 'text', placeholder: 'gsm…' } },
+      meta: { filter: { type: 'text', placeholder: 'gsm…' }, defaultHidden: true },
       filterFn: smartColumnFilterFn,
     },
     {
@@ -397,7 +397,7 @@ function buildColumns(
           </Link>
         );
       },
-      meta: { filter: { type: 'text', placeholder: 'Yönetici…' } },
+      meta: { filter: { type: 'text', placeholder: 'Yönetici…' }, defaultHidden: true },
       filterFn: smartColumnFilterFn,
     },
     {

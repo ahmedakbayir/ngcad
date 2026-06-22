@@ -151,9 +151,42 @@ function _buildOverlay() {
 // ── RENDER ────────────────────────────────────────────────────────
 function _renderPage() {
     const meta    = state.projectMeta || {};
-    const sorumlu = meta.sorumlu      || {};
+    const sorumlu = { ...(meta.sorumlu || {}) };
     const adres   = meta.adres        || {};
     const projeAdi = meta.name || document.getElementById('projectNameInput')?.value || '';
+
+    // Web context fallback: onboarding'den gelen sorumlu alanı boşsa, aktif
+    // firma ve giriş yapan kullanıcı bilgisini doldur. Onboarding değeri varsa
+    // ona dokunmaz.
+    const webFirm    = (typeof window !== 'undefined') ? window.AANGCAD_ACTIVE_FIRM  : null;
+    const webProfile = (typeof window !== 'undefined') ? window.AANGCAD_USER_PROFILE : null;
+    const _blank = (v) => v == null || String(v).trim() === '';
+    const _pick  = (...vals) => {
+        for (const v of vals) { if (!_blank(v)) return v; }
+        return '';
+    };
+    if (_blank(sorumlu.yetkiliFirma) && webFirm?.pf_adi) {
+        sorumlu.yetkiliFirma = webFirm.pf_adi;
+    }
+    if (_blank(sorumlu.yetkiliMuhendis) && webProfile?.adi) {
+        sorumlu.yetkiliMuhendis = webProfile.adi;
+    }
+    if (_blank(sorumlu.projeyiCizen) && webProfile?.adi && webProfile?.firma_cizim_sorumlusu) {
+        sorumlu.projeyiCizen = webProfile.adi;
+    }
+    if (_blank(sorumlu.usta) && webProfile?.adi && webProfile?.firma_tesisat_ustasi) {
+        sorumlu.usta = webProfile.adi;
+    }
+
+    // Mühendis ve firma detayları — web verisi + sorumlu fallback'i.
+    const muhKayitNo    = _pick(sorumlu.kayitNo,       webProfile?.proje_muh_kayit_no);
+    const muhSicilNo    = _pick(sorumlu.odaSicilNo,    webProfile?.proje_muh_oda_sicil_no);
+    const muhYeterlilik = _pick(sorumlu.yeterlilikNo,  webFirm?.pf_yeterlilik_no);
+    const firmaVDairesi = _pick(sorumlu.vergiDairesi,  webFirm?.pf_vergi_dairesi);
+    const firmaVergiNo  = _pick(sorumlu.vergiNo,       webFirm?.pf_vergi_no);
+    const firmaAdres    = _pick(sorumlu.firmaAdres,    webFirm?.pf_adres);
+    const firmaTelefon  = _pick(sorumlu.firmaTel,      webFirm?.pf_tel);
+    const cepTelNo      = _pick(sorumlu.cepTel,        webProfile?.gsm);
 
     const r = (v) => `<span class="kp-var">${_esc(v ?? '')}</span>`;
 
@@ -286,24 +319,23 @@ function _renderPage() {
                     <th>ODA SİCİL NO</th>
                     <th>YETERLİLİK NO</th>
                     <th>V.DAİRESİ</th>
-                    <td>${r('')}</td>
+                    <td>${r(firmaVDairesi)}</td>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td colspan="2">${r(sorumlu.yetkiliMuhendis)}</td>
-                    <td>${r('')}</td>
-                    <td>${r('')}</td>
-                    <td>${r('')}</td>
+                    <td>${r(muhKayitNo)}</td>
+                    <td>${r(muhSicilNo)}</td>
+                    <td>${r(muhYeterlilik)}</td>
                     <th>VERGİ NO</th>
-                    <td>${r('')}</td>
+                    <td>${r(firmaVergiNo)}</td>
                 </tr>
-                <!-- ADRES = FİRMA adresi (henüz veri yok, boş bırak) -->
                 <tr>
                     <th>ADRES</th>
-                    <td colspan="4">${r('')}</td>
+                    <td colspan="4">${r(firmaAdres)}</td>
                     <th>TELEFON</th>
-                    <td>${r('')}</td>
+                    <td>${r(firmaTelefon)}</td>
                 </tr>
             </tbody>
         </table>
@@ -330,7 +362,7 @@ function _renderPage() {
                     </td>
                     <td rowspan="3" class="kp-imza-merged">
                         <div class="kp-mg-lbl">CEP TEL NO:</div>
-                        <div class="kp-mg-val">${r('')}</div>
+                        <div class="kp-mg-val">${r(cepTelNo)}</div>
                     </td>
                 </tr>
                 <tr>

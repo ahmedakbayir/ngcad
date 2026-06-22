@@ -9,6 +9,8 @@
 //   const data = await loadProjectFromWeb(id); // { proje_adi, cad_data, ... }
 //   await saveProjectToWeb(id, state, name);   // state = JSON.stringify edilebilir herhangi bir şey
 
+import { getSupabase } from './web-auth.js';
+
 const WEB_URL = (typeof window !== 'undefined' && window.AANGCAD_WEB_URL) || 'http://localhost:3001';
 
 export function getProjectIdFromUrl() {
@@ -49,6 +51,27 @@ export async function saveProjectToWeb(projectId, state, projeAdi) {
         throw new Error(body.error || `HTTP ${res.status}`);
     }
     return res.json();
+}
+
+// Yeni proje insert — aktif PF/DF ve owner ile birlikte. Supabase JS doğrudan
+// kullanılır (RLS politikası is_admin'e bağlı, ileride yetki kuralı gerekir).
+// Dönüş: { id, no }.
+export async function createProjectInWeb({ proje_adi, cad_data, pf_id, df_id, owner_user_id }) {
+    if (!owner_user_id) throw new Error('owner_user_id gerekli');
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+        .from('projects')
+        .insert({
+            proje_adi,
+            cad_data,
+            pf_id:  pf_id  || null,
+            df_id:  df_id  || null,
+            owner_user_id,
+        })
+        .select('id, no')
+        .single();
+    if (error) throw new Error(error.message);
+    return data;
 }
 
 export function redirectToLogin(projectId) {
