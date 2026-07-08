@@ -49,6 +49,28 @@ export function LoginForm() {
     }
   }
 
+  async function onForgotPassword() {
+    setMsg(null);
+    if (!email) {
+      setMsg({ type: 'error', text: 'Önce e-posta adresinizi yazın.' });
+      return;
+    }
+    setPending(true);
+    try {
+      const supabase = supabaseBrowser();
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/auth/set-password')}`,
+      });
+      if (error) throw error;
+      setMsg({ type: 'info', text: 'Şifre sıfırlama bağlantısı e-postanıza gönderildi.' });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Sıfırlama bağlantısı gönderilemedi.';
+      setMsg({ type: 'error', text: message });
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-md">
@@ -116,6 +138,17 @@ export function LoginForm() {
               <Mail className="h-3 w-3" />
               {mode === 'password' ? 'Magic link ile gir' : 'Şifre ile gir'}
             </button>
+
+            {mode === 'password' && (
+              <button
+                type="button"
+                className="w-full text-xs text-muted-foreground hover:text-foreground"
+                onClick={onForgotPassword}
+                disabled={pending}
+              >
+                Şifremi unuttum
+              </button>
+            )}
           </form>
         </CardContent>
       </Card>

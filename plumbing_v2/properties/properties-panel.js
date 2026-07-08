@@ -316,7 +316,7 @@ function _initDefaults(obj, manager) {
 
     // Yeni nesne (description hiç set edilmemiş) → alwaysAdd şablonlarını uygula
     if (obj.description === undefined) {
-        const tplObj = _tplsForType(obj.type || '');
+        const tplObj = _tplsForType(_tplKeyFor(obj));
         const alwaysTexts = Object.values(tplObj)
             .filter(v => v.alwaysAdd).map(v => v.text).filter(Boolean);
         obj.description = alwaysTexts.join('\n');
@@ -1028,10 +1028,22 @@ function _saveTplStore() {
     try { localStorage.setItem(TPLS_KEY, JSON.stringify(_tplStore)); } catch { }
 }
 const _tplStore = _loadTplStore();
+// Eski sürümde tüm cihaz tipleri ortak 'cihaz' anahtarını paylaşıyordu;
+// mevcut kayıtlar KOMBI'ye taşınır (alt tip ayrımı öncesi şablonlar kombi içindi).
+if (_tplStore['cihaz']) {
+    _tplStore['cihaz:KOMBI'] = { ..._tplStore['cihaz'], ...(_tplStore['cihaz:KOMBI'] || {}) };
+    delete _tplStore['cihaz'];
+    _saveTplStore();
+}
 /** Belirli nesne tipi için şablon nesnesini döndür (yoksa oluştur) */
 function _tplsForType(objType) {
     if (!_tplStore[objType]) _tplStore[objType] = {};
     return _tplStore[objType]; // { [key]: {text, alwaysAdd} }
+}
+/** Şablon deposu anahtarı: cihazlar alt tipe göre ayrılır (KOMBI ≠ OCAK) */
+function _tplKeyFor(obj) {
+    if (obj?.type === 'cihaz' && obj.cihazTipi) return `cihaz:${obj.cihazTipi}`;
+    return obj?.type || '';
 }
 
 function _initCollapsibleSections(panelEl) {
@@ -1095,7 +1107,7 @@ function _applyCollapsible(headers) {
 
 function renderDescriptionsSection(obj) {
     const safeDesc = escHtml(obj.description || '');
-    const objType = obj.type || '';
+    const objType = _tplKeyFor(obj);
     const tplObj = _tplsForType(objType);
     const tplEntries = Object.entries(tplObj);
 
@@ -1156,7 +1168,7 @@ function renderDescriptionsSection(obj) {
 function bindDescriptionEvents(panelEl, obj) {
     const section = panelEl.querySelector('.desc-section');
     if (!section) return;
-    const objType = obj.type || '';
+    const objType = _tplKeyFor(obj);
 
     function refresh() {
         const old = panelEl.querySelector('.desc-section');
