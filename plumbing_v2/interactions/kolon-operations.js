@@ -185,36 +185,18 @@ export function pasteFloorPlumbingToAllFloors(interactionManager, anchorPipe, in
     const baseClipboard = interactionManager.copiedPipes;
     if (!baseClipboard || !baseClipboard.pipes || baseClipboard.pipes.length === 0) return;
 
-    // handlePipeCopy yön-bağımlı BFS (p2 chain + T-bağlantı) yaptığı için
-    // anchorPipe'ın "yukarı" yöndeki kardeş dallarındaki BRANSMAN'lar gibi
-    // pipeler kapsam dışında kalabiliyor. Burada aynı katın tüm horizontal
-    // pipelarını ve componentlerini eksiksiz topla (kolon segmentleri hariç —
-    // bunlar buildFullRiserColumn ile ayrıca kuruluyor).
+    // 🌟 KURAL: Yalnızca TIKLANAN borudan SONRAKİ (downstream) kısım kopyalanır;
+    // öncesi ve kardeş dallar kapsam dışıdır. handlePipeCopy'nin BFS'i boruları
+    // doğru topluyor; ancak component tarafında yalnızca vana/regülatör/sayaç/
+    // cihaz/baca biliyor. Downstream borulara bağlı diğer ekipmanları (filtre,
+    // izolasyon flanşı, kompansatör, manometre, topraklama vb.) burada tamamla.
     {
         const collectedPipeIds = new Set(baseClipboard.pipes.map(p => p.id));
         const collectedCompIds = new Set(baseClipboard.components.map(c => c.data?.id).filter(Boolean));
-        for (const pipe of manager.pipes) {
-            if (pipe.floorId !== currentFloor.id) continue;
-            if (isKolonPipe(pipe)) continue;
-            if (collectedPipeIds.has(pipe.id)) continue;
-            baseClipboard.pipes.push({
-                id: pipe.id,
-                p1: { ...pipe.p1 },
-                p2: { ...pipe.p2 },
-                boruTipi: pipe.boruTipi,
-                boruCap: pipe.boruCap,
-                colorGroup: pipe.colorGroup,
-                floorId: pipe.floorId,
-                baslangicBaglanti: pipe.baslangicBaglanti ? JSON.parse(JSON.stringify(pipe.baslangicBaglanti)) : null,
-                bitisBaglanti: pipe.bitisBaglanti ? JSON.parse(JSON.stringify(pipe.bitisBaglanti)) : null,
-                tBaglantilar: pipe.tBaglantilar ? JSON.parse(JSON.stringify(pipe.tBaglantilar)) : [],
-                uzerindekiElemanlar: pipe.uzerindekiElemanlar ? JSON.parse(JSON.stringify(pipe.uzerindekiElemanlar)) : [],
-            });
-            collectedPipeIds.add(pipe.id);
-        }
         for (const comp of manager.components) {
-            if (comp.floorId !== currentFloor.id) continue;
             if (collectedCompIds.has(comp.id)) continue;
+            const attachedPipeId = comp.bagliBoruId || comp.fleksBaglanti?.boruId || null;
+            if (!attachedPipeId || !collectedPipeIds.has(attachedPipeId)) continue;
             baseClipboard.components.push({
                 type: comp.type,
                 data: JSON.parse(JSON.stringify(comp)),
@@ -305,7 +287,10 @@ export function pasteFloorPlumbingToAllFloors(interactionManager, anchorPipe, in
         const createdPipes = [];
         for (let i = 0; i < pasteData.pipes.length; i++) {
             const pipeJson = pasteData.pipes[i];
-            const originalId = baseClipboard.pipes[i].id;
+            // Filter (TURQUAZ düşürme) sonrası pasteData.pipes index'i
+            // baseClipboard.pipes ile örtüşmez; orijinal ID'yi henüz mutate
+            // edilmemiş pipeJson'dan oku.
+            const originalId = pipeJson.id;
             const p1c = getClonedNode(pipeJson.p1);
             const p2c = getClonedNode(pipeJson.p2);
             
