@@ -22,6 +22,8 @@ function setHeader({ projectName, projectId }) {
     }
     if (projectId) {
         window.AANGCAD_WEB_PROJECT_ID = projectId;
+        // Web'ten yüklendi → sonraki "Kaydet" web projesinin üzerine yazsın.
+        window.saveTarget = 'web';
     }
     window.dispatchEvent(new CustomEvent('aangcad:web-load-ok', {
         detail: { projectId, projectName },

@@ -222,31 +222,63 @@ export function saveProject() {
 
     const dataStr = JSON.stringify(projectData, null, 2);
 
-    // Web modu: URL'de ?project=ID varsa mevcut projeyi güncelle.
-    const webProjectId = getProjectIdFromUrl();
-    if (webProjectId) {
-        (async () => {
-            try {
-                const name = window.currentProjectName || projectData.projectMeta?.proje_adi || 'İsimsiz Proje';
-                await saveProjectToWeb(webProjectId, projectData, name);
-                document.title = `${name} - AangCAD (web)`;
-                console.log(`Proje web panele kaydedildi: ${name}`);
-                window.dispatchEvent(new CustomEvent('aangcad:web-save-ok', { detail: { projectId: webProjectId, projectName: name, name } }));
-            } catch (err) {
-                console.error('Web kaydetme hatası:', err);
-                alert('Web panele kaydetme başarısız: ' + err.message);
-            }
-        })();
+    // =================================================================
+    // HEDEF YÖNLENDİRME
+    // window.saveTarget ('local' | 'web') "Farklı Kaydet" ile belirlenir ve
+    // sonraki "Kaydet"ler son kaydedilen yerin üzerine yazsın diye hatırlanır.
+    // Hedef seçilmemişse (ilk kayıt / eski projeler) otomatik tespit edilir.
+    // =================================================================
+    const target = window.saveTarget || null;
+
+    if (target === 'web') {
+        saveToWeb(projectData);
+        return;
+    }
+    if (target === 'local') {
+        saveToLocal(projectData, dataStr);
         return;
     }
 
-    // Web modu: oturum + aktif firma varsa yeni proje olarak insert et.
+    // Hedef seçilmemiş → eski otomatik davranış (geriye dönük uyum). Seçilen
+    // yer window.saveTarget'a yazılır; böylece bundan sonra oraya devam edilir.
+    const webProjectId = getProjectIdFromUrl() || window.AANGCAD_WEB_PROJECT_ID || null;
+    if (webProjectId) {
+        window.saveTarget = 'web';
+        saveToWeb(projectData);
+        return;
+    }
     const activeFirm   = window.AANGCAD_ACTIVE_FIRM;
     const userProfile  = window.AANGCAD_USER_PROFILE;
     if (activeFirm && userProfile?.id) {
-        (async () => {
-            try {
-                const name = window.currentProjectName || projectData.projectMeta?.proje_adi || 'İsimsiz Proje';
+        window.saveTarget = 'web';
+        saveToWeb(projectData);
+        return;
+    }
+
+    window.saveTarget = 'local';
+    saveToLocal(projectData, dataStr);
+}
+
+// =================================================================
+// WEB'E KAYDET — mevcut web projesi varsa üzerine yaz, yoksa yeni oluştur.
+// =================================================================
+function saveToWeb(projectData) {
+    (async () => {
+        try {
+            const name = window.currentProjectName || projectData.projectMeta?.proje_adi || 'İsimsiz Proje';
+            let projectId = getProjectIdFromUrl() || window.AANGCAD_WEB_PROJECT_ID || null;
+
+            if (projectId) {
+                // Mevcut web projesinin üzerine yaz.
+                await saveProjectToWeb(projectId, projectData, name);
+            } else {
+                // Yeni proje olarak oluştur — oturum + aktif firma gerekir.
+                const activeFirm  = window.AANGCAD_ACTIVE_FIRM;
+                const userProfile = window.AANGCAD_USER_PROFILE;
+                if (!activeFirm || !userProfile?.id) {
+                    alert('Web\'e kaydetmek için önce web oturumu açıp bir firma seçmelisiniz.');
+                    return;
+                }
                 const created = await createProjectInWeb({
                     proje_adi:     name,
                     cad_data:      projectData,
@@ -254,28 +286,31 @@ export function saveProject() {
                     df_id:         activeFirm.df_id,
                     owner_user_id: userProfile.id,
                 });
+                projectId = created.id;
                 const url = new URL(location.href);
-                url.searchParams.set('project', created.id);
+                url.searchParams.set('project', projectId);
                 history.replaceState({}, '', url);
-                window.AANGCAD_WEB_PROJECT_ID = created.id;
-                document.title = `${name} - AangCAD (web)`;
-                console.log(`Yeni proje web panele oluşturuldu: ${name} (${created.id})`);
-                window.dispatchEvent(new CustomEvent('aangcad:web-save-ok', {
-                    detail: { projectId: created.id, projectName: name, name },
-                }));
-            } catch (err) {
-                console.error('Yeni proje oluşturma hatası:', err);
-                alert('Yeni proje oluşturulamadı: ' + err.message);
+                window.AANGCAD_WEB_PROJECT_ID = projectId;
             }
-        })();
-        return;
-    }
 
-    // =================================================================
-    // TARİH FORMATLAMA VE İSİM GÜNCELLEME MANTIĞI
-    // =================================================================
-    
-    // YYYYMMDD formatında tarih üret (Örn: 20260415)
+            window.saveTarget = 'web';
+            document.title = `${name} - AangCAD (web)`;
+            console.log(`Proje web panele kaydedildi: ${name}`);
+            window.dispatchEvent(new CustomEvent('aangcad:web-save-ok', {
+                detail: { projectId, projectName: name, name },
+            }));
+        } catch (err) {
+            console.error('Web kaydetme hatası:', err);
+            alert('Web panele kaydetme başarısız: ' + err.message);
+        }
+    })();
+}
+
+// =================================================================
+// LOKAL'E (PC) KAYDET — File System Access API varsa handle üzerine yaz.
+// =================================================================
+function saveToLocal(projectData, dataStr) {
+    // ---- Tarih formatlama ve isim güncelleme ----
     const getFormattedDate = () => {
         const today = new Date();
         const yyyy = today.getFullYear();
@@ -288,15 +323,13 @@ export function saveProject() {
     const dateSuffix = getFormattedDate();
 
     // Eğer ismin sonunda zaten bugünün tarihi yoksa ekle
-    // Regex, ismin sonunda " 20260415" gibi bir kalıp olup olmadığını kontrol eder
     const datePattern = new RegExp(`\\s${dateSuffix}$`);
-    
+
     if (!datePattern.test(baseName)) {
         // Eski tarihli bir isimse (başka bir günün tarihi varsa) onu temizleyip yenisini ekle
-        // Bu satır "İsim 20260414" -> "İsim 20260415" dönüşümünü sağlar
-        baseName = baseName.replace(/\s\d{8}$/, ""); 
+        baseName = baseName.replace(/\s\d{8}$/, "");
         baseName = `${baseName} ${dateSuffix}`;
-        
+
         // UI ve Global değişkenleri güncelle
         window.currentProjectName = baseName;
         const nameInput = document.getElementById('projectNameInput');
@@ -306,10 +339,7 @@ export function saveProject() {
 
     let fileName = `${baseName}.json`;
 
-    // =================================================================
-    // KAYDETME İŞLEMİ (ASENKRON)
-    // =================================================================
-    
+    // ---- Kaydetme işlemi (asenkron) ----
     (async () => {
         try {
             if ('showSaveFilePicker' in window) {
@@ -324,8 +354,8 @@ export function saveProject() {
                             accept: { 'application/json': ['.json'] },
                         }],
                     });
-                    window.currentFileHandle = fileHandle; 
-                    
+                    window.currentFileHandle = fileHandle;
+
                     // Dosya isminden uzantıyı çıkarıp son hali UI'a yansıt
                     const actualName = fileHandle.name.replace(/\.json$/i, '');
                     window.currentProjectName = actualName;
@@ -349,6 +379,9 @@ export function saveProject() {
                 const writable = await fileHandle.createWritable();
                 await writable.write(dataStr);
                 await writable.close();
+                // Başarılı lokal kayıt: bundan sonra "Kaydet" bu dosyanın üzerine yazsın.
+                window.saveTarget = 'local';
+                window.saveAsNewFile = false;
                 console.log(`Proje kaydedildi: ${window.currentProjectName}`);
                 try { await recordRecent(fileHandle, window.currentProjectName); } catch (e) { /* recents opsiyonel */ }
 
@@ -363,6 +396,7 @@ export function saveProject() {
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+                window.saveTarget = 'local';
             }
         } catch (error) {
             if (error.name !== 'AbortError') {
@@ -653,6 +687,8 @@ export async function openProjectFromHandle(handle, displayName) {
     window.currentFileHandle = handle;
     window.currentProjectName = baseName;
     window.saveAsNewFile = false;
+    // Lokal dosyadan açıldı → sonraki "Kaydet" bu dosyanın üzerine yazsın.
+    window.saveTarget = 'local';
     const nameInput = document.getElementById('projectNameInput');
     if (nameInput) nameInput.value = baseName;
     document.title = `${baseName} - AangCAD`;

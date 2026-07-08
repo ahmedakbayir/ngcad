@@ -1878,23 +1878,108 @@ export function setupUIListeners() {
         document.getElementById('bSave')?.click();
     });
 
-    // Farklı Kaydet İşlemi (Yeni isimle oluştur)
-    document.getElementById('menuSaveAs')?.addEventListener('click', (e) => {
+    // "Farklı Kaydet" hedef seçim modalı — 'local' | 'web' | null (iptal) döner.
+    function askSaveTarget() {
+        return new Promise((resolve) => {
+            // Aynı anda birden fazla açılmasın.
+            document.getElementById('saveTargetOverlay')?.remove();
+
+            const overlay = document.createElement('div');
+            overlay.id = 'saveTargetOverlay';
+            overlay.style.cssText =
+                'position:fixed;inset:0;z-index:2000000;display:flex;align-items:center;' +
+                'justify-content:center;background:rgba(0,0,0,0.45);';
+
+            const box = document.createElement('div');
+            box.style.cssText =
+                'background:#fff;color:#1f2937;min-width:320px;max-width:90vw;padding:22px;' +
+                'border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.3);' +
+                'font:14px/1.5 system-ui,sans-serif;text-align:center;';
+
+            box.innerHTML =
+                '<div style="font-size:16px;font-weight:600;margin-bottom:6px;">Farklı Kaydet</div>' +
+                '<div style="color:#6b7280;margin-bottom:18px;">Projeyi nereye kaydetmek istiyorsunuz?</div>' +
+                '<div style="display:flex;gap:12px;justify-content:center;margin-bottom:14px;">' +
+                '  <button id="stLocal" style="flex:1;padding:14px 10px;border:1px solid #d1d5db;border-radius:10px;' +
+                '    background:#f9fafb;cursor:pointer;font:600 14px system-ui;color:#1f2937;">💾<br>Lokal (PC)</button>' +
+                '  <button id="stWeb" style="flex:1;padding:14px 10px;border:1px solid #bfdbfe;border-radius:10px;' +
+                '    background:#eff6ff;cursor:pointer;font:600 14px system-ui;color:#1d4ed8;">☁️<br>Web</button>' +
+                '</div>' +
+                '<button id="stCancel" style="border:none;background:none;color:#6b7280;cursor:pointer;' +
+                '  font:13px system-ui;padding:4px 8px;">İptal</button>';
+
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+
+            const close = (val) => {
+                overlay.remove();
+                document.removeEventListener('keydown', onKey);
+                resolve(val);
+            };
+            const onKey = (ev) => { if (ev.key === 'Escape') close(null); };
+            document.addEventListener('keydown', onKey);
+
+            box.querySelector('#stLocal').addEventListener('click', () => close('local'));
+            box.querySelector('#stWeb').addEventListener('click', () => close('web'));
+            box.querySelector('#stCancel').addEventListener('click', () => close(null));
+            overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(null); });
+        });
+    }
+
+    // Farklı Kaydet İşlemi — önce hedef sorulur (Lokal / Web), sonra kaydedilir.
+    // Seçilen hedef window.saveTarget'a yazılır; bundan sonraki "Kaydet"ler aynı
+    // yerin üzerine yazar (bkz. file-io.js saveProject yönlendirmesi).
+    document.getElementById('menuSaveAs')?.addEventListener('click', async (e) => {
         e.preventDefault();
         document.getElementById('mainMenuContent')?.parentElement.classList.remove('show');
+
+        const target = await askSaveTarget();
+        if (!target) return; // İptal
 
         const projectNameInput = document.getElementById('projectNameInput');
         const currentName = projectNameInput ? projectNameInput.value.trim() : 'Ahmet Akbayir';
 
-        const newName = prompt("Farklı Kaydet - Yeni Proje Adını Girin:", currentName);
-        if (newName && newName.trim() !== "") {
-            if (projectNameInput) projectNameInput.value = newName.trim();
-            document.title = `${newName.trim()} - AangCAD`;
-            window.currentProjectName = newName.trim();
-            window.saveAsNewFile = true; // Yeni bir kopya oluştur (save as)
+        if (target === 'web') {
+            // Web'e kaydetmek için oturum + aktif firma gerekli; yoksa bağlanmayı dene.
+            if (!(window.AANGCAD_ACTIVE_FIRM && window.AANGCAD_USER_PROFILE?.id)) {
+                try {
+                    const ok = window.__aangcadConnectToWeb ? await window.__aangcadConnectToWeb() : false;
+                    if (!ok || !(window.AANGCAD_ACTIVE_FIRM && window.AANGCAD_USER_PROFILE?.id)) {
+                        alert('Web\'e kaydetmek için web oturumu açıp bir firma seçmelisiniz.');
+                        return;
+                    }
+                } catch { return; }
+            }
 
+            const newName = prompt("Web'e Farklı Kaydet - Yeni Proje Adını Girin:", currentName);
+            if (!newName || newName.trim() === "") return;
+            if (projectNameInput) projectNameInput.value = newName.trim();
+            window.currentProjectName = newName.trim();
+            document.title = `${newName.trim()} - AangCAD (web)`;
+
+            // Yeni bir web kopyası oluştur: mevcut web proje kimliğini temizle.
+            window.AANGCAD_WEB_PROJECT_ID = null;
+            try {
+                const url = new URL(location.href);
+                url.searchParams.delete('project');
+                history.replaceState({}, '', url);
+            } catch {}
+
+            window.saveTarget = 'web';
             document.getElementById('bSave')?.click();
+            return;
         }
+
+        // target === 'local'
+        const newName = prompt("Farklı Kaydet - Yeni Proje Adını Girin:", currentName);
+        if (!newName || newName.trim() === "") return;
+        if (projectNameInput) projectNameInput.value = newName.trim();
+        window.currentProjectName = newName.trim();
+        document.title = `${newName.trim()} - AangCAD`;
+
+        window.saveTarget = 'local';
+        window.saveAsNewFile = true; // Yeni dosya seçici açılsın (yeni kopya)
+        document.getElementById('bSave')?.click();
     });
 
     // Aç İşlemi — handle alabilmek için modern picker tercih edilir; yoksa eski file-input.
