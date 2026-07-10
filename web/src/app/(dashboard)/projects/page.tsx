@@ -28,6 +28,10 @@ export default async function ProjectsListPage() {
     userFlags = data;
   }
   const allowCad = canOpenCad(userFlags);
+  // Çapraz-kanal firma linkleri: PF user DF linki görmez, DF user PF linki görmez.
+  const isAdmin = Boolean(userFlags?.is_admin);
+  const canLinkPf = isAdmin || Boolean(userFlags?.firma_kullanicisi);
+  const canLinkDf = isAdmin || Boolean(userFlags?.gdf_kullanicisi);
 
   const { data, error } = projectsRes;
 
@@ -51,7 +55,7 @@ export default async function ProjectsListPage() {
         <p className="text-sm text-destructive">Veri çekilemedi: {error.message}</p>
       ) : (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        <ProjectsTable rows={(data ?? []) as any[]} allowCad={allowCad} />
+        <ProjectsTable rows={(data ?? []) as any[]} allowCad={allowCad} canLinkPf={canLinkPf} canLinkDf={canLinkDf} />
       )}
     </div>
   );

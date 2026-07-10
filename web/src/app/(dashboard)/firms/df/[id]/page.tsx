@@ -19,6 +19,23 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
   const { data: firm } = await supabase.from('dagitim_firmalari').select('*').eq('id', id).maybeSingle();
   if (!firm) notFound();
 
+  // Kanal kilidi: DF detay sayfası yalnız admin VEYA DF kanalı yetkilisine açık.
+  // PF kullanıcısı bağlı DF adını salt-okunur görür ama detayına GİREMEZ.
+  // user_can_see_df yalnız user_df zincirini sayar (mig 012'deki via_pf'i İÇERMEZ),
+  // dolayısıyla PF köprüsüyle gelen erişimi kapsamaz — tam istenen davranış.
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  const { data: meRow } = authUser
+    ? await supabase.from('users').select('is_admin, firma_kullanicisi').eq('id', authUser.id).maybeSingle()
+    : { data: null };
+  const isAdmin = Boolean(meRow?.is_admin);
+  if (!isAdmin) {
+    const { data: canSee } = await supabase.rpc('user_can_see_df', { p_id: id });
+    if (!canSee) notFound();
+  }
+  // Alt PF linkleri: DF kullanıcısı PF detayına giremez → düz metin. Admin veya
+  // PF kanalı (dual) kullanıcısı link görür.
+  const canLinkPf = isAdmin || Boolean(meRow?.firma_kullanicisi);
+
   // Yetkili kullanıcı adaylarını da kapsayacak şekilde: bu DF + (varsa) parent DF.
   const userDfIds = firm.parent_id ? [id, firm.parent_id] : [id];
 
@@ -442,12 +459,16 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
                                 <ul className="space-y-0.5">
                                   {c.pfs.map((p) => (
                                     <li key={p.id} className="text-[12px]">
-                                      <Link
-                                        href={`/firms/pf/${p.id}`}
-                                        className="font-medium hover:underline"
-                                      >
-                                        #{p.no ?? '–'} {p.firma_adi}
-                                      </Link>
+                                      {canLinkPf ? (
+                                        <Link
+                                          href={`/firms/pf/${p.id}`}
+                                          className="font-medium hover:underline"
+                                        >
+                                          #{p.no ?? '–'} {p.firma_adi}
+                                        </Link>
+                                      ) : (
+                                        <span className="font-medium">#{p.no ?? '–'} {p.firma_adi}</span>
+                                      )}
                                     </li>
                                   ))}
                                 </ul>
@@ -483,9 +504,13 @@ export default async function EditDFPage({ params }: { params: Promise<{ id: str
               <ul className="divide-y">
                 {pfLinked.data.map((p) => (
                   <li key={p.id} className="py-2 text-sm">
-                    <Link href={`/firms/pf/${p.id}`} className="hover:underline">
-                      #{p.no} {p.firma_adi}
-                    </Link>
+                    {canLinkPf ? (
+                      <Link href={`/firms/pf/${p.id}`} className="hover:underline">
+                        #{p.no} {p.firma_adi}
+                      </Link>
+                    ) : (
+                      <span>#{p.no} {p.firma_adi}</span>
+                    )}
                   </li>
                 ))}
               </ul>

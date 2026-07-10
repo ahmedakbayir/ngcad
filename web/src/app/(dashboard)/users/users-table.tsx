@@ -28,6 +28,9 @@ export interface UsersTableProps {
   managerByUserId?: Record<string, { id: string; adi: string }>;
   // DF filtre combobox'ı için tüm DF listesi (parent + child)
   dfList?: { id: string; firma_adi: string; parent_id: string | null }[];
+  // Çapraz-kanal firma linkleri: PF user DF linki görmez, DF user PF linki görmez.
+  canLinkPf?: boolean;
+  canLinkDf?: boolean;
 }
 
 function kategoriBadge(k: UserKategori) {
@@ -117,6 +120,9 @@ function buildColumns(
   managerByUserId: Record<string, { id: string; adi: string }> | undefined,
   rolOptions: RolOption[],
   dfList: { id: string; firma_adi: string; parent_id: string | null }[] | undefined,
+  // Çapraz-kanal firma linkleri: PF user DF linki görmez, DF user PF linki görmez.
+  canLinkPf: boolean,
+  canLinkDf: boolean,
 ): ColumnDef<UserRow>[] {
   const trCmp = (a: string, b: string) => a.localeCompare(b, 'tr');
   const sortByName = <T extends { firma_adi: string }>(arr: T[]): T[] =>
@@ -288,6 +294,7 @@ function buildColumns(
           );
         }
         const t = tops[0];
+        if (!canLinkDf) return <span className="text-xs font-medium">{t.firma_adi}</span>;
         return (
           <Link href={`/firms/df/${t.id}`} className="text-xs font-medium hover:underline">
             {t.firma_adi}
@@ -335,21 +342,29 @@ function buildColumns(
                 const dfs = collapseDfs(pf.dfs);
                 return (
                   <div key={pf.id} className="leading-tight">
-                    <Link
-                      href={`/firms/pf/${pf.id}`}
-                      className="font-medium uppercase tracking-wide hover:underline"
-                    >
-                      {pf.firma_adi}
-                    </Link>
+                    {canLinkPf ? (
+                      <Link
+                        href={`/firms/pf/${pf.id}`}
+                        className="font-medium uppercase tracking-wide hover:underline"
+                      >
+                        {pf.firma_adi}
+                      </Link>
+                    ) : (
+                      <span className="font-medium uppercase tracking-wide">{pf.firma_adi}</span>
+                    )}
                     {dfs.length > 0 && (
                       <span className="ml-1.5 italic text-[10.5px] text-muted-foreground">
                         ·{' '}
                         {dfs.map((d, i) => (
                           <React.Fragment key={d.id}>
                             {i > 0 && ', '}
-                            <Link href={`/firms/df/${d.id}`} className="hover:underline">
-                              {d.firma_adi}
-                            </Link>
+                            {canLinkDf ? (
+                              <Link href={`/firms/df/${d.id}`} className="hover:underline">
+                                {d.firma_adi}
+                              </Link>
+                            ) : (
+                              <span>{d.firma_adi}</span>
+                            )}
                           </React.Fragment>
                         ))}
                       </span>
@@ -365,15 +380,19 @@ function buildColumns(
           if (dfs.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
           return (
             <div className="flex min-w-[200px] flex-col gap-0.5 text-xs">
-              {dfs.map((d) => (
-                <Link
-                  key={d.id}
-                  href={`/firms/df/${d.id}`}
-                  className="italic hover:underline"
-                >
-                  {d.firma_adi}
-                </Link>
-              ))}
+              {dfs.map((d) =>
+                canLinkDf ? (
+                  <Link
+                    key={d.id}
+                    href={`/firms/df/${d.id}`}
+                    className="italic hover:underline"
+                  >
+                    {d.firma_adi}
+                  </Link>
+                ) : (
+                  <span key={d.id} className="italic">{d.firma_adi}</span>
+                ),
+              )}
             </div>
           );
         }
@@ -492,6 +511,8 @@ export function UsersTable({
   dfMaster,
   managerByUserId,
   dfList,
+  canLinkPf = true,
+  canLinkDf = true,
 }: UsersTableProps) {
   const [kategoriTab, setKategoriTab] = React.useState<KategoriTab>('all');
   const [dfFilter, setDfFilter] = React.useState<string>('all');
@@ -532,8 +553,8 @@ export function UsersTable({
   }, [kategoriTab]);
 
   const columns = React.useMemo(
-    () => buildColumns(userPfMap, userDfMap, pfMaster, dfMaster, managerByUserId, rolOptions, dfList),
-    [userPfMap, userDfMap, pfMaster, dfMaster, managerByUserId, rolOptions, dfList],
+    () => buildColumns(userPfMap, userDfMap, pfMaster, dfMaster, managerByUserId, rolOptions, dfList, canLinkPf, canLinkDf),
+    [userPfMap, userDfMap, pfMaster, dfMaster, managerByUserId, rolOptions, dfList, canLinkPf, canLinkDf],
   );
 
   // DF filtre Select için alfabetik + hiyerarşik liste (parent + child).

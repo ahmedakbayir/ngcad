@@ -111,6 +111,10 @@ interface FirmFormProps {
   yetkiliUsers: YetkiliKullaniciOption[];
   parentList: ParentEntry[];
   dfList?: DFListEntry[];
+  // Bağlı DF alanını düzenleme izni. Yalnız admin true; PF yetkilisi vb. için
+  // false → alan salt-okunur (değiştirilemez, temizlenemez, "yeni sekmede aç"
+  // linki gizli). Varsayılan true (create sayfası + admin edit).
+  canEditDf?: boolean;
   // Create modunda üst firma altına yeni alt birim eklenirken doldurulur.
   // Form parent_id'yi bu değerle açar; firma_adi otomatik "<ÜstAdı> / <DFAdı>"
   // şeklinde türetilir (admin elle değiştirene kadar).
@@ -149,6 +153,7 @@ export function FirmForm({
   yetkiliUsers,
   parentList,
   dfList = [],
+  canEditDf = true,
   defaultParentId = null,
 }: FirmFormProps) {
   const router = useRouter();
@@ -479,6 +484,7 @@ export function FirmForm({
             <BagliDfField
               form={form}
               dfList={dfList}
+              readOnly={!canEditDf}
               className="sm:col-span-2"
             />
           )}
@@ -918,11 +924,15 @@ export function FirmForm({
 function BagliDfField({
   form,
   dfList,
+  readOnly = false,
   className,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   form: any;
   dfList: DFListEntry[];
+  // Salt-okunur: PF yetkilisi vb. bağlı DF adını referans olarak görür ama
+  // değiştiremez/temizleyemez ve DF detayına gidemez (link gizli).
+  readOnly?: boolean;
   className?: string;
 }) {
   return (
@@ -940,6 +950,16 @@ function BagliDfField({
               .filter((c) => c.parent_id === p.id)
               .forEach((c) => ordered.push({ d: c, depth: 1 }));
           });
+          // Salt-okunur modda seçili DF adını düz metin göster — combobox açılmaz,
+          // "— Seçilmedi —" seçeneği ve detay linki hiç render edilmez.
+          if (readOnly) {
+            const current = field.value ? byId.get(field.value) : null;
+            return (
+              <div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-sm text-muted-foreground">
+                {current?.firma_adi ?? 'Bağlı DF yok'}
+              </div>
+            );
+          }
           return (
             <div className="flex items-center gap-1.5">
               <Select

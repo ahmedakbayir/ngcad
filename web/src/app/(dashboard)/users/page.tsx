@@ -1,11 +1,13 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { UsersTable } from './users-table';
 import type { UserRow } from '@/lib/supabase/types';
+import { getFirmLinkAccess } from '@/lib/firm-link-access';
 
 export const dynamic = 'force-dynamic';
 
 export default async function UsersListPage() {
   const supabase = await supabaseServer();
+  const { canLinkPf, canLinkDf } = await getFirmLinkAccess();
   const [usersRes, pfRes, dfRes, upfRes, udfRes] = await Promise.all([
     supabase.from('users').select('*').order('created_at', { ascending: false }).limit(1000),
     supabase.from('proje_firmalari').select('id, firma_adi, parent_id, df_id'),
@@ -77,6 +79,8 @@ export default async function UsersListPage() {
         dfMaster={dfRows.map((d) => ({ id: d.id, parent_id: d.parent_id }))}
         managerByUserId={managerByUserId}
         dfList={dfRows.map((d) => ({ id: d.id, firma_adi: d.firma_adi, parent_id: d.parent_id }))}
+        canLinkPf={canLinkPf}
+        canLinkDf={canLinkDf}
       />
     </div>
   );

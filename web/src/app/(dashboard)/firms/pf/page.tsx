@@ -4,11 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { FirmaTable } from '@/components/firma-table';
 import type { FirmaRow } from '@/lib/supabase/types';
+import { getFirmLinkAccess } from '@/lib/firm-link-access';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PFListPage() {
   const supabase = await supabaseServer();
+  const { canLinkDf } = await getFirmLinkAccess();
   const [pfRes, dfRes, usersRes] = await Promise.all([
     supabase.from('proje_firmalari').select('*').order('firma_adi'),
     supabase.from('dagitim_firmalari').select('id, firma_adi, parent_id').order('firma_adi'),
@@ -82,6 +84,7 @@ export default async function PFListPage() {
           pfDfMap={pfDfMap}
           dfMaster={dfRows.map((d) => ({ id: d.id, parent_id: d.parent_id }))}
           yetkiliUserById={yetkiliUserById}
+          canLinkDf={canLinkDf}
           compact
         />
       )}

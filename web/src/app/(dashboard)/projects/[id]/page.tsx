@@ -36,6 +36,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   if (!project) notFound();
 
   let allowCad = false;
+  // Çapraz-kanal firma linkleri: PF user DF linki görmez, DF user PF linki görmez.
+  let canLinkPf = false;
+  let canLinkDf = false;
   if (user) {
     const { data: u } = await supabase
       .from('users')
@@ -43,6 +46,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       .eq('id', user.id)
       .maybeSingle();
     allowCad = canOpenCad(u);
+    const isAdmin = Boolean(u?.is_admin);
+    canLinkPf = isAdmin || Boolean(u?.firma_kullanicisi);
+    canLinkDf = isAdmin || Boolean(u?.gdf_kullanicisi);
   }
 
   const cadHref = `/api/cad-redirect?project=${project.id}`;
@@ -62,11 +68,15 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           </div>
           <div className="mt-1 text-sm text-muted-foreground">
             {project.pf && (
-              <Link href={`/firms/pf/${project.pf.id}`} className="hover:underline">{project.pf.firma_adi}</Link>
+              canLinkPf
+                ? <Link href={`/firms/pf/${project.pf.id}`} className="hover:underline">{project.pf.firma_adi}</Link>
+                : <span>{project.pf.firma_adi}</span>
             )}
             {project.pf && project.df && ' · '}
             {project.df && (
-              <Link href={`/firms/df/${project.df.id}`} className="hover:underline">{project.df.firma_adi}</Link>
+              canLinkDf
+                ? <Link href={`/firms/df/${project.df.id}`} className="hover:underline">{project.df.firma_adi}</Link>
+                : <span>{project.df.firma_adi}</span>
             )}
             {project.owner && (
               <>

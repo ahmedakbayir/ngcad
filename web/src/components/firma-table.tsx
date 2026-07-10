@@ -44,6 +44,7 @@ export function FirmaTable({
   dfMaster,
   compact = false,
   yetkiliUserById,
+  canLinkDf = true,
 }: {
   firmas: FirmaRow[];
   basePath: '/firms/pf' | '/firms/df';
@@ -55,6 +56,9 @@ export function FirmaTable({
   compact?: boolean;
   // Firma yetkili kullanıcı kolonu için lookup (verilirse kolon görünür).
   yetkiliUserById?: Record<string, { id: string; adi: string }>;
+  // PF listesindeki "Bağlı DF" kolonu link mi düz metin mi? DF kanalına
+  // giremeyen kullanıcıda (PF user) düz metin. Bkz. getFirmLinkAccess.
+  canLinkDf?: boolean;
 }) {
   const showDfColumn = basePath === '/firms/pf' && !!pfDfMap;
   const [dfFilter, setDfFilter] = React.useState<string>('all');
@@ -558,11 +562,15 @@ export function FirmaTable({
               }
               return (
                 <div className="flex flex-col gap-0.5 text-xs">
-                  {dfs.map((d) => (
-                    <Link key={d.id} href={`/firms/df/${d.id}`} className="hover:underline">
-                      {d.firma_adi}
-                    </Link>
-                  ))}
+                  {dfs.map((d) =>
+                    canLinkDf ? (
+                      <Link key={d.id} href={`/firms/df/${d.id}`} className="hover:underline">
+                        {d.firma_adi}
+                      </Link>
+                    ) : (
+                      <span key={d.id}>{d.firma_adi}</span>
+                    ),
+                  )}
                 </div>
               );
             },

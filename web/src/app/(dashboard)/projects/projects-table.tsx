@@ -31,7 +31,11 @@ const DURUM_OPTIONS = [
   { value: 'iptal',      label: 'İptal' },
 ];
 
-function buildColumns(allowCad: boolean): ColumnDef<ProjectRowJoined>[] {
+function buildColumns(
+  allowCad: boolean,
+  canLinkPf: boolean,
+  canLinkDf: boolean,
+): ColumnDef<ProjectRowJoined>[] {
   const base: ColumnDef<ProjectRowJoined>[] = [
   {
     id: 'no',
@@ -65,6 +69,7 @@ function buildColumns(allowCad: boolean): ColumnDef<ProjectRowJoined>[] {
     cell: ({ row }) => {
       const r = row.original;
       if (!r.pf_id) return <span className="text-xs text-muted-foreground">—</span>;
+      if (!canLinkPf) return <span className="text-sm">{r.pf?.firma_adi}</span>;
       return (
         <Link href={`/firms/pf/${r.pf_id}`} className="text-sm hover:underline">
           {r.pf?.firma_adi}
@@ -81,6 +86,7 @@ function buildColumns(allowCad: boolean): ColumnDef<ProjectRowJoined>[] {
     cell: ({ row }) => {
       const r = row.original;
       if (!r.df_id) return <span className="text-xs text-muted-foreground">—</span>;
+      if (!canLinkDf) return <span className="text-sm">{r.df?.firma_adi}</span>;
       return (
         <Link href={`/firms/df/${r.df_id}`} className="text-sm hover:underline">
           {r.df?.firma_adi}
@@ -140,8 +146,21 @@ function buildColumns(allowCad: boolean): ColumnDef<ProjectRowJoined>[] {
   return base;
 }
 
-export function ProjectsTable({ rows, allowCad = false }: { rows: ProjectRowJoined[]; allowCad?: boolean }) {
-  const columns = React.useMemo(() => buildColumns(allowCad), [allowCad]);
+export function ProjectsTable({
+  rows,
+  allowCad = false,
+  canLinkPf = true,
+  canLinkDf = true,
+}: {
+  rows: ProjectRowJoined[];
+  allowCad?: boolean;
+  canLinkPf?: boolean;
+  canLinkDf?: boolean;
+}) {
+  const columns = React.useMemo(
+    () => buildColumns(allowCad, canLinkPf, canLinkDf),
+    [allowCad, canLinkPf, canLinkDf],
+  );
   return (
     <DataTable
       columns={columns}

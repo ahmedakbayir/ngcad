@@ -20,6 +20,23 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
   const { data: firm } = await supabase.from('proje_firmalari').select('*').eq('id', id).maybeSingle();
   if (!firm) notFound();
 
+  // Bağlı DF yalnız admin tarafından değiştirilebilir. PF yetkilisi vb. bağlı
+  // DF adını salt-okunur referans olarak görür (detayına gidemez, link yok).
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  const { data: meRow } = authUser
+    ? await supabase.from('users').select('is_admin').eq('id', authUser.id).maybeSingle()
+    : { data: null };
+  const isAdmin = Boolean(meRow?.is_admin);
+
+  // Kanal kilidi: PF detay sayfası yalnız admin VEYA PF kanalı yetkilisine açık.
+  // DF kullanıcısı PF detayına GİREMEZ (projeleri projects RLS üzerinden yine
+  // görür — o firma detay sayfasından bağımsız). user_can_see_pf yalnız user_pf
+  // zincirini sayar; DF kullanıcısının user_pf'i olmadığından false döner.
+  if (!isAdmin) {
+    const { data: canSee } = await supabase.rpc('user_can_see_pf', { p_id: id });
+    if (!canSee) notFound();
+  }
+
   // Yetkili kullanıcı adaylarını da kapsayacak şekilde: bu PF + (varsa) parent PF.
   const userPfIds = firm.parent_id ? [id, firm.parent_id] : [id];
 
@@ -268,6 +285,7 @@ export default async function EditPFPage({ params }: { params: Promise<{ id: str
         }}
         parentList={parentListWithYetkili}
         dfList={df.data ?? []}
+        canEditDf={isAdmin}
         yetkiliUsers={eligibleYetkililer}
       />
 
