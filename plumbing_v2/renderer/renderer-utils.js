@@ -651,7 +651,7 @@ export function computePipeDebileri(manager) {
                 }
             }
 
-        } else if (c.type === 'vana' && c.vanaTipi === 'YANBINA' && c.bagliBoruId) {
+        } else if (c.type === 'vana' && (c.vanaTipi === 'YANBINA' || c.vanaTipi === 'YAN_BINA') && c.bagliBoruId) {
             const d  = parseFloat(c.daireSayisi)  || 0;
             const dk = parseFloat(c.dukkanSayisi) || 0;
             const ek = parseFloat(c.ekDebi)       || 0;

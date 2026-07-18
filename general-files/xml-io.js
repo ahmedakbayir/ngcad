@@ -61,7 +61,13 @@ function _mapVanaFromXML({ vanaTipiInt, textLines, muhafazali }) {
     const joined = (textLines || []).join(' ').toUpperCase();
     let tip = 'AKV';
     let izolator = false;
-    if (joined.includes('SISMIK') || joined.includes('SİSMİK')) tip = 'SISMIK';
+    let ilerdeKullanim = false;
+    // "Domestik" = gasline'da ilerde kullanım amaçlı branşman vanası
+    if (joined.includes('DOMESTİK') || joined.includes('DOMESTIK')) {
+        tip = 'BRANSMAN';
+        ilerdeKullanim = true;
+    }
+    else if (joined.includes('SISMIK') || joined.includes('SİSMİK')) tip = 'SISMIK';
     else if (joined.includes('SELENOID') || joined.includes('SELENO')) tip = 'SELENOID';
     else if (joined.includes('BRAN')) tip = 'BRANSMAN';
     else if (joined.includes('YAN B') || joined.includes('YANB')) tip = 'YAN_BINA';
@@ -75,13 +81,14 @@ function _mapVanaFromXML({ vanaTipiInt, textLines, muhafazali }) {
             case 3: tip = 'AKV'; break;            // EKV → AKV
             case 4: tip = 'AKV'; izolator = true; break; // İzolatörlü
             case 5: tip = 'EMNIYET'; break;        // Emniyet vanası
+            case 6: tip = 'BRANSMAN'; ilerdeKullanim = true; break; // Domestik → ilerde kullanım
             case 7: tip = 'AKV'; break;            // KKV yok → AKV
             default: tip = 'AKV';
         }
     }
     // "İzolatörlü" metni varsa izolator flag'ini set et
     if (joined.includes('İZOLAT') || joined.includes('IZOLAT')) izolator = true;
-    return { tip, izolator, muhafaza: !!muhafazali };
+    return { tip, izolator, muhafaza: !!muhafazali, ilerdeKullanim };
 }
 
 // Birim no: "D3\PDaire" veya "AKV\PDN50\Ph:1.8m" → sadece D3 çıkar
@@ -232,6 +239,12 @@ function _linkPipeNetwork(pipes) {
     }
 
     // Yardımcı: nokta `pt` segmentin (segP1→segP2) GÖVDESİ üzerinde mi? (T-bağlantı)
+    // T-toleransı uç toleransından ÇOK daha dar olmalı: gasline'da sayaç yanındaki
+    // giriş/çıkış kolonları 30cm arayla paralel iner, giriş/çıkış manifoldları 5cm
+    // arayla üst üste durur; gevşek gövde toleransı bunları sahte T ile köprüler
+    // (pre-meter zincir sayaç çıkışının çocuğu olur, debi söner).
+    // Gerçek T'lerde çocuk ucu tam gövde üzerindedir (d ≈ 0.001cm).
+    const T_TOL = 1.5;
     function _pointOnBody(pt, segP1, segP2) {
         const dx = segP2.x - segP1.x, dy = segP2.y - segP1.y, dz = (segP2.z||0) - (segP1.z||0);
         const len2 = dx*dx + dy*dy + dz*dz;
@@ -240,21 +253,45 @@ function _linkPipeNetwork(pipes) {
         if (t < 0.05 || t > 0.95) return null; // uçları hariç tut
         const px = segP1.x + t*dx, py = segP1.y + t*dy, pz = (segP1.z||0) + t*dz;
         const d = Math.hypot(pt.x - px, pt.y - py, (pt.z||0) - pz);
-        return d <= TOL ? t : null;
+        return d <= T_TOL ? t : null;
     }
 
     const visited = new Set();
     const queue = [];
 
-    // Seed: bileşen-bağlı borular (sayaç giriş/çıkış fleks segmentleri, cihaz fleksleri,
-    // servis kutusu çıkışı). Yalnızca sayaçtan seed verilirse, sayaç linki kurulamamış
-    // dosyalarda BFS hiç başlamaz ve tüm chain kırılır.
-    const SEED_TIPS = new Set(['sayac', 'cihaz', 'servis_kutusu']);
-    pipes.forEach(p => {
-        if (SEED_TIPS.has(p.baslangicBaglanti?.tip) || SEED_TIPS.has(p.bitisBaglanti?.tip)) {
-            if (!visited.has(p.id)) { visited.add(p.id); queue.push(p.id); }
-        }
-    });
+    // Seed sırası ÖNEMLİ: akış yönü kaynaktan tüketiciye kurulmalı.
+    //   1) Servis kutusu çıkış borusu (pre-meter zincirin kökü)
+    //   2) Sayaç ÇIKIŞ borusu (post-meter zincirin kökü)
+    // Cihaz uçları ve sayaç GİRİŞ ucu seed OLMAZ: bunlar zincirin SONU'dur;
+    // seed yapılırlarsa BFS upstream boruları kendi "child"ı yapar ve
+    // parent zinciri ters döner (debi/birim propagasyonu kırılır).
+    const _isRootSeed = (bag) =>
+        bag?.tip === 'servis_kutusu' ||
+        (bag?.tip === 'sayac' && bag.baglananNokta === 'cikis');
+    const _seedRank = (p) => {
+        const tips = [p.baslangicBaglanti, p.bitisBaglanti];
+        if (tips.some(b => b?.tip === 'servis_kutusu')) return 0;
+        if (tips.some(b => b?.tip === 'sayac' && b.baglananNokta === 'cikis')) return 1;
+        return -1;
+    };
+    pipes
+        .map(p => ({ p, rank: _seedRank(p) }))
+        .filter(e => e.rank >= 0)
+        .sort((a, b) => a.rank - b.rank)
+        .forEach(({ p }) => {
+            if (_isRootSeed(p.baslangicBaglanti) || _isRootSeed(p.bitisBaglanti)) {
+                if (!visited.has(p.id)) { visited.add(p.id); queue.push(p.id); }
+            }
+        });
+
+    // Bir borunun verilen ucunda bileşen bağı var mı? (sayac/cihaz/servis_kutusu)
+    // Böyle uçlara başka boru İLİŞTİRİLEMEZ — sayaç giriş/çıkış uçları 10-30 cm
+    // yakın olduğundan tolerans eşleşmesi pre/post-meter zincirlerini köprüler.
+    const COMP_TIPS = new Set(['sayac', 'cihaz', 'servis_kutusu']);
+    const _endHasCompBag = (p, end) => {
+        const bag = end === 'p1' ? p.baslangicBaglanti : p.bitisBaglanti;
+        return COMP_TIPS.has(bag?.tip);
+    };
 
     while (queue.length) {
         const cur = pipeMap.get(queue.shift());
@@ -280,16 +317,40 @@ function _linkPipeNetwork(pipes) {
                 bag?.tip === 'cihaz' || bag?.tip === 'servis_kutusu') continue;
 
             const myPt = cur[myEnd];
+            // Adayları topla ve mesafeye göre sırala. Yalnızca EN İYİ eşleşmeye
+            // yakın olanlar kabul edilir: TOL=30 tek başına kullanılırsa 3cm'lik
+            // dirsek parçalarında bir sonraki segment de aynı uca yakın çıkar ve
+            // parent zinciri "off-by-one" kayar (aradaki kısa parça 0 debi kalır).
+            // Bileşene rezerve (sayaç/cihaz/kutu) uçlar "sanal en iyi aday" sayılır:
+            // açık ucun dibinde bir sayaç bağlantısı varsa, sayaç kümesindeki diğer
+            // borulara TOL üzerinden köprü kurulmaz (pre/post-meter ayrımı korunur).
+            const cands = [];
+            let dReserved = Infinity;
             for (const other of pipes) {
-                if (other.id === cur.id || visited.has(other.id)) continue;
+                if (other.id === cur.id) continue;
                 if (!other.p1 || !other.p2) continue;
-                let touching = null;
-                if (eq3(myPt, other.p1)) touching = 'p1';
-                else if (eq3(myPt, other.p2)) touching = 'p2';
+                const d1 = Math.hypot(myPt.x - other.p1.x, myPt.y - other.p1.y, (myPt.z||0) - (other.p1.z||0));
+                const d2 = Math.hypot(myPt.x - other.p2.x, myPt.y - other.p2.y, (myPt.z||0) - (other.p2.z||0));
+                if (_endHasCompBag(other, 'p1') && d1 < dReserved) dReserved = d1;
+                if (_endHasCompBag(other, 'p2') && d2 < dReserved) dReserved = d2;
+                if (visited.has(other.id)) continue;
+                let touching = null, d = null;
+                if (d1 <= TOL && d1 <= d2 && !_endHasCompBag(other, 'p1')) { touching = 'p1'; d = d1; }
+                else if (d2 <= TOL && !_endHasCompBag(other, 'p2')) { touching = 'p2'; d = d2; }
                 if (!touching) continue;
-                _orientAndLink(other, cur, touching);
-                visited.add(other.id);
-                queue.push(other.id);
+                cands.push({ other, touching, d });
+            }
+            cands.sort((a, b) => a.d - b.d);
+            const dBest = Math.min(cands.length ? cands[0].d : Infinity, dReserved);
+            for (const c of cands) {
+                // En iyiden 0.5cm'den uzak adaylar sonraki tura: gasline hassasiyeti
+                // ~0.001cm'dir; 1cm pencere bile vana-boşluğu segmentlerinde (vana
+                // çizimi boruyu 1cm ofsetle böler) yanlış kardeşi kapıyordu.
+                if (c.d > dBest + 0.5) break;
+                if (visited.has(c.other.id)) continue;
+                _orientAndLink(c.other, cur, c.touching);
+                visited.add(c.other.id);
+                queue.push(c.other.id);
             }
         }
 
@@ -299,14 +360,197 @@ function _linkPipeNetwork(pipes) {
             if (other.id === cur.id || visited.has(other.id)) continue;
             if (!other.p1 || !other.p2) continue;
             // other'ın hangi ucu cur'un body'sinde? p1 öncelikli (zaten convention).
-            const tP1 = _pointOnBody(other.p1, cur.p1, cur.p2);
-            const tP2 = _pointOnBody(other.p2, cur.p1, cur.p2);
+            let tP1 = _pointOnBody(other.p1, cur.p1, cur.p2);
+            let tP2 = _pointOnBody(other.p2, cur.p1, cur.p2);
+            // Bileşene rezerve uçlar T-bağlantı adayı olamaz
+            if (tP1 != null && _endHasCompBag(other, 'p1')) tP1 = null;
+            if (tP2 != null && _endHasCompBag(other, 'p2')) tP2 = null;
             if (tP1 == null && tP2 == null) continue;
             const touching = (tP1 != null && (tP2 == null || tP1 < tP2)) ? 'p1' : 'p2';
             _orientAndLink(other, cur, touching);
             visited.add(other.id);
             queue.push(other.id);
         }
+    }
+
+    // TAMAMLAMA TURU: sıkı eşleşme (dBest+1) dışında kalan borular için gevşek
+    // TOL ile ziyaret edilmiş uçlara bağlanmayı dene (sloppy fitting toleransı).
+    let progressed = true;
+    while (progressed) {
+        progressed = false;
+        for (const orphan of pipes) {
+            if (visited.has(orphan.id)) continue;
+            if (!orphan.p1 || !orphan.p2) continue;
+            let best = null;
+            for (const host of pipes) {
+                if (!visited.has(host.id) || host.id === orphan.id) continue;
+                for (const hostEnd of ['p1', 'p2']) {
+                    const hp = host[hostEnd];
+                    for (const oEnd of ['p1', 'p2']) {
+                        if (_endHasCompBag(orphan, oEnd)) continue;
+                        const op = orphan[oEnd];
+                        const d = Math.hypot(hp.x - op.x, hp.y - op.y, (hp.z||0) - (op.z||0));
+                        if (d <= TOL && (!best || d < best.d)) best = { host, oEnd, d };
+                    }
+                }
+            }
+            if (best) {
+                _orientAndLink(orphan, best.host, best.oEnd);
+                visited.add(orphan.id);
+                queue.push(orphan.id);
+                progressed = true;
+                // yeni bağlanan borunun downstream'i ana BFS mantığıyla değil,
+                // bu turun tekrarıyla bağlanır (while progressed).
+            }
+        }
+    }
+
+    // ── PRE-METER REROOT: XML'de servis kutusu yoksa (veya zincir yanlış taraftan
+    // yakalandıysa) sayaç GİRİŞ zinciri, tamamlama turunda sayaç ÇIKIŞ'ının (veya bir
+    // cihazın) alt ağacı olarak ters yönde bağlanabilir. Bu durumda giriş borusundan
+    // parent zinciri sayaç çıkışına ulaşır ve debi/birim propagasyonu kopar.
+    // Tespit: giriş borusundan parentOf zinciri 'sayac'(çıkış) ya da 'cihaz' köküne
+    // varıyorsa köprü var demektir → köprüyü kes, bileşeni serbest ve en alçak uçtan
+    // yeniden köklendir (BFS'i o kökten tekrar çalıştır).
+    try {
+        const _parentOf = () => {
+            const m = new Map();
+            pipes.forEach(p => {
+                if (p.baslangicBaglanti?.tip === 'boru' && p.baslangicBaglanti.hedefId) {
+                    m.set(p.id, p.baslangicBaglanti.hedefId);
+                }
+            });
+            return m;
+        };
+        const girisPipes = pipes.filter(p =>
+            (p.baslangicBaglanti?.tip === 'sayac' && p.baslangicBaglanti.baglananNokta === 'giris') ||
+            (p.bitisBaglanti?.tip === 'sayac' && p.bitisBaglanti.baglananNokta === 'giris')
+        );
+        for (const gp of girisPipes) {
+            const parentOf = _parentOf();
+            // Giriş borusundan köke yürü
+            const path = [gp.id];
+            const seen = new Set([gp.id]);
+            let curId = gp.id;
+            while (parentOf.has(curId)) {
+                curId = parentOf.get(curId);
+                if (seen.has(curId)) break;
+                seen.add(curId);
+                path.push(curId);
+            }
+            const rootPipe = pipeMap.get(curId);
+            const rootTip = rootPipe?.baslangicBaglanti?.tip;
+            if (rootTip !== 'sayac' && rootTip !== 'cihaz') continue; // sağlıklı (kutu/serbest kök)
+            if (rootTip === 'sayac' && rootPipe.baslangicBaglanti.baglananNokta === 'giris') continue;
+
+            // Köprü kesimi: 'sayac' çıkış köküne giren path linkini kopar;
+            // 'cihaz' kökünde kök bileşenin kendisi pre-meter zincirin parçasıdır.
+            let compRootId;
+            if (rootTip === 'sayac') {
+                const bridgeChildId = path[path.length - 2]; // köke bağlanan çocuk
+                if (!bridgeChildId) continue;
+                const bc = pipeMap.get(bridgeChildId);
+                bc.baslangicBaglanti = { tip: null, hedefId: null, noktaIndex: null };
+                compRootId = bridgeChildId;
+            } else {
+                compRootId = curId;
+            }
+
+            // Bileşeni topla (compRoot alt ağacı)
+            const kids = new Map();
+            pipes.forEach(p => {
+                const bag = p.baslangicBaglanti;
+                if (bag?.tip === 'boru' && bag.hedefId) {
+                    if (!kids.has(bag.hedefId)) kids.set(bag.hedefId, []);
+                    kids.get(bag.hedefId).push(p.id);
+                }
+            });
+            const comp = new Set();
+            const cq = [compRootId];
+            while (cq.length) {
+                const id = cq.shift();
+                if (comp.has(id)) continue;
+                comp.add(id);
+                (kids.get(id) || []).forEach(k => cq.push(k));
+            }
+
+            // Yeni kök: bileşen içinde bileşen-bagsız serbest uca sahip, en alçak Z'li boru.
+            // (Servis kutusu / hattın kaynağı tipik olarak en alçak serbest uçtadır.)
+            let newRoot = null, newRootZ = Infinity;
+            comp.forEach(id => {
+                const p = pipeMap.get(id);
+                if (!p) return;
+                [['p1', p.baslangicBaglanti], ['p2', p.bitisBaglanti]].forEach(([end, bag]) => {
+                    if (bag?.tip) return; // bağlı uç
+                    // Bu uca bileşen içinden başka boru dokunuyor mu? (gerçek serbest uç)
+                    const pt = p[end];
+                    let touched = false;
+                    comp.forEach(oid => {
+                        if (touched || oid === id) return;
+                        const o = pipeMap.get(oid);
+                        if (!o) return;
+                        if (eq3(pt, o.p1) || eq3(pt, o.p2)) touched = true;
+                    });
+                    if (touched) return;
+                    const zv = pt.z || 0;
+                    if (zv < newRootZ) { newRootZ = zv; newRoot = { pipe: p, end }; }
+                });
+            });
+            if (!newRoot || newRoot.pipe.id === compRootId) continue;
+
+            // Bileşen içi tüm 'boru' baglarını sıfırla (sayac/cihaz bagları korunur),
+            // sonra yeni kökten BFS ile yeniden yönlendir.
+            comp.forEach(id => {
+                const p = pipeMap.get(id);
+                if (!p) return;
+                if (p.baslangicBaglanti?.tip === 'boru') p.baslangicBaglanti = { tip: null, hedefId: null, noktaIndex: null };
+                if (p.bitisBaglanti?.tip === 'boru') p.bitisBaglanti = { tip: null, hedefId: null, noktaIndex: null };
+            });
+            // Yeni kökün serbest ucu p1 olsun (kaynak taraf)
+            if (newRoot.end === 'p2') {
+                const p = newRoot.pipe;
+                [p.p1, p.p2] = [p.p2, p.p1];
+                const tmp = p.baslangicBaglanti;
+                p.baslangicBaglanti = p.bitisBaglanti;
+                p.bitisBaglanti = tmp;
+            }
+            const rq = [newRoot.pipe.id];
+            const rVisited = new Set([newRoot.pipe.id]);
+            while (rq.length) {
+                const cid = rq.shift();
+                const cp = pipeMap.get(cid);
+                if (!cp) continue;
+                for (const myEnd of ['p1', 'p2']) {
+                    const bag = myEnd === 'p1' ? cp.baslangicBaglanti : cp.bitisBaglanti;
+                    if (bag?.tip) continue;
+                    const myPt = cp[myEnd];
+                    const cands2 = [];
+                    comp.forEach(oid => {
+                        if (oid === cid || rVisited.has(oid)) return;
+                        const o = pipeMap.get(oid);
+                        if (!o) return;
+                        const d1 = Math.hypot(myPt.x - o.p1.x, myPt.y - o.p1.y, (myPt.z||0) - (o.p1.z||0));
+                        const d2 = Math.hypot(myPt.x - o.p2.x, myPt.y - o.p2.y, (myPt.z||0) - (o.p2.z||0));
+                        let touching = null, d = null;
+                        if (d1 <= TOL && d1 <= d2 && !_endHasCompBag(o, 'p1')) { touching = 'p1'; d = d1; }
+                        else if (d2 <= TOL && !_endHasCompBag(o, 'p2')) { touching = 'p2'; d = d2; }
+                        if (touching) cands2.push({ o, touching, d });
+                    });
+                    cands2.sort((a, b) => a.d - b.d);
+                    const db = cands2.length ? cands2[0].d : 0;
+                    for (const c of cands2) {
+                        if (c.d > db + 1) break;
+                        if (rVisited.has(c.o.id)) continue;
+                        _orientAndLink(c.o, cp, c.touching);
+                        rVisited.add(c.o.id);
+                        rq.push(c.o.id);
+                    }
+                }
+            }
+            console.log(`  -> Pre-meter reroot: ${comp.size} borulu zincir en alçak serbest uçtan yeniden köklendi (z=${newRootZ.toFixed(0)})`);
+        }
+    } catch (e) {
+        console.warn('Pre-meter reroot hatası:', e);
     }
 
     console.log(`  -> _linkPipeNetwork: ${visited.size}/${pipes.length} boru zincire dahil edildi, ${_linkCount} link kuruldu`);
@@ -1055,31 +1299,68 @@ export function importFromXML(xmlString, options = {}) {
         return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
-    // Yardımcı fonksiyon: Verilen noktaya en yakın boru ucunu bul
-    function findClosestPipeEnd(point, pipes, tolerance = 10) {
+    // Yardımcı fonksiyon: Verilen noktaya en yakın boru ucunu bul.
+    // skipReserved=true → başka bir bileşene (sayac/cihaz/servis_kutusu) bağlanmış
+    // uçlar atlanır; çoklu sayaçlı dosyalarda iki sayacın aynı ucu kapmasını önler.
+    const _RESERVED_TIPS = new Set(['sayac', 'cihaz', 'servis_kutusu']);
+    function findClosestPipeEnd(point, pipes, tolerance = 10, skipReserved = false) {
         let closestPipe = null;
         let closestEnd = null;
         let minDistance = tolerance;
 
         for (const pipe of pipes) {
+            const p1Reserved = skipReserved && _RESERVED_TIPS.has(pipe.baslangicBaglanti?.tip);
+            const p2Reserved = skipReserved && _RESERVED_TIPS.has(pipe.bitisBaglanti?.tip);
+
             // p1 ucuna olan mesafe
-            const dist1 = distance3D(point, pipe.p1);
-            if (dist1 < minDistance) {
-                minDistance = dist1;
-                closestPipe = pipe;
-                closestEnd = 'p1';
+            if (!p1Reserved) {
+                const dist1 = distance3D(point, pipe.p1);
+                if (dist1 < minDistance) {
+                    minDistance = dist1;
+                    closestPipe = pipe;
+                    closestEnd = 'p1';
+                }
             }
 
             // p2 ucuna olan mesafe
-            const dist2 = distance3D(point, pipe.p2);
-            if (dist2 < minDistance) {
-                minDistance = dist2;
-                closestPipe = pipe;
-                closestEnd = 'p2';
+            if (!p2Reserved) {
+                const dist2 = distance3D(point, pipe.p2);
+                if (dist2 < minDistance) {
+                    minDistance = dist2;
+                    closestPipe = pipe;
+                    closestEnd = 'p2';
+                }
             }
         }
 
         return closestPipe ? { pipe: closestPipe, end: closestEnd, distance: minDistance } : null;
+    }
+
+    // Yardımcı fonksiyon: Noktayı boru GÖVDELERİNE projeksiyon yapıp en yakın boruyu bul.
+    // Ara vanalar (AKV/EMNIYET/CIHAZ...) borunun ortasında durur; uç araması yetmez.
+    function findClosestPipeBody(point, pipes, tolerance = 50) {
+        let best = null;
+        let bestDist = tolerance;
+        for (const pipe of pipes) {
+            if (!pipe.p1 || !pipe.p2) continue;
+            const dx = pipe.p2.x - pipe.p1.x;
+            const dy = pipe.p2.y - pipe.p1.y;
+            const dz = (pipe.p2.z || 0) - (pipe.p1.z || 0);
+            const len2 = dx * dx + dy * dy + dz * dz;
+            if (len2 < 0.01) continue;
+            let t = ((point.x - pipe.p1.x) * dx + (point.y - pipe.p1.y) * dy +
+                     ((point.z || 0) - (pipe.p1.z || 0)) * dz) / len2;
+            t = Math.max(0, Math.min(1, t));
+            const px = pipe.p1.x + t * dx;
+            const py = pipe.p1.y + t * dy;
+            const pz = (pipe.p1.z || 0) + t * dz;
+            const d = Math.hypot(point.x - px, point.y - py, (point.z || 0) - pz);
+            if (d < bestDist) {
+                bestDist = d;
+                best = { pipe, t, distance: d };
+            }
+        }
+        return best;
     }
 
     // 8.1. ÖNCE TÜM BORULARI PARSE ET (Bağlantılar için gerekli)
@@ -1149,6 +1430,70 @@ export function importFromXML(xmlString, options = {}) {
         }
     });
 
+    // 8.1a. SERVİS KUTUSU (kutu) — gasline XML'inde servis kutusu T="kutu" elemanıdır.
+    // Origin = kutu çıkış noktası (tesisata bağlanan uç). En yakın boru ucu köke bağlanır;
+    // bu boru pre-meter zincirin ROOT'u olur (_linkPipeNetwork bu seed'den yönlenir).
+    const kutuElements = xmlDoc.querySelectorAll("O[T='kutu']");
+    console.log(`\n${kutuElements.length} kutu (servis kutusu) bulundu`);
+    kutuElements.forEach((kutuEl, idx) => {
+        try {
+            const originEl = _topProp(kutuEl, 'Origin') || _topProp(kutuEl, 'origin');
+            if (!originEl) return;
+            const oc = originEl.getAttribute('V').split(',').map(Number);
+            const cikisPt = { x: oc[0] * SCALE, y: -oc[1] * SCALE, z: (oc[2] || 0) * SCALE };
+
+            const kutuBasincRaw = _topProp(kutuEl, 'kutubasinc')?.getAttribute('V');
+            const kutuTipiRaw = _topProp(kutuEl, 'kututipi')?.getAttribute('V');
+            const aboneUnvan = _topProp(kutuEl, 'GLAboneUnvan')?.getAttribute('V') || '';
+
+            // En yakın boru ucunu köke bağla (gasline'da kutu-boru arası boşluk olabilir)
+            const yakin = findClosestPipeEnd(cikisPt, state.plumbingPipes, 150);
+
+            const kutuId = `servis_kutusu_xml_${idx}_${Date.now()}`;
+            // Kutu merkezi: çıkış noktası local (width/2, -height/2+BORU_ACIKLIGI) = (25, -7.5)
+            // olduğundan merkez = çıkış - local (rotation 0, sağ çıkış varsayımı).
+            const kutuData = {
+                id: kutuId,
+                type: 'servis_kutusu',
+                x: cikisPt.x - 25,
+                y: cikisPt.y + 7.5,
+                z: cikisPt.z,
+                rotation: 0,
+                floorId: null, // 8.7'de Z'ye göre atanır
+                cikisYonu: 'sag',
+                bagliBoruId: yakin ? yakin.pipe.id : null,
+                cikisKullanildi: !!yakin,
+                kutuTipi: kutuTipiRaw || 'S200',
+                kutuBasinc: kutuBasincRaw != null ? String(parseInt(kutuBasincRaw, 10) || 21) : '21',
+                cikisCap: yakin?.pipe?.boruCap || 'DN32',
+                kutuBoruTipi: 'ÇELİK',
+                kutuBaglantiTipi: 'KAYNAKLI',
+                description: aboneUnvan ? `Abone: ${aboneUnvan}` : ''
+            };
+
+            if (yakin) {
+                // Kanonik yapı: kutuya bağlı borunun p1'i kutu çıkışındadır.
+                if (yakin.end === 'p2') {
+                    const p = yakin.pipe;
+                    [p.p1, p.p2] = [p.p2, p.p1];
+                    const tmp = p.baslangicBaglanti;
+                    p.baslangicBaglanti = p.bitisBaglanti;
+                    p.bitisBaglanti = tmp;
+                }
+                yakin.pipe.baslangicBaglanti = {
+                    tip: 'servis_kutusu',
+                    hedefId: kutuId,
+                    baglananNokta: 'cikis'
+                };
+            }
+
+            state.plumbingBlocks.push(kutuData);
+            console.log(`    -> Servis kutusu eklendi: (${cikisPt.x.toFixed(1)}, ${cikisPt.y.toFixed(1)}, z=${cikisPt.z.toFixed(0)}) tip=${kutuData.kutuTipi} basınç=${kutuData.kutuBasinc}${yakin ? '' : ' [boru bağlantısı bulunamadı]'}`);
+        } catch (e) {
+            console.error('Servis kutusu işlenirken hata:', e, kutuEl);
+        }
+    });
+
     // 8.1b. Branşman (clsbransman) → BRANSMAN vanası (sonlanma vanası)
     // Not: clsbransman gerçek servis kutusu değil, daire branşmanı vanasıdır.
     const bransmanElements = xmlDoc.querySelectorAll("O[T='clsbransman']");
@@ -1182,9 +1527,9 @@ export function importFromXML(xmlString, options = {}) {
                 vanaTipi: 'BRANSMAN',
                 floorId: state.currentFloor?.id,
                 bagliBoruId: yakin ? yakin.pipe.id : null,
-                boruPozisyonu: 1.0,
+                boruPozisyonu: yakin ? (yakin.end === 'p1' ? 0.0 : 1.0) : 1.0,
                 fromEnd: yakin ? yakin.end : null,
-                fixedDistance: 0,
+                fixedDistance: 1, // uçtan 1cm — 0 falsy olduğu için fromJSON'da kayboluyordu
                 girisBagliBoruId: null,
                 cikisBagliBoruId: null,
                 showEndCap: false,
@@ -1242,151 +1587,52 @@ export function importFromXML(xmlString, options = {}) {
                 const centerY = (girisPoint.y + cikisPoint.y) / 2;
                 const z = girisPoint.z;
 
+                // Sayaç ID'si bağlantılarda kullanılacağı için önce üretilir
+                const sayacId = `sayac_xml_${idx}_${Date.now()}`;
+
                 // Giriş ve çıkış borularını bul. Tolerance=80cm (varsayılan 10cm gasline'da
-                // saymaç-pipe arası boşluk için yetersiz; null dönerse hiç fleks segment
-                // oluşmuyor → sayaç havada kalıyor, debi propagasyonu için seed yok).
-                const girisBoru = findClosestPipeEnd(girisPoint, state.plumbingPipes, 80);
-                const cikisBoru = findClosestPipeEnd(cikisPoint, state.plumbingPipes, 80);
+                // sayaç-boru arası boşluk için yetersiz).
+                // KANONİK YAPI (elle yerleştirme ile aynı):
+                //   - Giriş: sayac.fleksBaglanti = {boruId, endpoint} → MEVCUT kolon borusunun
+                //     ucuna sanal fleks çizilir; ayrı fleks borusu OLUŞTURULMAZ.
+                //   - Çıkış: iç tesisatın ilk borusu sayaca bağlanır
+                //     (baslangicBaglanti = {tip:'sayac', baglananNokta:'cikis'}).
+                const girisBoru = findClosestPipeEnd(girisPoint, state.plumbingPipes, 80, true);
+                const digerBorular = girisBoru
+                    ? state.plumbingPipes.filter(p => p.id !== girisBoru.pipe.id)
+                    : state.plumbingPipes;
+                const cikisBoru = findClosestPipeEnd(cikisPoint, digerBorular, 80, true);
 
-                // DÜZELTME: Sayaç girişine fleks segment ekle (tıpkı çıkış segment gibi)
                 let girisBoruId = null;
+                let girisEndpoint = null;
                 if (girisBoru) {
-                    // Sayaç giriş noktasından boru ucuna doğru kısa bir fleks segment ekle
-                    const girisFleksUzunluk = 30; // 30cm fleks segment
-
-                    // Yön vektörü hesapla: sayaç giriş noktasından boru ucuna doğru
-                    const boruUcu = girisBoru.end === 'p1' ? girisBoru.pipe.p1 : girisBoru.pipe.p2;
-                    const dx = boruUcu.x - girisPoint.x;
-                    const dy = boruUcu.y - girisPoint.y;
-                    const distance = Math.hypot(dx, dy);
-
-                    if (distance > 0.1) {
-                        // Normalize edilmiş yön vektörü
-                        const nx = dx / distance;
-                        const ny = dy / distance;
-
-                        // Fleks segment bitiş noktası (boru ucuna doğru)
-                        const girisFleksP2 = {
-                            x: girisPoint.x + nx * Math.min(girisFleksUzunluk, distance),
-                            y: girisPoint.y + ny * Math.min(girisFleksUzunluk, distance),
-                            z: girisPoint.z
-                        };
-
-                        // Fleks segment borusu oluştur (esnek tip)
-                        const girisFleksBoru = {
-                            id: `boru_sayac_giris_fleks_${idx}_${Date.now()}`,
-                            type: 'boru',
-                            boruTipi: 'FLEKS', // Esnek boru
-                            boruCap: girisBoru.pipe.boruCap || 'DN25', // upstream kolon çapı
-                            p1: { ...girisPoint },
-                            p2: girisFleksP2,
-                            colorGroup: 'YELLOW',
-                            floorId: state.currentFloor?.id,
-                            baslangicBaglanti: {
-                                tip: 'sayac',
-                                hedefId: null, // Sayaç ID'si sonra eklenecek
-                                baglananNokta: 'giris'
-                            },
-                            bitisBaglanti: {
-                                tip: 'boru',
-                                hedefId: girisBoru.pipe.id,
-                                noktaIndex: girisBoru.end
-                            },
-                            uzerindekiElemanlar: [],
-                            tBaglantilar: []
-                        };
-
-                        state.plumbingPipes.push(girisFleksBoru);
-                        girisBoruId = girisFleksBoru.id;
-
-                        // Giriş borusunun bağlantısını güncelle (orijinal boru fleks segment'e bağlan)
-                        if (girisBoru.end === 'p1') {
-                            girisBoru.pipe.baslangicBaglanti = {
-                                tip: 'boru',
-                                hedefId: girisFleksBoru.id,
-                                noktaIndex: 'p2'
-                            };
-                        } else {
-                            girisBoru.pipe.bitisBaglanti = {
-                                tip: 'boru',
-                                hedefId: girisFleksBoru.id,
-                                noktaIndex: 'p2'
-                            };
-                        }
-
-                        console.log(`    -> Sayaç giriş fleks segment eklendi: ${girisFleksUzunluk}cm fleks`);
-                    }
+                    girisBoruId = girisBoru.pipe.id;
+                    girisEndpoint = girisBoru.end;
+                    // Giriş ucunu rezerve et: _linkPipeNetwork bu ucu başka boruya
+                    // bağlayamaz (pre/post-meter köprülenmesini engeller).
+                    const bagSet = { tip: 'sayac', hedefId: sayacId, baglananNokta: 'giris' };
+                    if (girisBoru.end === 'p1') girisBoru.pipe.baslangicBaglanti = bagSet;
+                    else girisBoru.pipe.bitisBaglanti = bagSet;
+                    console.log(`    -> Sayaç girişi kolon ucuna bağlandı (${girisBoru.end}, ${girisBoru.distance.toFixed(1)}cm)`);
                 }
 
-                // DÜZELTME: Sayaç çıkışına kısa bir rijit boru parçası ekle (sayaç çıkış parçası)
-                // Eğer çıkış borusu varsa, araya çıkış parçası ekle
                 let cikisBoruId = null;
                 if (cikisBoru) {
-                    // Sayaç çıkış noktasından direkt boruya doğru kısa bir segment ekle
-                    const cikisSegmentUzunluk = 15; // 15cm rijit çıkış parçası
-
-                    // Yön vektörü hesapla: sayaç çıkış noktasından boru ucuna doğru
-                    const boruUcu = cikisBoru.end === 'p1' ? cikisBoru.pipe.p1 : cikisBoru.pipe.p2;
-                    const dx = boruUcu.x - cikisPoint.x;
-                    const dy = boruUcu.y - cikisPoint.y;
-                    const distance = Math.hypot(dx, dy);
-
-                    if (distance > 0.1) {
-                        // Normalize edilmiş yön vektörü
-                        const nx = dx / distance;
-                        const ny = dy / distance;
-
-                        // Çıkış segment bitiş noktası
-                        const cikisSegmentP2 = {
-                            x: cikisPoint.x + nx * cikisSegmentUzunluk,
-                            y: cikisPoint.y + ny * cikisSegmentUzunluk,
-                            z: cikisPoint.z
-                        };
-
-                        // Çıkış segment borusu oluştur
-                        const cikisSegmentBoru = {
-                            id: `boru_sayac_cikis_${idx}_${Date.now()}`,
-                            type: 'boru',
-                            boruTipi: 'STANDART',
-                            boruCap: cikisBoru.pipe.boruCap || 'DN25', // downstream tesisat çapı
-                            p1: { ...cikisPoint },
-                            p2: cikisSegmentP2,
-                            colorGroup: 'YELLOW',
-                            floorId: state.currentFloor?.id,
-                            baslangicBaglanti: {
-                                tip: 'sayac',
-                                hedefId: null, // Sayaç ID'si sonra eklenecek
-                                baglananNokta: 'cikis'
-                            },
-                            bitisBaglanti: {
-                                tip: 'boru',
-                                hedefId: cikisBoru.pipe.id,
-                                noktaIndex: cikisBoru.end
-                            },
-                            uzerindekiElemanlar: [],
-                            tBaglantilar: []
-                        };
-
-                        state.plumbingPipes.push(cikisSegmentBoru);
-                        cikisBoruId = cikisSegmentBoru.id;
-
-                        // Çıkış borusunun bağlantısını güncelle (orijinal boruda segment'e bağlan)
-                        if (cikisBoru.end === 'p1') {
-                            cikisBoru.pipe.baslangicBaglanti = {
-                                tip: 'boru',
-                                hedefId: cikisSegmentBoru.id,
-                                noktaIndex: 'p2'
-                            };
-                        } else {
-                            cikisBoru.pipe.bitisBaglanti = {
-                                tip: 'boru',
-                                hedefId: cikisSegmentBoru.id,
-                                noktaIndex: 'p2'
-                            };
-                        }
-
-                        console.log(`    -> Sayaç çıkış parçası eklendi: ${cikisSegmentUzunluk}cm rijit segment`);
+                    // Kanonik: çıkış borusunun p1'i sayaç tarafındadır
+                    if (cikisBoru.end === 'p2') {
+                        const p = cikisBoru.pipe;
+                        [p.p1, p.p2] = [p.p2, p.p1];
+                        const tmp = p.baslangicBaglanti;
+                        p.baslangicBaglanti = p.bitisBaglanti;
+                        p.bitisBaglanti = tmp;
                     }
+                    cikisBoru.pipe.baslangicBaglanti = {
+                        tip: 'sayac',
+                        hedefId: sayacId,
+                        baglananNokta: 'cikis'
+                    };
+                    cikisBoruId = cikisBoru.pipe.id;
+                    console.log(`    -> Sayaç çıkışı iç tesisata bağlandı (${cikisBoru.distance.toFixed(1)}cm)`);
                 }
 
                 // Sayaç panel alanlarını XML'den çek (top-level Ps; iç sketch'lere bakma)
@@ -1398,11 +1644,14 @@ export function importFromXML(xmlString, options = {}) {
                 const glKullanimTipi = parseInt(_topProp(sayacEl, 'GLKULLANIMTIPI')?.getAttribute('V') || '1', 10);
                 // Sayaç tipi mapping: 1→G4, 2→G6, 3→G10, 4→G16, 5→G25 (Gasline konvansiyonu)
                 const sayacTipiStr = ({1:'G4',2:'G6',3:'G10',4:'G16',5:'G25',6:'G40'}[glSayacTipi]) || `G${glSayacTipi}`;
-                const birimTipiStr = ({1:'Konut',2:'Dükkan',3:'Sanayi',4:'Kamu',5:'Isınma'}[glKullanimTipi]) || 'Konut';
+                // Panel seçenekleriyle (BIRIM_TIPLERI) birebir aynı string'ler kullanılmalı;
+                // 'Konut'/'Dükkan' gibi farklı yazımlar debi hesabında (TİCARİ/KAZAN DAİRESİ
+                // aritmetik modu) ve panelde eşleşmiyordu.
+                const birimTipiStr = ({1:'KONUT',2:'TİCARİ',3:'KAZAN DAİRESİ',4:'OFİS',5:'KAZAN DAİRESİ'}[glKullanimTipi]) || 'KONUT';
 
-                // Sayaç objesi oluştur
+                // Sayaç objesi oluştur (kanonik: fleksBaglanti mevcut kolon borusunu gösterir)
                 const sayacData = {
-                    id: `sayac_xml_${idx}_${Date.now()}`,
+                    id: sayacId,
                     type: 'sayac',
                     x: centerX,
                     y: centerY,
@@ -1416,30 +1665,15 @@ export function importFromXML(xmlString, options = {}) {
                     aboneAdi: glAboneUnvan,
                     aboneNo: glAboneTesisatNo || glAbonePoliceNo,
                     fleksBaglanti: {
-                        boruId: girisBoruId, // Fleks segment ID'si
-                        endpoint: 'p1', // Fleks segment'in başı (p1) sayaca bağlı
-                        uzunluk: 30 // Fleks uzunluğu
+                        boruId: girisBoruId,          // Kolon borusunun kendisi
+                        endpoint: girisEndpoint,      // Sayaca bakan uç
+                        uzunluk: girisBoru
+                            ? Math.max(15, Math.min(150, Math.round(girisBoru.distance)))
+                            : 30
                     },
-                    cikisBagliBoruId: cikisBoruId, // Çıkış segmenti ID'si
+                    cikisBagliBoruId: cikisBoruId,    // İç tesisatın ilk borusu
                     iliskiliVanaId: null
                 };
-
-                // Çıkış segment borusunun sayaç ID'sini güncelle
-                if (cikisBoruId) {
-                    const cikisSegment = state.plumbingPipes.find(p => p.id === cikisBoruId);
-                    if (cikisSegment) {
-                        cikisSegment.baslangicBaglanti.hedefId = sayacData.id;
-                    }
-                }
-
-                // Giriş fleks segment'in sayaç ID'sini güncelle
-                if (girisBoruId) {
-                    const girisFleksSegment = state.plumbingPipes.find(p => p.id === girisBoruId);
-                    if (girisFleksSegment) {
-                        girisFleksSegment.baslangicBaglanti.hedefId = sayacData.id;
-                    }
-                    console.log(`    -> Giriş fleks segment sayaca bağlandı: ${girisBoruId.substring(0, 20)}...`);
-                }
 
                 state.plumbingBlocks.push(sayacData);
                 console.log(`    -> Sayaç eklendi: (${centerX.toFixed(2)}, ${centerY.toFixed(2)})`);
@@ -1476,18 +1710,52 @@ export function importFromXML(xmlString, options = {}) {
                 const textLines = [];
                 textEls.forEach(te => { _splitTextLines(te.getAttribute('V') || '').forEach(l => textLines.push(l)); });
 
-                // En yakın boruyu bul
-                const yakinBoru = findClosestPipeEnd(vanaPoint, state.plumbingPipes, 50);
-
                 // Vana tipi mapping
                 const xmlVanaTipi = vanaTipiEl ? parseInt(vanaTipiEl.getAttribute('V')) : 1;
                 const muhafazali = muhafazaEl ? (muhafazaEl.getAttribute('V') === 'True') : false;
-                const { tip: vanaTipi, izolator, muhafaza } = _mapVanaFromXML({
+                const { tip: vanaTipi, izolator, muhafaza, ilerdeKullanim } = _mapVanaFromXML({
                     vanaTipiInt: xmlVanaTipi, textLines, muhafazali
                 });
 
+                const isSonlanma = (vanaTipi === 'BRANSMAN' || vanaTipi === 'YAN_BINA');
+
+                // Boruya bağlan:
+                //   Sonlanma vanaları hat UCUNDA durur → uç araması öncelikli.
+                //   Ara vanalar borunun ortasında durabilir → gövde projeksiyonu öncelikli.
+                const ucAday = findClosestPipeEnd(vanaPoint, state.plumbingPipes, 80);
+                const govdeAday = findClosestPipeBody(vanaPoint, state.plumbingPipes, 50);
+
+                let bagliBoruId = null;
+                let boruPozisyonu = 0.5;
+                let fromEnd = null;
+                let fixedDistance = null;
+                if (isSonlanma && ucAday) {
+                    bagliBoruId = ucAday.pipe.id;
+                    fromEnd = ucAday.end;
+                    fixedDistance = 1; // sonlanma vanası uçtan 1cm içeride
+                    boruPozisyonu = ucAday.end === 'p2' ? 1.0 : 0.0;
+                } else if (govdeAday) {
+                    bagliBoruId = govdeAday.pipe.id;
+                    boruPozisyonu = govdeAday.t;
+                } else if (ucAday) {
+                    bagliBoruId = ucAday.pipe.id;
+                    fromEnd = ucAday.end;
+                    fixedDistance = isSonlanma ? 1 : 5;
+                    boruPozisyonu = ucAday.end === 'p2' ? 1.0 : 0.0;
+                }
+                const yakinBoruObj = bagliBoruId
+                    ? state.plumbingPipes.find(p => p.id === bagliBoruId)
+                    : null;
+
                 const vanaCap = _extractVanaCap(textLines);
                 const birimNo = daireNoEl?.getAttribute('V') || _extractBirimNo(textLines) || '';
+
+                const daireSayisi = birimSayisiEl ? parseInt(birimSayisiEl.getAttribute('V')) || 0 : 0;
+                const dukkanSayisi = dukkanSayisiEl ? parseInt(dukkanSayisiEl.getAttribute('V')) || 0 : 0;
+
+                // İlerde kullanım (Domestik): birim sayısı + tipi + otomatik birim no
+                const ilerdeBirimSayisi = Math.max(1, daireSayisi + dukkanSayisi);
+                const ilerdeBirimTipi = dukkanSayisi > 0 && daireSayisi === 0 ? 'TİCARİ' : 'KONUT';
 
                 const vanaData = {
                     id: `vana_xml_${idx}_${Date.now()}`,
@@ -1498,10 +1766,10 @@ export function importFromXML(xmlString, options = {}) {
                     rotation: 0,
                     vanaTipi: vanaTipi,
                     floorId: state.currentFloor?.id,
-                    bagliBoruId: yakinBoru ? yakinBoru.pipe.id : null,
-                    boruPozisyonu: 0.5,
-                    fromEnd: false,
-                    fixedDistance: null,
+                    bagliBoruId: bagliBoruId,
+                    boruPozisyonu: boruPozisyonu,
+                    fromEnd: fromEnd,
+                    fixedDistance: fixedDistance,
                     girisBagliBoruId: null,
                     cikisBagliBoruId: null,
                     showEndCap: false,
@@ -1510,32 +1778,37 @@ export function importFromXML(xmlString, options = {}) {
                     izolator: izolator,
                     muhafaza: muhafaza,
                     muhafazaGrupla: false,
-                    birimNo: birimNo,
+                    birimNo: ilerdeKullanim
+                        ? `${ilerdeBirimSayisi} ${ilerdeBirimTipi === 'TİCARİ' ? 'dükkan' : 'daire'}`
+                        : birimNo,
                     tesisatNo: '',
-                    daireSayisi: birimSayisiEl ? parseInt(birimSayisiEl.getAttribute('V')) || 0 : 0,
-                    dukkanSayisi: dukkanSayisiEl ? parseInt(dukkanSayisiEl.getAttribute('V')) || 0 : 0,
+                    daireSayisi: daireSayisi,
+                    dukkanSayisi: dukkanSayisi,
                     ekDebi: ekTuketimEl ? parseFloat(ekTuketimEl.getAttribute('V')) || 0 : 0,
                     // BRANSMAN vanaları: XML değeri varsa onu, yoksa 3.5 m³/h standart
                     bransmanDebi: vanaTipi === 'BRANSMAN'
                         ? ((ekTuketimEl && parseFloat(ekTuketimEl.getAttribute('V')) > 0)
                             ? parseFloat(ekTuketimEl.getAttribute('V'))
                             : 3.5)
-                        : 0
+                        : 0,
+                    // İlerde kullanım (Domestik vana) alanları
+                    ilerdeKullanim: !!ilerdeKullanim,
+                    birimSayisi: ilerdeKullanim ? String(ilerdeBirimSayisi) : undefined,
+                    birimTipi: ilerdeKullanim ? ilerdeBirimTipi : undefined
                 };
 
                 // Borunun vanaya bağlantısını kur
-                if (yakinBoru) {
-                    // Vana borunun üzerinde, uzerindekiElemanlar dizisine ekle
-                    yakinBoru.pipe.uzerindekiElemanlar.push({
+                if (yakinBoruObj) {
+                    yakinBoruObj.uzerindekiElemanlar = yakinBoruObj.uzerindekiElemanlar || [];
+                    yakinBoruObj.uzerindekiElemanlar.push({
                         tip: 'vana',
                         elemanId: vanaData.id,
-                        pozisyon: 0.5
+                        pozisyon: boruPozisyonu
                     });
-                    console.log(`    -> Vana boruya bağlandı: ${yakinBoru.pipe.id.substring(0, 20)}... (mesafe: ${yakinBoru.distance.toFixed(2)})`);
                 }
 
                 state.plumbingBlocks.push(vanaData);
-                console.log(`    -> Vana eklendi: (${vanaPoint.x.toFixed(2)}, ${vanaPoint.y.toFixed(2)}) tip: ${vanaTipi}`);
+                console.log(`    -> Vana eklendi: (${vanaPoint.x.toFixed(2)}, ${vanaPoint.y.toFixed(2)}) tip: ${vanaTipi}${ilerdeKullanim ? ' [ilerde kullanım]' : ''}`);
             }
         } catch (e) {
             console.error("Vana işlenirken hata:", e, vanaEl);
@@ -1561,7 +1834,7 @@ export function importFromXML(xmlString, options = {}) {
                 floorId: state.currentFloor?.id,
                 bagliBoruId: yakin ? yakin.pipe.id : null,
                 boruPozisyonu: 0.5,
-                fromEnd: false,
+                fromEnd: null,
                 fixedDistance: null,
                 girisBagliBoruId: null,
                 cikisBagliBoruId: null,
@@ -1605,30 +1878,14 @@ export function importFromXML(xmlString, options = {}) {
                 };
 
                 // En yakın boru ucunu bul
-                const yakinBoru = findClosestPipeEnd(xmlCihazPoint, state.plumbingPipes, 50);
+                const yakinBoru = findClosestPipeEnd(xmlCihazPoint, state.plumbingPipes, 50, true);
 
-                // DÜZELTME: Cihazı DAIMA boru ucundan 40cm uzağa yerleştir (fleks hortum için)
-                let cihazPoint = { ...xmlCihazPoint };
+                // Cihaz XML'deki konumunda KALIR. (Önceki 40cm öteleme, baca ve vana
+                // hizalarını bozuyordu; fleks uzunluğu gerçek mesafeden hesaplanır.)
+                const cihazPoint = { ...xmlCihazPoint };
+                let fleksUzunluk = 30;
                 if (yakinBoru) {
-                    // Boru ucundan cihaza doğru vektör
-                    const boruUcu = yakinBoru.end === 'p1' ? yakinBoru.pipe.p1 : yakinBoru.pipe.p2;
-                    const dx = xmlCihazPoint.x - boruUcu.x;
-                    const dy = xmlCihazPoint.y - boruUcu.y;
-                    const distance = Math.hypot(dx, dy);
-
-                    const targetDistance = 40; // cm - cihaz boru ucundan bu kadar uzakta olmalı (fleks hortum için)
-
-                    if (distance > 0.1) {
-                        // Normalize edilmiş yön vektörü
-                        const nx = dx / distance;
-                        const ny = dy / distance;
-
-                        // Cihazı boru ucundan targetDistance kadar uzağa yerleştir
-                        cihazPoint.x = boruUcu.x + nx * targetDistance;
-                        cihazPoint.y = boruUcu.y + ny * targetDistance;
-
-                        console.log(`    -> Kombi boru ucundan ${targetDistance}cm uzağa yerleştirildi (orijinal mesafe: ${distance.toFixed(2)}cm)`);
-                    }
+                    fleksUzunluk = Math.max(10, Math.min(150, Math.round(yakinBoru.distance) || 30));
                 }
 
                 // Metin (marka/model/kapasite) parse et
@@ -1649,7 +1906,7 @@ export function importFromXML(xmlString, options = {}) {
                     fleksBaglanti: {
                         boruId: yakinBoru ? yakinBoru.pipe.id : null,
                         endpoint: yakinBoru ? yakinBoru.end : null,
-                        uzunluk: 30
+                        uzunluk: fleksUzunluk
                     },
                     iliskiliVanaId: null,
                     // Panel alanları
@@ -1693,11 +1950,14 @@ export function importFromXML(xmlString, options = {}) {
         }
     });
 
-    // 8.5. Ocaklar (clsocak) - Boru bağlantılarını kur
-    const ocakElements = xmlDoc.querySelectorAll("O[T='clsocak']");
-    console.log(`\n${ocakElements.length} clsocak bulundu (tüm XML'de)`);
+    // 8.5. Ocaklar (clsocak) + Şofbenler (clssofben) - Boru bağlantılarını kur
+    const ocakElements = [
+        ...Array.from(xmlDoc.querySelectorAll("O[T='clsocak']")).map(el => ({ el, cihazTip: 'OCAK' })),
+        ...Array.from(xmlDoc.querySelectorAll("O[T='clssofben']")).map(el => ({ el, cihazTip: 'SOFBEN' }))
+    ];
+    console.log(`\n${ocakElements.length} clsocak/clssofben bulundu (tüm XML'de)`);
 
-    ocakElements.forEach((ocakEl, idx) => {
+    ocakElements.forEach(({ el: ocakEl, cihazTip }, idx) => {
         try {
             // Top-level (doğrudan çocuk) P; iç sketch'leri yok say.
             const startPointEl = _topProp(ocakEl, 'StartPoint') || _topProp(ocakEl, 'Origin') || _topProp(ocakEl, 'origin');
@@ -1711,30 +1971,13 @@ export function importFromXML(xmlString, options = {}) {
                 };
 
                 // En yakın boru ucunu bul
-                const yakinBoru = findClosestPipeEnd(xmlCihazPoint, state.plumbingPipes, 50);
+                const yakinBoru = findClosestPipeEnd(xmlCihazPoint, state.plumbingPipes, 50, true);
 
-                // DÜZELTME: Cihazı DAIMA boru ucundan 40cm uzağa yerleştir (fleks hortum için)
-                let cihazPoint = { ...xmlCihazPoint };
+                // Cihaz XML'deki konumunda KALIR (bkz. kombi bloğundaki not).
+                const cihazPoint = { ...xmlCihazPoint };
+                let fleksUzunlukO = 30;
                 if (yakinBoru) {
-                    // Boru ucundan cihaza doğru vektör
-                    const boruUcu = yakinBoru.end === 'p1' ? yakinBoru.pipe.p1 : yakinBoru.pipe.p2;
-                    const dx = xmlCihazPoint.x - boruUcu.x;
-                    const dy = xmlCihazPoint.y - boruUcu.y;
-                    const distance = Math.hypot(dx, dy);
-
-                    const targetDistance = 40; // cm - cihaz boru ucundan bu kadar uzakta olmalı (fleks hortum için)
-
-                    if (distance > 0.1) {
-                        // Normalize edilmiş yön vektörü
-                        const nx = dx / distance;
-                        const ny = dy / distance;
-
-                        // Cihazı boru ucundan targetDistance kadar uzağa yerleştir
-                        cihazPoint.x = boruUcu.x + nx * targetDistance;
-                        cihazPoint.y = boruUcu.y + ny * targetDistance;
-
-                        console.log(`    -> Ocak boru ucundan ${targetDistance}cm uzağa yerleştirildi (orijinal mesafe: ${distance.toFixed(2)}cm)`);
-                    }
+                    fleksUzunlukO = Math.max(10, Math.min(150, Math.round(yakinBoru.distance) || 30));
                 }
 
                 // Metin parse et (marka/model)
@@ -1745,10 +1988,14 @@ export function importFromXML(xmlString, options = {}) {
                 const verimEl = ocakEl.querySelector("P[F='GLVerim']");
                 const verim = verimEl ? parseInt(verimEl.getAttribute('V'), 10) || 100 : 100;
 
+                // Varsayılan kapasiteler (parse edilemediyse):
+                //   OCAK   → TS standart 13200 kcal/h
+                //   SOFBEN → ~18150 kcal/h (≈2.2 m³/h TS min şofben debisi)
+                const defKcal = cihazTip === 'SOFBEN' ? 18150 : 13200;
                 const cihazData = {
-                    id: `cihaz_xml_${idx}_${Date.now()}`,
+                    id: `cihaz_xml_${cihazTip.toLowerCase()}_${idx}_${Date.now()}`,
                     type: 'cihaz',
-                    cihazTipi: 'OCAK',
+                    cihazTipi: cihazTip,
                     x: cihazPoint.x,
                     y: cihazPoint.y,
                     z: cihazPoint.z,
@@ -1757,16 +2004,15 @@ export function importFromXML(xmlString, options = {}) {
                     fleksBaglanti: {
                         boruId: yakinBoru ? yakinBoru.pipe.id : null,
                         endpoint: yakinBoru ? yakinBoru.end : null,
-                        uzunluk: 30
+                        uzunluk: fleksUzunlukO
                     },
                     iliskiliVanaId: null,
                     // Panel alanları
                     marka: parsedO.marka || '',
                     model: parsedO.model || '',
-                    bacaTipi: parsedO.bacaTipi || 'Bacasız',
-                    // Ocak için TS standart kapasite 13200 kcal/h (parse edilmediyse)
-                    kapasiteKcal: parsedO.kapasiteKcal || 13200,
-                    kapasiteKW: parsedO.kapasiteKW || parseFloat((13200 / 860).toFixed(2)),
+                    bacaTipi: parsedO.bacaTipi || (cihazTip === 'SOFBEN' ? 'Hermetik' : 'Bacasız'),
+                    kapasiteKcal: parsedO.kapasiteKcal || defKcal,
+                    kapasiteKW: parsedO.kapasiteKW || parseFloat((defKcal / 860).toFixed(2)),
                     yogusmali: false,
                     verim: verim,
                     muhafaza: false,
@@ -1780,13 +2026,13 @@ export function importFromXML(xmlString, options = {}) {
                         yakinBoru.pipe.baslangicBaglanti = {
                             tip: 'cihaz',
                             hedefId: cihazData.id,
-                            noktaIndex: 0
+                            baglananNokta: 'giris'
                         };
                     } else {
                         yakinBoru.pipe.bitisBaglanti = {
                             tip: 'cihaz',
                             hedefId: cihazData.id,
-                            noktaIndex: 0
+                            baglananNokta: 'giris'
                         };
                     }
                     console.log(`    -> Ocak boruya bağlandı: ${yakinBoru.pipe.id.substring(0, 20)}... (${yakinBoru.end}, mesafe: ${yakinBoru.distance.toFixed(2)})`);
@@ -1801,57 +2047,89 @@ export function importFromXML(xmlString, options = {}) {
     });
 
     // 8.5b. Hermetik baca (clshermetik) → baca bileşeni
+    // Gasline hermetik bacayı ÇİFT PARALEL çizgi olarak çizer (koaksiyel boru temsili).
+    // Bu iki çizgi ardışık segment DEĞİLDİR; merkez hatta (orta çizgi) indirgenmeli.
+    // Ayrıca aynı cihazın birden fazla clshermetik run'ı (kat başına bir) TEK bacada birleşir.
     const hermetikElements = xmlDoc.querySelectorAll("O[T='clshermetik']");
     console.log(`\n${hermetikElements.length} clshermetik bulundu`);
+    const _hermetikRunsByCihaz = new Map(); // cihazId → [{seg, dist}]
     hermetikElements.forEach((el, idx) => {
         try {
             const lineEls = el.querySelectorAll("O[T='vdLine']");
-            const segs = [];
+            const lines = [];
             lineEls.forEach(ln => {
                 const sp = ln.querySelector("P[F='StartPoint']");
                 const ep = ln.querySelector("P[F='EndPoint']");
                 if (!sp || !ep) return;
                 const s = sp.getAttribute('V').split(',').map(Number);
                 const e2 = ep.getAttribute('V').split(',').map(Number);
-                segs.push({
+                lines.push({
                     x1: s[0] * SCALE, y1: -s[1] * SCALE, z1: (s[2] || 0) * SCALE,
                     x2: e2[0] * SCALE, y2: -e2[1] * SCALE, z2: (e2[2] || 0) * SCALE
                 });
             });
-            if (segs.length === 0) return;
+            if (lines.length === 0) return;
 
-            // Baca başlangıcı (ilk segment başı) ve en yakın cihazı bul
-            const startPt = { x: segs[0].x1, y: segs[0].y1 };
-            let best = null, bestD = 150;
+            // Çift çizgi → merkez hat. Çizgiler paralel/yakın-eş boyluysa ortala;
+            // aksi hâlde ilk çizgiyi kullan (nadir durum).
+            let seg;
+            if (lines.length >= 2) {
+                const a = lines[0], b = lines[1];
+                // b'nin yönü a ile aynı mı? (başlangıçlar birbirine daha yakın olmalı)
+                const dSS = Math.hypot(a.x1 - b.x1, a.y1 - b.y1);
+                const dSE = Math.hypot(a.x1 - b.x2, a.y1 - b.y2);
+                const b2 = dSS <= dSE ? b : { x1: b.x2, y1: b.y2, z1: b.z2, x2: b.x1, y2: b.y1, z2: b.z1 };
+                seg = {
+                    x1: (a.x1 + b2.x1) / 2, y1: (a.y1 + b2.y1) / 2, z1: (a.z1 + b2.z1) / 2,
+                    x2: (a.x2 + b2.x2) / 2, y2: (a.y2 + b2.y2) / 2, z2: (a.z2 + b2.z2) / 2
+                };
+            } else {
+                seg = lines[0];
+            }
+
+            // En yakın cihazı bul (segment başı VEYA sonu — run yönü belirsiz olabilir)
+            let best = null, bestD = 200, flip = false;
             for (const b of state.plumbingBlocks) {
                 if (b.type !== 'cihaz') continue;
-                const d = Math.hypot(b.x - startPt.x, b.y - startPt.y);
-                if (d < bestD) { bestD = d; best = b; }
+                const d1 = Math.hypot(b.x - seg.x1, b.y - seg.y1);
+                const d2 = Math.hypot(b.x - seg.x2, b.y - seg.y2);
+                const d = Math.min(d1, d2);
+                if (d < bestD) { bestD = d; best = b; flip = d2 < d1; }
             }
             if (!best) return;
+            if (flip) {
+                seg = { x1: seg.x2, y1: seg.y2, z1: seg.z2, x2: seg.x1, y2: seg.y1, z2: seg.z1 };
+            }
 
-            const last = segs[segs.length - 1];
-            const bacaData = {
-                id: `baca_hermetik_xml_${idx}_${Date.now()}`,
-                type: 'baca',
-                parentCihazId: best.id,
-                floorId: best.floorId,
-                startX: startPt.x, startY: startPt.y,
-                z: segs[0].z1,
-                segments: segs,
-                isDrawing: false,
-                currentSegmentStart: { x: last.x2, y: last.y2, z: last.z2 },
-                havalandirma: {
-                    x: last.x2, y: last.y2,
-                    width: 10, height: 30,
-                    angle: Math.atan2(last.y2 - last.y1, last.x2 - last.x1)
-                }
-            };
-            state.plumbingBlocks.push(bacaData);
-            // Cihaz bacaTipi = Hermetik
-            if (!best.bacaTipi || best.bacaTipi !== 'Hermetik') best.bacaTipi = 'Hermetik';
-            console.log(`    -> Hermetik baca eklendi (cihaz ${best.cihazTipi}): ${segs.length} segment`);
+            if (!_hermetikRunsByCihaz.has(best.id)) _hermetikRunsByCihaz.set(best.id, { cihaz: best, segs: [] });
+            _hermetikRunsByCihaz.get(best.id).segs.push(seg);
         } catch (e) { console.error('Hermetik baca hatası:', e, el); }
+    });
+
+    _hermetikRunsByCihaz.forEach(({ cihaz, segs }) => {
+        // Run'ları yükselen Z sırasına diz (kat kat yükselen baca)
+        segs.sort((s1, s2) => (s1.z1 - s2.z1) || (s1.y1 - s2.y1));
+        const first = segs[0];
+        const last = segs[segs.length - 1];
+        const bacaData = {
+            id: `baca_hermetik_xml_${cihaz.id}_${Date.now()}`,
+            type: 'baca',
+            parentCihazId: cihaz.id,
+            floorId: cihaz.floorId,
+            startX: first.x1, startY: first.y1,
+            z: first.z1,
+            segments: segs,
+            isDrawing: false,
+            currentSegmentStart: { x: last.x2, y: last.y2, z: last.z2 },
+            havalandirma: {
+                x: last.x2, y: last.y2,
+                width: 10, height: 30,
+                angle: Math.atan2(last.y2 - last.y1, last.x2 - last.x1)
+            }
+        };
+        state.plumbingBlocks.push(bacaData);
+        cihaz.bacaTipi = 'Hermetik';
+        console.log(`    -> Hermetik baca eklendi (cihaz ${cihaz.cihazTipi}): ${segs.length} run birleştirildi`);
     });
 
     // 8.6. Bacaları (clsbaca veya benzeri) parse et ve cihazlara bağla
@@ -1976,6 +2254,88 @@ export function importFromXML(xmlString, options = {}) {
 
     console.log("=========================================\n");
 
+    // --- 8.6a2. SAYAÇ YÖN DOĞRULAMA: bazı gasline çizimlerinde (özellikle tadilat)
+    // clssayac StartPoint/EndPoint anlamı terstir. Kural: CİHAZLAR sayaç SONRASINDA
+    // olmalıdır. Giriş tarafındaki bileşende cihaz var ve çıkış tarafında yoksa
+    // giriş/çıkış atamalarını takas et. Bileşen taraması 1cm sıkı uç eşleşmesiyle
+    // yapılır ve bileşen-bağlı (sayac/cihaz/kutu) uçlardan geçmez.
+    try {
+        const STRICT = 1; // cm
+        const _reserved = new Set(['sayac', 'cihaz', 'servis_kutusu']);
+        const _sideComponent = (startPipe) => {
+            const compIds = new Set([startPipe.id]);
+            const q2 = [startPipe];
+            while (q2.length) {
+                const cur = q2.shift();
+                for (const end of ['p1', 'p2']) {
+                    const bag = end === 'p1' ? cur.baslangicBaglanti : cur.bitisBaglanti;
+                    if (_reserved.has(bag?.tip)) continue; // sayaç/cihaz ucundan geçme
+                    const pt = cur[end];
+                    for (const o of state.plumbingPipes) {
+                        if (compIds.has(o.id)) continue;
+                        for (const oe of ['p1', 'p2']) {
+                            const obag = oe === 'p1' ? o.baslangicBaglanti : o.bitisBaglanti;
+                            if (_reserved.has(obag?.tip)) continue;
+                            const op = o[oe];
+                            if (Math.hypot(pt.x - op.x, pt.y - op.y, (pt.z||0) - (op.z||0)) <= STRICT) {
+                                compIds.add(o.id);
+                                q2.push(o);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            return compIds;
+        };
+        const _deviceCountIn = (compIds) => {
+            let n = 0;
+            state.plumbingBlocks.forEach(b => {
+                if (b.type === 'cihaz' && b.fleksBaglanti?.boruId && compIds.has(b.fleksBaglanti.boruId)) n++;
+            });
+            state.plumbingPipes.forEach(p => {
+                if (!compIds.has(p.id)) return;
+                if (p.baslangicBaglanti?.tip === 'cihaz' || p.bitisBaglanti?.tip === 'cihaz') n++;
+            });
+            return n;
+        };
+
+        state.plumbingBlocks.filter(b => b.type === 'sayac').forEach(sayac => {
+            const gPipe = sayac.fleksBaglanti?.boruId
+                ? state.plumbingPipes.find(p => p.id === sayac.fleksBaglanti.boruId) : null;
+            const cPipe = sayac.cikisBagliBoruId
+                ? state.plumbingPipes.find(p => p.id === sayac.cikisBagliBoruId) : null;
+            if (!gPipe || !cPipe) return;
+
+            const gComp = _sideComponent(gPipe);
+            const cComp = _sideComponent(cPipe);
+            const gDev = _deviceCountIn(gComp);
+            const cDev = _deviceCountIn(cComp);
+            if (!(gDev > 0 && cDev === 0)) return; // normal durum — dokunma
+
+            console.log(`    -> Sayaç yön düzeltme: giriş tarafında ${gDev} cihaz var, çıkışta yok → giriş/çıkış takas ediliyor`);
+
+            // Eski çıkış borusu (cPipe, p1'i sayaçta) → yeni GİRİŞ
+            cPipe.baslangicBaglanti = { tip: 'sayac', hedefId: sayac.id, baglananNokta: 'giris' };
+            const oldUzunluk = sayac.fleksBaglanti?.uzunluk || 30;
+            sayac.fleksBaglanti = { boruId: cPipe.id, endpoint: 'p1', uzunluk: oldUzunluk };
+
+            // Eski giriş borusu (gPipe) → yeni ÇIKIŞ (bag'li ucu p1 yap)
+            const gEnd = gPipe.baslangicBaglanti?.tip === 'sayac' ? 'p1'
+                : gPipe.bitisBaglanti?.tip === 'sayac' ? 'p2' : null;
+            if (gEnd === 'p2') {
+                [gPipe.p1, gPipe.p2] = [gPipe.p2, gPipe.p1];
+                const tmp = gPipe.baslangicBaglanti;
+                gPipe.baslangicBaglanti = gPipe.bitisBaglanti;
+                gPipe.bitisBaglanti = tmp;
+            }
+            gPipe.baslangicBaglanti = { tip: 'sayac', hedefId: sayac.id, baglananNokta: 'cikis' };
+            sayac.cikisBagliBoruId = gPipe.id;
+        });
+    } catch (e) {
+        console.warn('Sayaç yön doğrulama hatası:', e);
+    }
+
     // --- 8.6b. BORU AĞINI BAĞLA: uç-uç eşleştirmesiyle baslangicBaglanti zincirini kur
     // Bu adım, computePipeDebileri'nin sayaç→cihaz BFS'inin tüm hatlara erişmesini
     // sağlar; aksi halde XML'den null bağlantılarla gelen borular debi propagasyonunu
@@ -1987,13 +2347,87 @@ export function importFromXML(xmlString, options = {}) {
         console.warn('Boru ağ bağlama hatası:', e);
     }
 
+    // --- 8.6b2. RECONCILIATION: _linkPipeNetwork yön normalizasyonu sırasında
+    // boruların p1/p2'si takas edilebilir. Bağlantı bag'leri takasla birlikte taşınır
+    // ama bileşenlerdeki İSİM bazlı referanslar (fleksBaglanti.endpoint, vana fromEnd,
+    // boruPozisyonu) bayatlar. Geometriden yeniden hesapla.
+    try {
+        const pipeById = new Map(state.plumbingPipes.map(p => [p.id, p]));
+        const dist3 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0));
+
+        state.plumbingBlocks.forEach(b => {
+            // Sayaç/cihaz fleks ucu: borunun bileşene yakın olan ucu
+            if ((b.type === 'sayac' || b.type === 'cihaz') && b.fleksBaglanti?.boruId) {
+                const p = pipeById.get(b.fleksBaglanti.boruId);
+                if (p?.p1 && p?.p2) {
+                    const me = { x: b.x, y: b.y, z: b.z || 0 };
+                    b.fleksBaglanti.endpoint = dist3(me, p.p1) <= dist3(me, p.p2) ? 'p1' : 'p2';
+                }
+            }
+
+            // Vana: pozisyonu boruya projeksiyon ile yeniden hesapla
+            if (b.type === 'vana' && b.bagliBoruId) {
+                const p = pipeById.get(b.bagliBoruId);
+                if (!p?.p1 || !p?.p2) return;
+                const dx = p.p2.x - p.p1.x, dy = p.p2.y - p.p1.y, dz = (p.p2.z || 0) - (p.p1.z || 0);
+                const len = Math.hypot(dx, dy, dz);
+                if (len < 0.1) return;
+
+                if (b.fromEnd && b.fixedDistance != null) {
+                    // Uca sabit vana (sonlanma/uç vanası): ucu geometriden yeniden seç,
+                    // vanayı o uçtan fixedDistance içeriye yerleştir.
+                    const me = { x: b.x, y: b.y, z: b.z || 0 };
+                    b.fromEnd = dist3(me, p.p1) <= dist3(me, p.p2) ? 'p1' : 'p2';
+                    const fd = Math.max(0.5, b.fixedDistance);
+                    const t = b.fromEnd === 'p1'
+                        ? Math.min(fd / len, 0.95)
+                        : Math.max(1 - fd / len, 0.05);
+                    b.boruPozisyonu = t;
+                    b.x = p.p1.x + t * dx;
+                    b.y = p.p1.y + t * dy;
+                    b.z = (p.p1.z || 0) + t * dz;
+                } else {
+                    // Ara vana: XML konumunu boruya projeksiyon yap
+                    let t = ((b.x - p.p1.x) * dx + (b.y - p.p1.y) * dy + ((b.z || 0) - (p.p1.z || 0)) * dz) / (len * len);
+                    t = Math.max(0.02, Math.min(0.98, t));
+                    b.boruPozisyonu = t;
+                }
+            }
+        });
+        console.log('  -> Bileşen bağlantı uçları geometriden yeniden hesaplandı (reconciliation)');
+    } catch (e) {
+        console.warn('Reconciliation hatası:', e);
+    }
+
     // --- 8.6c. OTOMATİK SERVİS KUTUSU: gasline XML'inde clsservis tag'i yok; kullanıcı
     // tercihine göre kolon zincirinin en alttaki açık ucuna otomatik servis kutusu konur
     // ve o boru kutuya bağlanır. Böylece pre-meter zincir bir kaynaktan beslenmiş olur.
     try {
         if (!(state.plumbingBlocks || []).some(b => b.type === 'servis_kutusu')) {
+            // Sayaç SONRASI (iç tesisat) borular aday olamaz — kutu daima pre-meter uçtadır.
+            const _childrenOfSK = new Map();
+            (state.plumbingPipes || []).forEach(p => {
+                const bag = p.baslangicBaglanti;
+                if (bag?.tip === 'boru' && bag.hedefId) {
+                    if (!_childrenOfSK.has(bag.hedefId)) _childrenOfSK.set(bag.hedefId, []);
+                    _childrenOfSK.get(bag.hedefId).push(p.id);
+                }
+            });
+            const _postMeterIds = new Set();
+            (state.plumbingBlocks || []).forEach(c => {
+                if (c.type !== 'sayac' || !c.cikisBagliBoruId) return;
+                const q3 = [c.cikisBagliBoruId];
+                while (q3.length) {
+                    const id = q3.shift();
+                    if (_postMeterIds.has(id)) continue;
+                    _postMeterIds.add(id);
+                    (_childrenOfSK.get(id) || []).forEach(k => q3.push(k));
+                }
+            });
+
             let lowest = null; // {pipe, endpoint, z, x, y}
             (state.plumbingPipes || []).forEach(pipe => {
+                if (_postMeterIds.has(pipe.id)) return;
                 [
                     { end: 'p1', bag: pipe.baslangicBaglanti, pt: pipe.p1 },
                     { end: 'p2', bag: pipe.bitisBaglanti,     pt: pipe.p2 }
@@ -2209,19 +2643,37 @@ export function importFromXML(xmlString, options = {}) {
                 }
                 cihaz.iliskiliVanaId = candidate.id;
             } else {
+                // Vana, cihazın bağlı olduğu borunun UCUNDAN 5cm içeriye yerleştirilir
+                // (elle yerleştirme davranışıyla aynı: handleCihazEkleme).
+                const fleksBoru = fleksBoruId ? state.plumbingPipes.find(p => p.id === fleksBoruId) : null;
+                const endpoint = cihaz.fleksBaglanti?.endpoint || 'p2';
+                let vx = cihaz.x, vy = cihaz.y + 20, vz = cihaz.z || 0, vt = 0.9;
+                if (fleksBoru?.p1 && fleksBoru?.p2) {
+                    const dx = fleksBoru.p2.x - fleksBoru.p1.x;
+                    const dy = fleksBoru.p2.y - fleksBoru.p1.y;
+                    const dz = (fleksBoru.p2.z || 0) - (fleksBoru.p1.z || 0);
+                    const len = Math.hypot(dx, dy, dz);
+                    if (len > 1) {
+                        vt = endpoint === 'p1'
+                            ? Math.min(5 / len, 0.95)
+                            : Math.max(1 - 5 / len, 0.05);
+                        vx = fleksBoru.p1.x + vt * dx;
+                        vy = fleksBoru.p1.y + vt * dy;
+                        vz = (fleksBoru.p1.z || 0) + vt * dz;
+                    }
+                }
                 const vanaId = `vana_auto_cihaz_${i}_${Date.now()}`;
                 const vanaData = {
                     id: vanaId,
                     type: 'vana',
-                    x: cihaz.x, y: cihaz.y + 20, // cihaz önünde boru üzerinde
-                    z: cihaz.z || 0,
+                    x: vx, y: vy, z: vz,
                     rotation: 0,
                     vanaTipi: 'CIHAZ',
                     floorId: cihaz.floorId,
                     bagliBoruId: fleksBoruId || null,
-                    boruPozisyonu: 0.9,
-                    fromEnd: cihaz.fleksBaglanti?.endpoint || null,
-                    fixedDistance: null,
+                    boruPozisyonu: vt,
+                    fromEnd: endpoint,
+                    fixedDistance: 5,
                     girisBagliBoruId: null,
                     cikisBagliBoruId: null,
                     showEndCap: false,
@@ -2264,26 +2716,47 @@ export function importFromXML(xmlString, options = {}) {
             }
             if (candidate) {
                 sayac.iliskiliVanaId = candidate.id;
-                // Cihaz kategorisindeyse işaretle (görsel + panel)
-                if (!['EMNIYET', 'SELENOID', 'SISMIK', 'BRANSMAN', 'YAN_BINA'].includes(candidate.vanaTipi)) {
-                    candidate.vanaTipi = 'CIHAZ';
+                // Sayaç vanası EMNIYET'tir (elle yerleştirmede BRANSMAN → EMNIYET dönüşür)
+                if (candidate.vanaTipi === 'BRANSMAN') {
+                    if (candidate.birimNo && !sayac.birimNo) sayac.birimNo = candidate.birimNo;
+                    candidate.vanaTipi = 'EMNIYET';
+                } else if (!['EMNIYET', 'SELENOID', 'SISMIK', 'YAN_BINA'].includes(candidate.vanaTipi)) {
+                    candidate.vanaTipi = 'EMNIYET';
                 }
             } else {
-                // Sayacın giriş noktasının hemen yanına CIHAZ vanası ekle
+                // Sayacın giriş borusunun ucundan 5cm içeriye EMNIYET vanası ekle
+                // (elle yerleştirme davranışıyla aynı: handleSayacEkleme → EMNIYET).
+                const girisBoru = sayac.fleksBaglanti?.boruId
+                    ? state.plumbingPipes.find(p => p.id === sayac.fleksBaglanti.boruId)
+                    : null;
+                const endpoint = sayac.fleksBaglanti?.endpoint || 'p2';
+                let vx = sayac.x - 18, vy = sayac.y - 20, vz = sayac.z || 0, vt = 0.9;
+                if (girisBoru?.p1 && girisBoru?.p2) {
+                    const dx = girisBoru.p2.x - girisBoru.p1.x;
+                    const dy = girisBoru.p2.y - girisBoru.p1.y;
+                    const dz = (girisBoru.p2.z || 0) - (girisBoru.p1.z || 0);
+                    const len = Math.hypot(dx, dy, dz);
+                    if (len > 1) {
+                        vt = endpoint === 'p1'
+                            ? Math.min(5 / len, 0.95)
+                            : Math.max(1 - 5 / len, 0.05);
+                        vx = girisBoru.p1.x + vt * dx;
+                        vy = girisBoru.p1.y + vt * dy;
+                        vz = (girisBoru.p1.z || 0) + vt * dz;
+                    }
+                }
                 const vanaId = `vana_auto_sayac_${i}_${Date.now()}`;
                 const vanaData = {
                     id: vanaId,
                     type: 'vana',
-                    x: sayac.x - 18, // sayacın giriş tarafı (sola)
-                    y: sayac.y - 20, // biraz üstte (boru hattı yüksekliğinde)
-                    z: sayac.z || 0,
+                    x: vx, y: vy, z: vz,
                     rotation: 0,
-                    vanaTipi: 'CIHAZ',
+                    vanaTipi: 'EMNIYET',
                     floorId: sayac.floorId,
                     bagliBoruId: sayac.fleksBaglanti?.boruId || null,
-                    boruPozisyonu: 0.9,
-                    fromEnd: null,
-                    fixedDistance: null,
+                    boruPozisyonu: vt,
+                    fromEnd: girisBoru ? endpoint : null,
+                    fixedDistance: girisBoru ? 5 : null,
                     girisBagliBoruId: null,
                     cikisBagliBoruId: null,
                     showEndCap: false,
@@ -2300,7 +2773,7 @@ export function importFromXML(xmlString, options = {}) {
                 };
                 state.plumbingBlocks.push(vanaData);
                 sayac.iliskiliVanaId = vanaId;
-                console.log(`    -> Sayaç için otomatik CIHAZ vanası eklendi: ${sayac.birimNo || sayac.aboneAdi || sayac.id}`);
+                console.log(`    -> Sayaç için otomatik EMNIYET vanası eklendi: ${sayac.birimNo || sayac.aboneAdi || sayac.id}`);
             }
         });
     } catch (e) {
