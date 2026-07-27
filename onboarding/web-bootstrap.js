@@ -76,8 +76,23 @@ function enterOfflineMode() {
     window.dispatchEvent(new CustomEvent('aangcad:offline-mode'));
 }
 
+// Demo/statik hosting (ör. GitHub Pages) — Supabase backend'i yok, login modal'ı
+// hiç gösterme, doğrudan çevrimdışı moda geç.
+function isDemoHost() {
+    try {
+        return /\.github\.io$/.test(location.hostname);
+    } catch {
+        return false;
+    }
+}
+
 export async function bootstrapFromWeb(opts = {}) {
     const { allowOffline = true, forceLogin = false } = opts;
+
+    if (!forceLogin && isDemoHost()) {
+        enterOfflineMode();
+        return false;
+    }
 
     // Login + firma seçimi başarılı olana kadar dön. Kullanıcı her kapatma sinyalinde
     // (PF üyesi değil, picker'da X, çevrimdışı seçimi) buna göre dallanır.
