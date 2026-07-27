@@ -196,6 +196,74 @@ function _ensureFloorsFromZValues(zValues, existingFloors) {
     return floors;
 }
 
+// Gasline KAT LİSTESİ: katlar vdLayer olarak saklanır.
+//   - Katman kendi adı (doğrudan çocuk P F="Name"): "Z", "B 1", "1", "Çatı K." ...
+//   - XProperties: HEIGHT (kat yüksekliği, metre), ZORDER (0=Zemin, -1=Bodrum 1, 1=1.Kat...)
+//   - Frozen="True" → gasline'da GİZLİ kat (görünmez); yoksa görünür.
+//   - ZORDER xproperty'si olmayan katmanlar (izometrihata vb.) kat değildir.
+// Duvar/boru Z kotları kümülatif kat tabanlarıyla birebirdir (Zemin tabanı = 0;
+// örn. bodrum HEIGHT=3.8 ise bodrum duvarları z=-380'de gelir).
+function _parseGaslineKats(xmlDoc) {
+    const out = [];
+    xmlDoc.querySelectorAll("O[T='vdLayer']").forEach(layerEl => {
+        let zorder = null, heightM = null;
+        for (const child of layerEl.children) {
+            if (child.tagName !== 'O' || child.getAttribute('T') !== 'vdXProperties') continue;
+            for (const xp of child.children) {
+                if (xp.tagName !== 'O') continue;
+                const n = _topProp(xp, 'Name')?.getAttribute('V');
+                const v = _topProp(xp, 'PropValue')?.getAttribute('V');
+                if (n === 'ZORDER') zorder = parseInt(v, 10);
+                else if (n === 'HEIGHT') heightM = parseFloat(v);
+            }
+        }
+        if (zorder == null || !Number.isFinite(zorder)) return; // kat katmanı değil
+        out.push({
+            handle: _topProp(layerEl, 'Handle')?.getAttribute('V') || null,
+            name: _topProp(layerEl, 'Name')?.getAttribute('V') || String(zorder),
+            zorder,
+            heightCm: Number.isFinite(heightM) && heightM > 0 ? heightM * SCALE : GASLINE_FLOOR_HEIGHT,
+            gizli: _topProp(layerEl, 'Frozen')?.getAttribute('V') === 'True'
+        });
+    });
+    if (out.length === 0) return null;
+    out.sort((a, b) => a.zorder - b.zorder); // stable: aynı zorder'da belge sırası korunur
+
+    // Kümülatif taban kotları: Zemin (zorder 0) tabanı = 0 referansı.
+    // Aynı ZORDER'ı paylaşan ek katmanlar (örn. "Asma" kat) kot hesabına GİRMEZ:
+    // gasline duvar kotları yalnızca ana katların yüksekliklerini toplar
+    // (örn. Asma H=2 iken 1. kat duvarları yine z=3'te gelir).
+    const byZ = new Map();
+    out.forEach(k => { if (!byZ.has(k.zorder)) byZ.set(k.zorder, k); });
+    const bottomOf = new Map();
+    let acc = 0;
+    for (let zi = 0; zi <= out[out.length - 1].zorder; zi++) {
+        bottomOf.set(zi, acc);
+        acc += (byZ.get(zi)?.heightCm ?? GASLINE_FLOOR_HEIGHT);
+    }
+    acc = 0;
+    for (let zi = -1; zi >= out[0].zorder; zi--) {
+        acc -= (byZ.get(zi)?.heightCm ?? GASLINE_FLOOR_HEIGHT);
+        bottomOf.set(zi, acc);
+    }
+    out.forEach(k => {
+        k.bottom = bottomOf.get(k.zorder) ?? k.zorder * GASLINE_FLOOR_HEIGHT;
+        k.top = k.bottom + k.heightCm;
+    });
+    return out;
+}
+
+// Gasline kat adını panel adına çevir: "Z"→"Zemin", "B 1"→"Bodrum 1", "3"→"3. Kat";
+// diğerleri ("Çatı K." vb.) aynen kalır.
+function _prettyKatAdi(raw) {
+    const t = (raw || '').trim();
+    if (/^Z$/i.test(t)) return 'Zemin';
+    const b = t.match(/^B\s*(\d+)$/i);
+    if (b) return `Bodrum ${b[1]}`;
+    if (/^\d+$/.test(t)) return `${t}. Kat`;
+    return t || 'Kat';
+}
+
 // Import sonrası boruları uçlarından birbirine bağla ve doğrultularını normalize et.
 // Sayaç giriş/çıkış fleks segmentlerinden başlayan BFS ile her boru ziyaret edilir;
 // her boru için "parent'a bakan uç = p1" konvansiyonu sağlanır (gerekirse p1/p2 takas).
@@ -1597,11 +1665,32 @@ export function importFromXML(xmlString, options = {}) {
                 //     ucuna sanal fleks çizilir; ayrı fleks borusu OLUŞTURULMAZ.
                 //   - Çıkış: iç tesisatın ilk borusu sayaca bağlanır
                 //     (baslangicBaglanti = {tip:'sayac', baglananNokta:'cikis'}).
-                const girisBoru = findClosestPipeEnd(girisPoint, state.plumbingPipes, 80, true);
-                const digerBorular = girisBoru
-                    ? state.plumbingPipes.filter(p => p.id !== girisBoru.pipe.id)
-                    : state.plumbingPipes;
-                const cikisBoru = findClosestPipeEnd(cikisPoint, digerBorular, 80, true);
+                // CANLI HAT (servis kutusu yok): gasline sayaç iç çizimi (gelen hat
+                // parçası, vana, fleks) clsboru olarak gelmez; sayaç yakınında SADECE
+                // çıkış zinciri bulunur. Bu durumda tek boruyu giriş sanmak yerine
+                // kanonik 5'li grup sentezlenir (aşağıda).
+                let girisBoru = null;
+                let cikisBoru = null;
+                let canliHat = false;
+                if (kutuElements.length === 0) {
+                    const _gercekBorular = state.plumbingPipes.filter(p => !p.isTemsiliBoru);
+                    const nearG = findClosestPipeEnd(girisPoint, _gercekBorular, 80, true);
+                    const nearC = findClosestPipeEnd(cikisPoint, _gercekBorular, 80, true);
+                    if (nearG && nearC && nearG.pipe.id !== nearC.pipe.id) {
+                        // XML'de gerçek giriş hattı da çizilmiş — normal akış
+                        girisBoru = nearG;
+                        cikisBoru = nearC;
+                    } else {
+                        canliHat = true;
+                        cikisBoru = nearC || nearG; // sayaç yakınındaki tek zincir = çıkış
+                    }
+                } else {
+                    girisBoru = findClosestPipeEnd(girisPoint, state.plumbingPipes, 80, true);
+                    const digerBorular = girisBoru
+                        ? state.plumbingPipes.filter(p => p.id !== girisBoru.pipe.id)
+                        : state.plumbingPipes;
+                    cikisBoru = findClosestPipeEnd(cikisPoint, digerBorular, 80, true);
+                }
 
                 let girisBoruId = null;
                 let girisEndpoint = null;
@@ -1649,14 +1738,110 @@ export function importFromXML(xmlString, options = {}) {
                 // aritmetik modu) ve panelde eşleşmiyordu.
                 const birimTipiStr = ({1:'KONUT',2:'TİCARİ',3:'KAZAN DAİRESİ',4:'OFİS',5:'KAZAN DAİRESİ'}[glKullanimTipi]) || 'KONUT';
 
+                // CANLI HAT: kanonik 5'li grubu sentezle — (1) gelen hat parçası,
+                // (2) EMNIYET vanası, (3) fleks, (4) sayaç, (5) rijit çıkış.
+                // Ankraj: gasline'daki sayaç çıkış noktası = iç tesisatın başlangıcı;
+                // sayaç, getCikisNoktasi() bu noktaya oturacak şekilde yerleştirilir
+                // (elle yerleştirme geometrisiyle birebir: handleMeterStartPipeSecondClick).
+                let sayacX = centerX, sayacY = centerY, sayacZ = z, sayacRot = 0;
+                let canliStub = null, canliVana = null;
+                if (canliHat) {
+                    const FLEKS_UZUNLUK = 15;  // cm — fleks (3) ve rijit çıkış (5)
+                    const STUB_UZUNLUK = 60;   // cm — sayaca gelen hat parçası (1)
+                    const VANA_MARGIN = 4;     // cm — vana merkezi boru ucundan içeride (2)
+                    const SC = { connectionOffset: 5, height: 24, nutHeight: 4 }; // SAYAC_CONFIG
+
+                    // Ankraj: çıkış borusunun sayaç tarafı ucu (kanonik swap sonrası p1);
+                    // boru bulunamadıysa XML'deki çıkış noktası.
+                    const anchor = cikisBoru ? { ...cikisBoru.pipe.p1 } : { ...cikisPoint };
+                    let dirX = 1, dirY = 0; // grup ekseni = çıkış borusunun XY yönü
+                    if (cikisBoru) {
+                        const ddx = cikisBoru.pipe.p2.x - cikisBoru.pipe.p1.x;
+                        const ddy = cikisBoru.pipe.p2.y - cikisBoru.pipe.p1.y;
+                        const dl = Math.hypot(ddx, ddy);
+                        if (dl > 1) { dirX = ddx / dl; dirY = ddy / dl; }
+                    }
+                    sayacRot = Math.atan2(dirY, dirX) * 180 / Math.PI;
+                    const rotXY = (v) => ({ x: v.x * dirX - v.y * dirY, y: v.x * dirY + v.y * dirX });
+
+                    // Sayaç merkezi: çıkış local koordinatı ankraja denk gelecek şekilde
+                    const cikisLocal = { x: SC.connectionOffset, y: -SC.height / 2 - SC.nutHeight - FLEKS_UZUNLUK };
+                    const girisLocal = { x: -SC.connectionOffset, y: -SC.height / 2 - SC.nutHeight };
+                    const rc = rotXY(cikisLocal);
+                    sayacZ = anchor.z || 0;
+                    sayacX = anchor.x - rc.x;
+                    sayacY = anchor.y - rc.y;
+
+                    // Gelen hat parçasının sayaç tarafı ucu (p2): giriş rakorundan fleks
+                    // kadar dikey geride — hat kotu ankraj hattıyla aynı hizada kalır.
+                    const rg = rotXY(girisLocal);
+                    const perpX = -dirY, perpY = dirX;
+                    const stubP2 = {
+                        x: sayacX + rg.x - perpX * FLEKS_UZUNLUK,
+                        y: sayacY + rg.y - perpY * FLEKS_UZUNLUK,
+                        z: sayacZ
+                    };
+                    const stubP1 = {
+                        x: stubP2.x - dirX * STUB_UZUNLUK,
+                        y: stubP2.y - dirY * STUB_UZUNLUK,
+                        z: sayacZ
+                    };
+
+                    canliStub = {
+                        id: `boru_canli_sayac_${idx}_${Date.now()}`,
+                        type: 'boru',
+                        boruTipi: 'STANDART',
+                        boruCap: cikisBoru?.pipe.boruCap || 'DN25',
+                        p1: stubP1,
+                        p2: stubP2,
+                        colorGroup: 'YELLOW',
+                        dagitimTuru: 'KOLON',
+                        lineStyle: 'dashed',
+                        isTemsiliBoru: true,
+                        floorId: state.currentFloor?.id,
+                        baslangicBaglanti: { tip: null, hedefId: null, noktaIndex: null },
+                        bitisBaglanti: { tip: 'sayac', hedefId: sayacId, baglananNokta: 'giris' },
+                        uzerindekiElemanlar: [],
+                        tBaglantilar: []
+                    };
+                    state.plumbingPipes.push(canliStub);
+
+                    canliVana = {
+                        id: `vana_canli_sayac_${idx}_${Date.now()}`,
+                        type: 'vana',
+                        x: stubP2.x - dirX * VANA_MARGIN,
+                        y: stubP2.y - dirY * VANA_MARGIN,
+                        z: sayacZ,
+                        rotation: sayacRot,
+                        vanaTipi: 'EMNIYET',
+                        floorId: state.currentFloor?.id,
+                        bagliBoruId: canliStub.id,
+                        boruPozisyonu: 1 - VANA_MARGIN / STUB_UZUNLUK,
+                        fromEnd: 'p2',
+                        fixedDistance: VANA_MARGIN,
+                        girisBagliBoruId: null,
+                        cikisBagliBoruId: null,
+                        showEndCap: false,
+                        vanaCap: null,
+                        izolator: false,
+                        muhafaza: false,
+                        muhafazaGrupla: false,
+                        birimNo: glKapiNoAdi || '',
+                        tesisatNo: '',
+                        daireSayisi: 0, dukkanSayisi: 0, ekDebi: 0, bransmanDebi: 0
+                    };
+                    state.plumbingBlocks.push(canliVana);
+                    console.log(`    -> CANLI HAT sayaç grubu sentezlendi (ankraj: ${anchor.x.toFixed(1)}, ${anchor.y.toFixed(1)}, z=${sayacZ.toFixed(0)})`);
+                }
+
                 // Sayaç objesi oluştur (kanonik: fleksBaglanti mevcut kolon borusunu gösterir)
                 const sayacData = {
                     id: sayacId,
                     type: 'sayac',
-                    x: centerX,
-                    y: centerY,
-                    z: z,
-                    rotation: 0,
+                    x: sayacX,
+                    y: sayacY,
+                    z: sayacZ,
+                    rotation: sayacRot,
                     floorId: state.currentFloor?.id,
                     // Panel alanları
                     sayacTipi: sayacTipiStr,
@@ -1664,19 +1849,24 @@ export function importFromXML(xmlString, options = {}) {
                     birimNo: glKapiNoAdi || '',
                     aboneAdi: glAboneUnvan,
                     aboneNo: glAboneTesisatNo || glAbonePoliceNo,
-                    fleksBaglanti: {
-                        boruId: girisBoruId,          // Kolon borusunun kendisi
-                        endpoint: girisEndpoint,      // Sayaca bakan uç
-                        uzunluk: girisBoru
-                            ? Math.max(15, Math.min(150, Math.round(girisBoru.distance)))
-                            : 30
-                    },
+                    fleksBaglanti: canliHat
+                        ? { boruId: canliStub.id, endpoint: 'p2', uzunluk: 15 }
+                        : {
+                            boruId: girisBoruId,          // Kolon borusunun kendisi
+                            endpoint: girisEndpoint,      // Sayaca bakan uç
+                            uzunluk: girisBoru
+                                ? Math.max(15, Math.min(150, Math.round(girisBoru.distance)))
+                                : 30
+                        },
                     cikisBagliBoruId: cikisBoruId,    // İç tesisatın ilk borusu
-                    iliskiliVanaId: null
+                    iliskiliVanaId: canliVana ? canliVana.id : null
                 };
+                // Rijit çıkış (5): Sayac.fromJSON config.rijitUzunluk'a yükler;
+                // getCikisNoktasi() böylece ankraj noktasına oturur.
+                if (canliHat) sayacData.rijitUzunluk = 15;
 
                 state.plumbingBlocks.push(sayacData);
-                console.log(`    -> Sayaç eklendi: (${centerX.toFixed(2)}, ${centerY.toFixed(2)})`);
+                console.log(`    -> Sayaç eklendi: (${sayacX.toFixed(2)}, ${sayacY.toFixed(2)})${canliHat ? ' [CANLI HAT grubu]' : ''}`);
             }
         } catch (e) {
             console.error("Sayaç işlenirken hata:", e, sayacEl);
@@ -2399,76 +2589,9 @@ export function importFromXML(xmlString, options = {}) {
         console.warn('Reconciliation hatası:', e);
     }
 
-    // --- 8.6c. OTOMATİK SERVİS KUTUSU: gasline XML'inde clsservis tag'i yok; kullanıcı
-    // tercihine göre kolon zincirinin en alttaki açık ucuna otomatik servis kutusu konur
-    // ve o boru kutuya bağlanır. Böylece pre-meter zincir bir kaynaktan beslenmiş olur.
-    try {
-        if (!(state.plumbingBlocks || []).some(b => b.type === 'servis_kutusu')) {
-            // Sayaç SONRASI (iç tesisat) borular aday olamaz — kutu daima pre-meter uçtadır.
-            const _childrenOfSK = new Map();
-            (state.plumbingPipes || []).forEach(p => {
-                const bag = p.baslangicBaglanti;
-                if (bag?.tip === 'boru' && bag.hedefId) {
-                    if (!_childrenOfSK.has(bag.hedefId)) _childrenOfSK.set(bag.hedefId, []);
-                    _childrenOfSK.get(bag.hedefId).push(p.id);
-                }
-            });
-            const _postMeterIds = new Set();
-            (state.plumbingBlocks || []).forEach(c => {
-                if (c.type !== 'sayac' || !c.cikisBagliBoruId) return;
-                const q3 = [c.cikisBagliBoruId];
-                while (q3.length) {
-                    const id = q3.shift();
-                    if (_postMeterIds.has(id)) continue;
-                    _postMeterIds.add(id);
-                    (_childrenOfSK.get(id) || []).forEach(k => q3.push(k));
-                }
-            });
-
-            let lowest = null; // {pipe, endpoint, z, x, y}
-            (state.plumbingPipes || []).forEach(pipe => {
-                if (_postMeterIds.has(pipe.id)) return;
-                [
-                    { end: 'p1', bag: pipe.baslangicBaglanti, pt: pipe.p1 },
-                    { end: 'p2', bag: pipe.bitisBaglanti,     pt: pipe.p2 }
-                ].forEach(({ end, bag, pt }) => {
-                    if (!pt) return;
-                    if (bag && bag.tip) return; // serbest uç değil
-                    const z = pt.z || 0;
-                    if (!lowest || z < lowest.z) {
-                        lowest = { pipe, endpoint: end, z, x: pt.x, y: pt.y };
-                    }
-                });
-            });
-
-            if (lowest) {
-                const kutuId = `servis_kutusu_xml_${Date.now()}`;
-                const kutuData = {
-                    id: kutuId,
-                    type: 'servis_kutusu',
-                    x: lowest.x, y: lowest.y, z: lowest.z,
-                    rotation: 0,
-                    floorId: null, // post-pass'te Z'ye göre atanır
-                    cikisYonu: 'sag',
-                    bagliBoruId: lowest.pipe.id,
-                    cikisKullanildi: true,
-                    kutuTipi: 'S.K.',
-                    kutuBasinc: 21,
-                    cikisCap: lowest.pipe.boruCap || 'DN25',
-                    kutuBoruTipi: 'KAYNAKLI',
-                    kutuBaglantiTipi: 'KAYNAK',
-                    description: ''
-                };
-                const bagSet = { tip: 'servis_kutusu', hedefId: kutuId, baglananNokta: 'cikis' };
-                if (lowest.endpoint === 'p1') lowest.pipe.baslangicBaglanti = bagSet;
-                else                          lowest.pipe.bitisBaglanti     = bagSet;
-                state.plumbingBlocks.push(kutuData);
-                console.log(`  -> Otomatik servis kutusu: (${lowest.x.toFixed(2)}, ${lowest.y.toFixed(2)}, z=${lowest.z.toFixed(2)})`);
-            }
-        }
-    } catch (e) {
-        console.warn('Otomatik servis kutusu hatası:', e);
-    }
+    // --- 8.6c. (KALDIRILDI) Otomatik servis kutusu eklenmez: gasline XML'inde kutu
+    // elemanı yoksa proje kutusuz (CANLI HAT vb.) kabul edilir; kutu yalnızca
+    // XML'deki T='kutu' elemanlarından (8.1a) oluşturulur.
 
     // --- 8.7. KAT YÖNETİMİ: Z kotlarından katları tespit et ve floorId ata ---
     try {
@@ -2483,13 +2606,53 @@ export function importFromXML(xmlString, options = {}) {
         // Bileşenler (sayaç, vana, cihaz, servis kutusu, baca) kat belirleyici
         state.plumbingBlocks.forEach(b => { if (b.z != null) zPool.push(b.z); });
 
-        const newFloors = _ensureFloorsFromZValues(zPool, state.floors || []);
-        if (newFloors && newFloors.length >= 1) {
-            // currentFloor: ilk GÖRÜNÜR (yani projenin gerçekten başladığı) kat olsun.
-            const firstVisible = newFloors.find(f => f.visible !== false) || newFloors[0];
+        // ÖNCELİK: gasline'ın kendi kat listesi (vdLayer). Kat SAYISI, adları,
+        // yükseklikleri ve GÖRÜNÜR/GİZLİ durumu XML'den birebir alınır; içerik
+        // Z kotuna göre kendi katına dağıtılır (gizli kattaki çizim gizli katta kalır).
+        const xmlKats = _parseGaslineKats(xmlDoc);
+        const _realFloorsBefore = (state.floors || []).filter(f => !f.isPlaceholder);
+        if (xmlKats && _realFloorsBefore.length < 2) {
+            const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+            // idx: aynı zorder'ı paylaşan katmanlar (Asma kat) id çakışması yaratmasın
+            const newFloors = xmlKats.map((k, idx) => ({
+                id: `floor-xml-${k.zorder >= 0 ? k.zorder : 'b' + (-k.zorder)}-${idx}-${stamp}`,
+                name: _prettyKatAdi(k.name),
+                bottomElevation: k.bottom,
+                topElevation: k.top,
+                visible: !k.gizli,
+                isPlaceholder: false
+            }));
+
+            // Hiçbir kat görünür değilse (gasline izometri modunda kaydedilmiş olabilir):
+            // aktif katman bir kat ise onu, değilse Zemin'i (yoksa ilkini) görünür yap.
+            if (!newFloors.some(f => f.visible)) {
+                const activeHandle = xmlDoc.querySelector("H[F='ActiveLayer']")?.getAttribute('V');
+                let idx = xmlKats.findIndex(k => k.handle != null && k.handle === activeHandle);
+                if (idx < 0) idx = xmlKats.findIndex(k => k.zorder === 0);
+                if (idx < 0) idx = 0;
+                newFloors[idx].visible = true;
+                console.log(`  -> XML'de hiç görünür kat yok; "${newFloors[idx].name}" görünür yapıldı`);
+            }
+
+            // currentFloor: gasline'ın aktif katı görünürse o; değilse ilk görünür kat.
+            const activeHandle2 = xmlDoc.querySelector("H[F='ActiveLayer']")?.getAttribute('V');
+            const aktifIdx = xmlKats.findIndex(k => k.handle != null && k.handle === activeHandle2);
+            const aktifFloor = aktifIdx >= 0 && newFloors[aktifIdx].visible ? newFloors[aktifIdx] : null;
+            const firstVisible = aktifFloor || newFloors.find(f => f.visible) || newFloors[0];
+
             setState({ floors: newFloors, currentFloor: firstVisible });
-            console.log(`\n=== KATLAR OLUŞTURULDU: ${newFloors.length} kat ===`);
+            console.log(`\n=== KATLAR (gasline kat listesi): ${newFloors.length} kat ===`);
             newFloors.forEach(f => console.log(`  ${f.name}: ${f.bottomElevation} - ${f.topElevation} cm  [${f.visible === false ? 'GİZLİ' : 'görünür'}]`));
+        } else {
+            // Fallback: XML'de kat katmanı yoksa Z kotlarından tespit et (eski davranış)
+            const newFloors = _ensureFloorsFromZValues(zPool, state.floors || []);
+            if (newFloors && newFloors.length >= 1) {
+                // currentFloor: ilk GÖRÜNÜR (yani projenin gerçekten başladığı) kat olsun.
+                const firstVisible = newFloors.find(f => f.visible !== false) || newFloors[0];
+                setState({ floors: newFloors, currentFloor: firstVisible });
+                console.log(`\n=== KATLAR OLUŞTURULDU (Z tespiti): ${newFloors.length} kat ===`);
+                newFloors.forEach(f => console.log(`  ${f.name}: ${f.bottomElevation} - ${f.topElevation} cm  [${f.visible === false ? 'GİZLİ' : 'görünür'}]`));
+            }
         }
 
         const activeFloors = (state.floors || []).filter(f => !f.isPlaceholder);
