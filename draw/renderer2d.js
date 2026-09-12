@@ -4,14 +4,7 @@ import { screenToWorld, distToSegmentSquared, getLineIntersectionPoint } from '.
 import { getColumnCorners, isPointInColumn } from '../architectural-objects/columns.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
-import { state, dom, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, getAdjustedColor, getWallFillColor, isLightMode, blendColorWithBackground } from '../general-files/main.js'; // Sabitleri ve renk ayarlama fonksiyonunu import et
-
-// Kapı/pencere iç dolguları için: dark modda bg'ye yakın, light modda olduğu gibi.
-// Stroke'lara dokunulmaz — sadece solid fill alanları susturulur.
-function getArchFillColor(color) {
-    if (isLightMode()) return color;
-    return blendColorWithBackground(color, 0.6);
-}
+import { state, dom, WINDOW_BOTTOM_HEIGHT, WINDOW_TOP_HEIGHT, getAdjustedColor, getWallFillColor, isLightMode } from '../general-files/main.js'; // Sabitleri ve renk ayarlama fonksiyonunu import et
 
 /*
 // Node'a bağlı duvar sayısını çizer (Şu an içeriği boş veya yorumlanmış)
@@ -27,7 +20,7 @@ export function drawNodeWallCount(node) {
 // Kapı sembolünü çizer
 export function drawDoorSymbol(door, isPreview = false, isSelected = false, isHovered = false) {
     const { ctx2d } = dom;
-    const { wallBorderColor, lineThickness } = state;
+    const { wallBorderColor, lineThickness, zoom } = state;
 
     const wall = door.wall;
     if (!wall || !wall.p1 || !wall.p2) {
@@ -56,9 +49,9 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false, isHo
     // Çizim ayarları
     ctx2d.strokeStyle = color;
     ctx2d.fillStyle = color; // Kapı iç dolgusunun da silikleşmesi için bu satırı ekle/güncelle
-    ctx2d.lineWidth = lineThickness / 1.5;
+    ctx2d.lineWidth = lineThickness / zoom; // Duvar kenar çizgisiyle aynı kalınlık formülü
 
-    const inset = lineThickness / 4; // İçeri çekme miktarı
+    const inset = lineThickness / 4 / zoom; // İçeri çekme miktarı
 
 
     // Kapı kasası yan çizgileri için hesaplamalar
@@ -80,9 +73,10 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false, isHo
     const jamb2_start = { x: doorP2_inset.x - nx * halfWall, y: doorP2_inset.y - ny * halfWall };
     const jamb2_end = { x: doorP2_inset.x + nx * halfWall, y: doorP2_inset.y + ny * halfWall };
 
-    // --- YENİ EKLENEN DOLGU KODU ---
-    // Kapının "ortasındaki" (iç pervazlar arasındaki) bölgeyi doldur
-    ctx2d.fillStyle = getArchFillColor(color);
+    // Kapının iç bölgesi (kasa çizgileri arası) çok soluk bir tonla doldurulur
+    ctx2d.save();
+    ctx2d.globalAlpha *= 0.2;
+    ctx2d.fillStyle = color;
     ctx2d.beginPath();
     ctx2d.moveTo(p_line1_start.x, p_line1_start.y);
     ctx2d.lineTo(p_line1_end.x, p_line1_end.y);
@@ -90,8 +84,7 @@ export function drawDoorSymbol(door, isPreview = false, isSelected = false, isHo
     ctx2d.lineTo(p_line2_start.x, p_line2_start.y);
     ctx2d.closePath();
     ctx2d.fill();
-    ctx2d.fillStyle = color; // stroke sonrası başka kodlar fillStyle'a güvenmesin
-    // --- YENİ KOD SONU ---
+    ctx2d.restore();
 
     // Çizim işlemi
     ctx2d.beginPath();
@@ -134,9 +127,7 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     // Çizim ayarları
     ctx2d.strokeStyle = color;
     ctx2d.fillStyle = color; // Kapı iç dolgusunun da silikleşmesi için bu satırı ekle/güncelle
-    ctx2d.lineWidth = lineThickness / 1.5;
-
-
+    ctx2d.lineWidth = lineThickness / zoom; // Duvar kenar çizgisiyle aynı kalınlık formülü
 
 
     const inset = lineThickness / 4 / zoom; // zoom'a böl
@@ -182,15 +173,11 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     }
 
     // --- ÇİZİM KODU (YENİ BÖLMELERLE) ---
-
-    // Dıştaki iki paralel çizgi (değişiklik yok)
-    const line1_start = { x: windowP1.x - nx * (halfWall - inset), y: windowP1.y - ny * (halfWall - inset) };
-    const line1_end = { x: windowP2.x - nx * (halfWall - inset), y: windowP2.y - ny * (halfWall - inset) };
-    const line4_start = { x: windowP1.x + nx * (halfWall - inset), y: windowP1.y + ny * (halfWall - inset) };
-    const line4_end = { x: windowP2.x + nx * (halfWall - inset), y: windowP2.y + ny * (halfWall - inset) };
+    // Not: Dış çizgiler kaldırıldı — duvarın kendi kenar çizgisiyle üst üste binip
+    // kalınlaşma yaratıyordu. Pencere artık sadece iç (cam) çizgileriyle temsil edilir.
 
     // İçteki iki paralel çizgi (ortadaki camı temsil eder gibi)
-    const offsetInner = halfWall * 0.67; // Cam çizgileri için daha küçük offset
+    const offsetInner = halfWall * 0.4; // Cam çizgileri için daha küçük offset (ortaya biraz daha yakın)
     const line2_start = { x: windowP1.x - nx * offsetInner, y: windowP1.y - ny * offsetInner };
     const line2_end = { x: windowP2.x - nx * offsetInner, y: windowP2.y - ny * offsetInner };
     const line3_start = { x: windowP1.x + nx * offsetInner, y: windowP1.y + ny * offsetInner };
@@ -205,8 +192,10 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     const right1 = { x: windowP2_inset.x - nx * (halfWall - inset), y: windowP2_inset.y - ny * (halfWall - inset) };
     const right2 = { x: windowP2_inset.x + nx * (halfWall - inset), y: windowP2_inset.y + ny * (halfWall - inset) };
 
-    // Dolgu (sadece iç bölge)
-    ctx2d.fillStyle = getArchFillColor(color);
+    // Pencerenin cam bölgesi (iki iç çizgi arası) çok soluk bir tonla doldurulur
+    ctx2d.save();
+    ctx2d.globalAlpha *= 0.2;
+    ctx2d.fillStyle = color;
     ctx2d.beginPath();
     ctx2d.moveTo(line2_start.x, line2_start.y);
     ctx2d.lineTo(line2_end.x, line2_end.y);
@@ -214,15 +203,13 @@ export function drawWindowSymbol(wall, window, isPreview = false, isSelected = f
     ctx2d.lineTo(line3_start.x, line3_start.y);
     ctx2d.closePath();
     ctx2d.fill();
+    ctx2d.restore();
 
-    // Dış çizgiler ve kenar birleştirmeler
+    // Kenar birleştirmeler ve iç çizgiler (cam)
     ctx2d.fillStyle = wallBorderColor;
     ctx2d.beginPath();
-    ctx2d.moveTo(line1_start.x, line1_start.y); ctx2d.lineTo(line1_end.x, line1_end.y); // Dış üst
-    ctx2d.moveTo(line4_start.x, line4_start.y); ctx2d.lineTo(line4_end.x, line4_end.y); // Dış alt
     ctx2d.moveTo(left1.x, left1.y); ctx2d.lineTo(left2.x, left2.y); // Sol kenar birleştirme
     ctx2d.moveTo(right1.x, right1.y); ctx2d.lineTo(right2.x, right2.y); // Sağ kenar birleştirme
-    // İç çizgiler (cam)
     ctx2d.moveTo(line2_start.x, line2_start.y); ctx2d.lineTo(line2_end.x, line2_end.y); // İç üst
     ctx2d.moveTo(line3_start.x, line3_start.y); ctx2d.lineTo(line3_end.x, line3_end.y); // İç alt
     ctx2d.stroke(); // Ana çizgileri çiz

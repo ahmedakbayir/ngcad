@@ -86,6 +86,11 @@ function isDemoHost() {
     }
 }
 
+function isLocalHost() {
+    const host = location.hostname;
+    return !host || host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+}
+
 export async function bootstrapFromWeb(opts = {}) {
     const { allowOffline = true, forceLogin = false } = opts;
 
@@ -182,6 +187,11 @@ function installAuthSync() {
 }
 
 function runWhenReady() {
+    if (isLocalHost()) {
+        enterOfflineMode();
+        return;
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             installWebStatusBadge();

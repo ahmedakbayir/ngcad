@@ -33,7 +33,13 @@ import {
 import { SAYAC_DEBI_TABLOSU } from '../plumbing_v2/properties/property-definitions.js';
 
 const LS_SHOW_AT_START = 'onboarding_show_at_start';
+const LS_SHOW_AT_START_DEFAULT_APPLIED = 'onboarding_show_at_start_default_applied';
 const LS_LAST_SETTINGS = 'onboarding_last_settings';
+
+if (!localStorage.getItem(LS_SHOW_AT_START_DEFAULT_APPLIED)) {
+    localStorage.setItem(LS_SHOW_AT_START, 'false');
+    localStorage.setItem(LS_SHOW_AT_START_DEFAULT_APPLIED, 'true');
+}
 
 // ── YANDEX API KEYS ────────────────────────────────────────────────
 // İki ayrı servis, iki ayrı key (developer.tech.yandex.com'dan ücretsiz alınır):
@@ -243,7 +249,7 @@ function buildOverlay() {
     });
 
     const sw = overlay.querySelector('#ob-show-at-start');
-    sw.checked = localStorage.getItem(LS_SHOW_AT_START) !== 'false';
+    sw.checked = localStorage.getItem(LS_SHOW_AT_START) === 'true';
     sw.addEventListener('change', () => {
         localStorage.setItem(LS_SHOW_AT_START, sw.checked ? 'true' : 'false');
     });
@@ -356,11 +362,9 @@ function renderTabs() {
                     </div>`;
         }).join('')}
     `;
-    // Edit modunda CTA "Uygula" olur, "Açılışta göster" anahtarı gizlenir.
+    // Edit modunda CTA "Uygula" olur; "Açılışta göster" anahtarı görünür kalır.
     const cta = overlay.querySelector('#ob-start');
     if (cta) cta.textContent = panelMode === 'edit' ? 'Uygula' : 'Projeye Başla →';
-    const swWrap = overlay.querySelector('.ob-footer-switch');
-    if (swWrap) swWrap.style.display = panelMode === 'edit' ? 'none' : '';
     const info = overlay.querySelector('.ob-footer-info');
     if (info) info.textContent = panelMode === 'edit'
         ? 'Değişiklikler mevcut projeye uygulanacak.'
@@ -3472,7 +3476,7 @@ const ICON = {
 
 // ── AUTO-SHOW ON STARTUP ───────────────────────────────────────────
 function autoShowIfEnabled() {
-    if (localStorage.getItem(LS_SHOW_AT_START) === 'false') return;
+    if (localStorage.getItem(LS_SHOW_AT_START) !== 'true') return;
     if (state.walls && state.walls.length > 0) return;
     showOnboardingPanel();
 }

@@ -28,7 +28,7 @@ import { drawDxfEditOverlay } from './draw-dxf-edit.js';
 import { getBeamCorners } from '../architectural-objects/beams.js';
 import { getStairCorners } from '../architectural-objects/stairs.js';
 import { getObjectAtPoint } from '../general-files/actions.js';
-import { state, dom, getWallFillColor, getCanvasClearColor, THEME_COLORS, isLightMode } from '../general-files/main.js';
+import { state, dom, getWallFillColor, getCanvasClearColor, THEME_COLORS, isLightMode, isObjectInteractable } from '../general-files/main.js';
 import { getCameraViewInfo } from '../scene3d/scene3d-camera.js';
 import { updateQuickActionButtonPosition } from '../plumbing_v2/interactions/quick-action-button.js';
 import { updateQuickAddPalettePosition } from '../plumbing_v2/interactions/quick-add-palette.js';
@@ -494,7 +494,7 @@ export function draw2D() {
     doors.forEach((door) => {
         const isSelected = (selectedObject?.type === "door" && selectedObject.object === door) ||
             state.selectedGroup.some(item => item.type === "door" && item.object === door);
-        const isHovered = hoveredObject?.type === "door" && hoveredObject.object === door;
+        const isHovered = isObjectInteractable("door") && hoveredObject?.type === "door" && hoveredObject.object === door;
         drawDoorSymbol(door, false, isSelected, isHovered);
     });
 
@@ -503,7 +503,7 @@ export function draw2D() {
             wall.windows.forEach(window => {
                 const isSelected = (selectedObject?.type === "window" && selectedObject.object === window) ||
                     state.selectedGroup.some(item => item.type === "window" && item.object === window);
-                const isHovered = hoveredObject?.type === "window" && hoveredObject.object === window;
+                const isHovered = isObjectInteractable("window") && hoveredObject?.type === "window" && hoveredObject.object === window;
                 drawWindowSymbol(wall, window, false, isSelected, isHovered);
             });
         }

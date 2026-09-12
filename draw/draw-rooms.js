@@ -6,6 +6,16 @@ import { getObjectAtPoint } from '../general-files/actions.js';
 const ZOOM_EXPONENT = -0.4;
 // --- SABİT EKLENDİ ---
 
+// Mahal alanına göre mahal ismi yazı boyutu ölçeği: >10m² tam boy, 5-10m² %75, <5m² %50
+function getRoomNameSizeScale(area) {
+    if (typeof area !== 'number' || isNaN(area)) return 1;
+    if (area >= 4) return 1;
+    if (area >= 3) return 0.9;
+    if (area >= 2) return 0.8;
+    if (area >= 1) return 0.7;
+    return 0.6;
+}
+
 function darkenColor(hex, percent) {
     let color = hex.startsWith('#') ? hex.slice(1) : hex;
     let r = parseInt(color.substring(0, 2), 16);
@@ -157,7 +167,7 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
                          (showAreaOption === 3 && dimensionMode === 2);
 
         // Mahal adı ve alanı için Yazı boyutunu zoom'un üssü ile ölçekle
-        let nameFontSize = baseNameFontSize * Math.pow(zoom, ZOOM_EXPONENT); // ZOOM_EXPONENT burada tanımlı olmalı
+        let nameFontSize = baseNameFontSize * getRoomNameSizeScale(room.area) * Math.pow(zoom, ZOOM_EXPONENT); // ZOOM_EXPONENT burada tanımlı olmalı
         let areaFontSize = baseAreaFontSize * Math.pow(zoom, ZOOM_EXPONENT); // ZOOM_EXPONENT burada tanımlı olmalı
         const minWorldNameFontSize = 3;
         const minWorldAreaFontSize = 2;
@@ -246,7 +256,7 @@ export function drawRoomNames(ctx2d, state, getObjectAtPoint) {
             const adjustedNameColor = getAdjustedColor(baseNameColor, 'roomName');
             ctx2d.fillStyle = adjustedNameColor;
             const baseNameFontSize = 18;
-            let nameFontSize = baseNameFontSize * Math.pow(zoom, ZOOM_EXPONENT); // ZOOM_EXPONENT burada tanımlı olmalı
+            let nameFontSize = baseNameFontSize * getRoomNameSizeScale(room.area) * Math.pow(zoom, ZOOM_EXPONENT); // ZOOM_EXPONENT burada tanımlı olmalı
             const minWorldNameFontSize = 3;
 
             // Gölge ekle (sürüklenirken)

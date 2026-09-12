@@ -545,7 +545,7 @@ export let state = {
         showPipePath: false,
         showBirimBoundaries: false,
         showObjectLabels: true,   // Nesne Etiketleri (boru/sayaç/vana/cihaz)
-        showJunctionNodes: true,   // Köşe Noktaları (3+ duvar birleşimi)
+        showJunctionNodes: false,   // Köşe Noktaları (3+ duvar birleşimi)
         showArchitecture: true,    // Mimari Katman
         showPlumbing: true,        // Tesisat Katmanı
         hideOtherFloors3D: false,  // 3D'de aktif kat dışındaki katları tamamen gizle (default: kapalı)
@@ -822,53 +822,45 @@ export function setDrawingMode(mode) {
 }
 
 
-export function blendColorWithBackground(color, blendAmount) {
-    // BG rengini tam olarak al (#222325ff formatından #222325'e)
-    const bgColor = getBG().substring(0, 7);
-
+// Rengin RGB değerlerine dokunmadan sadece saydamlığını (alpha) düşürür.
+// Böylece TESİSAT modunda çizgiler "soluk" görünür ama renk (hue) değişmez.
+export function applyFadeOpacity(color, opacity) {
     const parseHex = (hex) => {
         const clean = hex.replace('#', '');
-        if (clean.length === 3) {
-            return {
-                r: parseInt(clean[0] + clean[0], 16),
-                g: parseInt(clean[1] + clean[1], 16),
-                b: parseInt(clean[2] + clean[2], 16)
-            };
-        }
+        const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
         return {
-            r: parseInt(clean.substring(0, 2), 16),
-            g: parseInt(clean.substring(2, 4), 16),
-            b: parseInt(clean.substring(4, 6), 16)
+            r: parseInt(full.substring(0, 2), 16),
+            g: parseInt(full.substring(2, 4), 16),
+            b: parseInt(full.substring(4, 6), 16)
         };
     };
 
-    let src;
-    if (typeof color === 'string' && color.startsWith('rgba')) {
-        const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-        src = m ? { r: parseInt(m[1]), g: parseInt(m[2]), b: parseInt(m[3]) } : parseHex('#000');
+    let rgb, baseAlpha = 1;
+    if (typeof color === 'number') {
+        rgb = parseHex(color.toString(16).padStart(6, '0'));
+    } else if (typeof color === 'string' && color.startsWith('rgba')) {
+        const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        rgb = m ? { r: +m[1], g: +m[2], b: +m[3] } : parseHex('#000');
+        baseAlpha = m && m[4] !== undefined ? parseFloat(m[4]) : 1;
+    } else if (typeof color === 'string' && color.startsWith('rgb')) {
+        const m = color.match(/rgb?\((\d+),\s*(\d+),\s*(\d+)\)/);
+        rgb = m ? { r: +m[1], g: +m[2], b: +m[3] } : parseHex('#000');
     } else {
-        src = parseHex(typeof color === 'number' ? '#' + color.toString(16).padStart(6, '0') : color);
+        rgb = parseHex(color);
     }
 
-    const bg = parseHex(bgColor);
-
-    // %89 arka plan, %11 orijinal renk
-    const r = Math.round(src.r * (1 - blendAmount) + bg.r * blendAmount);
-    const g = Math.round(src.g * (1 - blendAmount) + bg.g * blendAmount);
-    const b = Math.round(src.b * (1 - blendAmount) + bg.b * blendAmount);
-
-    return `rgb(${r}, ${g}, ${b})`;
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${baseAlpha * opacity})`;
 }
 
 export function getAdjustedColor(originalColor, objectType) {
     const mode = state.currentDrawingMode;
 
-    // Mimari öğeler listesi
-    const archTags = ['wall', 'door', 'window', 'room', 'roomName', 'column', 'beam', 'stair', 'stairs', 'dimension', 'vent'];
+    // Mimari öğeler listesi (mahal dolgu rengi hariç: TESİSAT modunda da KARMA'daki gibi kalır)
+    const archTags = ['wall', 'door', 'window', 'column', 'beam', 'stair', 'stairs', 'dimension', 'vent', 'roomName'];
 
     if (mode === "TESİSAT" && archTags.includes(objectType)) {
-        // %89 Arka planla karıştır (İstediğiniz %11 açıklık/belirginlik oranı)
-        return blendColorWithBackground(originalColor, .3);
+        // Renk (hue) değişmez, sadece saydamlık düşer (soluk görünüm)
+        return applyFadeOpacity(originalColor, .3);
     }
 
     // Normal durumda (KARMA veya MİMARİ) rengi döndür
