@@ -136,7 +136,7 @@ const DEFAULT_FORM = {
     },
 };
 
-const TAB_IDS = ['tesisat','adres',  'katlar', 'sorumlu'];
+const TAB_IDS = ['tesisat','adres',  'katlar'];
 const TAB_META = {
     tesisat: { label: 'Tesisat' },
     adres:   { label: 'Adres' },
