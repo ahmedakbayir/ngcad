@@ -288,9 +288,24 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     // Sadece aktif kata ait duvarları kullan
     const currentFloorId = state.currentFloor?.id;
     // Eğer currentFloorId yoksa (eski projeler için), tüm duvarları kullan
-    const currentFloorWalls = currentFloorId
+    let currentFloorWalls = currentFloorId
         ? (state.walls || []).filter(w => w.floorId === currentFloorId)
         : (state.walls || []);
+
+    // Bir duvarın GÖVDESİ sürükleniyorsa (handle === "body"), o duvar(lar)ı ve
+    // uç noktalarını tüm aday üretiminden (uç nokta/orta nokta/uzantı/kesişim)
+    // hariç tut. Aksi halde fare, sürüklenmekte olan duvarın bir önceki kareden
+    // kalan kendi uç noktasını (hatta o uç noktayı paylaşan KOMŞU bir duvar
+    // üzerinden de) "yakın bir nokta" sanıp ona kilitleniyor; bu da sürüklemenin
+    // her karede kendi pozisyonuna takılıp "pıt pıt" atlamasına ya da yanlış bir
+    // seviyeye kilitlenmesine yol açıyordu (self-snap geri besleme döngüsü).
+    let draggedWallNodes = null;
+    if (state.isDragging && state.selectedObject?.type === "wall" && state.selectedObject.handle === "body") {
+        const draggedWalls = state.selectedGroup?.length > 0 ? state.selectedGroup : [state.selectedObject.object];
+        draggedWallNodes = new Set();
+        draggedWalls.forEach(w => { if (w.p1) draggedWallNodes.add(w.p1); if (w.p2) draggedWallNodes.add(w.p2); });
+        currentFloorWalls = currentFloorWalls.filter(w => !draggedWalls.includes(w));
+    }
 
     // Taranacak duvarlar
     const wallsToScan = state.snapOptions.nearestOnly
@@ -314,7 +329,8 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
         const pointsToCheck = [];
         // DİKKAT: Merdiven modu zaten yukarıda halledildi, burada ENDPOINT kontrolü güvende.
         if (state.snapOptions.endpoint && state.currentMode !== "drawDoor") {
-            pointsToCheck.push({p: p1, type: 'ENDPOINT'}, {p: p2, type: 'ENDPOINT'});
+            if (!draggedWallNodes || !draggedWallNodes.has(p1)) pointsToCheck.push({p: p1, type: 'ENDPOINT'});
+            if (!draggedWallNodes || !draggedWallNodes.has(p2)) pointsToCheck.push({p: p2, type: 'ENDPOINT'});
         }
         if (state.snapOptions.midpoint) {
             pointsToCheck.push({p: { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }, type: 'MIDPOINT'});
@@ -557,7 +573,10 @@ export function getSmartSnapPoint(e, applyGridSnapFallback = true) {
     if (state.snapOptions.endpointExtension || state.snapOptions.midpointExtension) {
         wallsToScan.forEach(w => {
             if (!w.p1 || !w.p2) return;
-            if (state.snapOptions.endpointExtension) extensionPoints.push(w.p1, w.p2);
+            if (state.snapOptions.endpointExtension) {
+                if (!draggedWallNodes || !draggedWallNodes.has(w.p1)) extensionPoints.push(w.p1);
+                if (!draggedWallNodes || !draggedWallNodes.has(w.p2)) extensionPoints.push(w.p2);
+            }
             if (state.snapOptions.midpointExtension) extensionPoints.push({ x: (w.p1.x + w.p2.x) / 2, y: (w.p1.y + w.p2.y) / 2 });
         });
     }

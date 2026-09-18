@@ -191,14 +191,40 @@ export function drawDrawingPreviews(ctx2d, state, snapTo15DegreeAngle, drawDimen
         ctx2d.setLineDash([]);
     }
 }
+// Mevcut kattaki duvar uç noktaları arasından fareye (dünya koordinatı) en yakın olanı bulur
+function findNearestWallPoint(state, mousePos) {
+    const currentFloorId = state.currentFloor?.id;
+    const walls = currentFloorId
+        ? (state.walls || []).filter(w => !w.floorId || w.floorId === currentFloorId)
+        : (state.walls || []);
+
+    let nearest = null;
+    let minDistSq = Infinity;
+    walls.forEach(w => {
+        [w.p1, w.p2].forEach(p => {
+            if (!p) return;
+            const distSq = (p.x - mousePos.x) ** 2 + (p.y - mousePos.y) ** 2;
+            if (distSq < minDistSq) {
+                minDistSq = distSq;
+                nearest = p;
+            }
+        });
+    });
+    return nearest;
+}
+
 export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
     const { currentMode, mousePos, isDragging, selectedObject, zoom, startPoint } = state;
 
-    // Snap uzantı çizgileri
-    const isDrawingMode = currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawBeam' || currentMode === 'drawStairs'; 
-    if (isDrawingMode && mousePos.isSnapped) {
-        const hasExtensionLines = mousePos.snapLines.h_origins.length > 0 || mousePos.snapLines.v_origins.length > 0;
-        if (!startPoint && hasExtensionLines && !isMouseOverWall()) {
+    const isDrawingMode = currentMode === 'drawWall' || currentMode === 'drawRoom' || currentMode === 'drawBeam' || currentMode === 'drawStairs';
+    // Ölçüler "D" kısayoluyla kapatıldıysa (dimensionMode 0 = Kapalı) bu mesafe göstergelerini de gizle
+    if (isDrawingMode && state.dimensionMode !== 0 && !startPoint && !isMouseOverWall()) {
+        const hasExtensionLines = mousePos.isSnapped &&
+            (mousePos.snapLines.h_origins.length > 0 || mousePos.snapLines.v_origins.length > 0);
+
+        if (hasExtensionLines) {
+            // Bir noktanın uzantısını (yatay/dikey hizasını) yakaladık:
+            // sadece o uzantı doğrultusundaki tek ölçüyü göster.
             ctx2d.strokeStyle = "rgba(138,180,248,.5)";
             ctx2d.lineWidth = 1 / zoom;
             ctx2d.setLineDash([4 / zoom, 4 / zoom]);
@@ -215,6 +241,36 @@ export function drawSnapFeedback(ctx2d, state, isMouseOverWall) {
             });
             ctx2d.stroke();
             ctx2d.setLineDash([]);
+
+            mousePos.snapLines.h_origins.forEach(origin => {
+                drawDimension(origin, { x: mousePos.x, y: origin.y }, true, 'single');
+            });
+            mousePos.snapLines.v_origins.forEach(origin => {
+                drawDimension(origin, { x: origin.x, y: mousePos.y }, true, 'single');
+            });
+        } else {
+            // Bir uzantı yakalanmadı: en yakın noktaya olan x ve y mesafelerini ayrı ayrı göster
+            const nearestPoint = findNearestWallPoint(state, mousePos);
+            if (nearestPoint) {
+                const bend = { x: mousePos.x, y: nearestPoint.y };
+                const dx = Math.abs(mousePos.x - nearestPoint.x);
+                const dy = Math.abs(mousePos.y - nearestPoint.y);
+
+                if (dx > 1 || dy > 1) {
+                    ctx2d.strokeStyle = "rgba(138,180,248,.5)";
+                    ctx2d.lineWidth = 1 / zoom;
+                    ctx2d.setLineDash([4 / zoom, 4 / zoom]);
+                    ctx2d.beginPath();
+                    ctx2d.moveTo(mousePos.x, mousePos.y);
+                    ctx2d.lineTo(bend.x, bend.y);
+                    ctx2d.lineTo(nearestPoint.x, nearestPoint.y);
+                    ctx2d.stroke();
+                    ctx2d.setLineDash([]);
+
+                    if (dx > 1) drawDimension(nearestPoint, bend, true, 'single'); // yatay mesafe
+                    if (dy > 1) drawDimension(bend, mousePos, true, 'single'); // dikey mesafe
+                }
+            }
         }
     }
 

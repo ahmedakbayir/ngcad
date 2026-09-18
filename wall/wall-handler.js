@@ -405,6 +405,22 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         if (moveIsValid) {
             nodeToMove.x = finalPos.x;
             nodeToMove.y = finalPos.y;
+
+            // Bu bloktaki "yapışkan duvar yüzeyi" snap'i, mouse hareketinin en başında
+            // (pointer-move.js içinde) hesaplanan genel snap noktasından (mousePos/marker)
+            // FARKLI bir konuma kilitlenebiliyordu: kullanıcı ekranda gösterilen noktaya
+            // tıkladığını/bıraktığını sanırken duvar ucu birkaç cm ötede bir yüzeye
+            // gidiyordu. Görsel göstergeyi gerçekte uygulanan konumla senkron tut.
+            if (state.mousePos && (state.mousePos.x !== finalPos.x || state.mousePos.y !== finalPos.y)) {
+                setState({
+                    mousePos: {
+                        ...state.mousePos,
+                        x: finalPos.x,
+                        y: finalPos.y,
+                        point: { x: finalPos.x, y: finalPos.y }
+                    }
+                });
+            }
         }
 
        // Sürüklenen node'a bağlı komşu duvarları bul (affectedWalls hariç)
@@ -495,6 +511,24 @@ export function onPointerMove(snappedPos, unsnappedPos) {
         if (bestMagneticSnap) {
             totalDelta.x += bestMagneticSnap.dx;
             totalDelta.y += bestMagneticSnap.dy;
+        }
+
+        // Duvarı taşıma yönünde (dragAxis) uzaktaki bir noktaya hizala: genel snap
+        // sistemi fare imlecinin altında somut bir nokta yakaladıysa (ör. başka bir
+        // odanın köşesi), duvarı sürükleme ekseni boyunca doğrudan o noktanın
+        // seviyesine hizala. (Sürüklenmekte olan duvar(lar), self-snap/"pıt pıt"
+        // geri besleme döngüsüne yol açmaması için snap.js tarafında aday
+        // üretiminden zaten hariç tutuluyor.)
+        if (snappedPos.isSnapped && snappedPos.point && (state.dragAxis === 'x' || state.dragAxis === 'y')) {
+            const refNode = state.selectedObject.object.p1;
+            const originalRef = state.preDragNodeStates.get(refNode);
+            if (originalRef) {
+                if (state.dragAxis === 'y') {
+                    totalDelta.y = snappedPos.point.y - originalRef.y;
+                } else {
+                    totalDelta.x = snappedPos.point.x - originalRef.x;
+                }
+            }
         }
 
         // Nodeları taşı
